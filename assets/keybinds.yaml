@@ -1,0 +1,10 @@
+# 移動
+forward: KeyW
+backward: KeyS
+left: KeyA
+right: KeyD
+
+# アクション
+jump: Space       # 上昇・ジャンプ
+descend: ShiftLeft # 下降・スニーク
+sprint: ControlLeft # ダッシュ

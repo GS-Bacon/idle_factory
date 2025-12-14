@@ -1,0 +1,19 @@
+- id: "dirt"
+  name: "Dirt Block"
+  texture: "dirt.png"
+  is_solid: true
+
+- id: "stone"
+  name: "Stone Block"
+  texture: "stone.png"
+  is_solid: true
+
+- id: "air"
+  name: "Air"
+  texture: ""
+  is_solid: false
+
+- id: "conveyor"
+  name: "Conveyor Belt"
+  texture: "conveyor.png"
+  is_solid: true

@@ -1,0 +1,8 @@
+walk_speed: 10.0
+run_speed: 20.0
+fov: 75.0
+mouse_sensitivity: 0.002
+enable_highlight: true
+
+# ★追加
+max_items_per_conveyor: 2

@@ -1,3 +1,30 @@
 use bevy::prelude::*;
+
+pub mod grid;
+pub mod building;
+pub mod player;
+pub mod items;
+pub mod machines; // 新しいモジュール
+
+use grid::SimulationGrid;
+
 pub struct GameplayPlugin;
-impl Plugin for GameplayPlugin { fn build(&self, _app: &mut App) {} }
+
+impl Plugin for GameplayPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<SimulationGrid>()
+            .init_resource::<building::BuildTool>()
+            .add_systems(Startup, player::spawn_player)
+            .add_systems(Update, (
+                building::handle_building,
+                player::move_player,
+                player::look_player,
+                player::grab_cursor,
+                items::update_visual_items,
+            ));
+        
+        // マシンのシステムを一括登録
+        machines::register_machines(app);
+    }
+}

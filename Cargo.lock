@@ -311,6 +311,7 @@ version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eaad7fe854258047680c51c3cacb804468553c04241912f6254c841c67c0198"
 dependencies = [
+ "bevy_dylib",
  "bevy_internal",
 ]
 
@@ -472,6 +473,7 @@ dependencies = [
  "bevy_reflect",
  "bevy_tasks",
  "bevy_utils",
+ "serde",
  "uuid",
 ]
 
@@ -527,6 +529,15 @@ dependencies = [
  "bevy_utils",
  "const-fnv1a-hash",
  "sysinfo",
+]
+
+[[package]]
+name = "bevy_dylib"
+version = "0.15.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "381b2a0773cfe9d27256fba1e5005a14968b34f751c09397ee4e278f0fb235db"
+dependencies = [
+ "bevy_internal",
 ]
 
 [[package]]
@@ -707,6 +718,7 @@ dependencies = [
  "bevy_reflect",
  "bevy_utils",
  "derive_more",
+ "serde",
  "smol_str",
 ]
 
@@ -1030,6 +1042,7 @@ dependencies = [
  "nonmax",
  "radsort",
  "rectangle-pack",
+ "serde",
 ]
 
 [[package]]
@@ -1112,6 +1125,7 @@ dependencies = [
  "bevy_reflect",
  "bevy_utils",
  "crossbeam-channel",
+ "serde",
 ]
 
 [[package]]
@@ -1126,6 +1140,7 @@ dependencies = [
  "bevy_math",
  "bevy_reflect",
  "derive_more",
+ "serde",
 ]
 
 [[package]]
@@ -1157,6 +1172,7 @@ dependencies = [
  "bytemuck",
  "derive_more",
  "nonmax",
+ "serde",
  "smallvec",
  "taffy",
 ]
@@ -1202,6 +1218,7 @@ dependencies = [
  "bevy_reflect",
  "bevy_utils",
  "raw-window-handle",
+ "serde",
  "smol_str",
 ]
 
@@ -1232,6 +1249,7 @@ dependencies = [
  "cfg-if",
  "crossbeam-channel",
  "raw-window-handle",
+ "serde",
  "wasm-bindgen",
  "web-sys",
  "wgpu-types",
@@ -2405,6 +2423,8 @@ name = "infinite_voxel_factory"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -3713,6 +3733,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "sharded-slab"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3763,6 +3796,9 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "smol_str"
@@ -4149,6 +4185,12 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "uuid"
