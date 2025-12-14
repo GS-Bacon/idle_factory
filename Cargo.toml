@@ -1,0 +1,13 @@
+[package]
+name = "my-bevy-project"
+version = "0.1.0"
+edition = "2021" # 2024はまだ一般的ではないため、エラーが出る場合は2021推奨
+
+[dependencies]
+bevy = "0.16"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
