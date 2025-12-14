@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use crate::gameplay::grid::{SimulationGrid, MachineInstance, Direction};
 use crate::rendering::chunk::{Chunk, CHUNK_SIZE};
 use crate::rendering::meshing::MeshDirty;
-use crate::gameplay::grid::ItemSlot; 
 use crate::core::config::GameConfig;
+use crate::gameplay::interaction::PlayerInteractEvent;
 
 #[derive(Resource, Default)]
 pub struct BuildTool {
@@ -12,14 +12,31 @@ pub struct BuildTool {
 }
 
 pub fn handle_building(
-    mouse: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>, // ★ここが抜けていました！追加しました
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mut grid: ResMut<SimulationGrid>,
     mut chunk_query: Query<(Entity, &mut Chunk)>,
     mut commands: Commands,
     mut gizmos: Gizmos,
     config: Res<GameConfig>,
+    mut interact_events: EventWriter<PlayerInteractEvent>,
+    mut build_tool: ResMut<BuildTool>,
 ) {
+    // ツール切り替え
+    if keyboard.just_pressed(KeyCode::Digit1) {
+        build_tool.active_block_id = "conveyor".to_string();
+        info!("Selected: Conveyor");
+    }
+    if keyboard.just_pressed(KeyCode::Digit2) {
+        build_tool.active_block_id = "miner".to_string();
+        info!("Selected: Miner");
+    }
+
+    if build_tool.active_block_id.is_empty() {
+        build_tool.active_block_id = "conveyor".to_string();
+    }
+
     let (_camera, cam_transform) = camera_query.single();
     let ray_origin = cam_transform.translation();
     let ray_dir = cam_transform.forward();
@@ -59,7 +76,7 @@ pub fn handle_building(
         current_dist += step;
     }
 
-    // --- ハイライト表示 ---
+    // ハイライト
     if let Some(target_pos) = target_machine_pos {
         if config.enable_highlight {
             let center = target_pos.as_vec3() + Vec3::splat(0.5);
@@ -87,57 +104,29 @@ pub fn handle_building(
                     if flat_forward.z > 0.0 { Direction::South } else { Direction::North }
                 };
 
-                info!("🏗️ Placing Conveyor at {:?} Facing {:?}", pos, orientation);
+                let id = build_tool.active_block_id.clone();
+                info!("🏗️ Placing {} at {:?} Facing {:?}", id, pos, orientation);
                 
                 grid.machines.insert(pos, MachineInstance {
-                    id: "conveyor".to_string(),
+                    id: id.clone(),
                     orientation, 
                     inventory: Vec::new(),
+                    progress: 0.0,
                 });
                 
-                chunk.set_block(pos.x as usize, pos.y as usize, pos.z as usize, "conveyor");
+                chunk.set_block(pos.x as usize, pos.y as usize, pos.z as usize, &id);
                 commands.entity(chunk_entity).insert(MeshDirty);
             }
         }
     }
     
-    // --- 右クリック: アイテム投入 (制限付き) ---
+    // --- 右クリック: インタラクション ---
     if let Some(pos) = target_machine_pos {
         if mouse.just_pressed(MouseButton::Right) {
-             if let Some(machine) = grid.machines.get_mut(&pos) {
-                 if machine.id == "conveyor" {
-                     let max_items = config.max_items_per_conveyor.max(1);
-                     let item_size = 1.0 / max_items as f32;
-
-                     // 1. 容量チェック
-                     if machine.inventory.len() < max_items {
-                         // 2. 衝突チェック (無限逆流防止)
-                         // 手動投入は progress 0.1 (入口付近) に置くとする
-                         let new_progress = 0.1;
-                         
-                         // 既存のアイテムで、0.1付近にあるものがあるか？
-                         // items are sorted? No necessarily here.
-                         let has_collision = machine.inventory.iter().any(|item| {
-                             (item.progress - new_progress).abs() < item_size
-                         });
-
-                         if !has_collision {
-                             info!("🍎 Adding Item manually at {:?}", pos);
-                             machine.inventory.push(ItemSlot {
-                                 item_id: "test_item".to_string(),
-                                 count: 1,
-                                 progress: new_progress, 
-                                 unique_id: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,
-                                 from_direction: None, // 手動投入なので方向なし
-                             });
-                         } else {
-                             info!("🚫 Cannot place item: Space occupied.");
-                         }
-                     } else {
-                         info!("🚫 Conveyor full.");
-                     }
-                 }
-             }
+            interact_events.send(PlayerInteractEvent {
+                grid_pos: pos,
+                mouse_button: MouseButton::Right,
+            });
         }
     }
 }

@@ -3,13 +3,12 @@ use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::render::render_asset::RenderAssetUsages;
 use crate::rendering::chunk::{Chunk, CHUNK_SIZE};
 use crate::core::registry::BlockRegistry;
-use crate::rendering::models::{MeshBuilder, mesh_conveyor};
+// ★修正: modelsから MeshType, get_block_visual をインポート
+use crate::rendering::models::{MeshBuilder, MeshType, get_block_visual};
 
-// ★復活: これが消えていました
 #[derive(Component)]
 pub struct MeshDirty;
 
-// Directionもここで公開しておきます
 #[derive(Clone, Copy)]
 pub enum Direction { XPos, XNeg, YPos, YNeg, ZPos, ZNeg }
 
@@ -39,14 +38,13 @@ pub fn update_chunk_mesh(
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    // ★修正: 型推論エラーを防ぐため、一度変数で受けます
-                    let maybe_block = chunk.get_block(x, y, z);
-                    let block_id = if let Some(id) = maybe_block {
-                        id
-                    } else {
-                        continue;
+                    // ブロックID取得
+                    let block_id = match chunk.get_block(x, y, z) {
+                        Some(id) => id,
+                        None => continue,
                     };
 
+                    // Airと無効なブロックはスキップ
                     if block_id == "air" { continue; }
                     if block_registry.map.get(block_id).is_none() { continue; }
 
@@ -54,37 +52,47 @@ pub fn update_chunk_mesh(
                     let by = y as f32;
                     let bz = z as f32;
 
-                    let color = match block_id.as_str() {
-                        "conveyor" => [0.2, 0.2, 0.2, 1.0],
-                        "dirt" => [0.4, 0.25, 0.1, 1.0],
-                        "stone" => [0.5, 0.5, 0.5, 1.0],
-                        _ => [1.0, 0.0, 1.0, 1.0],
-                    };
+                    // ★変更点: ここで一括取得！
+                    let visual = get_block_visual(block_id);
 
-                    if block_id == "conveyor" {
-                        mesh_conveyor(&mut builder, bx, by, bz, color);
-                    } else {
-                        let ix = x as i32;
-                        let iy = y as i32;
-                        let iz = z as i32;
+                    // ★変更点: Visual情報に基づいて分岐（IDによるハードコーディング排除）
+                    match visual.mesh_type {
+                        MeshType::Custom(mesh_fn) => {
+                            // カスタム形状なら関数を実行
+                            mesh_fn(&mut builder, bx, by, bz, visual.color);
+                        },
+                        MeshType::Cube => {
+                            // 通常ブロックなら面カリング処理
+                            let ix = x as i32;
+                            let iy = y as i32;
+                            let iz = z as i32;
 
-                        let is_air_or_transparent = |cx: i32, cy: i32, cz: i32| -> bool {
-                            if cx < 0 || cy < 0 || cz < 0 || cx >= cs || cy >= cs || cz >= cs { return true; }
-                            chunk.get_block(cx as usize, cy as usize, cz as usize)
-                                 .map_or(true, |id| id == "air" || id == "conveyor") 
-                        };
+                            // 隣が「透明（透過設定あり）」または「範囲外」なら面を描く
+                            let should_draw_face = |cx: i32, cy: i32, cz: i32| -> bool {
+                                if cx < 0 || cy < 0 || cz < 0 || cx >= cs || cy >= cs || cz >= cs { 
+                                    return true; 
+                                }
+                                // 隣のブロックを取得して視覚情報を確認
+                                chunk.get_block(cx as usize, cy as usize, cz as usize)
+                                     .map_or(true, |neighbor_id| {
+                                         // 隣がAir、または「is_transparent = true」なブロックなら描画する
+                                         get_block_visual(neighbor_id).is_transparent
+                                     })
+                            };
 
-                        if is_air_or_transparent(ix, iy + 1, iz) { builder.push_face_by_dir(bx, by, bz, Direction::YPos, color); }
-                        if is_air_or_transparent(ix, iy - 1, iz) { builder.push_face_by_dir(bx, by, bz, Direction::YNeg, color); }
-                        if is_air_or_transparent(ix + 1, iy, iz) { builder.push_face_by_dir(bx, by, bz, Direction::XPos, color); }
-                        if is_air_or_transparent(ix - 1, iy, iz) { builder.push_face_by_dir(bx, by, bz, Direction::XNeg, color); }
-                        if is_air_or_transparent(ix, iy, iz + 1) { builder.push_face_by_dir(bx, by, bz, Direction::ZPos, color); }
-                        if is_air_or_transparent(ix, iy, iz - 1) { builder.push_face_by_dir(bx, by, bz, Direction::ZNeg, color); }
+                            if should_draw_face(ix, iy + 1, iz) { builder.push_face_by_dir(bx, by, bz, Direction::YPos, visual.color); }
+                            if should_draw_face(ix, iy - 1, iz) { builder.push_face_by_dir(bx, by, bz, Direction::YNeg, visual.color); }
+                            if should_draw_face(ix + 1, iy, iz) { builder.push_face_by_dir(bx, by, bz, Direction::XPos, visual.color); }
+                            if should_draw_face(ix - 1, iy, iz) { builder.push_face_by_dir(bx, by, bz, Direction::XNeg, visual.color); }
+                            if should_draw_face(ix, iy, iz + 1) { builder.push_face_by_dir(bx, by, bz, Direction::ZPos, visual.color); }
+                            if should_draw_face(ix, iy, iz - 1) { builder.push_face_by_dir(bx, by, bz, Direction::ZNeg, visual.color); }
+                        }
                     }
                 }
             }
         }
         
+        // メッシュ生成・エンティティ更新処理 (変更なし)
         if positions.is_empty() {
             commands.entity(entity).remove::<MeshDirty>();
             continue;

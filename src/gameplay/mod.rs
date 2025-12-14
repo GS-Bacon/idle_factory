@@ -4,7 +4,8 @@ pub mod grid;
 pub mod building;
 pub mod player;
 pub mod items;
-pub mod machines; // 新しいモジュール
+pub mod machines;
+pub mod interaction; // ★追加
 
 use grid::SimulationGrid;
 
@@ -13,6 +14,7 @@ pub struct GameplayPlugin;
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugins(interaction::InteractionPlugin) // ★イベントプラグイン登録
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
             .add_systems(Startup, player::spawn_player)
@@ -24,7 +26,6 @@ impl Plugin for GameplayPlugin {
                 items::update_visual_items,
             ));
         
-        // マシンのシステムを一括登録
         machines::register_machines(app);
     }
 }

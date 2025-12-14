@@ -1,19 +1,24 @@
-- id: "dirt"
-  name: "Dirt Block"
-  texture: "dirt.png"
+- id: dirt
+  name: Dirt Block
   is_solid: true
+  texture: "none"  # ★追加
 
-- id: "stone"
-  name: "Stone Block"
-  texture: "stone.png"
+- id: stone
+  name: Stone Block
   is_solid: true
+  texture: "none"  # ★追加
 
-- id: "air"
-  name: "Air"
-  texture: ""
+- id: air
+  name: Air
   is_solid: false
+  texture: "none"  # ★追加
 
-- id: "conveyor"
-  name: "Conveyor Belt"
-  texture: "conveyor.png"
+- id: conveyor
+  name: Conveyor Belt
   is_solid: true
+  texture: "none"  # ★追加
+
+- id: miner
+  name: Mining Drill
+  is_solid: true
+  texture: "none"  # ★追加

@@ -21,7 +21,6 @@ impl Direction {
         }
     }
     
-    // 反対方向を取得 (入ってきた方向の計算に使用)
     pub fn opposite(&self) -> Self {
         match self {
             Direction::North => Direction::South,
@@ -38,16 +37,16 @@ pub struct ItemSlot {
     pub count: u32,
     pub progress: f32,
     pub unique_id: u64,
-    // ★追加: このアイテムが「どのマシンの向き」から来たか
-    // Noneの場合は、その場に湧いた(手動投入)か、真後ろから来たとして扱う
     pub from_direction: Option<Direction>,
 }
 
+// ★修正: 1つだけにする。progressを含める。
 #[derive(Clone, Debug)]
 pub struct MachineInstance {
     pub id: String,
     pub orientation: Direction,
     pub inventory: Vec<ItemSlot>,
+    pub progress: f32, // ★これが最新の定義
 }
 
 #[derive(Resource, Default)]
