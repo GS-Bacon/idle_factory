@@ -1,13 +1,17 @@
 [package]
-name = "my-bevy-project"
+name = "infinite_voxel_factory"
 version = "0.1.0"
-edition = "2021" # 2024はまだ一般的ではないため、エラーが出る場合は2021推奨
+edition = "2021"
 
 [dependencies]
-bevy = "0.16"
+# 開発中は dynamic_linking を有効にしてビルド時間を短縮
+bevy = { version = "0.15" }
 
+# 開発用ビルド設定 (cargo run)
 [profile.dev]
-opt-level = 1
+opt-level = 1 # 自分のコードは少しだけ最適化
 
+# 依存関係（Bevyなど）はガチガチに最適化する
+# これにより、初回ビルドは遅いが、2回目以降は再ビルドが走らず高速になる
 [profile.dev.package."*"]
 opt-level = 3
