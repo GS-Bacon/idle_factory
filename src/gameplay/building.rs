@@ -13,6 +13,12 @@ pub struct BuildTool {
     pub orientation: Direction,
 }
 
+#[derive(Event)]
+pub struct MachinePlacedEvent {
+    pub pos: IVec3,
+    pub machine_id: String,
+}
+
 pub fn handle_building(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -25,6 +31,7 @@ pub fn handle_building(
     mut interact_events: EventWriter<PlayerInteractEvent>,
     mut build_tool: ResMut<BuildTool>,
     block_registry: Res<BlockRegistry>,
+    mut machine_placed_events: EventWriter<MachinePlacedEvent>, // EventWriter for new event
 ) {
     if keyboard.just_pressed(KeyCode::Digit1) {
         build_tool.active_block_id = "conveyor".to_string();
@@ -168,6 +175,12 @@ pub fn handle_building(
                 
                 chunk.set_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize, &id);
                 commands.entity(chunk_entity).insert(MeshDirty);
+
+                // Emit MachinePlacedEvent
+                machine_placed_events.send(MachinePlacedEvent {
+                    pos: place_pos,
+                    machine_id: id,
+                });
             }
         }
     }

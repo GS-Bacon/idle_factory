@@ -5,7 +5,8 @@ pub mod building;
 pub mod player;
 pub mod items;
 pub mod machines;
-pub mod interaction; // ★追加
+pub mod interaction;
+pub mod power; // Declare the new power module
 
 use grid::SimulationGrid;
 
@@ -14,9 +15,11 @@ pub struct GameplayPlugin;
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugins(interaction::InteractionPlugin) // ★イベントプラグイン登録
+            .add_plugins(interaction::InteractionPlugin)
+            .add_plugins(power::PowerPlugin) // Add the PowerPlugin
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
+            .add_event::<building::MachinePlacedEvent>() // Register MachinePlacedEvent
             .add_systems(Startup, player::spawn_player)
             .add_systems(Update, (
                 building::handle_building,
