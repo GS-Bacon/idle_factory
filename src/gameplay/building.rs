@@ -159,6 +159,7 @@ pub fn handle_building(
                     id: id.clone(),
                     orientation,
                     machine_type,
+                    power_node: None, // Initialize the power node placeholder
                 });
                 
                 chunk.set_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize, &id);

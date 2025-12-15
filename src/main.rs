@@ -1,14 +1,16 @@
 use bevy::prelude::*;
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin; // ★追加
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use infinite_voxel_factory::GamePlugin;
-use infinite_voxel_factory::rendering::meshing::ChunkMaterialHandle; // ★追加
+use infinite_voxel_factory::rendering::meshing::ChunkMaterialHandle;
+use infinite_voxel_factory::network::NetworkPlugin; // Add this line
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugins(FrameTimeDiagnosticsPlugin::default()) // ★追加: FPS計測
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(GamePlugin)
-        .add_systems(Startup, (setup_lights, setup_shared_material)) // ★追加
+        .add_plugins(NetworkPlugin) // Add this line
+        .add_systems(Startup, (setup_lights, setup_shared_material))
         .run();
 }
 
@@ -30,7 +32,6 @@ fn setup_lights(mut commands: Commands) {
     ));
 }
 
-// ★追加: チャンク用マテリアルを1つ作ってリソースに登録
 fn setup_shared_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,

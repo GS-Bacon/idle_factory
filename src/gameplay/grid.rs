@@ -57,11 +57,12 @@ pub enum Machine {
 }
 
 // The generic machine container on the grid
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Component)] // Added Component derive
 pub struct MachineInstance {
     pub id: String, // Block ID, e.g., "conveyor", "miner"
     pub orientation: Direction,
     pub machine_type: Machine,
+    pub power_node: Option<Entity>, // Placeholder for the kinetic power system
 }
 
 

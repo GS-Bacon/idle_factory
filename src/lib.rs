@@ -3,6 +3,7 @@ pub mod core;
 pub mod gameplay;
 pub mod rendering;
 pub mod ui;
+pub mod network;
 
 use bevy::prelude::*;
 
