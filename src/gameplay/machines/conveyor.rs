@@ -36,7 +36,7 @@ pub fn handle_conveyor_interaction(
                     if !has_collision {
                         info!("🍎 Conveyor Interaction: Added item at {:?}", event.grid_pos);
                         conveyor.inventory.push(ItemSlot {
-                            item_id: "test_item".to_string(),
+                            item_id: "raw_ore".to_string(), // Changed to raw_ore for testing
                             count: 1,
                             progress: new_progress,
                             unique_id: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,
@@ -59,8 +59,8 @@ pub fn tick_conveyors(
     config: Res<GameConfig>,
 ) {
     let dt = time.delta_secs();
-    let max_items = config.max_items_per_conveyor.max(1);
-    let item_size = 1.0 / max_items as f32;
+    let max_items_on_conveyor = config.max_items_per_conveyor.max(1);
+    let item_size = 1.0 / max_items_on_conveyor as f32;
 
     let mut transfers = Vec::new();
     let machine_keys: Vec<IVec3> = grid.machines.keys().cloned().collect();
@@ -96,27 +96,33 @@ pub fn tick_conveyors(
         let mut accepted = false;
 
         if let Some(target_machine) = grid.machines.get_mut(&to_pos) {
-            let is_facing_each_other = if let Machine::Conveyor(_) = &target_machine.machine_type {
-                target_machine.orientation == src_dir.opposite()
-            } else {
-                false
-            };
-
-            if !is_facing_each_other {
-                if let Machine::Conveyor(target_conveyor) = &mut target_machine.machine_type {
-                    if target_conveyor.inventory.len() < max_items {
-                        let min_progress = target_conveyor.inventory.iter()
-                            .map(|it| it.progress)
-                            .fold(1.0f32, |a, b| a.min(b));
-                        
-                        if target_conveyor.inventory.is_empty() || min_progress > item_size {
-                            target_conveyor.inventory.push(ItemSlot {
-                                progress: 0.0,
-                                ..item
-                            });
-                            accepted = true;
+            match &mut target_machine.machine_type {
+                Machine::Conveyor(target_conveyor) => {
+                    let is_facing_each_other = target_machine.orientation == src_dir.opposite();
+                    if !is_facing_each_other {
+                        if target_conveyor.inventory.len() < max_items_on_conveyor {
+                            let min_progress = target_conveyor.inventory.iter()
+                                .map(|it| it.progress)
+                                .fold(1.0f32, |a, b| a.min(b));
+                            
+                            if target_conveyor.inventory.is_empty() || min_progress > item_size {
+                                target_conveyor.inventory.push(ItemSlot { progress: 0.0, ..item });
+                                accepted = true;
+                            }
                         }
                     }
+                }
+                Machine::Assembler(target_assembler) => {
+                    // Assembler accepts from its front
+                    if target_machine.orientation == src_dir {
+                        if target_assembler.input_inventory.len() < 10 { // TODO: make configurable
+                             target_assembler.input_inventory.push(ItemSlot { progress: 0.0, ..item });
+                             accepted = true;
+                        }
+                    }
+                }
+                Machine::Miner(_) => {
+                    // Do nothing, can't push into a miner
                 }
             }
         }

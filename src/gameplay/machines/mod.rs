@@ -2,6 +2,8 @@ pub mod assembler;
 pub mod conveyor;
 pub mod miner;
 pub mod render;
+pub mod debug; // Added this line
+
 use bevy::prelude::*;
 
 // マシン関連のシステムをまとめて登録するプラグイン的関数
@@ -14,5 +16,6 @@ pub fn register_machines(app: &mut App) {
         assembler::tick_assemblers,
         assembler::handle_assembler_interaction,
         render::update_machine_visuals,
+        debug::draw_machine_io_markers, // Added this line
     ));
 }
