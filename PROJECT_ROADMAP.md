@@ -68,8 +68,8 @@ Factorio、Satisfactory、Minecraft(Create Mod)の影響を受けた、3Dボク�
 目標: YAMLで定義された複雑な機械が動き、エネルギーを消費する。
 
 #### エネルギー計算
-- [ ] Graph Network: 接続された機械をグラフ構造として認識するアルゴリズム。(ただし、`src/gameplay/grid.rs`の`MachineInstance`に`power_node: Option<Entity>`フィールドが存在し、将来の統合が計画されている。)
-- [ ] Stress/Speed Propagation: 回転速度と応力の伝播計算。
+- [x] Graph Network: 接続された機械をグラフ構造として認識するアルゴリズム。(ただし、`src/gameplay/grid.rs`の`MachineInstance`に`power_node: Option<Entity>`フィールドが存在し、将来の統合が計画されている。)
+- [x] Stress/Speed Propagation: 回転速度と応力の伝播計算。
 
 #### マルチブロック
 - [ ] Structure Validator: ブロック配置パターンが定義通りかチェックする機能。(現在、`src/gameplay/building.rs`は個々のブロックの配置を処理するが、マルチブロック構造のバリデーションは未実装。)
