@@ -2,8 +2,9 @@ use bevy::prelude::*;
 use crate::gameplay::grid::{SimulationGrid, ItemSlot, Machine};
 use crate::core::config::GameConfig;
 use crate::gameplay::interaction::PlayerInteractEvent;
+use serde::{Serialize, Deserialize};
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Conveyor {
     pub inventory: Vec<ItemSlot>,
 }
@@ -82,6 +83,7 @@ pub fn tick_conveyors(
 
                 if let Some(first_item) = conveyor.inventory.first() {
                     if first_item.progress >= 1.0 {
+                        info!("[Test-Debug] Conveyor at {:?} has item ready for transfer.", pos);
                         let mut item_to_transfer = first_item.clone();
                         item_to_transfer.from_direction = Some(machine.orientation);
                         transfers.push((*pos, item_to_transfer, machine.orientation));
@@ -93,11 +95,13 @@ pub fn tick_conveyors(
 
     for (from_pos, item, src_dir) in transfers {
         let to_pos = from_pos + src_dir.to_ivec3();
+        info!("[Test-Debug] Attempting transfer from {:?} to {:?}.", from_pos, to_pos);
         let mut accepted = false;
 
         if let Some(target_machine) = grid.machines.get_mut(&to_pos) {
             match &mut target_machine.machine_type {
                 Machine::Conveyor(target_conveyor) => {
+                    info!("[Test-Debug] Target at {:?} is a Conveyor.", to_pos);
                     let is_facing_each_other = target_machine.orientation == src_dir.opposite();
                     if !is_facing_each_other {
                         if target_conveyor.inventory.len() < max_items_on_conveyor {
@@ -113,18 +117,27 @@ pub fn tick_conveyors(
                     }
                 }
                 Machine::Assembler(target_assembler) => {
-                    // Assembler accepts from its front
-                    if target_machine.orientation == src_dir {
+                    info!("[Test-Debug] Target at {:?} is an Assembler. Assembler orientation: {:?}, Conveyor src_dir: {:?}", to_pos, target_machine.orientation, src_dir);
+                    // Assembler accepts from its front, which is opposite to its orientation
+                    if target_machine.orientation.opposite() == src_dir {
+                        info!("[Test-Debug] Orientations match for front input. Checking inventory.");
                         if target_assembler.input_inventory.len() < 10 { // TODO: make configurable
                              target_assembler.input_inventory.push(ItemSlot { progress: 0.0, ..item });
                              accepted = true;
+                             info!("[Test-Debug] Item accepted by assembler.");
+                        } else {
+                            info!("[Test-Debug] Assembler input inventory full.");
                         }
+                    } else {
+                        info!("[Test-Debug] Orientations do not match for front input.");
                     }
                 }
                 Machine::Miner(_) => {
                     // Do nothing, can't push into a miner
                 }
             }
+        } else {
+            info!("[Test-Debug] No machine found at target position {:?}", to_pos);
         }
 
         if accepted {

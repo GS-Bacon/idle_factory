@@ -7,7 +7,7 @@ use bevy::prelude::*;
 pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // TODO: Add networking systems and resources
         info!("NetworkPlugin loaded");
     }

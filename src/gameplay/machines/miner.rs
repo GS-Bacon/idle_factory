@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use crate::gameplay::grid::{SimulationGrid, ItemSlot, Machine};
 use crate::core::config::GameConfig;
+use serde::{Serialize, Deserialize};
 
 const MINING_SPEED: f32 = 1.0; // 1秒に1個
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Miner {
     pub progress: f32,
 }

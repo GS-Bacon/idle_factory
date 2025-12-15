@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 // TODO: Implement authoritative server logic
-pub fn server_network_system(mut commands: Commands) {
+pub fn server_network_system(_commands: Commands) {
     // This system would handle:
     // - Listening for client connections
     // - Receiving client inputs

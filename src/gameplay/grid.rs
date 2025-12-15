@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize}; // Make sure Serialize is imported
 use std::collections::HashMap;
 use crate::gameplay::machines::{
     conveyor::Conveyor,
@@ -8,7 +9,7 @@ use crate::gameplay::machines::{
 
 // --- Common Data Structures ---
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum Direction {
     #[default]
     North, // Z-
@@ -37,7 +38,7 @@ impl Direction {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ItemSlot {
     pub item_id: String,
     pub count: u32,
@@ -49,7 +50,7 @@ pub struct ItemSlot {
 
 // --- Machine-Specific Data ---
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Machine {
     Conveyor(Conveyor),
     Miner(Miner),
@@ -57,11 +58,12 @@ pub enum Machine {
 }
 
 // The generic machine container on the grid
-#[derive(Clone, Debug, Component)] // Added Component derive
+#[derive(Clone, Debug, Component, PartialEq, Serialize, Deserialize)]
 pub struct MachineInstance {
     pub id: String, // Block ID, e.g., "conveyor", "miner"
     pub orientation: Direction,
     pub machine_type: Machine,
+    #[serde(skip)] // Entity cannot be serialized, skip for now
     pub power_node: Option<Entity>, // Placeholder for the kinetic power system
 }
 
