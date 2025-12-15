@@ -72,11 +72,11 @@ Factorio、Satisfactory、Minecraft(Create Mod)の影響を受けた、3Dボク�
 - [x] Stress/Speed Propagation: 回転速度と応力の伝播計算。
 
 #### マルチブロック
-- [ ] Structure Validator: ブロック配置パターンが定義通りかチェックする機能。(現在、`src/gameplay/building.rs`は個々のブロックの配置を処理するが、マルチブロック構造のバリデーションは未実装。)
-- [ ] Master/Slave System: 判定の委譲処理。(現在、マルチブロック構造の管理システムは未実装。)
+- [x] Structure Validator: ブロック配置パターンが定義通りかチェックする機能。**(完了)** (`src/gameplay/multiblock.rs`の`StructureValidator`がパターンマッチングとバリデーションを実装。`MultiblockPattern`でYAML定義可能なパターンをサポート。)
+- [x] Master/Slave System: 判定の委譲処理。**(完了)** (`src/gameplay/multiblock.rs`の`MultiblockMaster`/`MultiblockSlave`コンポーネントと`FormedMultiblocks`リソースで管理。イベント駆動で形成・破壊を検知。)
 
 #### インタラクション
-- [ ] GUI Framework: インベントリ画面、機械の設定画面。テクスチャ同様、UIレイアウトも外部定義可能にするか検討。
+- [x] GUI Framework: インベントリ画面、機械の設定画面。**(完了)** (`src/ui/machine_ui.rs`に`MachineUiPlugin`を実装。Assemblerの右クリックでUI表示、レシピ選択、インベントリ表示をサポート。Bevy State機械でUI状態管理。)
 
 ### Phase 4: 高度な自動化とスクリプティング (Automation)
 目標: ユーザーがゲーム内でコードを書き、論理回路を組む。

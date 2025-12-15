@@ -6,7 +6,8 @@ pub mod player;
 pub mod items;
 pub mod machines;
 pub mod interaction;
-pub mod power; // Declare the new power module
+pub mod power;
+pub mod multiblock;
 
 use grid::SimulationGrid;
 
@@ -16,10 +17,11 @@ impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugins(interaction::InteractionPlugin)
-            .add_plugins(power::PowerPlugin) // Add the PowerPlugin
+            .add_plugins(power::PowerPlugin)
+            .add_plugins(multiblock::MultiblockPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
-            .add_event::<building::MachinePlacedEvent>() // Register MachinePlacedEvent
+            .add_event::<building::MachinePlacedEvent>()
             .add_systems(Startup, player::spawn_player)
             .add_systems(Update, (
                 building::handle_building,
@@ -28,7 +30,7 @@ impl Plugin for GameplayPlugin {
                 player::grab_cursor,
                 items::update_visual_items,
             ));
-        
+
         machines::register_machines(app);
     }
 }

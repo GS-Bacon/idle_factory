@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(git add -A)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: API参照とプロジェクト文書を追加\n\n- API_REFERENCE.md: 全モジュール・関数・構造体の一覧\n- GAME_SPEC.md: ゲーム仕様書\n- WORK_LOG.md: 作業履歴\n- CLAUDE.md: Claude Code用メモリファイル\n- PROJECT_ROADMAP.md: Phase 3完了を反映\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")"
+    ]
+  }
+}

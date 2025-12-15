@@ -14,8 +14,8 @@ pub fn register_machines(app: &mut App) {
         conveyor::handle_conveyor_interaction,
         miner::tick_miners,
         assembler::tick_assemblers,
-        assembler::handle_assembler_interaction,
+        // Note: Assembler interaction is now handled by MachineUiPlugin
         render::update_machine_visuals,
-        debug::draw_machine_io_markers, // Added this line
+        debug::draw_machine_io_markers,
     ));
 }
