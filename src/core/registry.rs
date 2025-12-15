@@ -1,71 +1,116 @@
 use bevy::prelude::*;
-use bevy::utils::HashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+
+// --- Block Definitions ---
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct BlockDefinition {
     pub id: String,
     pub name: String,
-    pub texture: String,
     pub is_solid: bool,
+    #[serde(default = "default_texture")]
+    pub texture: String,
+    pub collision: Option<Vec<f32>>,
+}
+
+fn default_texture() -> String {
+    "none".to_string()
+}
+
+#[derive(Debug, Clone)]
+pub struct BlockProperty {
+    pub name: String,
+    pub is_solid: bool,
+    pub texture: String,
+    pub collision_box: [f32; 6],
 }
 
 #[derive(Resource, Default)]
 pub struct BlockRegistry {
-    pub map: HashMap<String, BlockDefinition>,
+    pub map: HashMap<String, BlockProperty>,
 }
 
-pub fn load_block_registry(mut registry: ResMut<BlockRegistry>) {
-    // 読み込むフォルダのパス
-    let folder_path = "assets/data/blocks";
-    
-    info!("Loading blocks from: {}", folder_path);
+// --- Recipe Definitions ---
 
-    // フォルダを開く
-    let entries = match fs::read_dir(folder_path) {
-        Ok(e) => e,
-        Err(e) => {
-            error!("Failed to read directory {}: {}", folder_path, e);
-            return;
-        }
-    };
+#[derive(Debug, Deserialize, Clone)]
+pub struct RecipeInput {
+    pub item: String,
+    pub count: u32,
+}
 
-    // フォルダ内のファイルを1つずつ処理
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            
-            // 拡張子が .yaml または .yml の場合のみ読み込む
-            if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
-                load_blocks_from_file(&path, &mut registry);
-            }
-        }
+#[derive(Debug, Deserialize, Clone)]
+pub struct RecipeDefinition {
+    pub id: String,
+    pub name: String,
+    pub inputs: Vec<RecipeInput>,
+    pub outputs: Vec<RecipeInput>,
+    pub craft_time: f32,
+}
+
+#[derive(Resource, Default)]
+pub struct RecipeRegistry {
+    pub map: HashMap<String, RecipeDefinition>,
+}
+
+
+// --- Plugin ---
+
+pub struct RegistryPlugin;
+
+impl Plugin for RegistryPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<BlockRegistry>()
+            .init_resource::<RecipeRegistry>()
+            .add_systems(Startup, (load_blocks, load_recipes));
     }
 }
 
-// 1つのファイルから読み込む補助関数
-fn load_blocks_from_file(path: &Path, registry: &mut ResMut<BlockRegistry>) {
-    match fs::read_to_string(path) {
-        Ok(content) => {
-            // YAMLパース
-            let blocks: Result<Vec<BlockDefinition>, _> = serde_yaml::from_str(&content);
-            
-            match blocks {
-                Ok(blocks) => {
-                    for block in blocks {
-                        info!("Loaded Block: {} ({}) from {:?}", block.name, block.id, path);
-                        registry.map.insert(block.id.clone(), block);
+fn load_blocks(mut registry: ResMut<BlockRegistry>) {
+    let path = "assets/data/blocks/core.yaml";
+    if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(defs) = serde_yaml::from_str::<Vec<BlockDefinition>>(&content) {
+            for def in defs {
+                let col = if let Some(c) = def.collision {
+                    if c.len() == 6 {
+                        [c[0], c[1], c[2], c[3], c[4], c[5]]
+                    } else {
+                        warn!("Block {} has invalid collision data length.", def.id);
+                        [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
                     }
-                }
-                Err(e) => {
-                    error!("Failed to parse YAML {:?}: {}", path, e);
-                }
+                } else {
+                    [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+                };
+
+                registry.map.insert(def.id.clone(), BlockProperty {
+                    name: def.name,
+                    is_solid: def.is_solid,
+                    texture: def.texture,
+                    collision_box: col,
+                });
+                info!("Loaded block: {}", def.id);
             }
+        } else {
+            error!("Failed to parse YAML: {}", path);
         }
-        Err(e) => {
-            error!("Failed to read file {:?}: {}", path, e);
+    } else {
+        error!("Failed to read file: {}", path);
+    }
+}
+
+fn load_recipes(mut registry: ResMut<RecipeRegistry>) {
+    let path = "assets/data/recipes/vanilla.yaml";
+    if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(defs) = serde_yaml::from_str::<Vec<RecipeDefinition>>(&content) {
+            for def in defs {
+                registry.map.insert(def.id.clone(), def);
+                info!("Loaded recipe: {}", registry.map.get(&"ore_to_ingot".to_string()).unwrap().id);
+            }
+        } else {
+            error!("Failed to parse YAML: {}", path);
         }
+    } else {
+        error!("Failed to read file: {}", path);
     }
 }

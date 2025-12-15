@@ -1,7 +1,13 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
+use crate::gameplay::machines::{
+    conveyor::Conveyor,
+    miner::Miner,
+    assembler::Assembler,
+};
 
-// 方角の定義
+// --- Common Data Structures ---
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Direction {
     #[default]
@@ -40,14 +46,26 @@ pub struct ItemSlot {
     pub from_direction: Option<Direction>,
 }
 
-// ★修正: 1つだけにする。progressを含める。
+
+// --- Machine-Specific Data ---
+
+#[derive(Debug, Clone)]
+pub enum Machine {
+    Conveyor(Conveyor),
+    Miner(Miner),
+    Assembler(Assembler),
+}
+
+// The generic machine container on the grid
 #[derive(Clone, Debug)]
 pub struct MachineInstance {
-    pub id: String,
+    pub id: String, // Block ID, e.g., "conveyor", "miner"
     pub orientation: Direction,
-    pub inventory: Vec<ItemSlot>,
-    pub progress: f32, // ★これが最新の定義
+    pub machine_type: Machine,
 }
+
+
+// --- Grid Resource ---
 
 #[derive(Resource, Default)]
 pub struct SimulationGrid {

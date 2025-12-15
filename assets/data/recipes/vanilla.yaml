@@ -1,0 +1,9 @@
+- id: "ore_to_ingot"
+  name: "Iron Ingot"
+  inputs:
+    - item: "raw_ore"
+      count: 1
+  outputs:
+    - item: "ingot"
+      count: 1
+  craft_time: 2.0

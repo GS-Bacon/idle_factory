@@ -1,35 +1,34 @@
-use bevy::prelude::*;
-use bevy::input::mouse::MouseMotion;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::core::config::GameConfig;
 use crate::core::input::KeyBindings;
+use bevy::input::mouse::MouseMotion;
+use bevy::prelude::*;
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 
-// シンプルに1つのコンポーネントで管理
 #[derive(Component)]
 pub struct Player {
     pub yaw: f32,   // 左右 (Y軸)
     pub pitch: f32, // 上下 (X軸)
 }
 
-pub fn spawn_player(mut commands: Commands, config: Res<GameConfig>) {
-    info!("🚀 SPAWN_PLAYER SYSTEM STARTED! (プレイヤー生成開始)"); // ★動作確認用ログ
-
-    let start_pos = Vec3::new(16.0, 10.0, 16.0);
-
+pub fn spawn_player(mut commands: Commands) {
+    // プレイヤー本体 (カメラも含む)
+    // シンプルにするため、プレイヤー自体が回転し、その視界＝カメラとします
     commands.spawn((
-        Camera3d::default(),
-        Projection::from(PerspectiveProjection {
-            fov: config.fov.to_radians(),
-            ..default()
-        }),
-        // ★初期化: Quat::IDENTITY は「回転ゼロ（北向き・水平）」です。
-        // これで真下を向くなら、他の何かが悪さをしています。
-        Transform::from_translation(start_pos).with_rotation(Quat::IDENTITY),
-        Player { 
-            yaw: 0.0, 
-            pitch: 0.0 
-        },
-    ));
+        // ★修正: 構造体のフィールド名を明記
+        Player { yaw: 0.0, pitch: 0.0 },
+        Transform::from_xyz(0.0, 5.0, 0.0),
+        Visibility::default(), 
+    ))
+    .with_children(|parent| {
+        // カメラ (FPS視点)
+        // 親(Player)が回転・移動するので、カメラはローカル座標で固定でOK
+        parent.spawn((
+            Camera3d::default(),
+            // ★重要追加: アンチエイリアス有効化
+            Msaa::Sample4, 
+            Transform::from_xyz(0.0, 1.8, 0.0), // 目の高さ
+        ));
+    });
 }
 
 pub fn look_player(
@@ -56,15 +55,13 @@ pub fn look_player(
         player.yaw -= delta_x * config.mouse_sensitivity;
         player.pitch -= delta_y * config.mouse_sensitivity;
 
-        // ★角度制限 (Clamp)
-        // 89.5度 (1.56ラジアン) で確実に止める
+        // 角度制限 (真上・真下付近で止める)
         let limit = 89.5_f32.to_radians();
         player.pitch = player.pitch.clamp(-limit, limit);
 
-        // ★回転の適用 (Y回転 * X回転)
-        // 毎回ゼロから計算しなおすため、現在の傾きに関わらず正しい姿勢になります。
-        transform.rotation = 
-            Quat::from_axis_angle(Vec3::Y, player.yaw) * Quat::from_axis_angle(Vec3::X, player.pitch);
+        // 回転の適用 (Y回転 * X回転)
+        transform.rotation = Quat::from_axis_angle(Vec3::Y, player.yaw)
+            * Quat::from_axis_angle(Vec3::X, player.pitch);
     }
 }
 
@@ -73,33 +70,40 @@ pub fn move_player(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Player>>,
     config: Res<GameConfig>,
-    keybinds: Res<KeyBindings>, // 追加
+    keybinds: Res<KeyBindings>,
 ) {
     if let Ok(mut transform) = query.get_single_mut() {
         let mut move_dir = Vec3::ZERO;
-        
-        // 自分の向き(Yaw)を基準に進む
-        let yaw_rot = Quat::from_rotation_y(transform.rotation.to_euler(EulerRot::YXZ).0);
-        let forward = yaw_rot * Vec3::NEG_Z;
-        let right = yaw_rot * Vec3::X;
 
-        // キーバインドを使って判定
+        // 自分の向き(Yaw)を基準に進む
+        // ※pitch(上下)は移動方向には影響させないため、Y回転成分だけ取り出す
+        let (yaw, _, _) = transform.rotation.to_euler(EulerRot::YXZ);
+        let yaw_rot = Quat::from_rotation_y(yaw);
+        
+        let forward = yaw_rot * Vec3::NEG_Z; // 前 (-Z)
+        let right = yaw_rot * Vec3::X;       // 右 (+X)
+
+        // キーバインド判定
         if keyboard.pressed(keybinds.forward) { move_dir += forward; }
         if keyboard.pressed(keybinds.backward) { move_dir -= forward; }
         if keyboard.pressed(keybinds.right) { move_dir += right; }
         if keyboard.pressed(keybinds.left) { move_dir -= right; }
-        
-        // 上下移動
+
+        // 上下移動 (フライモード的挙動)
         if keyboard.pressed(keybinds.jump) { move_dir.y += 1.0; }
-        if keyboard.pressed(keybinds.descend) { move_dir.y -= 1.0; } // ここでShiftLeftが効くようになる
+        if keyboard.pressed(keybinds.descend) { move_dir.y -= 1.0; }
 
         if move_dir.length_squared() > 0.0 {
             move_dir = move_dir.normalize();
         }
 
         // ダッシュ判定
-        let speed = if keyboard.pressed(keybinds.sprint) { config.run_speed } else { config.walk_speed };
-        
+        let speed = if keyboard.pressed(keybinds.sprint) {
+            config.run_speed
+        } else {
+            config.walk_speed
+        };
+
         transform.translation += move_dir * speed * time.delta_secs();
     }
 }

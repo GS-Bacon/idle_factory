@@ -1,22 +1,45 @@
 use bevy::prelude::*;
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin; // ★追加
 use infinite_voxel_factory::GamePlugin;
+use infinite_voxel_factory::rendering::meshing::ChunkMaterialHandle; // ★追加
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugins(GamePlugin) // ここでプレイヤーやゲームロジックが読み込まれる
-        .add_systems(Startup, setup_lights) // ライトだけセットアップ
+        .add_plugins(FrameTimeDiagnosticsPlugin::default()) // ★追加: FPS計測
+        .add_plugins(GamePlugin)
+        .add_systems(Startup, (setup_lights, setup_shared_material)) // ★追加
         .run();
 }
 
 fn setup_lights(mut commands: Commands) {
-    // 太陽
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 400.0,
+    });
+
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
             illuminance: 10_000.0,
+            shadow_depth_bias: 0.05,
+            shadow_normal_bias: 0.05,
             ..default()
         },
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4)),
     ));
+}
+
+// ★追加: チャンク用マテリアルを1つ作ってリソースに登録
+fn setup_shared_material(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let handle = materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        perceptual_roughness: 0.8,
+        reflectance: 0.2,
+        ..default()
+    });
+    commands.insert_resource(ChunkMaterialHandle(handle));
 }

@@ -1,24 +1,36 @@
 - id: dirt
   name: Dirt Block
   is_solid: true
-  texture: "none"  # ★追加
+  texture: "none"
 
 - id: stone
   name: Stone Block
   is_solid: true
-  texture: "none"  # ★追加
+  texture: "none"
 
 - id: air
   name: Air
   is_solid: false
-  texture: "none"  # ★追加
+  texture: "none"
+  # Airは当たり判定なし（ロジックで無視するが、念のため0サイズにしておく）
+  collision: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 - id: conveyor
   name: Conveyor Belt
   is_solid: true
-  texture: "none"  # ★追加
+  texture: "none"
+  # ★追加: 高さ0.2の平たい形状
+  collision: [0.0, 0.0, 0.0, 1.0, 0.2, 1.0]
 
 - id: miner
   name: Mining Drill
   is_solid: true
-  texture: "none"  # ★追加
+  texture: "none"
+  # Minerはフルブロック（必要なら変更可）
+  collision: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+
+- id: assembler
+  name: Assembler
+  is_solid: true
+  texture: "none"
+  collision: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]

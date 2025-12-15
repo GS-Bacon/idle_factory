@@ -1,8 +1,6 @@
 use bevy::prelude::*;
-use serde::Deserialize;
-use std::fs;
 
-#[derive(Resource, Debug, Deserialize, Clone)]
+#[derive(Resource)]
 pub struct KeyBindings {
     pub forward: KeyCode,
     pub backward: KeyCode,
@@ -13,7 +11,6 @@ pub struct KeyBindings {
     pub sprint: KeyCode,
 }
 
-// デフォルト設定 (読み込み失敗時用)
 impl Default for KeyBindings {
     fn default() -> Self {
         Self {
@@ -28,25 +25,11 @@ impl Default for KeyBindings {
     }
 }
 
-pub fn load_keybinds(mut commands: Commands) {
-    let path = "assets/keybinds.yaml";
-    match fs::read_to_string(path) {
-        Ok(content) => {
-            // YAMLの文字列をKeyCodeに変換して読み込む
-            match serde_yaml::from_str::<KeyBindings>(&content) {
-                Ok(bindings) => {
-                    info!("Loaded KeyBindings: {:?}", bindings);
-                    commands.insert_resource(bindings);
-                },
-                Err(e) => {
-                    error!("Failed to parse keybinds.yaml: {}", e);
-                    commands.insert_resource(KeyBindings::default());
-                }
-            }
-        }
-        Err(e) => {
-            warn!("keybinds.yaml not found ({}), using default.", e);
-            commands.insert_resource(KeyBindings::default());
-        }
+// ★追加: プラグイン定義
+pub struct InputPlugin;
+
+impl Plugin for InputPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<KeyBindings>();
     }
 }

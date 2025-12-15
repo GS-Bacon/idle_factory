@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 pub mod chunk;
 pub mod meshing;
-
+pub mod voxel_loader; // ★追加
 use chunk::Chunk;
 use meshing::MeshDirty;
 pub mod models;

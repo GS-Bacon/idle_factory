@@ -1,6 +1,5 @@
 use crate::rendering::meshing::Direction;
 
-// メッシュ構築用のヘルパー
 pub struct MeshBuilder<'a> {
     pub positions: &'a mut Vec<[f32; 3]>,
     pub normals: &'a mut Vec<[f32; 3]>,
@@ -10,7 +9,6 @@ pub struct MeshBuilder<'a> {
 }
 
 impl<'a> MeshBuilder<'a> {
-    // 汎用: 直方体を追加
     pub fn push_cuboid(&mut self, x: f32, y: f32, z: f32, sx: f32, sy: f32, sz: f32, color: [f32; 4]) {
         self.face([x, y+sy, z+sz], [x+sx, y+sy, z+sz], [x+sx, y+sy, z], [x, y+sy, z], [0.0, 1.0, 0.0], color); // Top
         self.face([x, y, z], [x+sx, y, z], [x+sx, y, z+sz], [x, y, z+sz], [0.0, -1.0, 0.0], color); // Bottom
@@ -42,30 +40,29 @@ impl<'a> MeshBuilder<'a> {
     }
 }
 
-// ★追加: ブロックの描画タイプ
+// ★修正: 関数ポインタをやめ、モデルIDを持つように変更
 pub enum MeshType {
-    Cube, // 通常の1x1x1ブロック (Cullingあり)
-    Custom(fn(&mut MeshBuilder, f32, f32, f32, [f32; 4])), // カスタム形状関数
+    Cube,
+    VoxModel(String), // "miner" などのID
 }
 
-// ★追加: ブロックの見た目情報まとめ
 pub struct BlockVisual {
     pub color: [f32; 4],
     pub mesh_type: MeshType,
-    pub is_transparent: bool, // これがtrueなら、隣接ブロックの面を描画させる(Cullingされない)
+    pub is_transparent: bool,
 }
 
-// ★追加: IDから見た目情報を引く関数 (ここを一元管理する)
+// ★修正: VoxModelを指定するように変更
 pub fn get_block_visual(id: &str) -> BlockVisual {
     match id {
         "conveyor" => BlockVisual {
             color: [0.2, 0.2, 0.2, 1.0],
-            mesh_type: MeshType::Custom(mesh_conveyor),
-            is_transparent: true, // 背が低いので隣が見える
+            mesh_type: MeshType::VoxModel("conveyor".to_string()),
+            is_transparent: true,
         },
         "miner" => BlockVisual {
             color: [0.8, 0.4, 0.0, 1.0],
-            mesh_type: MeshType::Custom(mesh_miner),
+            mesh_type: MeshType::VoxModel("miner".to_string()),
             is_transparent: true,
         },
         "dirt" => BlockVisual {
@@ -83,21 +80,10 @@ pub fn get_block_visual(id: &str) -> BlockVisual {
             mesh_type: MeshType::Cube,
             is_transparent: true,
         },
-        _ => BlockVisual { // 未定義ブロック
-            color: [1.0, 0.0, 1.0, 1.0], // マゼンタ
+        _ => BlockVisual {
+            color: [1.0, 0.0, 1.0, 1.0],
             mesh_type: MeshType::Cube,
             is_transparent: false,
         },
     }
-}
-
-// 個別のカスタムメッシュ関数
-fn mesh_conveyor(builder: &mut MeshBuilder, x: f32, y: f32, z: f32, color: [f32; 4]) {
-    builder.push_cuboid(x, y, z, 1.0, 0.2, 1.0, color);
-}
-
-fn mesh_miner(builder: &mut MeshBuilder, x: f32, y: f32, z: f32, color: [f32; 4]) {
-    builder.push_cuboid(x, y, z, 1.0, 0.2, 1.0, color); // 土台
-    builder.push_cuboid(x + 0.2, y + 0.2, z + 0.2, 0.6, 0.6, 0.6, [color[0]*0.8, color[1]*0.8, color[2]*0.8, 1.0]); // 本体
-    builder.push_cuboid(x + 0.4, y + 0.8, z + 0.4, 0.2, 0.2, 0.2, [0.3, 0.3, 0.3, 1.0]); // ドリル
 }

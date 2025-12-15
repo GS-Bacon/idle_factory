@@ -3,11 +3,14 @@ use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::render::render_asset::RenderAssetUsages;
 use crate::rendering::chunk::{Chunk, CHUNK_SIZE};
 use crate::core::registry::BlockRegistry;
-// ★修正: modelsから MeshType, get_block_visual をインポート
 use crate::rendering::models::{MeshBuilder, MeshType, get_block_visual};
 
 #[derive(Component)]
 pub struct MeshDirty;
+
+// ★追加: チャンク用マテリアルを保持するリソース
+#[derive(Resource)]
+pub struct ChunkMaterialHandle(pub Handle<StandardMaterial>);
 
 #[derive(Clone, Copy)]
 pub enum Direction { XPos, XNeg, YPos, YNeg, ZPos, ZNeg }
@@ -15,7 +18,8 @@ pub enum Direction { XPos, XNeg, YPos, YNeg, ZPos, ZNeg }
 pub fn update_chunk_mesh(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>, // 削除: ここで毎回作らない
+    chunk_material: Res<ChunkMaterialHandle>, // ★追加: 共有マテリアルを使用
     block_registry: Res<BlockRegistry>,
     query: Query<(Entity, &Chunk), With<MeshDirty>>,
 ) {
@@ -38,45 +42,40 @@ pub fn update_chunk_mesh(
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    // ブロックID取得
                     let block_id = match chunk.get_block(x, y, z) {
                         Some(id) => id,
                         None => continue,
                     };
 
-                    // Airと無効なブロックはスキップ
                     if block_id == "air" { continue; }
                     if block_registry.map.get(block_id).is_none() { continue; }
+
+                    // マシン系は個別モデルなので除外
+                    if block_id == "conveyor" || block_id == "miner" {
+                        continue;
+                    }
 
                     let bx = x as f32;
                     let by = y as f32;
                     let bz = z as f32;
 
-                    // ★変更点: ここで一括取得！
                     let visual = get_block_visual(block_id);
 
-                    // ★変更点: Visual情報に基づいて分岐（IDによるハードコーディング排除）
                     match visual.mesh_type {
-                        MeshType::Custom(mesh_fn) => {
-                            // カスタム形状なら関数を実行
-                            mesh_fn(&mut builder, bx, by, bz, visual.color);
-                        },
+                        MeshType::VoxModel(_) => { continue; },
                         MeshType::Cube => {
-                            // 通常ブロックなら面カリング処理
                             let ix = x as i32;
                             let iy = y as i32;
                             let iz = z as i32;
 
-                            // 隣が「透明（透過設定あり）」または「範囲外」なら面を描く
                             let should_draw_face = |cx: i32, cy: i32, cz: i32| -> bool {
                                 if cx < 0 || cy < 0 || cz < 0 || cx >= cs || cy >= cs || cz >= cs { 
                                     return true; 
                                 }
-                                // 隣のブロックを取得して視覚情報を確認
                                 chunk.get_block(cx as usize, cy as usize, cz as usize)
                                      .map_or(true, |neighbor_id| {
-                                         // 隣がAir、または「is_transparent = true」なブロックなら描画する
-                                         get_block_visual(neighbor_id).is_transparent
+                                         let neighbor_visual = get_block_visual(neighbor_id);
+                                         neighbor_visual.is_transparent
                                      })
                             };
 
@@ -92,7 +91,6 @@ pub fn update_chunk_mesh(
             }
         }
         
-        // メッシュ生成・エンティティ更新処理 (変更なし)
         if positions.is_empty() {
             commands.entity(entity).remove::<MeshDirty>();
             continue;
@@ -107,11 +105,8 @@ pub fn update_chunk_mesh(
         commands.entity(entity)
             .insert((
                 Mesh3d(meshes.add(mesh)),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::WHITE,
-                    perceptual_roughness: 0.6,
-                    ..default()
-                })),
+                // ★修正: 毎回生成せず、リソースからクローン(軽量コピー)する
+                MeshMaterial3d(chunk_material.0.clone()), 
                 Transform::from_translation(chunk.position.as_vec3() * CHUNK_SIZE as f32),
             ))
             .remove::<MeshDirty>();
