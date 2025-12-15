@@ -135,11 +135,15 @@ pub fn handle_building(
             if !is_occupied {
                 let cam_forward = cam_transform.forward();
                 let flat_forward = Vec3::new(cam_forward.x, 0.0, cam_forward.z).normalize_or_zero();
-                let orientation = if flat_forward.x.abs() > flat_forward.z.abs() {
+                let player_facing_direction = if flat_forward.x.abs() > flat_forward.z.abs() {
                     if flat_forward.x > 0.0 { Direction::East } else { Direction::West }
                 } else {
                     if flat_forward.z > 0.0 { Direction::South } else { Direction::North }
                 };
+
+                // Set machine's orientation (front) to be opposite of player's facing direction
+                // because output (ejection) is from the back, and user wants ejection to be player_facing_direction.
+                let machine_orientation = player_facing_direction.opposite();
 
                 let id = build_tool.active_block_id.clone();
                 
@@ -153,11 +157,11 @@ pub fn handle_building(
                     }
                 };
                 
-                info!("🏗️ Placing {} at {:?} Facing {:?}", id, place_pos, orientation);
+                info!("🏗️ Placing {} at {:?} Facing {:?}", id, place_pos, machine_orientation);
                 
                 grid.machines.insert(place_pos, MachineInstance {
                     id: id.clone(),
-                    orientation,
+                    orientation: machine_orientation, // Use the new calculated orientation
                     machine_type,
                     power_node: None, // Initialize the power node placeholder
                 });
