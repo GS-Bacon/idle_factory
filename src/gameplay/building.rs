@@ -148,12 +148,16 @@ pub fn handle_building(
                     if flat_forward.z > 0.0 { Direction::South } else { Direction::North }
                 };
 
-                // Set machine's orientation (front) to be opposite of player's facing direction
-                // because output (ejection) is from the back, and user wants ejection to be player_facing_direction.
-                let machine_orientation = player_facing_direction.opposite();
-
                 let id = build_tool.active_block_id.clone();
-                
+
+                // 機械ごとに設置方向を決定
+                let machine_orientation = match id.as_str() {
+                    // コンベア: プレイヤーの視線向きに流れる
+                    "conveyor" => player_facing_direction,
+                    // その他の機械: プレイヤーの視線と逆向き（出力がプレイヤー向き）
+                    _ => player_facing_direction.opposite(),
+                };
+
                 let machine_type = match id.as_str() {
                     "conveyor" => Machine::Conveyor(Conveyor::default()),
                     "miner" => Machine::Miner(Miner::default()),

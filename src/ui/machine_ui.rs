@@ -86,12 +86,16 @@ impl Plugin for MachineUiPlugin {
 }
 
 /// Handle right-click interaction to open machine UI
+/// NOTE: 現在は無効化（Assemblerは自動レシピ検索を使用）
 fn handle_machine_interaction(
-    mut events: EventReader<PlayerInteractEvent>,
-    grid: Res<SimulationGrid>,
-    mut open_events: EventWriter<OpenMachineUiEvent>,
-    state: Res<State<MachineUiState>>,
+    _events: EventReader<PlayerInteractEvent>,
+    _grid: Res<SimulationGrid>,
+    _open_events: EventWriter<OpenMachineUiEvent>,
+    _state: Res<State<MachineUiState>>,
 ) {
+    // Assemblerは自動レシピ検索を使用するため、UIは無効化
+    // 将来的に他の機械でUIが必要になる場合は、ここを変更
+    /*
     for event in events.read() {
         if event.mouse_button != MouseButton::Right { continue; }
 
@@ -103,6 +107,7 @@ fn handle_machine_interaction(
             }
         }
     }
+    */
 }
 
 /// Handle open UI event
