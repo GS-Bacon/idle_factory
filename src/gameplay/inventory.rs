@@ -102,6 +102,7 @@ impl InventorySlot {
 pub struct PlayerInventory {
     pub slots: Vec<InventorySlot>,
     pub size: usize,
+    pub selected_hotbar_slot: usize, // ホットバーの選択スロット (50-59)
 }
 
 impl PlayerInventory {
@@ -109,6 +110,7 @@ impl PlayerInventory {
         Self {
             slots: vec![InventorySlot::empty(); size],
             size,
+            selected_hotbar_slot: 50, // デフォルトはホットバーの最初のスロット
         }
     }
 

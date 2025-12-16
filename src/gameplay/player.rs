@@ -1,5 +1,6 @@
 use crate::core::config::GameConfig;
 use crate::core::input::KeyBindings;
+use crate::gameplay::inventory::PlayerInventory;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
@@ -121,5 +122,34 @@ pub fn grab_cursor(
     if key.just_pressed(KeyCode::Escape) {
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
+    }
+}
+
+/// ホットバースロット選択（1-9キー、0キー）
+pub fn handle_hotbar_selection(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut inventory: ResMut<PlayerInventory>,
+) {
+    // 1-9キーでホットバースロット50-58を選択
+    if keyboard.just_pressed(KeyCode::Digit1) {
+        inventory.selected_hotbar_slot = 50;
+    } else if keyboard.just_pressed(KeyCode::Digit2) {
+        inventory.selected_hotbar_slot = 51;
+    } else if keyboard.just_pressed(KeyCode::Digit3) {
+        inventory.selected_hotbar_slot = 52;
+    } else if keyboard.just_pressed(KeyCode::Digit4) {
+        inventory.selected_hotbar_slot = 53;
+    } else if keyboard.just_pressed(KeyCode::Digit5) {
+        inventory.selected_hotbar_slot = 54;
+    } else if keyboard.just_pressed(KeyCode::Digit6) {
+        inventory.selected_hotbar_slot = 55;
+    } else if keyboard.just_pressed(KeyCode::Digit7) {
+        inventory.selected_hotbar_slot = 56;
+    } else if keyboard.just_pressed(KeyCode::Digit8) {
+        inventory.selected_hotbar_slot = 57;
+    } else if keyboard.just_pressed(KeyCode::Digit9) {
+        inventory.selected_hotbar_slot = 58;
+    } else if keyboard.just_pressed(KeyCode::Digit0) {
+        inventory.selected_hotbar_slot = 59;
     }
 }

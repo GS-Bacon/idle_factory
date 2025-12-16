@@ -31,6 +31,7 @@ impl Plugin for GameplayPlugin {
                 player::move_player.run_if(in_state(InventoryUiState::Closed)),
                 player::look_player.run_if(in_state(InventoryUiState::Closed)),
                 player::grab_cursor.run_if(in_state(InventoryUiState::Closed)),
+                player::handle_hotbar_selection,
                 items::update_visual_items,
             ));
 

@@ -133,13 +133,36 @@ pub fn handle_building(
         }
     }
 
-    if let Some((_, place_pos)) = target_info {
+    if let Some((target_pos, place_pos)) = target_info {
         if mouse.just_pressed(MouseButton::Left) {
-            let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
-                existing != "air"
-            } else { true };
+            // Shiftキー押下時はブロック破壊
+            if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+                // ターゲットブロックを破壊
+                if target_pos.x >= 0 && target_pos.x < CHUNK_SIZE as i32 &&
+                   target_pos.y >= 0 && target_pos.y < CHUNK_SIZE as i32 &&
+                   target_pos.z >= 0 && target_pos.z < CHUNK_SIZE as i32 {
 
-            if !is_occupied {
+                    let target_block = chunk.get_block(target_pos.x as usize, target_pos.y as usize, target_pos.z as usize);
+                    if let Some(block_id) = target_block {
+                        if block_id != "air" {
+                            info!("⛏️ Breaking block '{}' at {:?}", block_id, target_pos);
+
+                            // グリッドから機械を削除
+                            grid.machines.remove(&target_pos);
+
+                            // チャンクからブロックを削除
+                            chunk.set_block(target_pos.x as usize, target_pos.y as usize, target_pos.z as usize, "air");
+                            commands.entity(chunk_entity).insert(MeshDirty);
+                        }
+                    }
+                }
+            } else {
+                // Shiftキーが押されていない場合は設置
+                let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
+                    existing != "air"
+                } else { true };
+
+                if !is_occupied {
                 let cam_forward = cam_transform.forward();
                 let flat_forward = Vec3::new(cam_forward.x, 0.0, cam_forward.z).normalize_or_zero();
                 let player_facing_direction = if flat_forward.x.abs() > flat_forward.z.abs() {
@@ -185,6 +208,7 @@ pub fn handle_building(
                     pos: place_pos,
                     machine_id: id,
                 });
+                }
             }
         }
     }
