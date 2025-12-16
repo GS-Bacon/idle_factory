@@ -9,9 +9,12 @@ pub mod interaction;
 pub mod power;
 pub mod multiblock;
 pub mod inventory;
+pub mod commands;
+pub mod held_item;
 
 use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;
+use crate::ui::command_ui::CommandUiState;
 
 pub struct GameplayPlugin;
 
@@ -22,15 +25,29 @@ impl Plugin for GameplayPlugin {
             .add_plugins(power::PowerPlugin)
             .add_plugins(multiblock::MultiblockPlugin)
             .add_plugins(inventory::InventoryPlugin)
+            .add_plugins(commands::CommandsPlugin)
+            .add_plugins(held_item::HeldItemPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
             .add_event::<building::MachinePlacedEvent>()
             .add_systems(Startup, player::spawn_player)
             .add_systems(Update, (
-                building::handle_building.run_if(in_state(InventoryUiState::Closed)),
-                player::move_player.run_if(in_state(InventoryUiState::Closed)),
-                player::look_player.run_if(in_state(InventoryUiState::Closed)),
-                player::grab_cursor.run_if(in_state(InventoryUiState::Closed)),
+                building::handle_building.run_if(
+                    in_state(InventoryUiState::Closed)
+                    .and(in_state(CommandUiState::Closed))
+                ),
+                player::move_player.run_if(
+                    in_state(InventoryUiState::Closed)
+                    .and(in_state(CommandUiState::Closed))
+                ),
+                player::look_player.run_if(
+                    in_state(InventoryUiState::Closed)
+                    .and(in_state(CommandUiState::Closed))
+                ),
+                player::grab_cursor.run_if(
+                    in_state(InventoryUiState::Closed)
+                    .and(in_state(CommandUiState::Closed))
+                ),
                 player::handle_hotbar_selection,
                 items::update_visual_items,
             ));

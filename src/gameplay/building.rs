@@ -6,6 +6,7 @@ use crate::core::config::GameConfig;
 use crate::gameplay::interaction::PlayerInteractEvent;
 use crate::core::registry::BlockRegistry;
 use crate::gameplay::machines::{conveyor::Conveyor, miner::Miner, assembler::Assembler};
+use crate::gameplay::commands::GameMode;
 
 #[derive(Resource, Default)]
 pub struct BuildTool {
@@ -32,6 +33,7 @@ pub fn handle_building(
     mut build_tool: ResMut<BuildTool>,
     block_registry: Res<BlockRegistry>,
     mut machine_placed_events: EventWriter<MachinePlacedEvent>, // EventWriter for new event
+    game_mode: Res<GameMode>,
 ) {
     if keyboard.just_pressed(KeyCode::Digit1) {
         build_tool.active_block_id = "conveyor".to_string();
@@ -135,8 +137,12 @@ pub fn handle_building(
 
     if let Some((target_pos, place_pos)) = target_info {
         if mouse.just_pressed(MouseButton::Left) {
-            // Shiftキー押下時はブロック破壊
-            if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+            // Shiftキー押下時、またはクリエイティブモード時はブロック破壊
+            let should_break = keyboard.pressed(KeyCode::ShiftLeft)
+                || keyboard.pressed(KeyCode::ShiftRight)
+                || *game_mode == GameMode::Creative;
+
+            if should_break {
                 // ターゲットブロックを破壊
                 if target_pos.x >= 0 && target_pos.x < CHUNK_SIZE as i32 &&
                    target_pos.y >= 0 && target_pos.y < CHUNK_SIZE as i32 &&
