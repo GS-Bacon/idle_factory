@@ -27,6 +27,7 @@ impl Plugin for MainMenuPlugin {
                 save_select_buttons.run_if(in_state(AppState::SaveSelect)),
                 world_gen_buttons.run_if(in_state(AppState::WorldGeneration)),
                 text_input_system.run_if(in_state(AppState::WorldGeneration)),
+                handle_menu_escape_key,
             ));
     }
 }
@@ -591,4 +592,23 @@ fn generate_random_seed() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos() as u64
+}
+
+/// メニュー画面でのESCキー処理
+fn handle_menu_escape_key(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        match state.get() {
+            AppState::SaveSelect => {
+                next_state.set(AppState::MainMenu);
+            }
+            AppState::WorldGeneration => {
+                next_state.set(AppState::SaveSelect);
+            }
+            _ => {}
+        }
+    }
 }
