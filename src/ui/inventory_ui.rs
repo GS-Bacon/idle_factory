@@ -936,8 +936,8 @@ fn spawn_hotbar_hud(
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::End,
+                justify_content: JustifyContent::FlexEnd, // 縦方向で下に配置
+                align_items: AlignItems::Center, // 横方向で中央に配置
                 padding: UiRect::bottom(Val::Px(20.0)),
                 flex_direction: FlexDirection::Column,
                 ..default()

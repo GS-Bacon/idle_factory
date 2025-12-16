@@ -8,6 +8,8 @@ pub struct GameConfig {
     pub run_speed: f32,
     pub enable_highlight: bool,
     pub max_items_per_conveyor: usize,
+    pub max_fps: f64,
+    pub enable_ui_blur: bool,
 }
 
 impl Default for GameConfig {
@@ -18,6 +20,8 @@ impl Default for GameConfig {
             run_speed: 10.0,
             enable_highlight: true,
             max_items_per_conveyor: 4,
+            max_fps: 60.0,
+            enable_ui_blur: true,
         }
     }
 }

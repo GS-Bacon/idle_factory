@@ -29,10 +29,9 @@ pub fn handle_building(
     mut commands: Commands,
     mut gizmos: Gizmos,
     config: Res<GameConfig>,
-    mut interact_events: EventWriter<PlayerInteractEvent>,
     mut build_tool: ResMut<BuildTool>,
     block_registry: Res<BlockRegistry>,
-    mut machine_placed_events: EventWriter<MachinePlacedEvent>, // EventWriter for new event
+    mut machine_placed_events: EventWriter<MachinePlacedEvent>,
     game_mode: Res<GameMode>,
 ) {
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -136,13 +135,16 @@ pub fn handle_building(
     }
 
     if let Some((target_pos, place_pos)) = target_info {
-        if mouse.just_pressed(MouseButton::Left) {
-            // Shiftキー押下時、またはクリエイティブモード時はブロック破壊
-            let should_break = keyboard.pressed(KeyCode::ShiftLeft)
-                || keyboard.pressed(KeyCode::ShiftRight)
-                || *game_mode == GameMode::Creative;
+        // 左クリック: ブロック破壊（Shift押下時またはクリエイティブモード）
+        // 右クリック: ブロック設置
+        let is_breaking = mouse.just_pressed(MouseButton::Left) && (
+            keyboard.pressed(KeyCode::ShiftLeft) ||
+            keyboard.pressed(KeyCode::ShiftRight) ||
+            *game_mode == GameMode::Creative
+        );
+        let is_placing = mouse.just_pressed(MouseButton::Right);
 
-            if should_break {
+        if is_breaking {
                 // ターゲットブロックを破壊
                 if target_pos.x >= 0 && target_pos.x < CHUNK_SIZE as i32 &&
                    target_pos.y >= 0 && target_pos.y < CHUNK_SIZE as i32 &&
@@ -162,13 +164,15 @@ pub fn handle_building(
                         }
                     }
                 }
-            } else {
-                // Shiftキーが押されていない場合は設置
-                let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
-                    existing != "air"
-                } else { true };
+        }
 
-                if !is_occupied {
+        if is_placing {
+            // ブロック設置
+            let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
+                existing != "air"
+            } else { true };
+
+            if !is_occupied {
                 let cam_forward = cam_transform.forward();
                 let flat_forward = Vec3::new(cam_forward.x, 0.0, cam_forward.z).normalize_or_zero();
                 let player_facing_direction = if flat_forward.x.abs() > flat_forward.z.abs() {
@@ -214,17 +218,7 @@ pub fn handle_building(
                     pos: place_pos,
                     machine_id: id,
                 });
-                }
             }
-        }
-    }
-    
-    if let Some((target_pos, _)) = target_info {
-        if mouse.just_pressed(MouseButton::Right) {
-            interact_events.send(PlayerInteractEvent {
-                grid_pos: target_pos,
-                mouse_button: MouseButton::Right,
-            });
         }
     }
 }
