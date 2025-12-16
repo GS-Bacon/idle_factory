@@ -968,13 +968,18 @@ fn spawn_slot_sized(
             BorderColor(Color::srgb(0.5, 0.5, 0.5)),
         ))
         .with_children(|parent| {
-            if let Some(item_id) = &slot_data.item_id {
-                parent.spawn((
-                    Text::new(format!("{}\n{}", item_id, slot_data.count)),
-                    TextFont { font_size: 12.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-            }
+            // 常にテキストエンティティを生成（空の場合も）
+            let text_content = if let Some(item_id) = &slot_data.item_id {
+                format!("{}\n{}", item_id, slot_data.count)
+            } else {
+                String::new()
+            };
+
+            parent.spawn((
+                Text::new(text_content),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
         });
 }
 
@@ -1016,14 +1021,18 @@ fn spawn_slot_with_icon(
                 },
             ));
 
-            // アイテム情報（中央）
-            if let Some(item_id) = &slot_data.item_id {
-                parent.spawn((
-                    Text::new(format!("{}\n{}", item_id, slot_data.count)),
-                    TextFont { font_size: 11.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-            }
+            // アイテム情報（中央）- 常にテキストエンティティを生成
+            let text_content = if let Some(item_id) = &slot_data.item_id {
+                format!("{}\n{}", item_id, slot_data.count)
+            } else {
+                String::new()
+            };
+
+            parent.spawn((
+                Text::new(text_content),
+                TextFont { font_size: 11.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
         });
 }
 
