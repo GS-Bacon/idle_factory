@@ -166,8 +166,8 @@ impl Plugin for InventoryUiPlugin {
                 spawn_container_ui,
                 release_cursor,
             ))
-            .add_systems(OnExit(InventoryUiState::PlayerInventory), (despawn_inventory_ui, spawn_hotbar_hud_if_not_creative))
-            .add_systems(OnExit(InventoryUiState::Container), despawn_inventory_ui)
+            .add_systems(OnExit(InventoryUiState::PlayerInventory), (despawn_inventory_ui, spawn_hotbar_hud_if_not_creative, grab_cursor))
+            .add_systems(OnExit(InventoryUiState::Container), (despawn_inventory_ui, grab_cursor))
             .add_systems(OnEnter(InventoryUiState::Closed), spawn_hotbar_hud)
             .add_systems(OnEnter(InventoryUiState::PlayerInventory), spawn_hotbar_hud_if_creative)
             .add_systems(OnExit(InventoryUiState::Closed), despawn_hotbar_hud_if_not_creative)
@@ -213,17 +213,11 @@ fn handle_escape_key(
     keyboard: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<InventoryUiState>>,
     mut next_state: ResMut<NextState<InventoryUiState>>,
-    mut window_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
         if *current_state.get() != InventoryUiState::Closed {
             next_state.set(InventoryUiState::Closed);
-
-            // カーソルをグラブしてゲームに戻る
-            if let Ok(mut window) = window_query.get_single_mut() {
-                window.cursor_options.visible = false;
-                window.cursor_options.grab_mode = bevy::window::CursorGrabMode::Locked;
-            }
+            // カーソルのグラブはOnExitシステムで自動的に行われる
         }
     }
 }
@@ -1564,6 +1558,16 @@ fn release_cursor(
     if let Ok(mut window) = window_query.get_single_mut() {
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
+    }
+}
+
+/// インベントリUI終了時にカーソルをグラブ
+fn grab_cursor(
+    mut window_query: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if let Ok(mut window) = window_query.get_single_mut() {
+        window.cursor_options.grab_mode = CursorGrabMode::Locked;
+        window.cursor_options.visible = false;
     }
 }
 
