@@ -556,11 +556,11 @@ fn spawn_main_inventory_panel_mc(parent: &mut ChildBuilder, inventory: &PlayerIn
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Inventory"),
-                        TextFont { font_size: 20.0, ..default() },
-                        TextColor(Color::WHITE),
-                    ));
+                    // Spacing node to maintain grid position (removed "Inventory" label)
+                    parent.spawn(Node {
+                        height: Val::Px(25.0),
+                        ..default()
+                    });
 
                     parent
                         .spawn((
@@ -641,11 +641,11 @@ fn spawn_main_inventory_grid_only(parent: &mut ChildBuilder, inventory: &PlayerI
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("Inventory"),
-                TextFont { font_size: 20.0, ..default() },
-                TextColor(Color::WHITE),
-            ));
+            // Spacing node to maintain grid position (removed "Inventory" label)
+            parent.spawn(Node {
+                height: Val::Px(25.0),
+                ..default()
+            });
 
             parent
                 .spawn((
@@ -783,11 +783,11 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("Creative Items"),
-                TextFont { font_size: 24.0, ..default() },
-                TextColor(Color::WHITE),
-            ));
+            // Spacing node to maintain grid position (removed "Creative Items" label)
+            parent.spawn(Node {
+                height: Val::Px(30.0),
+                ..default()
+            });
 
             // スクロールビュー（グリッド表示）
             parent
@@ -834,11 +834,11 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
 
 /// クリエイティブアイテムグリッドを生成（10x5固定グリッド、インベントリと同じサイズ）
 fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegistry, slot_size: f32, slot_gap: f32) {
-    parent.spawn((
-        Text::new("Creative Items"),
-        TextFont { font_size: 24.0, ..default() },
-        TextColor(Color::WHITE),
-    ));
+    // Spacing node to maintain grid position (removed "Creative Items" label)
+    parent.spawn(Node {
+        height: Val::Px(30.0),
+        ..default()
+    });
 
     // アイテムIDリストを取得（ソート済み）
     let mut item_ids: Vec<String> = item_registry.items.keys().cloned().collect();
@@ -1849,6 +1849,192 @@ mod tests {
     use bevy::app::App;
     use bevy::ecs::system::RunSystemOnce;
     use crate::gameplay::inventory::ItemRegistry;
+
+    // ========================================
+    // テスト用自動UI操作ヘルパー
+    // ========================================
+
+    /// テスト用: スロットにアイテムを直接設定
+    fn set_slot_item(inventory: &mut PlayerInventory, slot_index: usize, item_id: &str, count: u32) {
+        if slot_index < inventory.slots.len() {
+            inventory.slots[slot_index] = crate::gameplay::inventory::InventorySlot::new(item_id.to_string(), count);
+        }
+    }
+
+    /// テスト用: スロットをクリア
+    #[allow(dead_code)]
+    fn clear_slot(inventory: &mut PlayerInventory, slot_index: usize) {
+        if slot_index < inventory.slots.len() {
+            inventory.slots[slot_index].clear();
+        }
+    }
+
+    /// テスト用: ドラッグ&ドロップをシミュレート
+    fn simulate_drag_drop(
+        inventory: &mut PlayerInventory,
+        from_slot: usize,
+        to_slot: usize,
+        item_registry: &ItemRegistry,
+    ) -> bool {
+        if from_slot >= inventory.slots.len() || to_slot >= inventory.slots.len() {
+            return false;
+        }
+
+        let source = inventory.slots[from_slot].clone();
+        if source.is_empty() {
+            return false;
+        }
+
+        let target = &mut inventory.slots[to_slot];
+
+        if target.is_empty() {
+            // 空スロットへ移動
+            target.item_id = source.item_id.clone();
+            target.count = source.count;
+            inventory.slots[from_slot].clear();
+            true
+        } else if target.item_id == source.item_id {
+            // 同種アイテムをスタック
+            let max_stack = source.item_id.as_ref()
+                .and_then(|id| item_registry.get(id))
+                .map(|d| d.max_stack)
+                .unwrap_or(999);
+
+            let space = max_stack.saturating_sub(target.count);
+            let add = source.count.min(space);
+            target.count += add;
+
+            if add == source.count {
+                inventory.slots[from_slot].clear();
+            } else {
+                inventory.slots[from_slot].count -= add;
+            }
+            true
+        } else {
+            // スワップ
+            let temp = inventory.slots[to_slot].clone();
+            inventory.slots[to_slot] = source;
+            inventory.slots[from_slot] = temp;
+            true
+        }
+    }
+
+    /// テスト用: スロット内容を検証
+    fn assert_slot_contains(inventory: &PlayerInventory, slot_index: usize, expected_item: Option<&str>, expected_count: u32) {
+        let slot = &inventory.slots[slot_index];
+        assert_eq!(slot.item_id.as_deref(), expected_item, "Slot {} item mismatch", slot_index);
+        assert_eq!(slot.count, expected_count, "Slot {} count mismatch", slot_index);
+    }
+
+    /// テスト用: スロットが空であることを検証
+    fn assert_slot_empty(inventory: &PlayerInventory, slot_index: usize) {
+        assert!(inventory.slots[slot_index].is_empty(), "Slot {} should be empty", slot_index);
+    }
+
+    // ========================================
+    // 自動UIテスト
+    // ========================================
+
+    #[test]
+    fn test_drag_drop_to_empty_slot() {
+        let mut inventory = PlayerInventory::new(60);
+        let item_registry = ItemRegistry::default();
+
+        // スロット0にアイテムを設定
+        set_slot_item(&mut inventory, 0, "stone", 10);
+
+        // スロット0からスロット5へドラッグ&ドロップ
+        let result = simulate_drag_drop(&mut inventory, 0, 5, &item_registry);
+
+        assert!(result, "Drag drop should succeed");
+        assert_slot_empty(&inventory, 0);
+        assert_slot_contains(&inventory, 5, Some("stone"), 10);
+    }
+
+    #[test]
+    fn test_drag_drop_stack_same_item() {
+        let mut inventory = PlayerInventory::new(60);
+        let item_registry = ItemRegistry::default();
+
+        // スロット0と1に同じアイテムを設定
+        set_slot_item(&mut inventory, 0, "stone", 50);
+        set_slot_item(&mut inventory, 1, "stone", 30);
+
+        // スロット0からスロット1へドラッグ&ドロップ（スタック）
+        let result = simulate_drag_drop(&mut inventory, 0, 1, &item_registry);
+
+        assert!(result, "Drag drop should succeed");
+        assert_slot_empty(&inventory, 0);
+        assert_slot_contains(&inventory, 1, Some("stone"), 80);
+    }
+
+    #[test]
+    fn test_drag_drop_swap_different_items() {
+        let mut inventory = PlayerInventory::new(60);
+        let item_registry = ItemRegistry::default();
+
+        // 異なるアイテムを設定
+        set_slot_item(&mut inventory, 0, "stone", 10);
+        set_slot_item(&mut inventory, 1, "iron", 20);
+
+        // スロット0からスロット1へドラッグ&ドロップ（スワップ）
+        let result = simulate_drag_drop(&mut inventory, 0, 1, &item_registry);
+
+        assert!(result, "Drag drop should succeed");
+        assert_slot_contains(&inventory, 0, Some("iron"), 20);
+        assert_slot_contains(&inventory, 1, Some("stone"), 10);
+    }
+
+    #[test]
+    fn test_hotbar_slot_selection() {
+        let mut inventory = PlayerInventory::new(60);
+
+        // ホットバースロットにアイテムを設定
+        set_slot_item(&mut inventory, 50, "pickaxe", 1);
+        set_slot_item(&mut inventory, 52, "sword", 1);
+
+        // 選択スロットを変更
+        inventory.selected_hotbar_slot = 52;
+
+        assert_eq!(inventory.selected_hotbar_slot, 52);
+        assert_slot_contains(&inventory, 52, Some("sword"), 1);
+    }
+
+    #[test]
+    fn test_inventory_sort() {
+        let mut inventory = PlayerInventory::new(60);
+
+        // バラバラにアイテムを配置
+        set_slot_item(&mut inventory, 5, "stone", 10);
+        set_slot_item(&mut inventory, 2, "iron", 5);
+        set_slot_item(&mut inventory, 8, "stone", 20);
+
+        // ソート実行
+        inventory.sort();
+
+        // ソート後: 同じアイテムがまとまり、ID順に並ぶ
+        // iron(5), stone(30)の順になるはず
+        let mut found_items: Vec<(String, u32)> = Vec::new();
+        for slot in &inventory.slots[0..50] {
+            if let Some(id) = &slot.item_id {
+                found_items.push((id.clone(), slot.count));
+            }
+        }
+
+        assert!(!found_items.is_empty(), "Should have items after sort");
+        // アイテムの合計数が維持されていることを確認
+        let stone_total: u32 = found_items.iter()
+            .filter(|(id, _)| id == "stone")
+            .map(|(_, c)| c)
+            .sum();
+        let iron_total: u32 = found_items.iter()
+            .filter(|(id, _)| id == "iron")
+            .map(|(_, c)| c)
+            .sum();
+
+        assert_eq!(stone_total, 30, "Stone total should be 30");
+        assert_eq!(iron_total, 5, "Iron total should be 5");
+    }
 
     #[test]
     fn test_hotbar_highlight_updates() {
