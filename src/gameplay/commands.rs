@@ -180,16 +180,16 @@ mod tests {
         app.add_plugins(CommandsPlugin);
         app.update();
 
-        // デフォルトはサバイバル
-        assert_eq!(*app.world().resource::<GameMode>(), GameMode::Survival);
-
-        // クリエイティブに変更
-        app.world_mut().insert_resource(GameMode::Creative);
+        // デフォルトはクリエイティブ（テスト段階）
         assert_eq!(*app.world().resource::<GameMode>(), GameMode::Creative);
 
-        // サバイバルに戻す
+        // サバイバルに変更
         app.world_mut().insert_resource(GameMode::Survival);
         assert_eq!(*app.world().resource::<GameMode>(), GameMode::Survival);
+
+        // クリエイティブに戻す
+        app.world_mut().insert_resource(GameMode::Creative);
+        assert_eq!(*app.world().resource::<GameMode>(), GameMode::Creative);
     }
 
     #[test]
