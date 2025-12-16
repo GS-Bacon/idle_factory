@@ -269,7 +269,7 @@ pub struct InventoryPlugin;
 impl Plugin for InventoryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ItemRegistry>()
-            .insert_resource(PlayerInventory::new(40)) // 40スロット
+            .insert_resource(PlayerInventory::new(60)) // 60スロット (メイン5x10 + ホットバー1x10)
             .init_resource::<EquipmentSlots>()
             .add_systems(Startup, load_items);
     }
