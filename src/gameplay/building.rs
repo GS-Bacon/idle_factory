@@ -7,6 +7,7 @@ use crate::core::registry::BlockRegistry;
 use crate::gameplay::machines::{conveyor::Conveyor, miner::Miner, assembler::Assembler};
 use crate::gameplay::commands::GameMode;
 use crate::gameplay::inventory::PlayerInventory;
+use crate::gameplay::held_item::PlayerCamera;
 
 #[derive(Resource, Default)]
 pub struct BuildTool {
@@ -31,10 +32,11 @@ pub struct MachinePlacedEvent {
     pub machine_id: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_building(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<PlayerCamera>>,
     mut grid: ResMut<SimulationGrid>,
     mut chunk_query: Query<(Entity, &mut Chunk)>,
     mut commands: Commands,
@@ -61,7 +63,9 @@ pub fn handle_building(
         build_tool.active_block_id = String::new();
     }
 
-    let (_camera, cam_transform) = camera_query.single();
+    let Ok((_camera, cam_transform)) = camera_query.get_single() else {
+        return; // PlayerCameraがない場合（メニュー画面等）は何もしない
+    };
     let ray_origin = cam_transform.translation();
     let ray_dir = cam_transform.forward();
 
@@ -103,8 +107,10 @@ pub fn handle_building(
                                 if diff.x > 0.0 { IVec3::X } else { IVec3::NEG_X }
                             } else if abs_diff.y > abs_diff.x && abs_diff.y > abs_diff.z {
                                 if diff.y > 0.0 { IVec3::Y } else { IVec3::NEG_Y }
+                            } else if diff.z > 0.0 {
+                                IVec3::Z
                             } else {
-                                if diff.z > 0.0 { IVec3::Z } else { IVec3::NEG_Z }
+                                IVec3::NEG_Z
                             };
 
                             let place_pos = iblock + normal;
@@ -191,8 +197,10 @@ pub fn handle_building(
                 let flat_forward = Vec3::new(cam_forward.x, 0.0, cam_forward.z).normalize_or_zero();
                 let player_facing_direction = if flat_forward.x.abs() > flat_forward.z.abs() {
                     if flat_forward.x > 0.0 { Direction::East } else { Direction::West }
+                } else if flat_forward.z > 0.0 {
+                    Direction::South
                 } else {
-                    if flat_forward.z > 0.0 { Direction::South } else { Direction::North }
+                    Direction::North
                 };
 
                 let id = build_tool.active_block_id.clone();

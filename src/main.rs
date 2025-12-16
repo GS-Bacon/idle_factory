@@ -25,7 +25,7 @@ fn main() {
             focused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_secs_f64(1.0 / config.max_fps)),
             unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_secs(1)),
         })
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(GamePlugin)
         .add_plugins(NetworkPlugin)
         .add_systems(Startup, (setup_lights, setup_shared_material))

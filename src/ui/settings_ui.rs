@@ -582,6 +582,7 @@ fn handle_sensitivity_buttons(
 }
 
 /// トグルボタンのクリック処理
+#[allow(clippy::type_complexity)]
 fn handle_toggle_buttons(
     highlight_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<HighlightToggleButton>)>,
     blur_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<UiBlurToggleButton>)>,

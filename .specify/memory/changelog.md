@@ -1,5 +1,46 @@
 # Development Changelog
 
+## 2025-12-16: Kinetic Machines and Recipe System
+
+### Added
+- **Common Machine Components** (`src/gameplay/machines/machine_components.rs`)
+  - Slot: Stack-enabled inventory slot
+  - InputInventory / OutputInventory: Item I/O management
+  - FluidTank: Fluid storage (mB units)
+  - MachineState: Idle/Processing/Jammed/NoPower
+  - StressImpact: Stress consumption value
+  - KineticMachine: Machine marker component
+
+- **Recipe System** (`src/gameplay/machines/recipe_system.rs`)
+  - WorkType enum: Pressing, Crushing, Cutting, Mixing, WireDrawing, etc.
+  - Recipe struct: inputs, outputs, fluids, craft_time, work_type
+  - RecipeManager resource: search by work type or input items
+  - YAML loading support (assets/data/recipes/kinetic.yaml)
+  - 5 default recipes (press, crush, cut, mix, wire draw)
+
+- **Kinetic Machines** (`src/gameplay/machines/kinetic_machines.rs`)
+  - MechanicalPress: Pressing (ingot → plate)
+  - Crusher: Crushing (ore → dust ×2)
+  - MechanicalSaw: Cutting (log → planks)
+  - Mixer: Mixing (with fluid tanks)
+  - WireDrawer: Wire drawing (plate → wire)
+  - Bundle definitions for each machine
+  - `process_kinetic_machines`: Generic processing system
+  - MachineAnimation: Frame-based animation
+
+- **Animation Guide** (`docs/KINETIC_MACHINE_ANIMATION_GUIDE.md`)
+  - Animation specs for each machine
+  - Required texture/model file list
+  - Implementation sample code
+
+### Tests Added
+- 4 machine_components tests (slot, inventory, fluid, state)
+- 4 recipe_system tests (get, work_type, find, accept)
+- 3 kinetic_machines tests (bundle, animation, processing)
+- Total: 57 tests passing
+
+---
+
 ## 2025-12-16: Main Menu and Save System
 
 ### Added

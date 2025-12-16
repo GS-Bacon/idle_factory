@@ -292,6 +292,7 @@ impl Default for WireDrawerBundle {
 /// 2. 材料チェック（レシピに必要な材料があるか）
 /// 3. 加工進行（タイマー更新）
 /// 4. 完了処理（入力消費、出力生成）
+#[allow(clippy::type_complexity)]
 pub fn process_kinetic_machines(
     mut query: Query<(
         Entity,

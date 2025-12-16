@@ -61,18 +61,13 @@ impl Default for LodSettings {
 }
 
 /// チャンクのLODレベル
-#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum ChunkLod {
+    #[default]
     Full,    // LOD0: フル詳細
     Medium,  // LOD1: 中程度
     Low,     // LOD2: 低詳細
     Icon,    // LOD3: アイコン表示のみ
-}
-
-impl Default for ChunkLod {
-    fn default() -> Self {
-        ChunkLod::Full
-    }
 }
 
 /// 非同期チャンク生成をキューに追加

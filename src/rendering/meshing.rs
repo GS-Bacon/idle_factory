@@ -48,7 +48,7 @@ pub fn update_chunk_mesh(
                     };
 
                     if block_id == "air" { continue; }
-                    if block_registry.map.get(block_id).is_none() { continue; }
+                    if !block_registry.map.contains_key(block_id) { continue; }
 
                     // マシン系は個別モデルなので除外
                     if block_id == "conveyor" || block_id == "miner" {
@@ -69,11 +69,11 @@ pub fn update_chunk_mesh(
                             let iz = z as i32;
 
                             let should_draw_face = |cx: i32, cy: i32, cz: i32| -> bool {
-                                if cx < 0 || cy < 0 || cz < 0 || cx >= cs || cy >= cs || cz >= cs { 
-                                    return true; 
+                                if cx < 0 || cy < 0 || cz < 0 || cx >= cs || cy >= cs || cz >= cs {
+                                    return true;
                                 }
                                 chunk.get_block(cx as usize, cy as usize, cz as usize)
-                                     .map_or(true, |neighbor_id| {
+                                     .is_none_or(|neighbor_id| {
                                          let neighbor_visual = get_block_visual(neighbor_id);
                                          neighbor_visual.is_transparent
                                      })

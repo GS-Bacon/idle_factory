@@ -88,7 +88,7 @@ pub fn update_power_graph_system(
     if !*has_changed && graph.node_entity_map.len() >= 2 {
         let mut node_ids: Vec<u32> = graph.node_entity_map.keys().cloned().collect();
         node_ids.sort(); // Ensure consistent ordering
-        if let (Some(id1), Some(id2)) = (node_ids.get(0), node_ids.get(1)) {
+        if let (Some(id1), Some(id2)) = (node_ids.first(), node_ids.get(1)) {
             graph.adjacencies.entry(*id1).or_default().insert(*id2);
             graph.adjacencies.entry(*id2).or_default().insert(*id1);
             info!("Dummy: Connected node {} and {}", id1, id2);

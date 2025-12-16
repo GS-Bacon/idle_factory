@@ -63,25 +63,13 @@ pub struct MultiblockRegistry {
 // ============================================================================
 
 /// Result of structure validation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ValidationResult {
     pub is_valid: bool,
     pub pattern_id: Option<String>,
     pub master_pos: Option<IVec3>,
     pub missing_blocks: Vec<(IVec3, String)>,
     pub slave_positions: Vec<IVec3>,
-}
-
-impl Default for ValidationResult {
-    fn default() -> Self {
-        Self {
-            is_valid: false,
-            pattern_id: None,
-            master_pos: None,
-            missing_blocks: Vec::new(),
-            slave_positions: Vec::new(),
-        }
-    }
 }
 
 /// Validates multiblock structures in the world
@@ -95,9 +83,11 @@ impl StructureValidator {
         grid: &SimulationGrid,
         _direction: Direction,
     ) -> ValidationResult {
-        let mut result = ValidationResult::default();
-        result.master_pos = Some(pos);
-        result.pattern_id = Some(pattern.id.clone());
+        let mut result = ValidationResult {
+            master_pos: Some(pos),
+            pattern_id: Some(pattern.id.clone()),
+            ..Default::default()
+        };
 
         let master_offset = IVec3::new(
             pattern.master_offset[0],

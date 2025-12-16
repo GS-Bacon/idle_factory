@@ -82,11 +82,9 @@ pub fn tick_miners(
                     miner.progress = 0.0;
                 }
             }
-        } else {
-            if let Some(miner_machine) = grid.machines.get_mut(&miner_pos) {
-                if let Machine::Miner(miner) = &mut miner_machine.machine_type {
-                    miner.progress = 1.0; 
-                }
+        } else if let Some(miner_machine) = grid.machines.get_mut(&miner_pos) {
+            if let Machine::Miner(miner) = &mut miner_machine.machine_type {
+                miner.progress = 1.0;
             }
         }
     }

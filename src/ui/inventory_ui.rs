@@ -214,11 +214,11 @@ fn handle_escape_key(
     current_state: Res<State<InventoryUiState>>,
     mut next_state: ResMut<NextState<InventoryUiState>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Escape) {
-        if *current_state.get() != InventoryUiState::Closed {
-            next_state.set(InventoryUiState::Closed);
-            // カーソルのグラブはOnExitシステムで自動的に行われる
-        }
+    if keyboard.just_pressed(KeyCode::Escape)
+        && *current_state.get() != InventoryUiState::Closed
+    {
+        next_state.set(InventoryUiState::Closed);
+        // カーソルのグラブはOnExitシステムで自動的に行われる
     }
 }
 
@@ -684,6 +684,7 @@ fn spawn_main_inventory_grid_only(parent: &mut ChildBuilder, inventory: &PlayerI
 }
 
 /// ホットバーのみを生成（共有用）
+#[allow(dead_code)]
 fn spawn_hotbar(parent: &mut ChildBuilder, inventory: &PlayerInventory, slot_size: f32, slot_gap: f32) {
     parent
         .spawn(Node {
@@ -774,6 +775,7 @@ fn spawn_craft_list_panel(parent: &mut ChildBuilder, recipe_registry: &RecipeReg
 }
 
 /// クリエイティブモードアイテムリストパネルを生成
+#[allow(dead_code)]
 fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegistry) {
     parent
         .spawn(Node {
@@ -1117,6 +1119,7 @@ fn update_slot_visuals(
 }
 
 /// スロットのインタラクション処理（簡易版）
+#[allow(clippy::type_complexity)]
 fn handle_slot_interaction(
     interaction_query: Query<(&Interaction, &UiSlot), (Changed<Interaction>, With<Button>)>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -1495,6 +1498,7 @@ fn update_creative_view_visibility(
 }
 
 /// ツールチップ更新（簡易版）
+#[allow(clippy::type_complexity)]
 fn update_tooltip(
     mut commands: Commands,
     slot_query: Query<(&Interaction, &UiSlot, &GlobalTransform), (Changed<Interaction>, With<Button>)>,
@@ -1685,6 +1689,7 @@ fn spawn_hotbar_slot(
 }
 
 /// ホットバーHUDを削除
+#[allow(dead_code)]
 fn despawn_hotbar_hud(
     mut commands: Commands,
     query: Query<Entity, With<HotbarHud>>,
@@ -1735,6 +1740,7 @@ fn spawn_hotbar_hud_if_not_creative(
 }
 
 /// ホットバーHUDを更新
+#[allow(clippy::type_complexity)]
 fn update_hotbar_hud(
     player_inventory: Res<PlayerInventory>,
     item_registry: Res<ItemRegistry>,

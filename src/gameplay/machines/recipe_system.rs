@@ -38,7 +38,7 @@ pub enum WorkType {
 
 impl WorkType {
     /// 文字列からWorkTypeを取得
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "assembling" => Some(Self::Assembling),
             "pressing" => Some(Self::Pressing),

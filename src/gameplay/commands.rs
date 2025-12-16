@@ -48,7 +48,7 @@ impl CommandRegistry {
     }
 
     pub fn parse(&self, input: &str) -> CommandAction {
-        let parts: Vec<String> = input.trim().split_whitespace().map(|s| s.to_string()).collect();
+        let parts: Vec<String> = input.split_whitespace().map(|s| s.to_string()).collect();
 
         if parts.is_empty() {
             return CommandAction::Error("コマンドを入力してください".to_string());
@@ -65,7 +65,7 @@ impl CommandRegistry {
     }
 
     pub fn get_completions(&self, input: &str) -> Vec<String> {
-        let parts: Vec<String> = input.trim().split_whitespace().map(|s| s.to_string()).collect();
+        let parts: Vec<String> = input.split_whitespace().map(|s| s.to_string()).collect();
 
         if parts.is_empty() || (parts.len() == 1 && !input.ends_with(' ')) {
             // コマンド名の補完

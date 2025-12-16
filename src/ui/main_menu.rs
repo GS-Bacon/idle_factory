@@ -114,6 +114,7 @@ fn despawn_with<T: Component>(
 }
 
 /// ボタンのインタラクション処理（色変更）
+#[allow(clippy::type_complexity)]
 fn button_interaction_system(
     mut query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
 ) {
@@ -178,6 +179,7 @@ fn spawn_main_menu(mut commands: Commands) {
     });
 }
 
+#[allow(clippy::type_complexity)]
 fn main_menu_buttons(
     query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -305,6 +307,7 @@ fn spawn_save_slot(parent: &mut ChildBuilder, index: usize, meta: Option<&SaveMe
     });
 }
 
+#[allow(clippy::type_complexity)]
 fn save_select_buttons(
     query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -444,6 +447,7 @@ fn spawn_text_input(parent: &mut ChildBuilder, label: &str, input_type: TextInpu
     });
 }
 
+#[allow(clippy::type_complexity)]
 fn world_gen_buttons(
     query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     input_query: Query<&TextInput>,

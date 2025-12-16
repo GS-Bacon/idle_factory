@@ -31,18 +31,13 @@ pub struct ScriptOutputEvent {
 }
 
 /// シグナル値（数値、文字列、ブール）
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum SignalValue {
     Number(f64),
     String(String),
     Boolean(bool),
+    #[default]
     Nil,
-}
-
-impl Default for SignalValue {
-    fn default() -> Self {
-        SignalValue::Nil
-    }
 }
 
 impl SignalValue {
@@ -217,24 +212,13 @@ pub struct ScriptResult {
 
 /// プログラマブルマシンコンポーネント
 #[derive(Component)]
+#[derive(Default)]
 pub struct Programmable {
     pub script_name: Option<String>,
     pub inline_code: Option<String>,
     pub inputs: HashMap<String, SignalValue>,
     pub outputs: HashMap<String, SignalValue>,
     pub last_error: Option<String>,
-}
-
-impl Default for Programmable {
-    fn default() -> Self {
-        Self {
-            script_name: None,
-            inline_code: None,
-            inputs: HashMap::new(),
-            outputs: HashMap::new(),
-            last_error: None,
-        }
-    }
 }
 
 impl Programmable {

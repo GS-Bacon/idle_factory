@@ -100,17 +100,9 @@ impl Default for Wire {
 }
 
 /// シグナル発信コンポーネント
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct SignalEmitter {
     pub outputs: HashMap<String, SignalValue>,
-}
-
-impl Default for SignalEmitter {
-    fn default() -> Self {
-        Self {
-            outputs: HashMap::new(),
-        }
-    }
 }
 
 impl SignalEmitter {
@@ -120,17 +112,9 @@ impl SignalEmitter {
 }
 
 /// シグナル受信コンポーネント
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct SignalReceiver {
     pub inputs: HashMap<String, SignalValue>,
-}
-
-impl Default for SignalReceiver {
-    fn default() -> Self {
-        Self {
-            inputs: HashMap::new(),
-        }
-    }
 }
 
 impl SignalReceiver {
