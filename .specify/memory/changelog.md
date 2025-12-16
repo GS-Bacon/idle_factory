@@ -1,5 +1,65 @@
 # Development Changelog
 
+## 2025-12-16: UI/UX Improvements and Creative Mode Enhancements
+
+### Added
+- **Settings UI with Interactive Controls**
+  - FPS adjustment buttons (30, 60, 120, 144, 240)
+  - Mouse sensitivity adjustment (+/- buttons, 0.001-0.01 range)
+  - Toggle buttons for Enable Highlight and Enable UI Blur
+  - Immediate application of settings (no Apply button needed)
+
+- **Creative Mode UI Redesign**
+  - Inventory and Item Catalog now toggle at the same position (center)
+  - No more side-by-side pre-allocated spaces
+  - Toggle button (54x54px square, ⇄ icon) switches between views
+  - Hotbar remains visible even when inventory is open in Creative mode
+
+- **Improved ESC Key Behavior**
+  - ESC 1st press: Show settings button
+  - ESC 2nd press: Return to normal play with automatic cursor grab
+  - No additional click required to resume playing
+
+### Changed
+- **Hotbar Visibility**
+  - Creative Mode: Hotbar always visible (even when inventory open)
+  - Survival Mode: Traditional behavior (hotbar hidden when inventory open)
+
+- **Settings UI**
+  - Removed Apply button (settings apply immediately)
+  - Toggle buttons are now square (54x54px) matching inventory slots
+  - ON/OFF state shown with color (green=ON, red=OFF) and text
+
+### Systems Added
+- `spawn_hotbar_hud_if_creative`: Conditional hotbar spawn for creative mode
+- `spawn_hotbar_hud_if_not_creative`: Conditional hotbar spawn for survival mode
+- `despawn_hotbar_hud_if_not_creative`: Conditional hotbar despawn
+- `spawn_creative_item_grid`: Unified item catalog grid display
+- `initialize_creative_visibility`: Initial visibility setup for creative mode
+- `handle_fps_buttons`: FPS setting control
+- `handle_sensitivity_buttons`: Mouse sensitivity control
+- `handle_toggle_buttons`: Boolean setting toggles
+
+### Components Added
+- `CreativeItemList`: Marker for creative item catalog container
+- `FpsIncreaseButton`, `FpsDecreaseButton`, `FpsValueText`
+- `SensitivityIncreaseButton`, `SensitivityDecreaseButton`, `SensitivityValueText`
+- `HighlightToggleButton`, `UiBlurToggleButton`
+
+### Technical Details
+- Creative mode UI uses Visibility component for overlay toggling
+- Settings write directly to GameConfig (immediate effect)
+- Hotbar spawn/despawn logic checks GameMode for conditional behavior
+- All 15 tests passing
+
+### Files Modified
+- `src/ui/settings_ui.rs`: Settings controls and ESC key handling
+- `src/ui/inventory_ui.rs`: Creative UI redesign and hotbar visibility
+- `src/gameplay/mod.rs`: Player control blocking during settings
+- `src/gameplay/commands.rs`: Default game mode set to Creative
+
+---
+
 ## 2025-12-16: SpecKit Integration
 
 ### Added

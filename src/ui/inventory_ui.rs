@@ -258,8 +258,8 @@ fn spawn_player_inventory_ui(
     const SLOT_SIZE: f32 = 54.0;
     const SLOT_GAP: f32 = 4.0;
 
-    // enable_ui_blurが有効な場合、背景を半透明にする
-    let bg_alpha = if config.enable_ui_blur { 0.8 } else { 0.95 };
+    // enable_ui_blurが有効な場合、背景を暗くしてぼやけた効果を出す
+    let bg_alpha = if config.enable_ui_blur { 0.95 } else { 0.7 };
 
     commands
         .spawn((
@@ -340,31 +340,6 @@ fn spawn_player_inventory_ui(
                                     .with_children(|parent| {
                                         spawn_creative_item_grid(parent, &item_registry, SLOT_SIZE, SLOT_GAP);
                                     });
-
-                                // 表示切替ボタン
-                                parent.spawn((
-                                    ViewToggleButton,
-                                    Button,
-                                    Node {
-                                        width: Val::Px(SLOT_SIZE),
-                                        height: Val::Px(SLOT_SIZE),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        margin: UiRect::top(Val::Px(10.0)),
-                                        border: UiRect::all(Val::Px(2.0)),
-                                        align_self: AlignSelf::Center,
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
-                                    BorderColor(Color::srgb(0.6, 0.6, 0.6)),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("⇄"),
-                                        TextFont { font_size: 32.0, ..default() },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
                             });
                     } else {
                         // サバイバルモード: インベントリのみ
@@ -387,15 +362,43 @@ fn spawn_player_inventory_ui(
                         spawn_craft_list_panel(parent, &recipe_registry);
                     }
 
-                    // ゴミ箱スロット（右下に絶対配置）
+                    // ゴミ箱スロットとトグルボタン（右下に絶対配置）
                     parent
                         .spawn(Node {
                             position_type: PositionType::Absolute,
                             bottom: Val::Px(20.0),
                             right: Val::Px(20.0),
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(8.0),
                             ..default()
                         })
                         .with_children(|parent| {
+                            // トグルボタン（クリエイティブモードのみ表示）
+                            if *game_mode == crate::gameplay::commands::GameMode::Creative {
+                                parent.spawn((
+                                    ViewToggleButton,
+                                    Button,
+                                    Node {
+                                        width: Val::Px(SLOT_SIZE),
+                                        height: Val::Px(SLOT_SIZE),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        border: UiRect::all(Val::Px(2.0)),
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
+                                    BorderColor(Color::srgb(0.6, 0.6, 0.6)),
+                                ))
+                                .with_children(|parent| {
+                                    parent.spawn((
+                                        Text::new("⇄"),
+                                        TextFont { font_size: 32.0, ..default() },
+                                        TextColor(Color::WHITE),
+                                    ));
+                                });
+                            }
+
+                            // ゴミ箱スロット
                             parent
                                 .spawn((
                                     TrashSlot,
@@ -473,20 +476,7 @@ fn spawn_equipment_panel_mc(parent: &mut ChildBuilder, equipment: &EquipmentSlot
             ..default()
         })
         .with_children(|parent| {
-            // タイトル部分（インベントリと同じ高さに調整）
-            parent
-                .spawn(Node {
-                    height: Val::Px(38.0), // ソートボタンを含むヘッダーと同じ高さ
-                    align_items: AlignItems::Center,
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Equipment"),
-                        TextFont { font_size: 20.0, ..default() },
-                        TextColor(Color::WHITE),
-                    ));
-                });
+            // タイトル部分は削除（Equipment表記を非表示に）
 
             // 装備スロット（アイコン付き、row_gapで間隔調整）
             parent
@@ -731,7 +721,8 @@ fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegis
         TextColor(Color::WHITE),
     ));
 
-    // スクロールビュー（グリッド表示）
+    // スクロールビュー（8x10グリッド表示）
+    let grid_height = (slot_size + slot_gap) * 10.0 + 10.0; // 10行分 + padding
     parent
         .spawn((
             Node {
@@ -739,7 +730,7 @@ fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegis
                 grid_template_columns: RepeatedGridTrack::flex(8, 1.0),
                 grid_auto_rows: GridTrack::px(slot_size),
                 overflow: Overflow::scroll_y(),
-                max_height: Val::Px(500.0),
+                max_height: Val::Px(grid_height),
                 row_gap: Val::Px(slot_gap),
                 column_gap: Val::Px(slot_gap),
                 padding: UiRect::all(Val::Px(5.0)),
@@ -1426,10 +1417,6 @@ fn update_hotbar_hud(
     mut text_query: Query<&mut Text, (Without<HotbarItemName>, Without<crate::ui::command_ui::CommandHistoryText>, Without<crate::ui::command_ui::CommandInputText>, Without<crate::ui::command_ui::CommandSuggestions>)>,
     mut item_name_query: Query<&mut Text, With<HotbarItemName>>,
 ) {
-    if !player_inventory.is_changed() {
-        return;
-    }
-
     // アイテム名を更新
     if let Ok(mut text) = item_name_query.get_single_mut() {
         let selected_slot = &player_inventory.slots[player_inventory.selected_hotbar_slot];

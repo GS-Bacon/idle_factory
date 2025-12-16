@@ -7,6 +7,8 @@
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::core::config::GameConfig;
+use crate::ui::inventory_ui::InventoryUiState;
+use crate::ui::command_ui::CommandUiState;
 
 /// 設定UIのステート
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -67,7 +69,9 @@ impl Plugin for SettingsUiPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_state::<SettingsUiState>()
-            .add_systems(Update, handle_escape_key)
+            .add_systems(Update, handle_escape_key.run_if(
+                in_state(InventoryUiState::Closed).and(in_state(CommandUiState::Closed))
+            ))
             .add_systems(OnEnter(SettingsUiState::ButtonVisible), spawn_settings_button)
             .add_systems(OnExit(SettingsUiState::ButtonVisible), despawn_settings_button)
             .add_systems(OnEnter(SettingsUiState::SettingsOpen), (spawn_settings_ui, release_cursor))
@@ -172,6 +176,9 @@ fn spawn_settings_ui(
     mut commands: Commands,
     config: Res<GameConfig>,
 ) {
+    // enable_ui_blurが有効な場合、背景を暗くする
+    let bg_alpha = if config.enable_ui_blur { 0.95 } else { 0.7 };
+
     commands.spawn((
         SettingsUiRoot,
         Node {
@@ -181,7 +188,7 @@ fn spawn_settings_ui(
             align_items: AlignItems::Center,
             ..default()
         },
-        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, bg_alpha)),
     ))
     .with_children(|parent| {
         // 設定パネル

@@ -6,6 +6,7 @@ use crate::core::config::GameConfig;
 use crate::core::registry::BlockRegistry;
 use crate::gameplay::machines::{conveyor::Conveyor, miner::Miner, assembler::Assembler};
 use crate::gameplay::commands::GameMode;
+use crate::gameplay::inventory::PlayerInventory;
 
 #[derive(Resource, Default)]
 pub struct BuildTool {
@@ -46,10 +47,23 @@ pub fn handle_building(
     mut hologram_state: ResMut<HologramState>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    player_inventory: Res<PlayerInventory>,
 ) {
     // ホットバーで選択されたアイテムを取得
+    let selected_slot_index = player_inventory.selected_hotbar_slot;
+    if selected_slot_index < player_inventory.slots.len() {
+        if let Some(item_id) = &player_inventory.slots[selected_slot_index].item_id {
+            build_tool.active_block_id = item_id.clone();
+        } else {
+            build_tool.active_block_id = String::new();
+        }
+    } else {
+        build_tool.active_block_id = String::new();
+    }
+
+    // アイテムが選択されていない場合は何もしない
     if build_tool.active_block_id.is_empty() {
-        build_tool.active_block_id = "conveyor".to_string();
+        return;
     }
 
     let (_camera, cam_transform) = camera_query.single();
