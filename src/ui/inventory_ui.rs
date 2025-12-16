@@ -162,10 +162,11 @@ impl Plugin for InventoryUiPlugin {
                 spawn_container_ui,
                 release_cursor,
             ))
-            .add_systems(OnExit(InventoryUiState::PlayerInventory), despawn_inventory_ui)
+            .add_systems(OnExit(InventoryUiState::PlayerInventory), (despawn_inventory_ui, spawn_hotbar_hud_if_not_creative))
             .add_systems(OnExit(InventoryUiState::Container), despawn_inventory_ui)
             .add_systems(OnEnter(InventoryUiState::Closed), spawn_hotbar_hud)
-            .add_systems(OnExit(InventoryUiState::Closed), despawn_hotbar_hud)
+            .add_systems(OnEnter(InventoryUiState::PlayerInventory), spawn_hotbar_hud_if_creative)
+            .add_systems(OnExit(InventoryUiState::Closed), despawn_hotbar_hud_if_not_creative)
             .add_systems(Update, (
                 update_slot_visuals,
                 handle_slot_interaction,
@@ -176,7 +177,7 @@ impl Plugin for InventoryUiPlugin {
                 update_creative_view_visibility,
                 update_tooltip,
             ).run_if(not(in_state(InventoryUiState::Closed))))
-            .add_systems(Update, update_hotbar_hud.run_if(in_state(InventoryUiState::Closed)));
+            .add_systems(Update, update_hotbar_hud);
     }
 }
 
@@ -1374,6 +1375,46 @@ fn despawn_hotbar_hud(
 ) {
     for entity in &query {
         commands.entity(entity).despawn_recursive();
+    }
+}
+
+/// クリエイティブモードでない場合のみホットバーHUDを削除
+fn despawn_hotbar_hud_if_not_creative(
+    mut commands: Commands,
+    query: Query<Entity, With<HotbarHud>>,
+    game_mode: Res<crate::gameplay::commands::GameMode>,
+) {
+    // サバイバルモードの場合のみ削除
+    if *game_mode == crate::gameplay::commands::GameMode::Survival {
+        for entity in &query {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+/// クリエイティブモードの場合のみホットバーHUDを生成
+fn spawn_hotbar_hud_if_creative(
+    commands: Commands,
+    player_inventory: Res<PlayerInventory>,
+    item_registry: Res<ItemRegistry>,
+    game_mode: Res<crate::gameplay::commands::GameMode>,
+) {
+    // クリエイティブモードの場合のみ生成
+    if *game_mode == crate::gameplay::commands::GameMode::Creative {
+        spawn_hotbar_hud(commands, player_inventory, item_registry);
+    }
+}
+
+/// サバイバルモードの場合のみホットバーHUDを生成
+fn spawn_hotbar_hud_if_not_creative(
+    commands: Commands,
+    player_inventory: Res<PlayerInventory>,
+    item_registry: Res<ItemRegistry>,
+    game_mode: Res<crate::gameplay::commands::GameMode>,
+) {
+    // サバイバルモードの場合のみ生成
+    if *game_mode == crate::gameplay::commands::GameMode::Survival {
+        spawn_hotbar_hud(commands, player_inventory, item_registry);
     }
 }
 
