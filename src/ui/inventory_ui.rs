@@ -316,7 +316,7 @@ fn spawn_player_inventory_ui(
                                     .spawn(Node {
                                         position_type: PositionType::Relative,
                                         width: Val::Auto,
-                                        height: Val::Auto,
+                                        height: Val::Px(350.0), // 明示的な高さを設定（グリッド高さ分を確保）
                                         ..default()
                                     })
                                     .with_children(|parent| {
