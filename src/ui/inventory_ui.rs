@@ -311,19 +311,21 @@ fn spawn_player_inventory_ui(
                                 ..default()
                             })
                             .with_children(|parent| {
-                                // グリッド切り替えコンテナ
+                                // グリッド切り替えコンテナ（相対位置、2つのグリッドを同じ位置に配置）
                                 parent
                                     .spawn(Node {
-                                        flex_direction: FlexDirection::Column,
-                                        row_gap: Val::Px(10.0),
+                                        position_type: PositionType::Relative,
+                                        width: Val::Auto,
+                                        height: Val::Auto,
                                         ..default()
                                     })
                                     .with_children(|parent| {
-                                        // メインインベントリグリッド（初期状態では非表示）
+                                        // メインインベントリグリッド（絶対位置、初期状態では非表示）
                                         parent
                                             .spawn((
                                                 MainInventoryPanel,
                                                 Node {
+                                                    position_type: PositionType::Absolute,
                                                     flex_direction: FlexDirection::Column,
                                                     row_gap: Val::Px(10.0),
                                                     ..default()
@@ -334,11 +336,12 @@ fn spawn_player_inventory_ui(
                                                 spawn_main_inventory_grid_only(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
                                             });
 
-                                        // アイテムカタロググリッド（初期状態では表示）
+                                        // アイテムカタロググリッド（絶対位置、初期状態では表示）
                                         parent
                                             .spawn((
                                                 CreativeItemList,
                                                 Node {
+                                                    position_type: PositionType::Absolute,
                                                     flex_direction: FlexDirection::Column,
                                                     row_gap: Val::Px(10.0),
                                                     ..default()
