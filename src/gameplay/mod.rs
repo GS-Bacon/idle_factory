@@ -49,6 +49,7 @@ impl Plugin for GameplayPlugin {
                     .and(in_state(CommandUiState::Closed))
                 ),
                 player::handle_hotbar_selection,
+                player::handle_hotbar_scroll,
                 items::update_visual_items,
             ));
 

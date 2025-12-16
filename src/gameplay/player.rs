@@ -3,7 +3,7 @@ use crate::core::input::KeyBindings;
 use crate::gameplay::inventory::PlayerInventory;
 use crate::gameplay::commands::GameMode;
 use crate::gameplay::held_item::PlayerCamera;
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 
@@ -175,5 +175,20 @@ pub fn handle_hotbar_selection(
         inventory.selected_hotbar_slot = 58;
     } else if keyboard.just_pressed(KeyCode::Digit0) {
         inventory.selected_hotbar_slot = 59;
+    }
+}
+
+/// ホットバースロット選択（スクロールホイール）
+pub fn handle_hotbar_scroll(
+    mut scroll_events: EventReader<MouseWheel>,
+    mut inventory: ResMut<PlayerInventory>,
+) {
+    for event in scroll_events.read() {
+        if event.y != 0.0 {
+            let current_index = inventory.selected_hotbar_slot - 50;
+            let delta = if event.y > 0.0 { -1 } else { 1 };
+            let new_index = (current_index as i32 + delta).rem_euclid(10) as usize;
+            inventory.selected_hotbar_slot = new_index + 50;
+        }
     }
 }

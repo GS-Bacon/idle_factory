@@ -76,6 +76,26 @@ pub struct CreativeItemButton {
 #[derive(Component)]
 pub struct SortButton;
 
+/// 装備パネルマーカー（クリエイティブモードで非表示にするため）
+#[derive(Component)]
+pub struct EquipmentPanel;
+
+/// メインインベントリパネルマーカー（クリエイティブモードで非表示にするため）
+#[derive(Component)]
+pub struct MainInventoryPanel;
+
+/// クリエイティブ表示モード
+#[derive(Resource, Default, PartialEq, Debug)]
+pub enum CreativeViewMode {
+    #[default]
+    Catalog,    // アイテムカタログ
+    Inventory,  // プレイヤーインベントリ
+}
+
+/// 表示切替ボタン
+#[derive(Component)]
+pub struct ViewToggleButton;
+
 /// ゴミ箱スロット
 #[derive(Component)]
 pub struct TrashSlot;
@@ -116,6 +136,7 @@ impl Plugin for InventoryUiPlugin {
         app.init_state::<InventoryUiState>()
             .init_resource::<OpenContainer>()
             .init_resource::<DraggedItem>()
+            .init_resource::<CreativeViewMode>()
             .add_event::<OpenInventoryEvent>()
             .add_event::<CloseInventoryEvent>()
             .add_event::<OpenContainerEvent>()
@@ -146,6 +167,8 @@ impl Plugin for InventoryUiPlugin {
                 handle_sort_button,
                 handle_craft_button,
                 handle_creative_item_button,
+                handle_view_toggle_button,
+                update_creative_view_visibility,
                 update_tooltip,
             ).run_if(not(in_state(InventoryUiState::Closed))))
             .add_systems(Update, update_hotbar_hud.run_if(in_state(InventoryUiState::Closed)));
@@ -258,16 +281,30 @@ fn spawn_player_inventory_ui(
                     BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
                 ))
                 .with_children(|parent| {
-                    // 左側: 装備スロット (縦並び)
-                    spawn_equipment_panel_mc(parent, &equipment, SLOT_SIZE, SLOT_GAP);
-
-                    // 中央: インベントリ + ホットバー
+                    // 左側: 装備スロット (縦並び) - マーカーコンポーネント追加
                     parent
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(20.0),
-                            ..default()
-                        })
+                        .spawn((
+                            EquipmentPanel,
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(SLOT_GAP),
+                                ..default()
+                            },
+                        ))
+                        .with_children(|parent| {
+                            spawn_equipment_panel_mc(parent, &equipment, SLOT_SIZE, SLOT_GAP);
+                        });
+
+                    // 中央: インベントリ + ホットバー - マーカーコンポーネント追加
+                    parent
+                        .spawn((
+                            MainInventoryPanel,
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(20.0),
+                                ..default()
+                            },
+                        ))
                         .with_children(|parent| {
                             spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
                         });
@@ -275,6 +312,26 @@ fn spawn_player_inventory_ui(
                     // 右側: クラフトリスト or アイテムリスト（クリエイティブモード）
                     if *game_mode == crate::gameplay::commands::GameMode::Creative {
                         spawn_creative_item_list(parent, &item_registry);
+
+                        // クリエイティブモード用の表示切替ボタン
+                        parent
+                            .spawn((
+                                ViewToggleButton,
+                                Button,
+                                Node {
+                                    padding: UiRect::all(Val::Px(10.0)),
+                                    margin: UiRect::top(Val::Px(10.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn((
+                                    Text::new("Toggle View"),
+                                    TextFont { font_size: 16.0, ..default() },
+                                    TextColor(Color::WHITE),
+                                ));
+                            });
                     } else {
                         spawn_craft_list_panel(parent, &recipe_registry);
                     }
@@ -562,7 +619,7 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
         .spawn(Node {
             flex_direction: FlexDirection::Column,
             row_gap: Val::Px(10.0),
-            width: Val::Px(300.0),
+            width: Val::Px(400.0),
             ..default()
         })
         .with_children(|parent| {
@@ -572,27 +629,33 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
                 TextColor(Color::WHITE),
             ));
 
-            // スクロールビュー
+            // スクロールビュー（グリッド表示）
             parent
                 .spawn((
                     Node {
-                        flex_direction: FlexDirection::Column,
+                        display: Display::Grid,
+                        grid_template_columns: RepeatedGridTrack::flex(5, 1.0),
+                        grid_auto_rows: GridTrack::px(60.0),
                         overflow: Overflow::scroll_y(),
                         max_height: Val::Px(400.0),
                         row_gap: Val::Px(5.0),
+                        column_gap: Val::Px(5.0),
+                        padding: UiRect::all(Val::Px(5.0)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                 ))
                 .with_children(|parent| {
-                    // アイテムボタンを動的生成
+                    // アイテムボタンをグリッドで生成
                     for (item_id, item_data) in &item_registry.items {
                         parent
                             .spawn((
                                 CreativeItemButton { item_id: item_id.clone() },
                                 Button,
                                 Node {
-                                    padding: UiRect::all(Val::Px(10.0)),
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
+                                    padding: UiRect::all(Val::Px(5.0)),
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
@@ -600,7 +663,7 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
                             .with_children(|parent| {
                                 parent.spawn((
                                     Text::new(&item_data.name),
-                                    TextFont { font_size: 16.0, ..default() },
+                                    TextFont { font_size: 12.0, ..default() },
                                     TextColor(Color::WHITE),
                                 ));
                             });
@@ -948,6 +1011,52 @@ fn handle_creative_item_button(
 
             info!("Added {} x64 to hotbar slot {}", item_button.item_id, slot_index - 50);
         }
+    }
+}
+
+/// クリエイティブモード表示切替ボタン処理
+fn handle_view_toggle_button(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<ViewToggleButton>)>,
+    mut view_mode: ResMut<CreativeViewMode>,
+) {
+    for interaction in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            *view_mode = match *view_mode {
+                CreativeViewMode::Catalog => CreativeViewMode::Inventory,
+                CreativeViewMode::Inventory => CreativeViewMode::Catalog,
+            };
+            info!("Toggled creative view mode: {:?}", *view_mode);
+        }
+    }
+}
+
+/// クリエイティブモード表示の可視性を更新
+fn update_creative_view_visibility(
+    view_mode: Res<CreativeViewMode>,
+    game_mode: Res<crate::gameplay::commands::GameMode>,
+    mut equipment_query: Query<&mut Visibility, (With<EquipmentPanel>, Without<MainInventoryPanel>)>,
+    mut inventory_query: Query<&mut Visibility, With<MainInventoryPanel>>,
+) {
+    // クリエイティブモードでない場合は何もしない
+    if *game_mode != crate::gameplay::commands::GameMode::Creative {
+        return;
+    }
+
+    // CreativeViewModeが変更された場合のみ更新
+    if !view_mode.is_changed() {
+        return;
+    }
+
+    let should_hide = *view_mode == CreativeViewMode::Catalog;
+
+    // 装備パネルの可視性を設定
+    for mut visibility in &mut equipment_query {
+        *visibility = if should_hide { Visibility::Hidden } else { Visibility::Visible };
+    }
+
+    // メインインベントリパネルの可視性を設定
+    for mut visibility in &mut inventory_query {
+        *visibility = if should_hide { Visibility::Hidden } else { Visibility::Visible };
     }
 }
 

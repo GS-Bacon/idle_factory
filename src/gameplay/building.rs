@@ -33,19 +33,7 @@ pub fn handle_building(
     mut machine_placed_events: EventWriter<MachinePlacedEvent>,
     game_mode: Res<GameMode>,
 ) {
-    if keyboard.just_pressed(KeyCode::Digit1) {
-        build_tool.active_block_id = "conveyor".to_string();
-        info!("Selected: Conveyor");
-    }
-    if keyboard.just_pressed(KeyCode::Digit2) {
-        build_tool.active_block_id = "miner".to_string();
-        info!("Selected: Miner");
-    }
-    if keyboard.just_pressed(KeyCode::Digit3) {
-        build_tool.active_block_id = "assembler".to_string();
-        info!("Selected: Assembler");
-    }
-
+    // ホットバーで選択されたアイテムを取得
     if build_tool.active_block_id.is_empty() {
         build_tool.active_block_id = "conveyor".to_string();
     }
