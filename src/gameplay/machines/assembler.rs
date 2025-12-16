@@ -20,6 +20,43 @@ pub struct Assembler {
 // Note: Assembler interaction is now handled by MachineUiPlugin in src/ui/machine_ui.rs
 // The UI allows users to select recipes from available options.
 
+/// 入力アイテムに適合するレシピを検索
+fn find_matching_recipe(input_inventory: &[ItemSlot], recipes: &RecipeRegistry) -> Option<String> {
+    use std::collections::HashMap;
+
+    // 入力アイテムのIDと数量を集計
+    let mut item_counts = HashMap::new();
+    for slot in input_inventory {
+        *item_counts.entry(&slot.item_id).or_insert(0) += slot.count;
+    }
+
+    // 全レシピをチェック
+    for (recipe_id, recipe) in &recipes.map {
+        let mut matches = true;
+        for required in &recipe.inputs {
+            if item_counts.get(&required.item).copied().unwrap_or(0) < required.count {
+                matches = false;
+                break;
+            }
+        }
+        if matches {
+            return Some(recipe_id.clone());
+        }
+    }
+    None
+}
+
+/// 特定のアイテムが任意のレシピの入力に使えるかチェック
+pub fn can_accept_item(item_id: &str, recipes: &RecipeRegistry) -> bool {
+    for recipe in recipes.map.values() {
+        for input in &recipe.inputs {
+            if input.item == item_id {
+                return true;
+            }
+        }
+    }
+    false
+}
 
 pub fn tick_assemblers(
     mut grid: ResMut<SimulationGrid>,
@@ -39,6 +76,15 @@ pub fn tick_assemblers(
     for (pos, machine) in grid.machines.iter_mut() {
         if let Machine::Assembler(assembler) = &mut machine.machine_type {
             info!("[Assembler-Debug] Processing assembler at {:?}. Current progress: {}", pos, assembler.crafting_progress);
+
+            // 自動レシピ検索: active_recipeが未設定の場合、入力アイテムから適合するレシピを検索
+            if assembler.active_recipe.is_none() && !assembler.input_inventory.is_empty() {
+                if let Some(matched_recipe_id) = find_matching_recipe(&assembler.input_inventory, &recipes) {
+                    assembler.active_recipe = Some(matched_recipe_id.clone());
+                    info!("[Assembler-Debug] Auto-selected recipe: {}", matched_recipe_id);
+                }
+            }
+
             // --- Crafting ---
             if let Some(recipe_id) = &assembler.active_recipe {
                 if let Some(recipe) = recipes.map.get(recipe_id) {

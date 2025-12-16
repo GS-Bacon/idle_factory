@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use crate::gameplay::grid::{SimulationGrid, ItemSlot, Machine};
 use crate::core::config::GameConfig;
+use crate::core::registry::RecipeRegistry;
 use crate::gameplay::interaction::PlayerInteractEvent;
+use crate::gameplay::machines::assembler;
 use serde::{Serialize, Deserialize};
 
 #[derive(Component, Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -58,6 +60,7 @@ pub fn tick_conveyors(
     mut grid: ResMut<SimulationGrid>,
     time: Res<Time>,
     config: Res<GameConfig>,
+    recipes: Res<RecipeRegistry>,
 ) {
     let dt = time.delta_secs();
     let max_items_on_conveyor = config.max_items_per_conveyor.max(1);
@@ -121,12 +124,17 @@ pub fn tick_conveyors(
                     // Assembler accepts from its front, which is opposite to its orientation
                     if target_machine.orientation.opposite() == src_dir {
                         info!("[Test-Debug] Orientations match for front input. Checking inventory.");
-                        if target_assembler.input_inventory.len() < 10 { // TODO: make configurable
-                             target_assembler.input_inventory.push(ItemSlot { progress: 0.0, ..item });
-                             accepted = true;
-                             info!("[Test-Debug] Item accepted by assembler.");
+                        // レシピチェック: アイテムが任意のレシピに使えるかチェック
+                        if assembler::can_accept_item(&item.item_id, &recipes) {
+                            if target_assembler.input_inventory.len() < 10 { // TODO: make configurable
+                                target_assembler.input_inventory.push(ItemSlot { progress: 0.0, ..item });
+                                accepted = true;
+                                info!("[Test-Debug] Item accepted by assembler.");
+                            } else {
+                                info!("[Test-Debug] Assembler input inventory full.");
+                            }
                         } else {
-                            info!("[Test-Debug] Assembler input inventory full.");
+                            info!("[Test-Debug] Item '{}' cannot be used in any recipe. Rejected.", item.item_id);
                         }
                     } else {
                         info!("[Test-Debug] Orientations do not match for front input.");

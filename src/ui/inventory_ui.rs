@@ -258,11 +258,11 @@ fn spawn_player_inventory_ui(
                     // 右側: クラフトリスト
                     spawn_craft_list_panel(parent, &recipe_registry);
 
-                    // ゴミ箱スロット（右上に絶対配置）
+                    // ゴミ箱スロット（右下に絶対配置）
                     parent
                         .spawn(Node {
                             position_type: PositionType::Absolute,
-                            top: Val::Px(20.0),
+                            bottom: Val::Px(20.0),
                             right: Val::Px(20.0),
                             ..default()
                         })
