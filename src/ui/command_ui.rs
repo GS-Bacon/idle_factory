@@ -22,7 +22,7 @@ pub struct CommandInput {
 /// コマンド実行結果履歴
 #[derive(Resource, Default)]
 pub struct CommandHistory {
-    pub messages: Vec<String>,
+    pub messages: Vec<(String, bool, f32)>, // (message, success, timestamp)
 }
 
 /// マーカーコンポーネント
@@ -319,19 +319,32 @@ fn update_command_results(
     mut result_events: EventReader<CommandResultEvent>,
     mut history: ResMut<CommandHistory>,
     mut history_text_query: Query<&mut Text, With<CommandHistoryText>>,
+    time: Res<Time>,
 ) {
+    let current_time = time.elapsed_secs();
+
     for event in result_events.read() {
-        let color = if event.result.success { "green" } else { "red" };
-        let msg = format!("[{}] {}", color, event.result.message);
-        history.messages.push(msg);
+        history.messages.push((
+            event.result.message.clone(),
+            event.result.success,
+            current_time,
+        ));
     }
 
-    // 履歴表示（最新5件）
+    // 2秒以上経過したメッセージを削除
+    history.messages.retain(|(_, _, timestamp)| {
+        current_time - timestamp < 2.0
+    });
+
+    // 履歴表示（最新5件、成功/失敗で色分け）
     if let Ok(mut text) = history_text_query.get_single_mut() {
         let recent: Vec<String> = history.messages.iter()
             .rev()
             .take(5)
-            .cloned()
+            .map(|(msg, success, _)| {
+                let prefix = if *success { "✓" } else { "✗" };
+                format!("{} {}", prefix, msg)
+            })
             .collect();
         text.0 = recent.join("\n");
     }

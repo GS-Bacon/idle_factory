@@ -3,7 +3,6 @@ use crate::gameplay::grid::{SimulationGrid, MachineInstance, Direction, Machine}
 use crate::rendering::chunk::{Chunk, CHUNK_SIZE};
 use crate::rendering::meshing::MeshDirty;
 use crate::core::config::GameConfig;
-use crate::gameplay::interaction::PlayerInteractEvent;
 use crate::core::registry::BlockRegistry;
 use crate::gameplay::machines::{conveyor::Conveyor, miner::Miner, assembler::Assembler};
 use crate::gameplay::commands::GameMode;
