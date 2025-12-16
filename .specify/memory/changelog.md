@@ -1,5 +1,49 @@
 # Development Changelog
 
+## 2025-12-16: Phase 5 - Optimization and Modding
+
+### Added
+- **Async Chunk Generation** (`src/core/optimization.rs`)
+  - AsyncComputeTaskPool for parallel chunk generation
+  - ChunkLoadQueue resource for task management
+  - Non-blocking chunk data generation
+  - Automatic terrain generation (stone/dirt/air layers)
+
+- **LOD System** (`src/core/optimization.rs`)
+  - ChunkLod component (Full, Medium, Low, Icon)
+  - LodSettings resource with configurable distances
+  - Dynamic LOD updates based on camera distance
+  - Automatic chunk unloading for distant chunks
+
+- **Mod Loader** (`src/core/modding.rs`)
+  - ModManifest YAML schema (id, name, version, dependencies)
+  - ModRegistry resource for mod management
+  - Automatic mod discovery from `mods/` directory
+  - Dependency resolution and load order sorting
+  - Asset path helpers for mod content
+
+### Components Added
+- `ChunkLod`: LOD level marker for chunks
+- `AsyncChunkMarker`: Marker for async-generated chunks
+
+### Resources Added
+- `ChunkLoadQueue`: Async chunk generation queue
+- `LodSettings`: LOD distance configuration
+- `ModRegistry`: Loaded mods registry
+
+### Systems Added
+- `process_chunk_tasks`: Handle async chunk generation
+- `update_chunk_lod`: Update LOD based on camera distance
+- `unload_distant_chunks`: Remove far chunks from memory
+- `discover_mods`: Scan and load mods at startup
+
+### Tests Added
+- 3 optimization tests (chunk generation, LOD settings, chunk LOD)
+- 3 modding tests (manifest, registry, dependency)
+- Total: 40 tests passing
+
+---
+
 ## 2025-12-16: Phase 4 - Scripting and Signal Systems
 
 ### Added
