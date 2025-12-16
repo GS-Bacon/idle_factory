@@ -353,8 +353,66 @@ fn spawn_player_inventory_ui(
                                             });
                                     });
 
-                                // 共有ホットバー（常に表示）
-                                spawn_hotbar(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                                // 共有ホットバー行（ホットバー + トグルボタン + ゴミ箱スロット）
+                                parent
+                                    .spawn(Node {
+                                        flex_direction: FlexDirection::Row,
+                                        column_gap: Val::Px(10.0),
+                                        margin: UiRect::top(Val::Px(10.0)),
+                                        align_items: AlignItems::End,
+                                        ..default()
+                                    })
+                                    .with_children(|parent| {
+                                        // ホットバーグリッド
+                                        spawn_hotbar(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+
+                                        // トグルボタン
+                                        parent.spawn((
+                                            ViewToggleButton,
+                                            Button,
+                                            Node {
+                                                width: Val::Px(SLOT_SIZE),
+                                                height: Val::Px(SLOT_SIZE),
+                                                justify_content: JustifyContent::Center,
+                                                align_items: AlignItems::Center,
+                                                border: UiRect::all(Val::Px(2.0)),
+                                                ..default()
+                                            },
+                                            BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
+                                            BorderColor(Color::srgb(0.6, 0.6, 0.6)),
+                                        ))
+                                        .with_children(|parent| {
+                                            parent.spawn((
+                                                Text::new("⇄"),
+                                                TextFont { font_size: 32.0, ..default() },
+                                                TextColor(Color::WHITE),
+                                            ));
+                                        });
+
+                                        // ゴミ箱スロット
+                                        parent
+                                            .spawn((
+                                                TrashSlot,
+                                                Button,
+                                                Node {
+                                                    width: Val::Px(SLOT_SIZE),
+                                                    height: Val::Px(SLOT_SIZE),
+                                                    justify_content: JustifyContent::Center,
+                                                    align_items: AlignItems::Center,
+                                                    border: UiRect::all(Val::Px(2.0)),
+                                                    ..default()
+                                                },
+                                                BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
+                                                BorderColor(Color::srgb(0.8, 0.3, 0.3)),
+                                            ))
+                                            .with_children(|parent| {
+                                                parent.spawn((
+                                                    Text::new("Trash"),
+                                                    TextFont { font_size: 12.0, ..default() },
+                                                    TextColor(Color::WHITE),
+                                                ));
+                                            });
+                                    });
                             });
                     } else {
                         // サバイバルモード: インベントリのみ
@@ -376,67 +434,6 @@ fn spawn_player_inventory_ui(
                     if *game_mode != crate::gameplay::commands::GameMode::Creative {
                         spawn_craft_list_panel(parent, &recipe_registry);
                     }
-
-                    // ゴミ箱スロットとトグルボタン（右下に絶対配置）
-                    parent
-                        .spawn(Node {
-                            position_type: PositionType::Absolute,
-                            bottom: Val::Px(20.0),
-                            right: Val::Px(20.0),
-                            flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(8.0),
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            // トグルボタン（クリエイティブモードのみ表示）
-                            if *game_mode == crate::gameplay::commands::GameMode::Creative {
-                                parent.spawn((
-                                    ViewToggleButton,
-                                    Button,
-                                    Node {
-                                        width: Val::Px(SLOT_SIZE),
-                                        height: Val::Px(SLOT_SIZE),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        border: UiRect::all(Val::Px(2.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
-                                    BorderColor(Color::srgb(0.6, 0.6, 0.6)),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("⇄"),
-                                        TextFont { font_size: 32.0, ..default() },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
-                            }
-
-                            // ゴミ箱スロット
-                            parent
-                                .spawn((
-                                    TrashSlot,
-                                    Button,
-                                    Node {
-                                        width: Val::Px(SLOT_SIZE),
-                                        height: Val::Px(SLOT_SIZE),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        border: UiRect::all(Val::Px(2.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
-                                    BorderColor(Color::srgb(0.8, 0.3, 0.3)),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("Trash"),
-                                        TextFont { font_size: 12.0, ..default() },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
-                        });
                 });
         });
 
