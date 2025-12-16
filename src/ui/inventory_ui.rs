@@ -100,6 +100,10 @@ pub enum CreativeViewMode {
 #[derive(Component)]
 pub struct ViewToggleButton;
 
+/// ドラッグ中のアイテム表示マーカー
+#[derive(Component)]
+pub struct DraggedItemVisual;
+
 /// ゴミ箱スロット
 #[derive(Component)]
 pub struct TrashSlot;
@@ -177,6 +181,7 @@ impl Plugin for InventoryUiPlugin {
                 handle_view_toggle_button,
                 update_creative_view_visibility,
                 update_tooltip,
+                update_dragged_item_visual,
             ).run_if(not(in_state(InventoryUiState::Closed))))
             .add_systems(Update, update_hotbar_hud);
     }
@@ -1742,6 +1747,56 @@ fn update_hotbar_hud(
                     }
                 }
             }
+        }
+    }
+}
+
+/// ドラッグ中のアイテムを視覚的に表示
+fn update_dragged_item_visual(
+    dragged: Res<DraggedItem>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut commands: Commands,
+    visual_query: Query<Entity, With<DraggedItemVisual>>,
+    mut node_query: Query<&mut Node, With<DraggedItemVisual>>,
+) {
+    let is_dragging = dragged.item_id.is_some();
+    let visual_exists = !visual_query.is_empty();
+
+    if is_dragging {
+        // ドラッグ中: ビジュアルを表示または更新
+        if let Some(cursor_pos) = windows.get_single().ok().and_then(|w| w.cursor_position()) {
+            if !visual_exists {
+                // ビジュアルを新規作成
+                let item_name = dragged.item_id.as_ref().unwrap();
+                let text = format!("{} x{}", item_name, dragged.count);
+
+                commands.spawn((
+                    DraggedItemVisual,
+                    Text::new(text),
+                    TextFont {
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(1.0, 1.0, 0.0)), // 黄色
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(cursor_pos.x + 10.0),
+                        top: Val::Px(cursor_pos.y + 10.0),
+                        ..default()
+                    },
+                ));
+            } else {
+                // 既存のビジュアルの位置を更新
+                for mut node in &mut node_query {
+                    node.left = Val::Px(cursor_pos.x + 10.0);
+                    node.top = Val::Px(cursor_pos.y + 10.0);
+                }
+            }
+        }
+    } else if visual_exists {
+        // ドラッグ終了: ビジュアルを削除
+        for entity in &visual_query {
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
