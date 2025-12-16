@@ -303,43 +303,55 @@ fn spawn_player_inventory_ui(
 
                     // 中央: インベントリ OR アイテムカタログ（クリエイティブモード）
                     if *game_mode == crate::gameplay::commands::GameMode::Creative {
-                        // クリエイティブモード: 同じ位置にインベントリとアイテムカタログを配置し、トグルで切り替え
+                        // クリエイティブモード: グリッド部分とホットバーを分離し、グリッドのみをトグル
                         parent
                             .spawn(Node {
                                 flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(20.0),
+                                row_gap: Val::Px(10.0),
                                 ..default()
                             })
                             .with_children(|parent| {
-                                // メインインベントリパネル（初期状態では非表示）
+                                // グリッド切り替えコンテナ
                                 parent
-                                    .spawn((
-                                        MainInventoryPanel,
-                                        Node {
-                                            flex_direction: FlexDirection::Column,
-                                            row_gap: Val::Px(20.0),
-                                            ..default()
-                                        },
-                                        Visibility::Hidden, // 初期状態は非表示（Catalogが表示される）
-                                    ))
+                                    .spawn(Node {
+                                        flex_direction: FlexDirection::Column,
+                                        row_gap: Val::Px(10.0),
+                                        ..default()
+                                    })
                                     .with_children(|parent| {
-                                        spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                                        // メインインベントリグリッド（初期状態では非表示）
+                                        parent
+                                            .spawn((
+                                                MainInventoryPanel,
+                                                Node {
+                                                    flex_direction: FlexDirection::Column,
+                                                    row_gap: Val::Px(10.0),
+                                                    ..default()
+                                                },
+                                                Visibility::Hidden, // 初期状態は非表示
+                                            ))
+                                            .with_children(|parent| {
+                                                spawn_main_inventory_grid_only(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                                            });
+
+                                        // アイテムカタロググリッド（初期状態では表示）
+                                        parent
+                                            .spawn((
+                                                CreativeItemList,
+                                                Node {
+                                                    flex_direction: FlexDirection::Column,
+                                                    row_gap: Val::Px(10.0),
+                                                    ..default()
+                                                },
+                                                Visibility::Visible, // 初期状態は表示
+                                            ))
+                                            .with_children(|parent| {
+                                                spawn_creative_item_grid(parent, &item_registry, SLOT_SIZE, SLOT_GAP);
+                                            });
                                     });
 
-                                // アイテムカタログパネル（初期状態では表示）
-                                parent
-                                    .spawn((
-                                        CreativeItemList,
-                                        Node {
-                                            flex_direction: FlexDirection::Column,
-                                            row_gap: Val::Px(10.0),
-                                            ..default()
-                                        },
-                                        Visibility::Visible, // 初期状態は表示
-                                    ))
-                                    .with_children(|parent| {
-                                        spawn_creative_item_grid(parent, &item_registry, SLOT_SIZE, SLOT_GAP);
-                                    });
+                                // 共有ホットバー（常に表示）
+                                spawn_hotbar(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
                             });
                     } else {
                         // サバイバルモード: インベントリのみ
@@ -596,6 +608,92 @@ fn spawn_main_inventory_panel_mc(parent: &mut ChildBuilder, inventory: &PlayerIn
         });
 }
 
+/// メインインベントリグリッドのみを生成（ホットバーなし、クリエイティブモード用）
+fn spawn_main_inventory_grid_only(parent: &mut ChildBuilder, inventory: &PlayerInventory, slot_size: f32, slot_gap: f32) {
+    // タイトルとソートボタン
+    parent
+        .spawn(Node {
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            width: Val::Px(10.0 * slot_size + 9.0 * slot_gap),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Inventory"),
+                TextFont { font_size: 20.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
+
+            parent
+                .spawn((
+                    SortButton,
+                    Button,
+                    Node {
+                        padding: UiRect::all(Val::Px(8.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Sort"),
+                        TextFont { font_size: 14.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+        });
+
+    // メインインベントリ (10x5 = 50スロット、スロット0-49)
+    parent
+        .spawn(Node {
+            display: Display::Grid,
+            grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
+            grid_template_rows: RepeatedGridTrack::flex(5, 1.0),
+            row_gap: Val::Px(slot_gap),
+            column_gap: Val::Px(slot_gap),
+            ..default()
+        })
+        .with_children(|parent| {
+            for i in 0..50 {
+                spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &inventory.slots[i], slot_size);
+            }
+        });
+}
+
+/// ホットバーのみを生成（共有用）
+fn spawn_hotbar(parent: &mut ChildBuilder, inventory: &PlayerInventory, slot_size: f32, slot_gap: f32) {
+    parent
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(5.0),
+            margin: UiRect::top(Val::Px(10.0)),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Hotbar"),
+                TextFont { font_size: 16.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
+
+            parent
+                .spawn(Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
+                    grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
+                    column_gap: Val::Px(slot_gap),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    for i in 50..60 {
+                        spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &inventory.slots[i], slot_size);
+                    }
+                });
+        });
+}
+
 /// インベントリパネルを生成（旧版、互換性のため残す）
 fn spawn_inventory_panel(parent: &mut ChildBuilder, inventory: &PlayerInventory) {
     spawn_main_inventory_panel_mc(parent, inventory, 54.0, 4.0);
@@ -713,7 +811,7 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
         });
 }
 
-/// クリエイティブアイテムグリッドを生成（5x8固定グリッド）
+/// クリエイティブアイテムグリッドを生成（10x5固定グリッド、インベントリと同じサイズ）
 fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegistry, slot_size: f32, slot_gap: f32) {
     parent.spawn((
         Text::new("Creative Items"),
@@ -725,9 +823,9 @@ fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegis
     let mut item_ids: Vec<String> = item_registry.items.keys().cloned().collect();
     item_ids.sort();
 
-    // 5x8グリッド（40スロット）
-    const GRID_COLS: usize = 5;
-    const GRID_ROWS: usize = 8;
+    // 10x5グリッド（50スロット、インベントリのメイングリッドと同じ）
+    const GRID_COLS: usize = 10;
+    const GRID_ROWS: usize = 5;
     const TOTAL_SLOTS: usize = GRID_COLS * GRID_ROWS;
 
     parent
