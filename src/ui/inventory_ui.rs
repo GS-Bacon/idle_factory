@@ -78,6 +78,10 @@ pub struct TrashSlot;
 #[derive(Component)]
 pub struct HotbarHud;
 
+/// ホットバー上のアイテム名表示マーカー
+#[derive(Component)]
+pub struct HotbarItemName;
+
 /// イベント
 #[derive(Event)]
 pub struct OpenInventoryEvent;
@@ -921,6 +925,7 @@ fn release_cursor(
 fn spawn_hotbar_hud(
     mut commands: Commands,
     player_inventory: Res<PlayerInventory>,
+    item_registry: Res<ItemRegistry>,
 ) {
     const SLOT_SIZE: f32 = 54.0;
     const SLOT_GAP: f32 = 4.0;
@@ -934,10 +939,34 @@ fn spawn_hotbar_hud(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::End,
                 padding: UiRect::bottom(Val::Px(20.0)),
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
         ))
         .with_children(|parent| {
+            // アイテム名表示（ホットバーの上）
+            let selected_slot = &player_inventory.slots[player_inventory.selected_hotbar_slot];
+            let item_name = if let Some(item_id) = &selected_slot.item_id {
+                item_registry.get(item_id)
+                    .map(|data| data.name.clone())
+                    .unwrap_or_else(|| item_id.clone())
+            } else {
+                String::new()
+            };
+
+            parent.spawn((
+                HotbarItemName,
+                Text::new(item_name),
+                TextFont { font_size: 24.0, ..default() },
+                TextColor(Color::WHITE),
+                Node {
+                    margin: UiRect::bottom(Val::Px(10.0)),
+                    align_self: AlignSelf::Center,
+                    ..default()
+                },
+            ));
+
+            // ホットバースロット
             parent
                 .spawn(Node {
                     display: Display::Grid,
@@ -949,7 +978,8 @@ fn spawn_hotbar_hud(
                 })
                 .with_children(|parent| {
                     for i in 50..60 {
-                        spawn_hotbar_slot(parent, i, &player_inventory.slots[i], SLOT_SIZE);
+                        let is_selected = i == player_inventory.selected_hotbar_slot;
+                        spawn_hotbar_slot(parent, i, &player_inventory.slots[i], SLOT_SIZE, is_selected);
                     }
                 });
         });
@@ -963,7 +993,16 @@ fn spawn_hotbar_slot(
     index: usize,
     slot_data: &crate::gameplay::inventory::InventorySlot,
     size: f32,
+    is_selected: bool,
 ) {
+    let (bg_color, border_color, border_width) = if is_selected {
+        // 選択中のスロット: 明るい背景、白い太い枠
+        (Color::srgba(0.3, 0.3, 0.4, 0.9), Color::WHITE, 3.0)
+    } else {
+        // 非選択のスロット: 暗い背景、通常の枠
+        (Color::srgba(0.1, 0.1, 0.1, 0.8), Color::srgb(0.5, 0.5, 0.5), 2.0)
+    };
+
     parent
         .spawn((
             UiSlot { identifier: SlotIdentifier::PlayerInventory(index) },
@@ -972,11 +1011,11 @@ fn spawn_hotbar_slot(
                 height: Val::Px(size),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                border: UiRect::all(Val::Px(2.0)),
+                border: UiRect::all(Val::Px(border_width)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
-            BorderColor(Color::srgb(0.5, 0.5, 0.5)),
+            BackgroundColor(bg_color),
+            BorderColor(border_color),
         ))
         .with_children(|parent| {
             if let Some(item_id) = &slot_data.item_id {
@@ -1002,23 +1041,46 @@ fn despawn_hotbar_hud(
 /// ホットバーHUDを更新
 fn update_hotbar_hud(
     player_inventory: Res<PlayerInventory>,
-    mut slot_query: Query<(&UiSlot, &Children, &mut BackgroundColor), Without<Button>>,
+    item_registry: Res<ItemRegistry>,
+    mut slot_query: Query<(&UiSlot, &Children, &mut BackgroundColor, &mut BorderColor, &mut Node), Without<Button>>,
     mut text_query: Query<&mut Text>,
+    mut item_name_query: Query<&mut Text, With<HotbarItemName>>,
 ) {
     if !player_inventory.is_changed() {
         return;
     }
 
-    for (ui_slot, children, mut bg_color) in &mut slot_query {
+    // アイテム名を更新
+    if let Ok(mut text) = item_name_query.get_single_mut() {
+        let selected_slot = &player_inventory.slots[player_inventory.selected_hotbar_slot];
+        **text = if let Some(item_id) = &selected_slot.item_id {
+            item_registry.get(item_id)
+                .map(|data| data.name.clone())
+                .unwrap_or_else(|| item_id.clone())
+        } else {
+            String::new()
+        };
+    }
+
+    for (ui_slot, children, mut bg_color, mut border_color, mut node) in &mut slot_query {
         if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
             if *i >= 50 && *i < 60 {
                 let slot_data = &player_inventory.slots[*i];
+                let is_selected = *i == player_inventory.selected_hotbar_slot;
 
-                // 背景色を更新
-                if slot_data.is_empty() {
-                    *bg_color = BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8));
+                // 選択状態に応じて背景色と枠色を更新
+                if is_selected {
+                    *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.4, 0.9));
+                    *border_color = BorderColor(Color::WHITE);
+                    node.border = UiRect::all(Val::Px(3.0));
                 } else {
-                    *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.3, 0.9));
+                    if slot_data.is_empty() {
+                        *bg_color = BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8));
+                    } else {
+                        *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.3, 0.9));
+                    }
+                    *border_color = BorderColor(Color::srgb(0.5, 0.5, 0.5));
+                    node.border = UiRect::all(Val::Px(2.0));
                 }
 
                 // テキストを更新
