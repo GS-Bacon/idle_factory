@@ -8,7 +8,8 @@
 
 ## 作業開始時に読むファイル
 1. `API_REFERENCE.md` - 関数・構造体・コンポーネント一覧
-2. `PROJECT_ROADMAP.md` - 実装計画と進捗
-3. `WORK_LOG.md` - 作業履歴
+2. `.specify/memory/constitution.md` - プロジェクト憲章とロードマップ
+3. `.specify/memory/changelog.md` - 開発履歴
 
 これらを読めばソースコードを個別に読まなくてもプロジェクトの構造を把握できる。
+**入出力トークン削減のため、必要最小限のファイルのみ読むこと。**
