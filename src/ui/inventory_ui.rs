@@ -66,6 +66,12 @@ pub struct CraftButton {
     pub recipe_id: String,
 }
 
+/// クリエイティブモードアイテムボタン
+#[derive(Component)]
+pub struct CreativeItemButton {
+    pub item_id: String,
+}
+
 /// ソートボタン
 #[derive(Component)]
 pub struct SortButton;
@@ -139,6 +145,7 @@ impl Plugin for InventoryUiPlugin {
                 handle_slot_interaction,
                 handle_sort_button,
                 handle_craft_button,
+                handle_creative_item_button,
                 update_tooltip,
             ).run_if(not(in_state(InventoryUiState::Closed))))
             .add_systems(Update, update_hotbar_hud.run_if(in_state(InventoryUiState::Closed)));
@@ -215,9 +222,15 @@ fn spawn_player_inventory_ui(
     player_inventory: Res<PlayerInventory>,
     equipment: Res<EquipmentSlots>,
     recipe_registry: Res<RecipeRegistry>,
+    item_registry: Res<ItemRegistry>,
+    game_mode: Res<crate::gameplay::commands::GameMode>,
+    config: Res<crate::core::config::GameConfig>,
 ) {
     const SLOT_SIZE: f32 = 54.0;
     const SLOT_GAP: f32 = 4.0;
+
+    // enable_ui_blurが有効な場合、背景を半透明にする
+    let bg_alpha = if config.enable_ui_blur { 0.8 } else { 0.95 };
 
     commands
         .spawn((
@@ -229,7 +242,7 @@ fn spawn_player_inventory_ui(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, bg_alpha)),
         ))
         .with_children(|parent| {
             // メインコンテナ (Minecraft風)
@@ -259,8 +272,12 @@ fn spawn_player_inventory_ui(
                             spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
                         });
 
-                    // 右側: クラフトリスト
-                    spawn_craft_list_panel(parent, &recipe_registry);
+                    // 右側: クラフトリスト or アイテムリスト（クリエイティブモード）
+                    if *game_mode == crate::gameplay::commands::GameMode::Creative {
+                        spawn_creative_item_list(parent, &item_registry);
+                    } else {
+                        spawn_craft_list_panel(parent, &recipe_registry);
+                    }
 
                     // ゴミ箱スロット（右下に絶対配置）
                     parent
@@ -539,6 +556,59 @@ fn spawn_craft_list_panel(parent: &mut ChildBuilder, recipe_registry: &RecipeReg
         });
 }
 
+/// クリエイティブモードアイテムリストパネルを生成
+fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegistry) {
+    parent
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(10.0),
+            width: Val::Px(300.0),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Creative Items"),
+                TextFont { font_size: 24.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
+
+            // スクロールビュー
+            parent
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        overflow: Overflow::scroll_y(),
+                        max_height: Val::Px(400.0),
+                        row_gap: Val::Px(5.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                ))
+                .with_children(|parent| {
+                    // アイテムボタンを動的生成
+                    for (item_id, item_data) in &item_registry.items {
+                        parent
+                            .spawn((
+                                CreativeItemButton { item_id: item_id.clone() },
+                                Button,
+                                Node {
+                                    padding: UiRect::all(Val::Px(10.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn((
+                                    Text::new(&item_data.name),
+                                    TextFont { font_size: 16.0, ..default() },
+                                    TextColor(Color::WHITE),
+                                ));
+                            });
+                    }
+                });
+        });
+}
+
 /// コンテナパネルを生成
 fn spawn_container_panel(parent: &mut ChildBuilder) {
     parent
@@ -698,20 +768,28 @@ fn update_slot_visuals(
             SlotIdentifier::Container(_) => continue,
         };
 
-        // 背景色を更新
-        if slot_data.is_empty() {
-            *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
+        // 背景色を更新（変更がある場合のみ）
+        let new_color = if slot_data.is_empty() {
+            Color::srgb(0.3, 0.3, 0.3)
         } else {
-            *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.5));
+            Color::srgb(0.4, 0.4, 0.5)
+        };
+
+        if bg_color.0 != new_color {
+            *bg_color = BackgroundColor(new_color);
         }
 
         // テキストを更新
         for &child in children.iter() {
             if let Ok(mut text) = text_query.get_mut(child) {
-                if let Some(item_id) = &slot_data.item_id {
-                    **text = format!("{}\n{}", item_id, slot_data.count);
+                let new_text = if let Some(item_id) = &slot_data.item_id {
+                    format!("{}\n{}", item_id, slot_data.count)
                 } else {
-                    **text = String::new();
+                    String::new()
+                };
+
+                if **text != new_text {
+                    **text = new_text;
                 }
             }
         }
@@ -850,6 +928,25 @@ fn handle_craft_button(
                 recipe_id: craft_button.recipe_id.clone(),
             });
             info!("Crafting: {}", craft_button.recipe_id);
+        }
+    }
+}
+
+/// クリエイティブモードアイテムボタン処理
+fn handle_creative_item_button(
+    interaction_query: Query<(&Interaction, &CreativeItemButton), Changed<Interaction>>,
+    mut player_inventory: ResMut<PlayerInventory>,
+) {
+    for (interaction, item_button) in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            // 選択中のホットバースロットにアイテムを64個追加
+            let slot_index = player_inventory.selected_hotbar_slot;
+            let slot = &mut player_inventory.slots[slot_index];
+
+            slot.item_id = Some(item_button.item_id.clone());
+            slot.count = 64;
+
+            info!("Added {} x64 to hotbar slot {}", item_button.item_id, slot_index - 50);
         }
     }
 }
