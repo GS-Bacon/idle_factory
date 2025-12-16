@@ -713,7 +713,7 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
         });
 }
 
-/// クリエイティブアイテムグリッドを生成（同一位置表示用）
+/// クリエイティブアイテムグリッドを生成（5x8固定グリッド）
 fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegistry, slot_size: f32, slot_gap: f32) {
     parent.spawn((
         Text::new("Creative Items"),
@@ -721,16 +721,21 @@ fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegis
         TextColor(Color::WHITE),
     ));
 
-    // スクロールビュー（8x10グリッド表示）
-    let grid_height = (slot_size + slot_gap) * 10.0 + 10.0; // 10行分 + padding
+    // アイテムIDリストを取得（ソート済み）
+    let mut item_ids: Vec<String> = item_registry.items.keys().cloned().collect();
+    item_ids.sort();
+
+    // 5x8グリッド（40スロット）
+    const GRID_COLS: usize = 5;
+    const GRID_ROWS: usize = 8;
+    const TOTAL_SLOTS: usize = GRID_COLS * GRID_ROWS;
+
     parent
         .spawn((
             Node {
                 display: Display::Grid,
-                grid_template_columns: RepeatedGridTrack::flex(8, 1.0),
-                grid_auto_rows: GridTrack::px(slot_size),
-                overflow: Overflow::scroll_y(),
-                max_height: Val::Px(grid_height),
+                grid_template_columns: RepeatedGridTrack::flex(GRID_COLS as u16, 1.0),
+                grid_template_rows: RepeatedGridTrack::flex(GRID_ROWS as u16, 1.0),
                 row_gap: Val::Px(slot_gap),
                 column_gap: Val::Px(slot_gap),
                 padding: UiRect::all(Val::Px(5.0)),
@@ -739,30 +744,48 @@ fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegis
             BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
         ))
         .with_children(|parent| {
-            // アイテムボタンをグリッドで生成
-            for (item_id, item_data) in &item_registry.items {
-                parent
-                    .spawn((
-                        CreativeItemButton { item_id: item_id.clone() },
-                        Button,
+            // 40スロット全てを生成
+            for i in 0..TOTAL_SLOTS {
+                if i < item_ids.len() {
+                    // アイテムボタンを生成
+                    let item_id = &item_ids[i];
+                    if let Some(item_data) = item_registry.items.get(item_id) {
+                        parent
+                            .spawn((
+                                CreativeItemButton { item_id: item_id.clone() },
+                                Button,
+                                Node {
+                                    width: Val::Px(slot_size),
+                                    height: Val::Px(slot_size),
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
+                                    border: UiRect::all(Val::Px(2.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                                BorderColor(Color::srgb(0.5, 0.5, 0.5)),
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn((
+                                    Text::new(&item_data.name),
+                                    TextFont { font_size: 11.0, ..default() },
+                                    TextColor(Color::WHITE),
+                                ));
+                            });
+                    }
+                } else {
+                    // 空スロットを生成
+                    parent.spawn((
                         Node {
                             width: Val::Px(slot_size),
                             height: Val::Px(slot_size),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
                             border: UiRect::all(Val::Px(2.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
-                        BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn((
-                            Text::new(&item_data.name),
-                            TextFont { font_size: 11.0, ..default() },
-                            TextColor(Color::WHITE),
-                        ));
-                    });
+                        BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
+                        BorderColor(Color::srgb(0.3, 0.3, 0.3)),
+                    ));
+                }
             }
         });
 }
