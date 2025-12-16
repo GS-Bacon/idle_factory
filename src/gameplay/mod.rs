@@ -29,6 +29,7 @@ impl Plugin for GameplayPlugin {
             .add_plugins(held_item::HeldItemPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
+            .init_resource::<building::HologramState>()
             .add_event::<building::MachinePlacedEvent>()
             .add_systems(Startup, player::spawn_player)
             .add_systems(Update, (

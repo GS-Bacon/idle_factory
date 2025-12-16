@@ -13,6 +13,17 @@ pub struct BuildTool {
     pub orientation: Direction,
 }
 
+/// ホログラムプレビューマーカー
+#[derive(Component)]
+pub struct PlacementHologram;
+
+/// ホログラムの状態を管理するリソース
+#[derive(Resource, Default)]
+pub struct HologramState {
+    pub current_entity: Option<Entity>,
+    pub last_position: Option<IVec3>,
+}
+
 #[derive(Event)]
 pub struct MachinePlacedEvent {
     pub pos: IVec3,
@@ -32,6 +43,9 @@ pub fn handle_building(
     block_registry: Res<BlockRegistry>,
     mut machine_placed_events: EventWriter<MachinePlacedEvent>,
     game_mode: Res<GameMode>,
+    mut hologram_state: ResMut<HologramState>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // ホットバーで選択されたアイテムを取得
     if build_tool.active_block_id.is_empty() {
@@ -207,5 +221,77 @@ pub fn handle_building(
                 });
             }
         }
+    }
+
+    // ホログラム表示の更新
+    update_hologram(
+        target_info.map(|(_, place_pos)| place_pos),
+        &mut hologram_state,
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        &build_tool,
+        &chunk,
+    );
+}
+
+/// ホログラムプレビューを更新
+fn update_hologram(
+    place_pos: Option<IVec3>,
+    hologram_state: &mut HologramState,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    _build_tool: &BuildTool,
+    chunk: &Chunk,
+) {
+    // 位置が変わったか、または位置がなくなったらホログラムを更新
+    let needs_update = hologram_state.last_position != place_pos;
+
+    if !needs_update {
+        return;
+    }
+
+    // 既存のホログラムを削除
+    if let Some(entity) = hologram_state.current_entity {
+        commands.entity(entity).despawn_recursive();
+        hologram_state.current_entity = None;
+    }
+
+    hologram_state.last_position = place_pos;
+
+    // 新しいホログラムを生成
+    if let Some(pos) = place_pos {
+        // 設置可能かチェック
+        let is_occupied = if let Some(existing) = chunk.get_block(pos.x as usize, pos.y as usize, pos.z as usize) {
+            existing != "air"
+        } else {
+            true
+        };
+
+        // ホログラムの色（設置可能: 緑、不可能: 赤）
+        let hologram_color = if is_occupied {
+            Color::srgba(1.0, 0.2, 0.2, 0.5) // 赤（設置不可）
+        } else {
+            Color::srgba(0.2, 1.0, 0.2, 0.5) // 緑（設置可能）
+        };
+
+        // シンプルなキューブメッシュを生成
+        let mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+        let material = materials.add(StandardMaterial {
+            base_color: hologram_color,
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            ..default()
+        });
+
+        let entity = commands.spawn((
+            PlacementHologram,
+            Mesh3d(mesh),
+            MeshMaterial3d(material),
+            Transform::from_translation(pos.as_vec3() + Vec3::splat(0.5)),
+        )).id();
+
+        hologram_state.current_entity = Some(entity);
     }
 }
