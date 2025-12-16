@@ -4,9 +4,9 @@ use std::collections::HashMap;
 /// ゲームモード（サバイバル/クリエイティブ）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Resource)]
 pub enum GameMode {
-    #[default]
     Survival,
-    Creative,
+    #[default]
+    Creative, // テスト段階ではクリエイティブモードをデフォルトに
 }
 
 /// コマンド実行結果

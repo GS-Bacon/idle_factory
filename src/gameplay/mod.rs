@@ -15,6 +15,7 @@ pub mod held_item;
 use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;
 use crate::ui::command_ui::CommandUiState;
+use crate::ui::settings_ui::SettingsUiState;
 
 pub struct GameplayPlugin;
 
@@ -36,18 +37,22 @@ impl Plugin for GameplayPlugin {
                 building::handle_building.run_if(
                     in_state(InventoryUiState::Closed)
                     .and(in_state(CommandUiState::Closed))
+                    .and(in_state(SettingsUiState::Closed))
                 ),
                 player::move_player.run_if(
                     in_state(InventoryUiState::Closed)
                     .and(in_state(CommandUiState::Closed))
+                    .and(in_state(SettingsUiState::Closed))
                 ),
                 player::look_player.run_if(
                     in_state(InventoryUiState::Closed)
                     .and(in_state(CommandUiState::Closed))
+                    .and(in_state(SettingsUiState::Closed))
                 ),
                 player::grab_cursor.run_if(
                     in_state(InventoryUiState::Closed)
                     .and(in_state(CommandUiState::Closed))
+                    .and(in_state(SettingsUiState::Closed))
                 ),
                 player::handle_hotbar_selection,
                 player::handle_hotbar_scroll,

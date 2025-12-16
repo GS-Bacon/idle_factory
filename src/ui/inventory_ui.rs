@@ -151,6 +151,7 @@ impl Plugin for InventoryUiPlugin {
             ))
             .add_systems(OnEnter(InventoryUiState::PlayerInventory), (
                 spawn_player_inventory_ui,
+                initialize_creative_visibility,
                 release_cursor,
             ))
             .add_systems(OnEnter(InventoryUiState::Container), (
@@ -1030,12 +1031,53 @@ fn handle_view_toggle_button(
     }
 }
 
+/// クリエイティブモード初期表示設定
+fn initialize_creative_visibility(
+    view_mode: Res<CreativeViewMode>,
+    game_mode: Res<crate::gameplay::commands::GameMode>,
+    mut equipment_query: Query<&mut Visibility, (With<EquipmentPanel>, Without<MainInventoryPanel>)>,
+    mut inventory_query: Query<&mut Visibility, With<MainInventoryPanel>>,
+    mut creative_item_query: Query<&mut Visibility, (With<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
+    mut toggle_button_query: Query<&mut Visibility, (With<ViewToggleButton>, Without<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
+) {
+    // クリエイティブモードでない場合は何もしない
+    if *game_mode != crate::gameplay::commands::GameMode::Creative {
+        return;
+    }
+
+    // Catalogモード: アイテム一覧のみ表示、装備・インベントリは非表示
+    // Inventoryモード: 装備・インベントリ表示、アイテム一覧は非表示
+    let show_catalog = *view_mode == CreativeViewMode::Catalog;
+
+    // 装備パネルの可視性を設定
+    for mut visibility in &mut equipment_query {
+        *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
+    }
+
+    // メインインベントリパネルの可視性を設定
+    for mut visibility in &mut inventory_query {
+        *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
+    }
+
+    // クリエイティブアイテムボタンの可視性を設定（Catalogモードで表示）
+    for mut visibility in &mut creative_item_query {
+        *visibility = if show_catalog { Visibility::Visible } else { Visibility::Hidden };
+    }
+
+    // 切り替えボタンは常に表示
+    for mut visibility in &mut toggle_button_query {
+        *visibility = Visibility::Visible;
+    }
+}
+
 /// クリエイティブモード表示の可視性を更新
 fn update_creative_view_visibility(
     view_mode: Res<CreativeViewMode>,
     game_mode: Res<crate::gameplay::commands::GameMode>,
     mut equipment_query: Query<&mut Visibility, (With<EquipmentPanel>, Without<MainInventoryPanel>)>,
     mut inventory_query: Query<&mut Visibility, With<MainInventoryPanel>>,
+    mut creative_item_query: Query<&mut Visibility, (With<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
+    mut toggle_button_query: Query<&mut Visibility, (With<ViewToggleButton>, Without<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
 ) {
     // クリエイティブモードでない場合は何もしない
     if *game_mode != crate::gameplay::commands::GameMode::Creative {
@@ -1047,16 +1089,28 @@ fn update_creative_view_visibility(
         return;
     }
 
-    let should_hide = *view_mode == CreativeViewMode::Catalog;
+    // Catalogモード: アイテム一覧のみ表示、装備・インベントリは非表示
+    // Inventoryモード: 装備・インベントリ表示、アイテム一覧は非表示
+    let show_catalog = *view_mode == CreativeViewMode::Catalog;
 
     // 装備パネルの可視性を設定
     for mut visibility in &mut equipment_query {
-        *visibility = if should_hide { Visibility::Hidden } else { Visibility::Visible };
+        *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
     }
 
     // メインインベントリパネルの可視性を設定
     for mut visibility in &mut inventory_query {
-        *visibility = if should_hide { Visibility::Hidden } else { Visibility::Visible };
+        *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
+    }
+
+    // クリエイティブアイテムボタンの可視性を設定（Catalogモードで表示）
+    for mut visibility in &mut creative_item_query {
+        *visibility = if show_catalog { Visibility::Visible } else { Visibility::Hidden };
+    }
+
+    // 切り替えボタンは常に表示
+    for mut visibility in &mut toggle_button_query {
+        *visibility = Visibility::Visible;
     }
 }
 
