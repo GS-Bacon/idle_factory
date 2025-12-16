@@ -2,11 +2,12 @@
 //! インベントリUIシステム
 //! - ステート管理: Closed/PlayerInventory/Container
 //! - ドラッグ&ドロップ
-//! - 精密操作（スプリット）
 //! - 動的ツールチップ
 //! - クラフトリスト
+//! - Minecraft風レイアウト
 
 use bevy::prelude::*;
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::gameplay::inventory::{PlayerInventory, EquipmentSlots, ItemRegistry, EquipmentSlotType};
 use crate::core::registry::RecipeRegistry;
 
@@ -73,6 +74,10 @@ pub struct SortButton;
 #[derive(Component)]
 pub struct TrashSlot;
 
+/// ホットバーHUDマーカー
+#[derive(Component)]
+pub struct HotbarHud;
+
 /// イベント
 #[derive(Event)]
 pub struct OpenInventoryEvent;
@@ -113,17 +118,26 @@ impl Plugin for InventoryUiPlugin {
                 handle_open_container_event,
                 handle_escape_key,
             ))
-            .add_systems(OnEnter(InventoryUiState::PlayerInventory), spawn_player_inventory_ui)
-            .add_systems(OnEnter(InventoryUiState::Container), spawn_container_ui)
+            .add_systems(OnEnter(InventoryUiState::PlayerInventory), (
+                spawn_player_inventory_ui,
+                release_cursor,
+            ))
+            .add_systems(OnEnter(InventoryUiState::Container), (
+                spawn_container_ui,
+                release_cursor,
+            ))
             .add_systems(OnExit(InventoryUiState::PlayerInventory), despawn_inventory_ui)
             .add_systems(OnExit(InventoryUiState::Container), despawn_inventory_ui)
+            .add_systems(OnEnter(InventoryUiState::Closed), spawn_hotbar_hud)
+            .add_systems(OnExit(InventoryUiState::Closed), despawn_hotbar_hud)
             .add_systems(Update, (
                 update_slot_visuals,
                 handle_slot_interaction,
                 handle_sort_button,
                 handle_craft_button,
                 update_tooltip,
-            ).run_if(not(in_state(InventoryUiState::Closed))));
+            ).run_if(not(in_state(InventoryUiState::Closed))))
+            .add_systems(Update, update_hotbar_hud.run_if(in_state(InventoryUiState::Closed)));
     }
 }
 
@@ -191,13 +205,16 @@ fn handle_open_container_event(
     }
 }
 
-/// プレイヤーインベントリUIを生成
+/// プレイヤーインベントリUIを生成（Minecraft風）
 fn spawn_player_inventory_ui(
     mut commands: Commands,
     player_inventory: Res<PlayerInventory>,
     equipment: Res<EquipmentSlots>,
     recipe_registry: Res<RecipeRegistry>,
 ) {
+    const SLOT_SIZE: f32 = 54.0;
+    const SLOT_GAP: f32 = 4.0;
+
     commands
         .spawn((
             InventoryUiRoot,
@@ -211,7 +228,7 @@ fn spawn_player_inventory_ui(
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
         ))
         .with_children(|parent| {
-            // メインコンテナ
+            // メインコンテナ (Minecraft風)
             parent
                 .spawn((
                     Node {
@@ -223,18 +240,26 @@ fn spawn_player_inventory_ui(
                     BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
                 ))
                 .with_children(|parent| {
-                    // 左側: 装備スロット
-                    spawn_equipment_panel(parent, &equipment);
+                    // 左側: 装備スロット (縦並び)
+                    spawn_equipment_panel_mc(parent, &equipment, SLOT_SIZE, SLOT_GAP);
 
-                    // 中央: プレイヤーインベントリ
-                    spawn_inventory_panel(parent, &player_inventory);
+                    // 中央: インベントリ + ホットバー
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(20.0),
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                        });
 
                     // 右側: クラフトリスト
                     spawn_craft_list_panel(parent, &recipe_registry);
                 });
         });
 
-    info!("Player inventory UI spawned");
+    info!("Player inventory UI spawned (Minecraft style)");
 }
 
 /// コンテナUIを生成
@@ -276,8 +301,8 @@ fn spawn_container_ui(
     info!("Container UI spawned");
 }
 
-/// 装備パネルを生成
-fn spawn_equipment_panel(parent: &mut ChildBuilder, equipment: &EquipmentSlots) {
+/// 装備パネルを生成（Minecraft風、アイコン付き）
+fn spawn_equipment_panel_mc(parent: &mut ChildBuilder, equipment: &EquipmentSlots, slot_size: f32, _slot_gap: f32) {
     parent
         .spawn(Node {
             flex_direction: FlexDirection::Column,
@@ -287,24 +312,30 @@ fn spawn_equipment_panel(parent: &mut ChildBuilder, equipment: &EquipmentSlots) 
         .with_children(|parent| {
             parent.spawn((
                 Text::new("Equipment"),
-                TextFont { font_size: 24.0, ..default() },
+                TextFont { font_size: 20.0, ..default() },
                 TextColor(Color::WHITE),
             ));
 
-            for slot_type in [
-                EquipmentSlotType::Head,
-                EquipmentSlotType::Chest,
-                EquipmentSlotType::Legs,
-                EquipmentSlotType::Feet,
-                EquipmentSlotType::Tool,
+            // 装備スロット（アイコン付き）
+            for (slot_type, icon_text) in [
+                (EquipmentSlotType::Head, "H"),
+                (EquipmentSlotType::Chest, "C"),
+                (EquipmentSlotType::Legs, "L"),
+                (EquipmentSlotType::Feet, "F"),
+                (EquipmentSlotType::Tool, "T"),
             ] {
-                spawn_slot(parent, SlotIdentifier::Equipment(slot_type), equipment.get(slot_type));
+                spawn_slot_with_icon(parent, SlotIdentifier::Equipment(slot_type), equipment.get(slot_type), slot_size, icon_text);
             }
         });
 }
 
-/// インベントリパネルを生成
-fn spawn_inventory_panel(parent: &mut ChildBuilder, inventory: &PlayerInventory) {
+/// 装備パネルを生成（旧版、互換性のため残す）
+fn spawn_equipment_panel(parent: &mut ChildBuilder, equipment: &EquipmentSlots) {
+    spawn_equipment_panel_mc(parent, equipment, 54.0, 4.0);
+}
+
+/// メインインベントリパネルを生成（Minecraft風）
+fn spawn_main_inventory_panel_mc(parent: &mut ChildBuilder, inventory: &PlayerInventory, slot_size: f32, slot_gap: f32) {
     parent
         .spawn(Node {
             flex_direction: FlexDirection::Column,
@@ -318,12 +349,13 @@ fn spawn_inventory_panel(parent: &mut ChildBuilder, inventory: &PlayerInventory)
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
+                    width: Val::Px(8.0 * slot_size + 7.0 * slot_gap),
                     ..default()
                 })
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Inventory"),
-                        TextFont { font_size: 24.0, ..default() },
+                        TextFont { font_size: 20.0, ..default() },
                         TextColor(Color::WHITE),
                     ));
 
@@ -332,7 +364,7 @@ fn spawn_inventory_panel(parent: &mut ChildBuilder, inventory: &PlayerInventory)
                             SortButton,
                             Button,
                             Node {
-                                padding: UiRect::all(Val::Px(10.0)),
+                                padding: UiRect::all(Val::Px(8.0)),
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
@@ -340,59 +372,96 @@ fn spawn_inventory_panel(parent: &mut ChildBuilder, inventory: &PlayerInventory)
                         .with_children(|parent| {
                             parent.spawn((
                                 Text::new("Sort"),
-                                TextFont { font_size: 16.0, ..default() },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
-                });
-
-            // スロットグリッド (8x5 = 40スロット)
-            parent
-                .spawn(Node {
-                    display: Display::Grid,
-                    grid_template_columns: RepeatedGridTrack::flex(8, 1.0),
-                    grid_template_rows: RepeatedGridTrack::flex(5, 1.0),
-                    row_gap: Val::Px(5.0),
-                    column_gap: Val::Px(5.0),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    for i in 0..inventory.size {
-                        spawn_slot(parent, SlotIdentifier::PlayerInventory(i), &inventory.slots[i]);
-                    }
-                });
-
-            // ゴミ箱スロット
-            parent
-                .spawn(Node {
-                    margin: UiRect::top(Val::Px(10.0)),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent
-                        .spawn((
-                            TrashSlot,
-                            Button,
-                            Node {
-                                width: Val::Px(60.0),
-                                height: Val::Px(60.0),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                border: UiRect::all(Val::Px(2.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
-                            BorderColor(Color::srgb(0.8, 0.3, 0.3)),
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn((
-                                Text::new("Trash"),
                                 TextFont { font_size: 14.0, ..default() },
                                 TextColor(Color::WHITE),
                             ));
                         });
                 });
+
+            // メインインベントリ (8x3 = 24スロット、スロット0-23)
+            parent
+                .spawn(Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::flex(8, 1.0),
+                    grid_template_rows: RepeatedGridTrack::flex(3, 1.0),
+                    row_gap: Val::Px(slot_gap),
+                    column_gap: Val::Px(slot_gap),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    for i in 0..24 {
+                        spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &inventory.slots[i], slot_size);
+                    }
+                });
+
+            // ホットバー (1x9 = 9スロット、スロット24-32)
+            parent
+                .spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(5.0),
+                    margin: UiRect::top(Val::Px(10.0)),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Hotbar"),
+                        TextFont { font_size: 16.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+
+                    parent
+                        .spawn(Node {
+                            display: Display::Grid,
+                            grid_template_columns: RepeatedGridTrack::flex(9, 1.0),
+                            grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
+                            column_gap: Val::Px(slot_gap),
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            for i in 24..33 {
+                                spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &inventory.slots[i], slot_size);
+                            }
+                        });
+                });
         });
+
+    // ゴミ箱スロット（右下に配置）
+    parent
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(20.0),
+            right: Val::Px(20.0),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    TrashSlot,
+                    Button,
+                    Node {
+                        width: Val::Px(slot_size),
+                        height: Val::Px(slot_size),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        border: UiRect::all(Val::Px(2.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
+                    BorderColor(Color::srgb(0.8, 0.3, 0.3)),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Trash"),
+                        TextFont { font_size: 12.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+        });
+}
+
+/// インベントリパネルを生成（旧版、互換性のため残す）
+fn spawn_inventory_panel(parent: &mut ChildBuilder, inventory: &PlayerInventory) {
+    spawn_main_inventory_panel_mc(parent, inventory, 54.0, 4.0);
 }
 
 /// クラフトリストパネルを生成
@@ -485,19 +554,20 @@ fn spawn_container_panel(parent: &mut ChildBuilder) {
         });
 }
 
-/// 個別スロットを生成
-fn spawn_slot(
+/// 個別スロットを生成（サイズ指定版）
+fn spawn_slot_sized(
     parent: &mut ChildBuilder,
     identifier: SlotIdentifier,
     slot_data: &crate::gameplay::inventory::InventorySlot,
+    size: f32,
 ) {
     parent
         .spawn((
             UiSlot { identifier },
             Button,
             Node {
-                width: Val::Px(60.0),
-                height: Val::Px(60.0),
+                width: Val::Px(size),
+                height: Val::Px(size),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(2.0)),
@@ -510,11 +580,69 @@ fn spawn_slot(
             if let Some(item_id) = &slot_data.item_id {
                 parent.spawn((
                     Text::new(format!("{}\n{}", item_id, slot_data.count)),
-                    TextFont { font_size: 14.0, ..default() },
+                    TextFont { font_size: 12.0, ..default() },
                     TextColor(Color::WHITE),
                 ));
             }
         });
+}
+
+/// アイコン付きスロットを生成（装備用）
+fn spawn_slot_with_icon(
+    parent: &mut ChildBuilder,
+    identifier: SlotIdentifier,
+    slot_data: &crate::gameplay::inventory::InventorySlot,
+    size: f32,
+    icon_text: &str,
+) {
+    parent
+        .spawn((
+            UiSlot { identifier },
+            Button,
+            Node {
+                width: Val::Px(size),
+                height: Val::Px(size),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(2.0)),
+                position_type: PositionType::Relative,
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+            BorderColor(Color::srgb(0.5, 0.5, 0.5)),
+        ))
+        .with_children(|parent| {
+            // アイコン（左上）
+            parent.spawn((
+                Text::new(icon_text),
+                TextFont { font_size: 10.0, ..default() },
+                TextColor(Color::srgba(1.0, 1.0, 1.0, 0.5)),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(2.0),
+                    top: Val::Px(2.0),
+                    ..default()
+                },
+            ));
+
+            // アイテム情報（中央）
+            if let Some(item_id) = &slot_data.item_id {
+                parent.spawn((
+                    Text::new(format!("{}\n{}", item_id, slot_data.count)),
+                    TextFont { font_size: 11.0, ..default() },
+                    TextColor(Color::WHITE),
+                ));
+            }
+        });
+}
+
+/// 個別スロットを生成（旧版、互換性のため残す）
+fn spawn_slot(
+    parent: &mut ChildBuilder,
+    identifier: SlotIdentifier,
+    slot_data: &crate::gameplay::inventory::InventorySlot,
+) {
+    spawn_slot_sized(parent, identifier, slot_data, 54.0);
 }
 
 /// UIを削除
@@ -755,6 +883,135 @@ fn update_tooltip(
                         TextFont { font_size: 16.0, ..default() },
                         TextColor(Color::WHITE),
                     ));
+                }
+            }
+        }
+    }
+}
+
+/// インベントリUI表示時にカーソルを解放
+fn release_cursor(
+    mut window_query: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if let Ok(mut window) = window_query.get_single_mut() {
+        window.cursor_options.grab_mode = CursorGrabMode::None;
+        window.cursor_options.visible = true;
+    }
+}
+
+/// ホットバーHUDを生成
+fn spawn_hotbar_hud(
+    mut commands: Commands,
+    player_inventory: Res<PlayerInventory>,
+) {
+    const SLOT_SIZE: f32 = 54.0;
+    const SLOT_GAP: f32 = 4.0;
+
+    commands
+        .spawn((
+            HotbarHud,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::End,
+                padding: UiRect::bottom(Val::Px(20.0)),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn(Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::flex(9, 1.0),
+                    grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
+                    column_gap: Val::Px(SLOT_GAP),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    for i in 24..33 {
+                        spawn_hotbar_slot(parent, i, &player_inventory.slots[i], SLOT_SIZE);
+                    }
+                });
+        });
+
+    info!("Hotbar HUD spawned");
+}
+
+/// ホットバー用スロットを生成
+fn spawn_hotbar_slot(
+    parent: &mut ChildBuilder,
+    index: usize,
+    slot_data: &crate::gameplay::inventory::InventorySlot,
+    size: f32,
+) {
+    parent
+        .spawn((
+            UiSlot { identifier: SlotIdentifier::PlayerInventory(index) },
+            Node {
+                width: Val::Px(size),
+                height: Val::Px(size),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
+            BorderColor(Color::srgb(0.5, 0.5, 0.5)),
+        ))
+        .with_children(|parent| {
+            if let Some(item_id) = &slot_data.item_id {
+                parent.spawn((
+                    Text::new(format!("{}\n{}", item_id, slot_data.count)),
+                    TextFont { font_size: 11.0, ..default() },
+                    TextColor(Color::WHITE),
+                ));
+            }
+        });
+}
+
+/// ホットバーHUDを削除
+fn despawn_hotbar_hud(
+    mut commands: Commands,
+    query: Query<Entity, With<HotbarHud>>,
+) {
+    for entity in &query {
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
+/// ホットバーHUDを更新
+fn update_hotbar_hud(
+    player_inventory: Res<PlayerInventory>,
+    mut slot_query: Query<(&UiSlot, &Children, &mut BackgroundColor), Without<Button>>,
+    mut text_query: Query<&mut Text>,
+) {
+    if !player_inventory.is_changed() {
+        return;
+    }
+
+    for (ui_slot, children, mut bg_color) in &mut slot_query {
+        if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
+            if *i >= 24 && *i < 33 {
+                let slot_data = &player_inventory.slots[*i];
+
+                // 背景色を更新
+                if slot_data.is_empty() {
+                    *bg_color = BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8));
+                } else {
+                    *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.3, 0.9));
+                }
+
+                // テキストを更新
+                for &child in children.iter() {
+                    if let Ok(mut text) = text_query.get_mut(child) {
+                        if let Some(item_id) = &slot_data.item_id {
+                            **text = format!("{}\n{}", item_id, slot_data.count);
+                        } else {
+                            **text = String::new();
+                        }
+                    }
                 }
             }
         }

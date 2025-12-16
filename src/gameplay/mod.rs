@@ -11,6 +11,7 @@ pub mod multiblock;
 pub mod inventory;
 
 use grid::SimulationGrid;
+use crate::ui::inventory_ui::InventoryUiState;
 
 pub struct GameplayPlugin;
 
@@ -26,10 +27,10 @@ impl Plugin for GameplayPlugin {
             .add_event::<building::MachinePlacedEvent>()
             .add_systems(Startup, player::spawn_player)
             .add_systems(Update, (
-                building::handle_building,
-                player::move_player,
-                player::look_player,
-                player::grab_cursor,
+                building::handle_building.run_if(in_state(InventoryUiState::Closed)),
+                player::move_player.run_if(in_state(InventoryUiState::Closed)),
+                player::look_player.run_if(in_state(InventoryUiState::Closed)),
+                player::grab_cursor.run_if(in_state(InventoryUiState::Closed)),
                 items::update_visual_items,
             ));
 
