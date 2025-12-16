@@ -235,6 +235,168 @@ pub struct MultiblockPattern {
 
 ---
 
+### [P2] Player Inventory System
+**Priority:** P2 (Important - Core Gameplay)
+**Status:** ✅ Implemented
+
+**User Story:**
+As a player, I want to manage my items through an intuitive inventory UI with equipment slots and hotbar access, so that I can organize resources and equipment efficiently.
+
+**Acceptance Criteria:**
+- **GIVEN** I press the E key
+- **WHEN** the inventory UI opens
+- **THEN** I see my equipment slots, main inventory (8x3 grid), and hotbar (9 slots)
+- **AND** I can drag and drop items between slots
+- **AND** player movement and camera controls are disabled
+- **AND** the cursor is automatically released
+
+**Specifications:**
+| Component | Details |
+|-----------|---------|
+| Equipment Slots | 5 slots (Head, Chest, Legs, Feet, Tool) |
+| Main Inventory | 24 slots (8 columns × 3 rows) |
+| Hotbar | 9 slots (slots 24-32) |
+| Slot Size | 54×54 pixels |
+| Max Stack Size | 999 items |
+
+**Controls:**
+| Action | Input | Behavior |
+|--------|-------|----------|
+| Open Inventory | E | Show player inventory UI |
+| Close Inventory | E / Esc | Return to gameplay |
+| Drag Item | Left Click + Drag | Move/swap items |
+| Sort Inventory | Sort Button | Organize by item ID |
+| Delete Item | Drag to Trash | Remove item |
+
+**Technical Implementation:**
+- `src/gameplay/inventory.rs`: Inventory data structures (ItemRegistry, PlayerInventory, EquipmentSlots)
+- `src/ui/inventory_ui.rs`: UI rendering and interaction systems
+- Minecraft-style layout with consistent 54×54px slot sizing
+- Equipment panel (left), main inventory (center), crafting list (right)
+- Hotbar HUD at screen bottom when inventory closed
+
+---
+
+### [P2] Creative Mode System
+**Priority:** P2 (Important - Testing & Development)
+**Status:** ✅ Implemented
+
+**User Story:**
+As a developer/player, I want a creative mode with unlimited items and building freedom, so that I can test designs and build without resource constraints.
+
+**Acceptance Criteria:**
+- **GIVEN** the game is in Creative mode (default for testing)
+- **WHEN** I press E to open inventory
+- **THEN** I see an item catalog grid with all available items
+- **AND** I can toggle between item catalog and normal inventory
+- **AND** the hotbar remains visible even when inventory is open
+
+**Specifications:**
+| Feature | Details |
+|---------|---------|
+| Default Mode | Creative (for testing phase) |
+| Item Catalog | Grid display of all items from ItemRegistry |
+| Toggle Button | 54×54px square button with ⇄ icon |
+| Hotbar Visibility | Always visible in Creative mode |
+| Layout | Item catalog OR inventory at center (same position toggle) |
+
+**Controls:**
+| Action | Input | Behavior |
+|--------|-------|----------|
+| Toggle View | Toggle Button (⇄) | Switch between item catalog and inventory |
+| Switch Mode | /gamemode <survival\|creative> | Change game mode |
+
+**Technical Implementation:**
+- `src/gameplay/commands.rs`: GameMode enum (Survival/Creative)
+- `src/ui/inventory_ui.rs`: CreativeItemList component, spawn_creative_item_grid
+- Visibility-based toggling (Visibility::Hidden/Visible)
+- Conditional hotbar spawning based on GameMode
+- No side-by-side layout (single-position toggle design)
+
+---
+
+### [P2] Settings and Configuration UI
+**Priority:** P2 (Important - User Experience)
+**Status:** ✅ Implemented
+
+**User Story:**
+As a player, I want to adjust game settings (FPS, mouse sensitivity, visual options) through an accessible UI with immediate feedback, so that I can customize my experience without restarting.
+
+**Acceptance Criteria:**
+- **GIVEN** I press Esc key
+- **WHEN** the settings button appears
+- **THEN** I can click to open settings panel
+- **AND** I can adjust FPS target (30/60/120/144/240)
+- **AND** I can adjust mouse sensitivity (0.001-0.01)
+- **AND** I can toggle Enable Highlight and Enable UI Blur
+- **AND** settings apply immediately without Apply button
+- **AND** pressing Esc twice returns to gameplay with cursor auto-grab
+
+**Specifications:**
+| Setting | Type | Range | Default |
+|---------|------|-------|---------|
+| Target FPS | Integer | 30-240 | 60 |
+| Mouse Sensitivity | Float | 0.001-0.01 | 0.003 |
+| Enable Highlight | Boolean | ON/OFF | ON |
+| Enable UI Blur | Boolean | ON/OFF | OFF |
+
+**Controls:**
+| Action | Input | Behavior |
+|--------|-------|----------|
+| Open Settings Menu | Esc (1st press) | Show settings button |
+| Show Settings Panel | Click Settings Button | Open settings UI |
+| Return to Gameplay | Esc (2nd press) | Close UI, auto-grab cursor |
+| Adjust FPS | +/- Buttons | Change target FPS |
+| Adjust Sensitivity | +/- Buttons | Change mouse sensitivity (±0.001) |
+| Toggle Features | Square Toggle Buttons (54×54px) | ON (green) / OFF (red) |
+
+**Technical Implementation:**
+- `src/ui/settings_ui.rs`: Settings UI state machine (Closed/ButtonVisible/SettingsOpen)
+- `src/core/config.rs`: GameConfig resource for settings storage
+- Immediate application (no Apply button)
+- Component markers: FpsIncreaseButton, FpsDecreaseButton, SensitivityButtons, ToggleButtons
+- Player control blocking when settings open (via SettingsUiState)
+
+---
+
+### [P1] Hotbar HUD System
+**Priority:** P1 (Critical - Core Gameplay)
+**Status:** ✅ Implemented
+
+**User Story:**
+As a player, I want to see my active hotbar items at the bottom of the screen with a clear selection indicator, so that I know what I'm currently holding and can quickly switch items.
+
+**Acceptance Criteria:**
+- **GIVEN** the inventory UI is closed
+- **WHEN** I'm in gameplay mode
+- **THEN** the hotbar (9 slots) is displayed at screen bottom
+- **AND** the currently selected slot is highlighted
+- **AND** the active item name is displayed below the hotbar
+- **AND** the hotbar updates in real-time when items change
+
+**Specifications:**
+| Component | Details |
+|-----------|---------|
+| Slots Displayed | 9 (slots 24-32 from player inventory) |
+| Position | Bottom center of screen |
+| Slot Size | 54×54 pixels |
+| Background | Semi-transparent dark background |
+| Highlight | Yellow border (3px) on selected slot |
+
+**Controls:**
+| Action | Input | Behavior |
+|--------|-------|----------|
+| Select Slot | 1-9 Keys | Change active hotbar slot |
+| Scroll Selection | Mouse Wheel | Cycle through hotbar slots |
+
+**Technical Implementation:**
+- `src/ui/inventory_ui.rs`: spawn_hotbar_hud, update_hotbar_hud systems
+- Conditional spawning based on GameMode (always visible in Creative, hidden when inventory open in Survival)
+- Real-time synchronization with PlayerInventory resource
+- SelectedHotbarSlot component for highlight tracking
+
+---
+
 ## Requirements
 
 ### Functional Requirements
@@ -253,7 +415,11 @@ pub struct MultiblockPattern {
 
 **[MUST] UI Systems**
 - Machine interaction UI (right-click)
-- Inventory display with real-time updates
+- Player inventory UI with drag-and-drop (E key)
+- Equipment slots and hotbar management
+- Creative mode item catalog with toggle
+- Settings UI with immediate application
+- Hotbar HUD with selection highlight
 - Recipe selection interface
 
 **[SHOULD] Advanced Features**
@@ -354,9 +520,10 @@ pub struct MultiblockPattern {
 - Greedy meshing for voxel rendering
 
 **Testing Coverage:**
-- 13 tests passing (inventory, power, multiblock, machines)
+- 15 tests passing (inventory, power, multiblock, machines, commands, UI)
 - 70%+ coverage on core systems
 - Integration tests for conveyor → assembler flow
+- UI state management tests for inventory and settings
 
 ---
 
