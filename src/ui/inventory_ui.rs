@@ -1050,9 +1050,7 @@ fn update_slot_visuals(
     mut slot_query: Query<(&UiSlot, &Children, &mut BackgroundColor), With<Button>>,
     mut text_query: Query<&mut Text>,
 ) {
-    if !player_inventory.is_changed() && !equipment.is_changed() {
-        return;
-    }
+    // change detectionを削除して常に更新（ドラッグ&ドロップの即時反映のため）
 
     for (ui_slot, children, mut bg_color) in &mut slot_query {
         let slot_data = match &ui_slot.identifier {
