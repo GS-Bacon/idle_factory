@@ -172,12 +172,14 @@ impl Plugin for InventoryUiPlugin {
             .add_systems(OnEnter(InventoryUiState::PlayerInventory), spawn_hotbar_hud_if_creative)
             .add_systems(OnExit(InventoryUiState::Closed), despawn_hotbar_hud_if_not_creative)
             .add_systems(Update, (
-                update_slot_visuals,
-                handle_slot_interaction,
-                handle_drag_drop_release,
+                (
+                    handle_slot_interaction,
+                    handle_creative_item_button,
+                    handle_drag_drop_release,
+                    update_slot_visuals, // ドラッグ&ドロップ処理の後に必ず実行
+                ).chain(),
                 handle_sort_button,
                 handle_craft_button,
-                handle_creative_item_button,
                 handle_view_toggle_button,
                 update_creative_view_visibility,
                 update_tooltip,
