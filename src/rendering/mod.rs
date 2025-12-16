@@ -11,7 +11,8 @@ pub struct RenderingPlugin;
 impl Plugin for RenderingPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(Startup, setup_test_chunk)
+            .init_resource::<voxel_loader::VoxelAssets>()
+            .add_systems(Startup, (setup_test_chunk, voxel_loader::load_vox_assets))
             .add_systems(Update, meshing::update_chunk_mesh);
     }
 }

@@ -27,16 +27,16 @@ pub struct CommandHistory {
 
 /// マーカーコンポーネント
 #[derive(Component)]
-struct CommandUiRoot;
+pub struct CommandUiRoot;
 
 #[derive(Component)]
-struct CommandInputText;
+pub struct CommandInputText;
 
 #[derive(Component)]
-struct CommandHistoryText;
+pub struct CommandHistoryText;
 
 #[derive(Component)]
-struct CommandSuggestions;
+pub struct CommandSuggestions;
 
 pub struct CommandUiPlugin;
 

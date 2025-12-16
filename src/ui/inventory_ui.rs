@@ -1043,7 +1043,7 @@ fn update_hotbar_hud(
     player_inventory: Res<PlayerInventory>,
     item_registry: Res<ItemRegistry>,
     mut slot_query: Query<(&UiSlot, &Children, &mut BackgroundColor, &mut BorderColor, &mut Node), Without<Button>>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut Text, (Without<HotbarItemName>, Without<crate::ui::command_ui::CommandHistoryText>, Without<crate::ui::command_ui::CommandInputText>, Without<crate::ui::command_ui::CommandSuggestions>)>,
     mut item_name_query: Query<&mut Text, With<HotbarItemName>>,
 ) {
     if !player_inventory.is_changed() {
