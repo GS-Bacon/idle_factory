@@ -1052,6 +1052,7 @@ fn update_slot_visuals(
 ) {
     // change detectionを削除して常に更新（ドラッグ&ドロップの即時反映のため）
 
+    let mut updated_count = 0;
     for (ui_slot, children, mut bg_color) in &mut slot_query {
         let slot_data = match &ui_slot.identifier {
             SlotIdentifier::PlayerInventory(i) => {
@@ -1086,10 +1087,22 @@ fn update_slot_visuals(
                 };
 
                 if **text != new_text {
-                    **text = new_text;
+                    **text = new_text.clone();
+                    updated_count += 1;
+
+                    // PlayerInventoryスロットの更新を特別にログ出力
+                    if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
+                        if *i >= 50 && *i < 60 {
+                            info!("[UPDATE VISUAL] Hotbar slot {} updated to: {}", i, new_text);
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if updated_count > 0 {
+        info!("[UPDATE VISUAL] Updated {} slot visuals", updated_count);
     }
 }
 
@@ -1260,7 +1273,8 @@ fn handle_drag_drop_release(
                                 dragged.item_id = None;
                                 dragged.count = 0;
                                 dragged.source_slot = None;
-                                info!("Dropped {} x{} to slot {}", dragged_item_id, dragged_count, i);
+                                info!("[DROP SUCCESS] Dropped {} x{} to PlayerInventory slot {} (now: {:?})",
+                                    dragged_item_id, dragged_count, i, target_slot);
                             } else if target_slot.item_id.as_ref() == Some(&dragged_item_id) {
                                 let max_stack = item_registry
                                     .get(&dragged_item_id)
