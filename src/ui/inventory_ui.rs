@@ -353,18 +353,30 @@ fn spawn_player_inventory_ui(
                                             });
                                     });
 
-                                // 共有ホットバー行（ホットバー + トグルボタン + ゴミ箱スロット）
+                                // 共有ホットバー行（ホットバーグリッド + トグルボタン + ゴミ箱スロット）
                                 parent
                                     .spawn(Node {
                                         flex_direction: FlexDirection::Row,
                                         column_gap: Val::Px(10.0),
                                         margin: UiRect::top(Val::Px(10.0)),
-                                        align_items: AlignItems::End,
+                                        align_items: AlignItems::Center,
                                         ..default()
                                     })
                                     .with_children(|parent| {
-                                        // ホットバーグリッド
-                                        spawn_hotbar(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                                        // ホットバーグリッド（タイトルなし、グリッドのみ）
+                                        parent
+                                            .spawn(Node {
+                                                display: Display::Grid,
+                                                grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
+                                                grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
+                                                column_gap: Val::Px(SLOT_GAP),
+                                                ..default()
+                                            })
+                                            .with_children(|parent| {
+                                                for i in 50..60 {
+                                                    spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &player_inventory.slots[i], SLOT_SIZE);
+                                                }
+                                            });
 
                                         // トグルボタン
                                         parent.spawn((
