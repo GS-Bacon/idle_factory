@@ -974,6 +974,7 @@ fn spawn_hotbar_hud(
                     grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
                     column_gap: Val::Px(SLOT_GAP),
                     padding: UiRect::all(Val::Px(8.0)),
+                    align_self: AlignSelf::Center,
                     ..default()
                 })
                 .with_children(|parent| {

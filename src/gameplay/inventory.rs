@@ -294,10 +294,38 @@ fn load_items(mut registry: ResMut<ItemRegistry>) {
     );
 
     registry.register(
+        ItemData::new("iron_ingot", "Iron Ingot")
+            .with_property("description", "Refined iron ingot")
+            .with_property("stress_impact", "1.5")
+            .with_max_stack(999),
+    );
+
+    registry.register(
         ItemData::new("coal", "Coal")
             .with_property("description", "Fuel for furnaces")
             .with_property("burn_time", "80")
             .with_max_stack(999),
+    );
+
+    registry.register(
+        ItemData::new("miner", "Mining Drill")
+            .with_property("description", "Automated mining machine")
+            .with_property("placeable", "true")
+            .with_max_stack(64),
+    );
+
+    registry.register(
+        ItemData::new("conveyor", "Conveyor Belt")
+            .with_property("description", "Transports items automatically")
+            .with_property("placeable", "true")
+            .with_max_stack(64),
+    );
+
+    registry.register(
+        ItemData::new("assembler", "Assembler")
+            .with_property("description", "Crafts items from recipes")
+            .with_property("placeable", "true")
+            .with_max_stack(64),
     );
 
     info!("Loaded {} items", registry.items.len());

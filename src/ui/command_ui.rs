@@ -140,7 +140,7 @@ fn spawn_command_ui(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 CommandInputText,
-                Text::new("/"),
+                Text::new(""),
                 TextFont {
                     font_size: 18.0,
                     ..default()
@@ -266,8 +266,19 @@ fn handle_command_input(
 
                 let completions = registry.get_completions(cmd_text);
                 if completions.len() == 1 {
-                    input.text = format!("/{}", completions[0]);
-                    input.cursor_position = input.text.len();
+                    let parts: Vec<&str> = cmd_text.split_whitespace().collect();
+
+                    if parts.is_empty() || (parts.len() == 1 && !cmd_text.ends_with(' ')) {
+                        // コマンド名の補完
+                        input.text = completions[0].clone();
+                        input.cursor_position = input.text.len();
+                    } else {
+                        // コマンド引数の補完（最後の引数を置き換える）
+                        let mut new_parts = parts[..parts.len() - 1].to_vec();
+                        new_parts.push(&completions[0]);
+                        input.text = new_parts.join(" ");
+                        input.cursor_position = input.text.len();
+                    }
                 }
             }
             _ => {

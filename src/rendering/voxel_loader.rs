@@ -60,8 +60,27 @@ pub fn load_vox_assets(mut voxel_assets: ResMut<VoxelAssets>) {
                 voxel_assets.models.insert(id.to_string(), voxels);
             }
             Err(e) => {
-                // ファイルがない場合は警告を出すだけにする（開発中にファイルを入れ忘れても動くように）
+                // ファイルがない場合は警告を出して、フォールバックとしてcubeを生成
                 warn!("⚠️ Failed to load .vox model: {} ({}) - Using fallback cube mesh.", path, e);
+
+                // フォールバックcubeを生成（8x8x8のシンプルなcube）
+                let mut voxels = Vec::new();
+                for x in 0..8 {
+                    for y in 0..8 {
+                        for z in 0..8 {
+                            // 中空のcube（外側のみ）
+                            if x == 0 || x == 7 || y == 0 || y == 7 || z == 0 || z == 7 {
+                                voxels.push(VoxelData {
+                                    pos: Vec3::new(x as f32, y as f32, z as f32),
+                                    color: [0.7, 0.7, 0.7, 1.0], // グレー
+                                });
+                            }
+                        }
+                    }
+                }
+
+                info!("📦 Generated fallback cube for: {} ({} voxels)", id, voxels.len());
+                voxel_assets.models.insert(id.to_string(), voxels);
             }
         }
     }

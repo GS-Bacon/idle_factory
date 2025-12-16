@@ -15,21 +15,11 @@ fn main() {
 }
 
 fn setup_lights(mut commands: Commands) {
+    // 環境光で全体を照らす（強い日光は不要）
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 400.0,
+        brightness: 1000.0, // 全体的に明るく
     });
-
-    commands.spawn((
-        DirectionalLight {
-            shadows_enabled: true,
-            illuminance: 10_000.0,
-            shadow_depth_bias: 0.05,
-            shadow_normal_bias: 0.05,
-            ..default()
-        },
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4)),
-    ));
 }
 
 fn setup_shared_material(
