@@ -1199,7 +1199,8 @@ fn handle_slot_interaction(
 /// マウスリリース時のドロップ処理
 fn handle_drag_drop_release(
     mouse_button: Res<ButtonInput<MouseButton>>,
-    hovered_slots: Query<(&Interaction, &UiSlot), With<Button>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    slots: Query<(&GlobalTransform, &ComputedNode, &UiSlot), With<Button>>,
     mut dragged: ResMut<DraggedItem>,
     mut player_inventory: ResMut<PlayerInventory>,
     mut equipment: ResMut<EquipmentSlots>,
@@ -1211,13 +1212,34 @@ fn handle_drag_drop_release(
     }
 
     if mouse_button.just_released(MouseButton::Left) && dragged.item_id.is_some() {
-        info!("[DRAG RELEASE] Checking for hovered slots...");
-        let mut found_hovered = false;
-        // Hovered状態のスロットを探す
-        for (interaction, ui_slot) in &hovered_slots {
-            if *interaction == Interaction::Hovered {
-                found_hovered = true;
-                info!("[DRAG RELEASE] Found hovered slot: {:?}", ui_slot.identifier);
+        info!("[DRAG RELEASE] Checking for slots under cursor...");
+
+        // マウスカーソルの位置を取得
+        let cursor_pos = windows
+            .get_single()
+            .ok()
+            .and_then(|window| window.cursor_position());
+
+        if let Some(cursor_pos) = cursor_pos {
+            info!("[DEBUG] Cursor position: {:?}", cursor_pos);
+
+            let mut found_slot = false;
+            // すべてのスロットをチェックして、カーソルの下にあるものを探す
+            for (global_transform, computed_node, ui_slot) in &slots {
+                let slot_pos = global_transform.translation().truncate();
+                let slot_size = computed_node.size();
+
+                // スロットの境界を計算（中心座標から）
+                let min_x = slot_pos.x - slot_size.x / 2.0;
+                let max_x = slot_pos.x + slot_size.x / 2.0;
+                let min_y = slot_pos.y - slot_size.y / 2.0;
+                let max_y = slot_pos.y + slot_size.y / 2.0;
+
+                // カーソルがスロットの範囲内にあるかチェック
+                if cursor_pos.x >= min_x && cursor_pos.x <= max_x &&
+                   cursor_pos.y >= min_y && cursor_pos.y <= max_y {
+                    found_slot = true;
+                    info!("[DRAG RELEASE] Found slot under cursor: {:?}", ui_slot.identifier);
                 let dragged_item_id = dragged.item_id.clone().unwrap();
                 let dragged_count = dragged.count;
 
@@ -1280,11 +1302,14 @@ fn handle_drag_drop_release(
                     }
                     _ => {}
                 }
+                }
             }
-        }
 
-        if !found_hovered {
-            info!("[DEBUG] No hovered slot found");
+            if !found_slot {
+                info!("[DEBUG] No slot found under cursor");
+            }
+        } else {
+            info!("[DEBUG] Could not get cursor position");
         }
 
         // どのスロットにもドロップしなかった場合、元のスロットに戻す（クリエイティブアイテムの場合は破棄）
