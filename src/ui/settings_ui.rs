@@ -25,13 +25,37 @@ pub struct SettingsButton;
 #[derive(Component)]
 pub struct SettingsUiRoot;
 
-/// FPSスライダー
+/// FPS増加ボタン
 #[derive(Component)]
-pub struct FpsSlider;
+pub struct FpsIncreaseButton;
 
-/// マウス感度スライダー
+/// FPS減少ボタン
 #[derive(Component)]
-pub struct MouseSensitivitySlider;
+pub struct FpsDecreaseButton;
+
+/// FPS値表示
+#[derive(Component)]
+pub struct FpsValueText;
+
+/// マウス感度増加ボタン
+#[derive(Component)]
+pub struct SensitivityIncreaseButton;
+
+/// マウス感度減少ボタン
+#[derive(Component)]
+pub struct SensitivityDecreaseButton;
+
+/// マウス感度値表示
+#[derive(Component)]
+pub struct SensitivityValueText;
+
+/// ハイライト有効/無効トグル
+#[derive(Component)]
+pub struct HighlightToggleButton;
+
+/// UIブラー有効/無効トグル
+#[derive(Component)]
+pub struct UiBlurToggleButton;
 
 /// 適用ボタン
 #[derive(Component)]
@@ -56,6 +80,9 @@ impl Plugin for SettingsUiPlugin {
                 handle_settings_button,
                 handle_apply_button,
                 handle_close_button,
+                handle_fps_buttons,
+                handle_sensitivity_buttons,
+                handle_toggle_buttons,
             ).run_if(not(in_state(SettingsUiState::Closed))));
     }
 }
@@ -178,10 +205,75 @@ fn spawn_settings_ui(
             })
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new(format!("Max FPS: {}", config.max_fps as u32)),
+                    Text::new("Max FPS"),
                     TextFont { font_size: 20.0, ..default() },
                     TextColor(Color::WHITE),
                 ));
+
+                // FPS調整ボタン
+                parent.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                })
+                .with_children(|parent| {
+                    // 減少ボタン
+                    parent.spawn((
+                        FpsDecreaseButton,
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new("-"),
+                            TextFont { font_size: 24.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+
+                    // 値表示
+                    parent.spawn((
+                        FpsValueText,
+                        Text::new(format!("{}", config.max_fps as u32)),
+                        TextFont { font_size: 24.0, ..default() },
+                        TextColor(Color::WHITE),
+                        Node {
+                            width: Val::Px(80.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                    ));
+
+                    // 増加ボタン
+                    parent.spawn((
+                        FpsIncreaseButton,
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new("+"),
+                            TextFont { font_size: 24.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+                });
 
                 parent.spawn((
                     Text::new("(30, 60, 120, 144, 240)"),
@@ -198,16 +290,163 @@ fn spawn_settings_ui(
             })
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new(format!("Mouse Sensitivity: {:.3}", config.mouse_sensitivity)),
+                    Text::new("Mouse Sensitivity"),
                     TextFont { font_size: 20.0, ..default() },
                     TextColor(Color::WHITE),
                 ));
+
+                // マウス感度調整ボタン
+                parent.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                })
+                .with_children(|parent| {
+                    // 減少ボタン
+                    parent.spawn((
+                        SensitivityDecreaseButton,
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new("-"),
+                            TextFont { font_size: 24.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+
+                    // 値表示
+                    parent.spawn((
+                        SensitivityValueText,
+                        Text::new(format!("{:.4}", config.mouse_sensitivity)),
+                        TextFont { font_size: 24.0, ..default() },
+                        TextColor(Color::WHITE),
+                        Node {
+                            width: Val::Px(80.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                    ));
+
+                    // 増加ボタン
+                    parent.spawn((
+                        SensitivityIncreaseButton,
+                        Button,
+                        Node {
+                            width: Val::Px(40.0),
+                            height: Val::Px(40.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new("+"),
+                            TextFont { font_size: 24.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+                });
 
                 parent.spawn((
                     Text::new("(0.001 ~ 0.01)"),
                     TextFont { font_size: 14.0, ..default() },
                     TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
                 ));
+            });
+
+            // ハイライトトグル設定
+            parent.spawn(Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(10.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                width: Val::Percent(100.0),
+                ..default()
+            })
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new("Enable Highlight"),
+                    TextFont { font_size: 20.0, ..default() },
+                    TextColor(Color::WHITE),
+                ));
+
+                parent.spawn((
+                    HighlightToggleButton,
+                    Button,
+                    Node {
+                        width: Val::Px(80.0),
+                        height: Val::Px(40.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(if config.enable_highlight {
+                        Color::srgb(0.3, 0.7, 0.3) // 緑（ON）
+                    } else {
+                        Color::srgb(0.6, 0.3, 0.3) // 赤（OFF）
+                    }),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(if config.enable_highlight { "ON" } else { "OFF" }),
+                        TextFont { font_size: 18.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+            });
+
+            // UIブラートグル設定
+            parent.spawn(Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(10.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                width: Val::Percent(100.0),
+                ..default()
+            })
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new("Enable UI Blur"),
+                    TextFont { font_size: 20.0, ..default() },
+                    TextColor(Color::WHITE),
+                ));
+
+                parent.spawn((
+                    UiBlurToggleButton,
+                    Button,
+                    Node {
+                        width: Val::Px(80.0),
+                        height: Val::Px(40.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(if config.enable_ui_blur {
+                        Color::srgb(0.3, 0.7, 0.3) // 緑（ON）
+                    } else {
+                        Color::srgb(0.6, 0.3, 0.3) // 赤（OFF）
+                    }),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(if config.enable_ui_blur { "ON" } else { "OFF" }),
+                        TextFont { font_size: 18.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
+                });
             });
 
             // ボタン
@@ -289,6 +528,121 @@ fn handle_close_button(
     for interaction in &interaction_query {
         if *interaction == Interaction::Pressed {
             next_state.set(SettingsUiState::Closed);
+        }
+    }
+}
+
+/// FPS調整ボタンのクリック処理
+fn handle_fps_buttons(
+    increase_query: Query<&Interaction, (Changed<Interaction>, With<FpsIncreaseButton>)>,
+    decrease_query: Query<&Interaction, (Changed<Interaction>, With<FpsDecreaseButton>)>,
+    mut text_query: Query<&mut Text, With<FpsValueText>>,
+    mut config: ResMut<GameConfig>,
+) {
+    let fps_options = [30.0, 60.0, 120.0, 144.0, 240.0];
+
+    for interaction in &increase_query {
+        if *interaction == Interaction::Pressed {
+            let current_index = fps_options.iter().position(|&x| x == config.max_fps).unwrap_or(1);
+            let new_index = (current_index + 1).min(fps_options.len() - 1);
+            config.max_fps = fps_options[new_index];
+
+            if let Ok(mut text) = text_query.get_single_mut() {
+                **text = format!("{}", config.max_fps as u32);
+            }
+        }
+    }
+
+    for interaction in &decrease_query {
+        if *interaction == Interaction::Pressed {
+            let current_index = fps_options.iter().position(|&x| x == config.max_fps).unwrap_or(1);
+            let new_index = current_index.saturating_sub(1);
+            config.max_fps = fps_options[new_index];
+
+            if let Ok(mut text) = text_query.get_single_mut() {
+                **text = format!("{}", config.max_fps as u32);
+            }
+        }
+    }
+}
+
+/// マウス感度調整ボタンのクリック処理
+fn handle_sensitivity_buttons(
+    increase_query: Query<&Interaction, (Changed<Interaction>, With<SensitivityIncreaseButton>)>,
+    decrease_query: Query<&Interaction, (Changed<Interaction>, With<SensitivityDecreaseButton>)>,
+    mut text_query: Query<&mut Text, With<SensitivityValueText>>,
+    mut config: ResMut<GameConfig>,
+) {
+    const STEP: f32 = 0.0005;
+    const MIN: f32 = 0.001;
+    const MAX: f32 = 0.01;
+
+    for interaction in &increase_query {
+        if *interaction == Interaction::Pressed {
+            config.mouse_sensitivity = (config.mouse_sensitivity + STEP).min(MAX);
+
+            if let Ok(mut text) = text_query.get_single_mut() {
+                **text = format!("{:.4}", config.mouse_sensitivity);
+            }
+        }
+    }
+
+    for interaction in &decrease_query {
+        if *interaction == Interaction::Pressed {
+            config.mouse_sensitivity = (config.mouse_sensitivity - STEP).max(MIN);
+
+            if let Ok(mut text) = text_query.get_single_mut() {
+                **text = format!("{:.4}", config.mouse_sensitivity);
+            }
+        }
+    }
+}
+
+/// トグルボタンのクリック処理
+fn handle_toggle_buttons(
+    highlight_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<HighlightToggleButton>)>,
+    blur_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<UiBlurToggleButton>)>,
+    mut text_query: Query<&mut Text>,
+    mut bg_query: Query<&mut BackgroundColor>,
+    mut config: ResMut<GameConfig>,
+) {
+    for (interaction, children) in &highlight_query {
+        if *interaction == Interaction::Pressed {
+            config.enable_highlight = !config.enable_highlight;
+
+            // ボタンの背景色を更新
+            if let Ok(mut bg) = bg_query.get_mut(children[0]) {
+                *bg = BackgroundColor(if config.enable_highlight {
+                    Color::srgb(0.3, 0.7, 0.3)
+                } else {
+                    Color::srgb(0.6, 0.3, 0.3)
+                });
+            }
+
+            // ボタンのテキストを更新
+            if let Ok(mut text) = text_query.get_mut(children[0]) {
+                **text = if config.enable_highlight { "ON".to_string() } else { "OFF".to_string() };
+            }
+        }
+    }
+
+    for (interaction, children) in &blur_query {
+        if *interaction == Interaction::Pressed {
+            config.enable_ui_blur = !config.enable_ui_blur;
+
+            // ボタンの背景色を更新
+            if let Ok(mut bg) = bg_query.get_mut(children[0]) {
+                *bg = BackgroundColor(if config.enable_ui_blur {
+                    Color::srgb(0.3, 0.7, 0.3)
+                } else {
+                    Color::srgb(0.6, 0.3, 0.3)
+                });
+            }
+
+            // ボタンのテキストを更新
+            if let Ok(mut text) = text_query.get_mut(children[0]) {
+                **text = if config.enable_ui_blur { "ON".to_string() } else { "OFF".to_string() };
+            }
         }
     }
 }
