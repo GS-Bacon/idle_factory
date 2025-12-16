@@ -1669,13 +1669,18 @@ fn spawn_hotbar_slot(
             BorderColor(border_color),
         ))
         .with_children(|parent| {
-            if let Some(item_id) = &slot_data.item_id {
-                parent.spawn((
-                    Text::new(format!("{}\n{}", item_id, slot_data.count)),
-                    TextFont { font_size: 11.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-            }
+            // 常にテキストエンティティを生成（空の場合も）
+            let text_content = if let Some(item_id) = &slot_data.item_id {
+                format!("{}\n{}", item_id, slot_data.count)
+            } else {
+                String::new()
+            };
+
+            parent.spawn((
+                Text::new(text_content),
+                TextFont { font_size: 11.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
         });
 }
 
@@ -1733,10 +1738,11 @@ fn spawn_hotbar_hud_if_not_creative(
 fn update_hotbar_hud(
     player_inventory: Res<PlayerInventory>,
     item_registry: Res<ItemRegistry>,
-    mut slot_query: Query<(&UiSlot, &Children, &mut BackgroundColor, &mut BorderColor, &mut Node), Without<Button>>,
+    mut slot_query: Query<(&UiSlot, Option<&Children>, &mut BackgroundColor, &mut BorderColor, &mut Node), Without<Button>>,
     mut text_query: Query<&mut Text, (Without<HotbarItemName>, Without<crate::ui::command_ui::CommandHistoryText>, Without<crate::ui::command_ui::CommandInputText>, Without<crate::ui::command_ui::CommandSuggestions>)>,
     mut item_name_query: Query<&mut Text, With<HotbarItemName>>,
 ) {
+
     // アイテム名を更新
     if let Ok(mut text) = item_name_query.get_single_mut() {
         let selected_slot = &player_inventory.slots[player_inventory.selected_hotbar_slot];
@@ -1749,7 +1755,7 @@ fn update_hotbar_hud(
         };
     }
 
-    for (ui_slot, children, mut bg_color, mut border_color, mut node) in &mut slot_query {
+    for (ui_slot, children_opt, mut bg_color, mut border_color, mut node) in &mut slot_query {
         if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
             if *i >= 50 && *i < 60 {
                 let slot_data = &player_inventory.slots[*i];
@@ -1770,13 +1776,15 @@ fn update_hotbar_hud(
                     node.border = UiRect::all(Val::Px(2.0));
                 }
 
-                // テキストを更新
-                for &child in children.iter() {
-                    if let Ok(mut text) = text_query.get_mut(child) {
-                        if let Some(item_id) = &slot_data.item_id {
-                            **text = format!("{}\n{}", item_id, slot_data.count);
-                        } else {
-                            **text = String::new();
+                // テキストを更新（Childrenが存在する場合）
+                if let Some(children) = children_opt {
+                    for &child in children.iter() {
+                        if let Ok(mut text) = text_query.get_mut(child) {
+                            if let Some(item_id) = &slot_data.item_id {
+                                **text = format!("{}\n{}", item_id, slot_data.count);
+                            } else {
+                                **text = String::new();
+                            }
                         }
                     }
                 }
