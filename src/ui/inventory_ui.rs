@@ -1206,10 +1206,18 @@ fn handle_drag_drop_release(
     item_registry: Res<ItemRegistry>,
 ) {
     // マウスボタンがリリースされ、かつドラッグ中のアイテムがある場合
+    if mouse_button.just_released(MouseButton::Left) {
+        info!("[DEBUG] Mouse button released. Dragged item: {:?}", dragged.item_id);
+    }
+
     if mouse_button.just_released(MouseButton::Left) && dragged.item_id.is_some() {
+        info!("[DRAG RELEASE] Checking for hovered slots...");
+        let mut found_hovered = false;
         // Hovered状態のスロットを探す
         for (interaction, ui_slot) in &hovered_slots {
             if *interaction == Interaction::Hovered {
+                found_hovered = true;
+                info!("[DRAG RELEASE] Found hovered slot: {:?}", ui_slot.identifier);
                 let dragged_item_id = dragged.item_id.clone().unwrap();
                 let dragged_count = dragged.count;
 
@@ -1275,8 +1283,13 @@ fn handle_drag_drop_release(
             }
         }
 
+        if !found_hovered {
+            info!("[DEBUG] No hovered slot found");
+        }
+
         // どのスロットにもドロップしなかった場合、元のスロットに戻す（クリエイティブアイテムの場合は破棄）
         if let Some(source) = dragged.source_slot.clone() {
+            info!("[DEBUG] Returning item to source slot: {:?}", source);
             match source {
                 SlotIdentifier::PlayerInventory(i) => {
                     if i < player_inventory.slots.len() {
@@ -1290,9 +1303,12 @@ fn handle_drag_drop_release(
                 }
                 _ => {}
             }
+        } else {
+            info!("[DEBUG] No source slot (creative item), clearing drag state");
         }
 
         // ドラッグ状態をクリア
+        info!("[DEBUG] Clearing drag state");
         dragged.item_id = None;
         dragged.count = 0;
         dragged.source_slot = None;
@@ -1333,6 +1349,7 @@ fn handle_creative_item_button(
     mut dragged: ResMut<DraggedItem>,
 ) {
     for (interaction, item_button) in &interaction_query {
+        info!("[DEBUG] CreativeItemButton interaction: {:?}, item: {}", interaction, item_button.item_id);
         if *interaction == Interaction::Pressed {
             // クリエイティブアイテムからのドラッグ開始
             if dragged.item_id.is_none() {
@@ -1340,7 +1357,9 @@ fn handle_creative_item_button(
                 dragged.count = 64; // クリエイティブモードは64個
                 dragged.source_slot = None; // クリエイティブアイテムは無限なので元に戻さない
 
-                info!("Started dragging {} x64 from creative catalog", item_button.item_id);
+                info!("[DRAG START] Started dragging {} x64 from creative catalog", item_button.item_id);
+            } else {
+                info!("[DEBUG] Already dragging: {:?}", dragged.item_id);
             }
         }
     }
