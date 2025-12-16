@@ -1223,21 +1223,21 @@ fn handle_craft_button(
     }
 }
 
-/// クリエイティブモードアイテムボタン処理
+/// クリエイティブモードアイテムボタン処理（ドラッグ&ドロップ対応）
 fn handle_creative_item_button(
     interaction_query: Query<(&Interaction, &CreativeItemButton), Changed<Interaction>>,
-    mut player_inventory: ResMut<PlayerInventory>,
+    mut dragged: ResMut<DraggedItem>,
 ) {
     for (interaction, item_button) in &interaction_query {
         if *interaction == Interaction::Pressed {
-            // 選択中のホットバースロットにアイテムを64個追加
-            let slot_index = player_inventory.selected_hotbar_slot;
-            let slot = &mut player_inventory.slots[slot_index];
+            // クリエイティブアイテムからのドラッグ開始
+            if dragged.item_id.is_none() {
+                dragged.item_id = Some(item_button.item_id.clone());
+                dragged.count = 64; // クリエイティブモードは64個
+                dragged.source_slot = None; // クリエイティブアイテムは無限なので元に戻さない
 
-            slot.item_id = Some(item_button.item_id.clone());
-            slot.count = 64;
-
-            info!("Added {} x64 to hotbar slot {}", item_button.item_id, slot_index - 50);
+                info!("Started dragging {} x64 from creative catalog", item_button.item_id);
+            }
         }
     }
 }
