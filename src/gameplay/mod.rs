@@ -8,6 +8,7 @@ pub mod machines;
 pub mod interaction;
 pub mod power;
 pub mod multiblock;
+pub mod inventory;
 
 use grid::SimulationGrid;
 
@@ -19,6 +20,7 @@ impl Plugin for GameplayPlugin {
             .add_plugins(interaction::InteractionPlugin)
             .add_plugins(power::PowerPlugin)
             .add_plugins(multiblock::MultiblockPlugin)
+            .add_plugins(inventory::InventoryPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
             .add_event::<building::MachinePlacedEvent>()
