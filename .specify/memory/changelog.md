@@ -1,5 +1,27 @@
 # Development Changelog
 
+## 2025-12-16: Clippy修正とメニューUI改善
+
+### Fixed
+- **Clippyエラー39件を修正**
+  - dead_code: 未使用関数に#[allow(dead_code)]追加
+  - derivable_impls: #[derive(Default)]を使用
+  - collapsible_if/else_if: if文を整理
+  - type_complexity: #[allow(clippy::type_complexity)]追加
+  - too_many_arguments: #[allow(clippy::too_many_arguments)]追加
+  - その他: contains_key, is_none_or, first()を使用
+
+- **メニュー画面のESCキー動作を修正**
+  - SaveSelect/WorldGeneration画面でESCを押すと設定UIが出る問題を修正
+  - settings_ui.rs: AppState::InGame時のみ設定UIのESCハンドラを有効化
+  - main_menu.rs: メニュー画面用ESCハンドラを追加（Back機能）
+
+### Changed
+- **CLAUDE.md更新**
+  - 自動テスト指示を追加（ユーザー指示時に実行）
+
+---
+
 ## 2025-12-16: Kinetic Machines and Recipe System
 
 ### Added
