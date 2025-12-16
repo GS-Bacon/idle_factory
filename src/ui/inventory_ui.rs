@@ -151,11 +151,11 @@ impl Plugin for InventoryUiPlugin {
             .add_event::<SortInventoryEvent>()
             .add_event::<CraftItemEvent>()
             .add_systems(Update, (
-                handle_inventory_key,
+                handle_inventory_key.run_if(in_state(crate::ui::settings_ui::SettingsUiState::Closed)),
                 handle_open_inventory_event,
                 handle_close_inventory_event,
                 handle_open_container_event,
-                handle_escape_key,
+                handle_escape_key.run_if(in_state(crate::ui::settings_ui::SettingsUiState::Closed)),
             ))
             .add_systems(OnEnter(InventoryUiState::PlayerInventory), (
                 spawn_player_inventory_ui,
@@ -213,10 +213,17 @@ fn handle_escape_key(
     keyboard: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<InventoryUiState>>,
     mut next_state: ResMut<NextState<InventoryUiState>>,
+    mut window_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
         if *current_state.get() != InventoryUiState::Closed {
             next_state.set(InventoryUiState::Closed);
+
+            // カーソルをグラブしてゲームに戻る
+            if let Ok(mut window) = window_query.get_single_mut() {
+                window.cursor_options.visible = false;
+                window.cursor_options.grab_mode = bevy::window::CursorGrabMode::Locked;
+            }
         }
     }
 }
