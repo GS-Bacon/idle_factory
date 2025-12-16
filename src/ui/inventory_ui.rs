@@ -84,6 +84,10 @@ pub struct EquipmentPanel;
 #[derive(Component)]
 pub struct MainInventoryPanel;
 
+/// クリエイティブアイテムカタログマーカー
+#[derive(Component)]
+pub struct CreativeItemList;
+
 /// クリエイティブ表示モード
 #[derive(Resource, Default, PartialEq, Debug)]
 pub enum CreativeViewMode {
@@ -296,49 +300,89 @@ fn spawn_player_inventory_ui(
                             spawn_equipment_panel_mc(parent, &equipment, SLOT_SIZE, SLOT_GAP);
                         });
 
-                    // 中央: インベントリ + ホットバー - マーカーコンポーネント追加
-                    parent
-                        .spawn((
-                            MainInventoryPanel,
-                            Node {
+                    // 中央: インベントリ OR アイテムカタログ（クリエイティブモード）
+                    if *game_mode == crate::gameplay::commands::GameMode::Creative {
+                        // クリエイティブモード: 同じ位置にインベントリとアイテムカタログを配置し、トグルで切り替え
+                        parent
+                            .spawn(Node {
                                 flex_direction: FlexDirection::Column,
                                 row_gap: Val::Px(20.0),
                                 ..default()
-                            },
-                        ))
-                        .with_children(|parent| {
-                            spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
-                        });
-
-                    // 右側: クラフトリスト or アイテムリスト（クリエイティブモード）
-                    if *game_mode == crate::gameplay::commands::GameMode::Creative {
-                        spawn_creative_item_list(parent, &item_registry);
-
-                        // クリエイティブモード用の表示切替ボタン（スロットサイズの正方形）
-                        parent
-                            .spawn((
-                                ViewToggleButton,
-                                Button,
-                                Node {
-                                    width: Val::Px(SLOT_SIZE),
-                                    height: Val::Px(SLOT_SIZE),
-                                    justify_content: JustifyContent::Center,
-                                    align_items: AlignItems::Center,
-                                    margin: UiRect::top(Val::Px(10.0)),
-                                    border: UiRect::all(Val::Px(2.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
-                                BorderColor(Color::srgb(0.6, 0.6, 0.6)),
-                            ))
+                            })
                             .with_children(|parent| {
+                                // メインインベントリパネル（初期状態では非表示）
+                                parent
+                                    .spawn((
+                                        MainInventoryPanel,
+                                        Node {
+                                            flex_direction: FlexDirection::Column,
+                                            row_gap: Val::Px(20.0),
+                                            ..default()
+                                        },
+                                        Visibility::Hidden, // 初期状態は非表示（Catalogが表示される）
+                                    ))
+                                    .with_children(|parent| {
+                                        spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                                    });
+
+                                // アイテムカタログパネル（初期状態では表示）
+                                parent
+                                    .spawn((
+                                        CreativeItemList,
+                                        Node {
+                                            flex_direction: FlexDirection::Column,
+                                            row_gap: Val::Px(10.0),
+                                            ..default()
+                                        },
+                                        Visibility::Visible, // 初期状態は表示
+                                    ))
+                                    .with_children(|parent| {
+                                        spawn_creative_item_grid(parent, &item_registry, SLOT_SIZE, SLOT_GAP);
+                                    });
+
+                                // 表示切替ボタン
                                 parent.spawn((
-                                    Text::new("⇄"),
-                                    TextFont { font_size: 32.0, ..default() },
-                                    TextColor(Color::WHITE),
-                                ));
+                                    ViewToggleButton,
+                                    Button,
+                                    Node {
+                                        width: Val::Px(SLOT_SIZE),
+                                        height: Val::Px(SLOT_SIZE),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        margin: UiRect::top(Val::Px(10.0)),
+                                        border: UiRect::all(Val::Px(2.0)),
+                                        align_self: AlignSelf::Center,
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
+                                    BorderColor(Color::srgb(0.6, 0.6, 0.6)),
+                                ))
+                                .with_children(|parent| {
+                                    parent.spawn((
+                                        Text::new("⇄"),
+                                        TextFont { font_size: 32.0, ..default() },
+                                        TextColor(Color::WHITE),
+                                    ));
+                                });
                             });
                     } else {
+                        // サバイバルモード: インベントリのみ
+                        parent
+                            .spawn((
+                                MainInventoryPanel,
+                                Node {
+                                    flex_direction: FlexDirection::Column,
+                                    row_gap: Val::Px(20.0),
+                                    ..default()
+                                },
+                            ))
+                            .with_children(|parent| {
+                                spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                            });
+                    }
+
+                    // 右側: クラフトリスト（サバイバルモードのみ）
+                    if *game_mode != crate::gameplay::commands::GameMode::Creative {
                         spawn_craft_list_panel(parent, &recipe_registry);
                     }
 
@@ -675,6 +719,59 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
                             });
                     }
                 });
+        });
+}
+
+/// クリエイティブアイテムグリッドを生成（同一位置表示用）
+fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegistry, slot_size: f32, slot_gap: f32) {
+    parent.spawn((
+        Text::new("Creative Items"),
+        TextFont { font_size: 24.0, ..default() },
+        TextColor(Color::WHITE),
+    ));
+
+    // スクロールビュー（グリッド表示）
+    parent
+        .spawn((
+            Node {
+                display: Display::Grid,
+                grid_template_columns: RepeatedGridTrack::flex(8, 1.0),
+                grid_auto_rows: GridTrack::px(slot_size),
+                overflow: Overflow::scroll_y(),
+                max_height: Val::Px(500.0),
+                row_gap: Val::Px(slot_gap),
+                column_gap: Val::Px(slot_gap),
+                padding: UiRect::all(Val::Px(5.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+        ))
+        .with_children(|parent| {
+            // アイテムボタンをグリッドで生成
+            for (item_id, item_data) in &item_registry.items {
+                parent
+                    .spawn((
+                        CreativeItemButton { item_id: item_id.clone() },
+                        Button,
+                        Node {
+                            width: Val::Px(slot_size),
+                            height: Val::Px(slot_size),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(2.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        BorderColor(Color::srgb(0.5, 0.5, 0.5)),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new(&item_data.name),
+                            TextFont { font_size: 11.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+            }
         });
 }
 
@@ -1040,38 +1137,26 @@ fn handle_view_toggle_button(
 fn initialize_creative_visibility(
     view_mode: Res<CreativeViewMode>,
     game_mode: Res<crate::gameplay::commands::GameMode>,
-    mut equipment_query: Query<&mut Visibility, (With<EquipmentPanel>, Without<MainInventoryPanel>)>,
-    mut inventory_query: Query<&mut Visibility, With<MainInventoryPanel>>,
-    mut creative_item_query: Query<&mut Visibility, (With<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
-    mut toggle_button_query: Query<&mut Visibility, (With<ViewToggleButton>, Without<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
+    mut inventory_query: Query<&mut Visibility, (With<MainInventoryPanel>, Without<CreativeItemList>)>,
+    mut creative_list_query: Query<&mut Visibility, (With<CreativeItemList>, Without<MainInventoryPanel>)>,
 ) {
     // クリエイティブモードでない場合は何もしない
     if *game_mode != crate::gameplay::commands::GameMode::Creative {
         return;
     }
 
-    // Catalogモード: アイテム一覧のみ表示、装備・インベントリは非表示
-    // Inventoryモード: 装備・インベントリ表示、アイテム一覧は非表示
+    // Catalogモード: アイテムカタログ表示、インベントリは非表示
+    // Inventoryモード: インベントリ表示、アイテムカタログは非表示
     let show_catalog = *view_mode == CreativeViewMode::Catalog;
-
-    // 装備パネルの可視性を設定
-    for mut visibility in &mut equipment_query {
-        *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
-    }
 
     // メインインベントリパネルの可視性を設定
     for mut visibility in &mut inventory_query {
         *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
     }
 
-    // クリエイティブアイテムボタンの可視性を設定（Catalogモードで表示）
-    for mut visibility in &mut creative_item_query {
+    // クリエイティブアイテムカタログの可視性を設定
+    for mut visibility in &mut creative_list_query {
         *visibility = if show_catalog { Visibility::Visible } else { Visibility::Hidden };
-    }
-
-    // 切り替えボタンは常に表示
-    for mut visibility in &mut toggle_button_query {
-        *visibility = Visibility::Visible;
     }
 }
 
@@ -1079,10 +1164,8 @@ fn initialize_creative_visibility(
 fn update_creative_view_visibility(
     view_mode: Res<CreativeViewMode>,
     game_mode: Res<crate::gameplay::commands::GameMode>,
-    mut equipment_query: Query<&mut Visibility, (With<EquipmentPanel>, Without<MainInventoryPanel>)>,
-    mut inventory_query: Query<&mut Visibility, With<MainInventoryPanel>>,
-    mut creative_item_query: Query<&mut Visibility, (With<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
-    mut toggle_button_query: Query<&mut Visibility, (With<ViewToggleButton>, Without<CreativeItemButton>, Without<EquipmentPanel>, Without<MainInventoryPanel>)>,
+    mut inventory_query: Query<&mut Visibility, (With<MainInventoryPanel>, Without<CreativeItemList>)>,
+    mut creative_list_query: Query<&mut Visibility, (With<CreativeItemList>, Without<MainInventoryPanel>)>,
 ) {
     // クリエイティブモードでない場合は何もしない
     if *game_mode != crate::gameplay::commands::GameMode::Creative {
@@ -1094,28 +1177,18 @@ fn update_creative_view_visibility(
         return;
     }
 
-    // Catalogモード: アイテム一覧のみ表示、装備・インベントリは非表示
-    // Inventoryモード: 装備・インベントリ表示、アイテム一覧は非表示
+    // Catalogモード: アイテムカタログ表示、インベントリは非表示
+    // Inventoryモード: インベントリ表示、アイテムカタログは非表示
     let show_catalog = *view_mode == CreativeViewMode::Catalog;
-
-    // 装備パネルの可視性を設定
-    for mut visibility in &mut equipment_query {
-        *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
-    }
 
     // メインインベントリパネルの可視性を設定
     for mut visibility in &mut inventory_query {
         *visibility = if show_catalog { Visibility::Hidden } else { Visibility::Visible };
     }
 
-    // クリエイティブアイテムボタンの可視性を設定（Catalogモードで表示）
-    for mut visibility in &mut creative_item_query {
+    // クリエイティブアイテムカタログの可視性を設定
+    for mut visibility in &mut creative_list_query {
         *visibility = if show_catalog { Visibility::Visible } else { Visibility::Hidden };
-    }
-
-    // 切り替えボタンは常に表示
-    for mut visibility in &mut toggle_button_query {
-        *visibility = Visibility::Visible;
     }
 }
 
