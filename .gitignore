@@ -1,8 +1,50 @@
+# Rust
 /target
 **/*.rs.bk
-*.swp
+*.pdb
+
+# Cargo lock for libraries (keep for binaries)
+# Cargo.lock
+
+# IDE
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+._*
+
+# Bevy
+*.log
+
+# Backup files
+*.bak
+*.tmp
+*.temp
+
+# Build artifacts
+*.dll
+*.exe
+*.out
+*.app
+
+# Test coverage
+*.profraw
+*.profdata
+coverage/
+
+# Documentation
+/docs/site/
+
+# Local environment
+.env
+.env.local
