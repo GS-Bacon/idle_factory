@@ -1842,3 +1842,113 @@ fn update_dragged_item_visual(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::app::App;
+    use bevy::ecs::system::RunSystemOnce;
+    use crate::gameplay::inventory::ItemRegistry;
+
+    #[test]
+    fn test_hotbar_highlight_updates() {
+        // Appを作成
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+
+        // 必要なリソースを追加
+        app.insert_resource(PlayerInventory::new(60));
+        app.insert_resource(ItemRegistry::default());
+        app.init_state::<InventoryUiState>();
+
+        // update_hotbar_hudシステムを追加
+        app.add_systems(Update, update_hotbar_hud);
+
+        // ホットバーHUDを手動で生成
+        let _ = app.world_mut().run_system_once(|mut commands: Commands, inventory: Res<PlayerInventory>| {
+            const SLOT_SIZE: f32 = 54.0;
+            commands.spawn(HotbarHud).with_children(|parent| {
+                for i in 50..60 {
+                    let is_selected = i == inventory.selected_hotbar_slot;
+                    spawn_hotbar_slot(parent, i, &inventory.slots[i], SLOT_SIZE, is_selected);
+                }
+            });
+        });
+
+        // 初期状態: スロット50が選択されている
+        app.update();
+
+        // スロット50の枠色を確認（クエリを直接使用）
+        {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<(&UiSlot, &BorderColor), Without<Button>>();
+            let mut found_selected = false;
+            for (ui_slot, border_color) in query.iter(world) {
+                if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
+                    if *i == 50 {
+                        assert_eq!(border_color.0, Color::WHITE, "Slot 50 should have white border");
+                        found_selected = true;
+                    } else if *i >= 50 && *i < 60 {
+                        assert_eq!(border_color.0, Color::srgb(0.5, 0.5, 0.5), "Slot {} should have gray border", i);
+                    }
+                }
+            }
+            assert!(found_selected, "Selected slot 50 should be found");
+        }
+
+        // スロット52に変更
+        app.world_mut().resource_mut::<PlayerInventory>().selected_hotbar_slot = 52;
+        app.update();
+
+        // スロット52の枠色を確認
+        {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<(&UiSlot, &BorderColor), Without<Button>>();
+            let mut found_new_selected = false;
+            for (ui_slot, border_color) in query.iter(world) {
+                if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
+                    if *i == 52 {
+                        assert_eq!(border_color.0, Color::WHITE, "Slot 52 should have white border");
+                        found_new_selected = true;
+                    } else if *i == 50 {
+                        assert_eq!(border_color.0, Color::srgb(0.5, 0.5, 0.5), "Slot 50 should now have gray border");
+                    }
+                }
+            }
+            assert!(found_new_selected, "Selected slot 52 should be found");
+        }
+    }
+
+    #[test]
+    fn test_empty_hotbar_slot_has_text_entity() {
+        // Appを作成
+        let mut app = App::new();
+
+        // 空のスロットを生成
+        let _ = app.world_mut().run_system_once(|mut commands: Commands| {
+            commands.spawn(Node::default()).with_children(|parent| {
+                let empty_slot = crate::gameplay::inventory::InventorySlot::empty();
+                spawn_hotbar_slot(parent, 50, &empty_slot, 54.0, false);
+            });
+        });
+
+        // スロットに子エンティティ（テキスト）が存在するか確認
+        {
+            let world = app.world_mut();
+            let mut slot_query = world.query_filtered::<&Children, With<UiSlot>>();
+            let mut text_query = world.query::<&Text>();
+            let mut has_text_child = false;
+
+            for children in slot_query.iter(world) {
+                for &child in children.iter() {
+                    if text_query.get(world, child).is_ok() {
+                        has_text_child = true;
+                        break;
+                    }
+                }
+            }
+
+            assert!(has_text_child, "Empty hotbar slot should have a text child entity");
+        }
+    }
+}
