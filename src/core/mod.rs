@@ -4,6 +4,7 @@ pub mod registry;
 pub mod debug;
 pub mod optimization;
 pub mod modding;
+pub mod save_system;
 
 use bevy::prelude::*;
 
@@ -17,6 +18,7 @@ impl Plugin for CorePlugin {
             .add_plugins(registry::RegistryPlugin)
             .add_plugins(debug::DebugPlugin)
             .add_plugins(optimization::OptimizationPlugin)
-            .add_plugins(modding::ModdingPlugin);
+            .add_plugins(modding::ModdingPlugin)
+            .add_plugins(save_system::SaveSystemPlugin);
     }
 }

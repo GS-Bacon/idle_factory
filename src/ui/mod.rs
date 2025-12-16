@@ -5,12 +5,16 @@ pub mod machine_ui;
 pub mod inventory_ui;
 pub mod command_ui;
 pub mod settings_ui;
+pub mod main_menu;
+pub mod menu_camera;
 
-// ここで UiPlugin を定義する必要があります
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        // Main menu and camera (must be first for state initialization)
+        app.add_plugins(main_menu::MainMenuPlugin);
+        app.add_plugins(menu_camera::MenuCameraPlugin);
         // HUD（クロスヘア）のシステムを登録
         app.add_systems(Startup, hud::spawn_crosshair);
         // Machine UI plugin
