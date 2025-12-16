@@ -258,7 +258,26 @@ src/
 
 **Technical Details:**
 - 6 new tests (3 optimization + 3 modding)
-- Total: 40 tests passing
+
+### Main Menu and Save System ✅ COMPLETE
+**Goal:** Professional game flow with save management
+
+**Completed Features:**
+- Main Menu UI
+  - AppState state machine (MainMenu → SaveSelect → WorldGeneration → InGame)
+  - Flexbox-based UI with button interactions
+  - Keyboard text input for world name/seed
+- Menu Camera
+  - Orbiting background camera
+  - State-based spawn/despawn
+- Save System
+  - SaveMetadata with chrono timestamps
+  - JSON persistence to `saves/` directory
+  - 8 save slots with automatic loading
+
+**Technical Details:**
+- 6 new tests (2 camera + 4 save system)
+- Total: 46 tests passing
 
 ---
 

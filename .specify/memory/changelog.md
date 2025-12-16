@@ -1,5 +1,55 @@
 # Development Changelog
 
+## 2025-12-16: Main Menu and Save System
+
+### Added
+- **Main Menu UI** (`src/ui/main_menu.rs`)
+  - AppState enum: MainMenu, SaveSelect, WorldGeneration, InGame
+  - Main menu with Play/Settings/Quit buttons
+  - Save slot selection (8 slots)
+  - World generation screen with name/seed input
+  - Button interaction system with hover/press colors
+  - TextInput component for keyboard text entry (Bevy 0.15 KeyboardInput)
+
+- **Menu Camera** (`src/ui/menu_camera.rs`)
+  - MenuCamera component with orbit parameters
+  - Background camera slowly rotating around origin
+  - Active only during menu states
+  - Automatic spawn/despawn on state transitions
+
+- **Save System** (`src/core/save_system.rs`)
+  - SaveMetadata: world_name, seed, play_time, last_played_date
+  - SaveSlotData: 8 slots with optional metadata
+  - WorldGenerationParams: data transfer between scenes
+  - JSON persistence to `saves/slot_N/metadata.json`
+  - Automatic loading at startup
+
+### Components Added
+- `MainMenuUi`, `SaveSelectUi`, `WorldGenUi`: UI markers
+- `MenuButtonAction`: Button action enum
+- `TextInput`, `TextInputDisplay`: Text input components
+- `MenuCamera`: Orbiting camera component
+- `SelectedSlotIndex`: Selected save slot resource
+
+### Systems Added
+- `spawn_main_menu`, `spawn_save_select`, `spawn_world_generation`
+- `button_interaction_system`: Hover/press color changes
+- `main_menu_buttons`, `save_select_buttons`, `world_gen_buttons`
+- `text_input_system`: Keyboard text input handling
+- `spawn_menu_camera`, `despawn_menu_camera`, `orbit_camera`
+- `load_save_slots`: Startup save data loading
+
+### Dependencies Added
+- `chrono = { version = "0.4", features = ["serde"] }`
+- `serde_json = "1.0"`
+
+### Tests Added
+- 2 menu camera tests (default values, orbit position)
+- 4 save system tests (metadata, slots, serialization)
+- Total: 46 tests passing
+
+---
+
 ## 2025-12-16: Phase 5 - Optimization and Modding
 
 ### Added
@@ -320,7 +370,7 @@ src/
 ## Metrics
 
 ### Current State
-- **Total Tests:** 13 (all passing)
+- **Total Tests:** 46 (all passing)
 - **Test Coverage:** ~70% on core systems
 - **Performance:** 60 FPS target, 20 TPS simulation
 - **Code Quality:** Zero compiler warnings
@@ -330,23 +380,20 @@ src/
 - ✅ Phase 1: 100% (Core Engine)
 - ✅ Phase 2: 100% (Logistics)
 - ✅ Phase 3: 100% (Power & Multiblock)
-- ⏳ Phase 4: 0% (Scripting)
-- ⏳ Phase 5: 0% (Optimization & Distribution)
+- ✅ Phase 4: 100% (Scripting)
+- ✅ Phase 5: 100% (Optimization & Distribution)
+- ✅ Main Menu: 100% (UI & Save System)
 
 ---
 
 ## Next Steps
 
-### Phase 4: Advanced Automation and Scripting
-- [ ] Lua VM integration (mlua)
-- [ ] Sandbox API for user scripts
-- [ ] Signal system for logic circuits
-
-### Phase 5: Optimization and Distribution
-- [ ] Multithreading for terrain, logistics, rendering
-- [ ] LOD system for distant chunks
-- [ ] Modding SDK and example mod
-- [ ] Final polish and release preparation
+### Future Enhancements
+- [ ] Settings persistence (save/load config)
+- [ ] Sound system integration
+- [ ] Tutorial/Help system
+- [ ] World save/load (full chunk data)
+- [ ] Multiplayer lobby UI
 
 ---
 
