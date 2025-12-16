@@ -61,11 +61,6 @@ pub fn handle_building(
         build_tool.active_block_id = String::new();
     }
 
-    // アイテムが選択されていない場合は何もしない
-    if build_tool.active_block_id.is_empty() {
-        return;
-    }
-
     let (_camera, cam_transform) = camera_query.single();
     let ray_origin = cam_transform.translation();
     let ray_dir = cam_transform.forward();
@@ -182,12 +177,16 @@ pub fn handle_building(
         }
 
         if is_placing {
-            // ブロック設置
-            let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
-                existing != "air"
-            } else { true };
+            // アイテムが選択されていない場合はブロック設置をスキップ
+            if build_tool.active_block_id.is_empty() {
+                // 空のスロットでは設置できないが、破壊は可能
+            } else {
+                // ブロック設置
+                let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
+                    existing != "air"
+                } else { true };
 
-            if !is_occupied {
+                if !is_occupied {
                 let cam_forward = cam_transform.forward();
                 let flat_forward = Vec3::new(cam_forward.x, 0.0, cam_forward.z).normalize_or_zero();
                 let player_facing_direction = if flat_forward.x.abs() > flat_forward.z.abs() {
@@ -228,11 +227,12 @@ pub fn handle_building(
                 chunk.set_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize, &id);
                 commands.entity(chunk_entity).insert(MeshDirty);
 
-                // Emit MachinePlacedEvent
-                machine_placed_events.send(MachinePlacedEvent {
-                    pos: place_pos,
-                    machine_id: id,
-                });
+                    // Emit MachinePlacedEvent
+                    machine_placed_events.send(MachinePlacedEvent {
+                        pos: place_pos,
+                        machine_id: id,
+                    });
+                }
             }
         }
     }
