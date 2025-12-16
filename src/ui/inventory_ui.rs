@@ -314,22 +314,27 @@ fn spawn_player_inventory_ui(
                     if *game_mode == crate::gameplay::commands::GameMode::Creative {
                         spawn_creative_item_list(parent, &item_registry);
 
-                        // クリエイティブモード用の表示切替ボタン
+                        // クリエイティブモード用の表示切替ボタン（スロットサイズの正方形）
                         parent
                             .spawn((
                                 ViewToggleButton,
                                 Button,
                                 Node {
-                                    padding: UiRect::all(Val::Px(10.0)),
+                                    width: Val::Px(SLOT_SIZE),
+                                    height: Val::Px(SLOT_SIZE),
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
                                     margin: UiRect::top(Val::Px(10.0)),
+                                    border: UiRect::all(Val::Px(2.0)),
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
+                                BorderColor(Color::srgb(0.6, 0.6, 0.6)),
                             ))
                             .with_children(|parent| {
                                 parent.spawn((
-                                    Text::new("Toggle View"),
-                                    TextFont { font_size: 16.0, ..default() },
+                                    Text::new("⇄"),
+                                    TextFont { font_size: 32.0, ..default() },
                                     TextColor(Color::WHITE),
                                 ));
                             });

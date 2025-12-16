@@ -57,10 +57,6 @@ pub struct HighlightToggleButton;
 #[derive(Component)]
 pub struct UiBlurToggleButton;
 
-/// 適用ボタン
-#[derive(Component)]
-pub struct ApplyButton;
-
 /// 閉じるボタン
 #[derive(Component)]
 pub struct CloseButton;
@@ -78,7 +74,6 @@ impl Plugin for SettingsUiPlugin {
             .add_systems(OnExit(SettingsUiState::SettingsOpen), despawn_settings_ui)
             .add_systems(Update, (
                 handle_settings_button,
-                handle_apply_button,
                 handle_close_button,
                 handle_fps_buttons,
                 handle_sensitivity_buttons,
@@ -92,6 +87,7 @@ fn handle_escape_key(
     keyboard: Res<ButtonInput<KeyCode>>,
     state: Res<State<SettingsUiState>>,
     mut next_state: ResMut<NextState<SettingsUiState>>,
+    mut window_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
         match state.get() {
@@ -100,9 +96,19 @@ fn handle_escape_key(
             }
             SettingsUiState::ButtonVisible => {
                 next_state.set(SettingsUiState::Closed);
+                // カーソルを自動的にグラブして通常プレイに戻る
+                if let Ok(mut window) = window_query.get_single_mut() {
+                    window.cursor_options.grab_mode = CursorGrabMode::Locked;
+                    window.cursor_options.visible = false;
+                }
             }
             SettingsUiState::SettingsOpen => {
                 next_state.set(SettingsUiState::Closed);
+                // カーソルを自動的にグラブして通常プレイに戻る
+                if let Ok(mut window) = window_query.get_single_mut() {
+                    window.cursor_options.grab_mode = CursorGrabMode::Locked;
+                    window.cursor_options.visible = false;
+                }
             }
         }
     }
@@ -457,24 +463,6 @@ fn spawn_settings_ui(
                 ..default()
             })
             .with_children(|parent| {
-                // Applyボタン
-                parent.spawn((
-                    ApplyButton,
-                    Button,
-                    Node {
-                        padding: UiRect::all(Val::Px(15.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.3, 0.6, 0.3)),
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Apply"),
-                        TextFont { font_size: 18.0, ..default() },
-                        TextColor(Color::WHITE),
-                    ));
-                });
-
                 // Closeボタン
                 parent.spawn((
                     CloseButton,
@@ -505,18 +493,6 @@ fn despawn_settings_ui(
 ) {
     for entity in query.iter() {
         commands.entity(entity).despawn_recursive();
-    }
-}
-
-/// Applyボタンのクリック処理
-fn handle_apply_button(
-    interaction_query: Query<&Interaction, (Changed<Interaction>, With<ApplyButton>)>,
-) {
-    for interaction in &interaction_query {
-        if *interaction == Interaction::Pressed {
-            info!("Apply settings (not yet implemented)");
-            // TODO: 設定値を保存
-        }
     }
 }
 
