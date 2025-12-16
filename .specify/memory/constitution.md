@@ -172,4 +172,106 @@ src/
 
 ---
 
+## Project Phases and Roadmap
+
+### Phase 1: Core Engine and Mod Foundation ✅ COMPLETE
+**Goal:** Establish data-driven architecture and rendering foundation
+
+**Completed Features:**
+- Asset Server with hot-reload support
+- YAML loader for blocks, items, and recipes
+- Dynamic texture atlas generation
+- Chunk system (32×32×32 blocks)
+- Greedy meshing for voxel rendering
+- Custom shader support (.wgsl)
+- Multiplayer foundation (headless server, replication, client prediction)
+
+### Phase 2: Logic and Logistics Simulation ✅ COMPLETE
+**Goal:** Implement functional factory simulation
+
+**Completed Features:**
+- Fixed timestep simulation (20 TPS)
+- Deterministic logic for multiplayer
+- Grid-based machine placement (SimulationGrid)
+- Item entity optimization with instanced rendering
+- Inventory system with stacking
+- Visual item system for conveyor belts
+- Debug overlay (F3) and debug mode
+
+### Phase 3: Power and Multiblock Systems ✅ COMPLETE
+**Goal:** Advanced mechanics and complex structures
+
+**Completed Features:**
+- Power network with stress/speed mechanics
+  - Graph-based network detection (BFS)
+  - Stress calculation and propagation
+  - Overstress detection and handling
+- Multiblock structure validation
+  - Pattern matching with rotation support
+  - Master/Slave component system
+  - Automatic integrity checking
+- GUI framework for machine interaction
+  - Recipe selection UI
+  - Real-time inventory display
+  - Event-driven state management
+
+### Phase 4: Advanced Automation and Scripting ⏳ PLANNED
+**Goal:** Enable player-created logic and automation
+
+**Planned Features:**
+- Lua VM integration (mlua)
+  - Sandbox API for safe script execution
+  - Script asset loading system
+  - API exposure (sensors, actuators, logic gates)
+- Signal system
+  - Wire-based signal transmission
+  - Logic gates (AND, OR, NOT, etc.)
+  - Numerical signal processing
+
+**Technical Requirements:**
+- Sandboxed execution environment
+- Performance budget: < 1ms per script per tick
+- Hot-reload support for scripts
+- Debugging tools (script inspector, error messages)
+
+### Phase 5: Optimization and Distribution ⏳ PLANNED
+**Goal:** Performance optimization and modding support
+
+**Planned Features:**
+- Multithreading
+  - Parallel chunk generation
+  - Parallel machine updates (where possible)
+  - Async rendering pipeline
+- LOD (Level of Detail)
+  - Distance-based mesh simplification
+  - Icon representation for distant machines
+  - Chunk unloading for memory management
+- Modding SDK
+  - Example mod (vanilla as a mod)
+  - Mod loader architecture
+  - Documentation and tutorials
+
+**Performance Targets:**
+- 10,000+ machines without frame drops
+- 100,000+ items in transit
+- < 2 second world save/load time
+
+---
+
+## Future Vision
+
+### Ultimate Goals
+- **Space Station Completion**: Players deliver resources to build a visible orbital station
+- **Blueprint System**: Save and share factory designs
+- **Creative/Survival Modes**: Different gameplay experiences
+- **Community Mods**: Thriving modding ecosystem
+
+### Design Philosophy for New Features
+- **Always Data-Driven**: New content defined in YAML/external files
+- **Player Empowerment**: Tools, not hand-holding
+- **Emergent Complexity**: Simple rules, complex possibilities
+- **No Artificial Limits**: Let players build massive factories
+
+---
+
 *This constitution is a living document. Update it as the project evolves, but maintain consistency with established principles.*
