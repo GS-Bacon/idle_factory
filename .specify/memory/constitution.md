@@ -215,24 +215,27 @@ src/
   - Real-time inventory display
   - Event-driven state management
 
-### Phase 4: Advanced Automation and Scripting ⏳ PLANNED
+### Phase 4: Advanced Automation and Scripting ✅ COMPLETE
 **Goal:** Enable player-created logic and automation
 
-**Planned Features:**
+**Completed Features:**
 - Lua VM integration (mlua)
-  - Sandbox API for safe script execution
-  - Script asset loading system
-  - API exposure (sensors, actuators, logic gates)
+  - Lua 5.4 with vendored build
+  - Sandbox API (os, io, load, require disabled)
+  - ScriptEngine and ScriptRegistry resources
+  - Programmable component for machines
+  - Built-in functions (print, clamp, lerp)
 - Signal system
-  - Wire-based signal transmission
-  - Logic gates (AND, OR, NOT, etc.)
-  - Numerical signal processing
+  - Wire-based signal transmission (SignalNetwork)
+  - SignalEmitter/SignalReceiver components
+  - Logic gates (AND, OR, NOT, XOR, NAND, NOR)
+  - Numerical processors (Add, Subtract, Multiply, Divide, Compare, Equal)
+  - BFS-based network group detection
 
-**Technical Requirements:**
-- Sandboxed execution environment
-- Performance budget: < 1ms per script per tick
-- Hot-reload support for scripts
-- Debugging tools (script inspector, error messages)
+**Technical Details:**
+- Thread-safe Lua VM (Arc<Mutex<Lua>>)
+- SignalValue enum for type-safe signal passing
+- 12 new tests (5 scripting + 7 signals)
 
 ### Phase 5: Optimization and Distribution ⏳ PLANNED
 **Goal:** Performance optimization and modding support

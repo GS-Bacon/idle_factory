@@ -1,5 +1,47 @@
 # Development Changelog
 
+## 2025-12-16: Phase 4 - Scripting and Signal Systems
+
+### Added
+- **Lua Scripting Engine** (`src/gameplay/scripting.rs`)
+  - Lua 5.4 VM integration via mlua crate (vendored)
+  - Sandboxed execution (os, io, load, require disabled)
+  - ScriptEngine resource with thread-safe Lua VM
+  - ScriptRegistry for asset-loaded scripts
+  - ScriptContext for input/output signal handling
+  - Programmable component for machines
+  - Built-in functions: print, clamp, lerp
+
+- **Signal System** (`src/gameplay/signals.rs`)
+  - Wire-based signal transmission network
+  - SignalNetwork resource with BFS group detection
+  - SignalValue enum: Number, String, Boolean, Nil
+  - SignalEmitter and SignalReceiver components
+  - Logic gates: AND, OR, NOT, XOR, NAND, NOR
+  - Numeric processors: Add, Subtract, Multiply, Divide, Compare, Equal
+
+### Components Added
+- `Programmable`: Script-controlled machine component
+- `Wire`: Wire connection marker
+- `SignalEmitter`: Signal output component
+- `SignalReceiver`: Signal input component
+- `LogicGate`: Configurable logic gate component
+
+### Systems Added
+- `tick_programmable_machines`: Execute Lua scripts each fixed tick
+- `propagate_signals`: Transmit signals through wire network
+- `tick_logic_gates`: Process logic gate computations
+
+### Tests Added
+- 5 scripting tests (basic, inputs, sandbox, error handling, signal values)
+- 7 signal tests (logic gates, network connection, group finding)
+- Total: 34 tests passing
+
+### Dependencies
+- Added `mlua = { version = "0.10", features = ["lua54", "vendored", "send", "serialize"] }`
+
+---
+
 ## 2025-12-16: UI/UX Improvements and Creative Mode Enhancements
 
 ### Added

@@ -11,6 +11,8 @@ pub mod multiblock;
 pub mod inventory;
 pub mod commands;
 pub mod held_item;
+pub mod scripting;
+pub mod signals;
 
 use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;
@@ -28,6 +30,8 @@ impl Plugin for GameplayPlugin {
             .add_plugins(inventory::InventoryPlugin)
             .add_plugins(commands::CommandsPlugin)
             .add_plugins(held_item::HeldItemPlugin)
+            .add_plugins(scripting::ScriptingPlugin)
+            .add_plugins(signals::SignalPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
             .init_resource::<building::HologramState>()
