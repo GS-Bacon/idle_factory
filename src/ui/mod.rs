@@ -4,6 +4,7 @@ pub mod hud;
 pub mod machine_ui;
 pub mod inventory_ui;
 pub mod command_ui;
+pub mod settings_ui;
 
 // ここで UiPlugin を定義する必要があります
 pub struct UiPlugin;
@@ -18,5 +19,7 @@ impl Plugin for UiPlugin {
         app.add_plugins(inventory_ui::InventoryUiPlugin);
         // Command UI plugin
         app.add_plugins(command_ui::CommandUiPlugin);
+        // Settings UI plugin
+        app.add_plugins(settings_ui::SettingsUiPlugin);
     }
 }
