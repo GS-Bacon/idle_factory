@@ -170,6 +170,7 @@ impl Plugin for InventoryUiPlugin {
             .add_systems(Update, (
                 update_slot_visuals,
                 handle_slot_interaction,
+                handle_drag_drop_release,
                 handle_sort_button,
                 handle_craft_button,
                 handle_creative_item_button,
@@ -1192,6 +1193,109 @@ fn handle_slot_interaction(
                 }
             }
         }
+    }
+}
+
+/// マウスリリース時のドロップ処理
+fn handle_drag_drop_release(
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    hovered_slots: Query<(&Interaction, &UiSlot), With<Button>>,
+    mut dragged: ResMut<DraggedItem>,
+    mut player_inventory: ResMut<PlayerInventory>,
+    mut equipment: ResMut<EquipmentSlots>,
+    item_registry: Res<ItemRegistry>,
+) {
+    // マウスボタンがリリースされ、かつドラッグ中のアイテムがある場合
+    if mouse_button.just_released(MouseButton::Left) && dragged.item_id.is_some() {
+        // Hovered状態のスロットを探す
+        for (interaction, ui_slot) in &hovered_slots {
+            if *interaction == Interaction::Hovered {
+                let dragged_item_id = dragged.item_id.clone().unwrap();
+                let dragged_count = dragged.count;
+
+                // 対象スロットに配置
+                match &ui_slot.identifier {
+                    SlotIdentifier::PlayerInventory(i) => {
+                        if *i < player_inventory.slots.len() {
+                            let target_slot = &mut player_inventory.slots[*i];
+
+                            if target_slot.is_empty() {
+                                target_slot.item_id = Some(dragged_item_id.clone());
+                                target_slot.count = dragged_count;
+                                dragged.item_id = None;
+                                dragged.count = 0;
+                                dragged.source_slot = None;
+                                info!("Dropped {} x{} to slot {}", dragged_item_id, dragged_count, i);
+                            } else if target_slot.item_id.as_ref() == Some(&dragged_item_id) {
+                                let max_stack = item_registry
+                                    .get(&dragged_item_id)
+                                    .map(|d| d.max_stack)
+                                    .unwrap_or(999);
+
+                                let space = max_stack - target_slot.count;
+                                let add = dragged_count.min(space);
+                                target_slot.count += add;
+                                dragged.count -= add;
+
+                                if dragged.count == 0 {
+                                    dragged.item_id = None;
+                                    dragged.source_slot = None;
+                                }
+                                info!("Stacked {} x{} to slot {}", dragged_item_id, add, i);
+                            } else {
+                                // スワップ
+                                let temp_id = target_slot.item_id.clone();
+                                let temp_count = target_slot.count;
+
+                                target_slot.item_id = Some(dragged_item_id.clone());
+                                target_slot.count = dragged_count;
+
+                                dragged.item_id = temp_id;
+                                dragged.count = temp_count;
+                                info!("Swapped items at slot {}", i);
+                            }
+                        }
+                        return; // 処理完了
+                    }
+                    SlotIdentifier::Equipment(slot_type) => {
+                        let target_slot = equipment.get_mut(*slot_type);
+
+                        if target_slot.is_empty() {
+                            target_slot.item_id = Some(dragged_item_id.clone());
+                            target_slot.count = dragged_count;
+                            dragged.item_id = None;
+                            dragged.count = 0;
+                            dragged.source_slot = None;
+                            info!("Dropped {} x{} to equipment slot {:?}", dragged_item_id, dragged_count, slot_type);
+                        }
+                        return; // 処理完了
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // どのスロットにもドロップしなかった場合、元のスロットに戻す（クリエイティブアイテムの場合は破棄）
+        if let Some(source) = dragged.source_slot.clone() {
+            match source {
+                SlotIdentifier::PlayerInventory(i) => {
+                    if i < player_inventory.slots.len() {
+                        player_inventory.slots[i].item_id = dragged.item_id.clone();
+                        player_inventory.slots[i].count = dragged.count;
+                    }
+                }
+                SlotIdentifier::Equipment(slot_type) => {
+                    equipment.get_mut(slot_type).item_id = dragged.item_id.clone();
+                    equipment.get_mut(slot_type).count = dragged.count;
+                }
+                _ => {}
+            }
+        }
+
+        // ドラッグ状態をクリア
+        dragged.item_id = None;
+        dragged.count = 0;
+        dragged.source_slot = None;
     }
 }
 
