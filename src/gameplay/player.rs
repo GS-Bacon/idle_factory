@@ -15,7 +15,15 @@ pub struct Player {
     pub velocity: Vec3, // 速度（重力や慣性用）
 }
 
-pub fn spawn_player(mut commands: Commands) {
+pub fn spawn_player(
+    mut commands: Commands,
+    existing: Query<Entity, With<Player>>,
+) {
+    // 既にプレイヤーが存在する場合はスポーンしない
+    if !existing.is_empty() {
+        return;
+    }
+
     // プレイヤー本体 (カメラも含む)
     // シンプルにするため、プレイヤー自体が回転し、その視界＝カメラとします
     commands.spawn((
@@ -29,12 +37,26 @@ pub fn spawn_player(mut commands: Commands) {
         // 親(Player)が回転・移動するので、カメラはローカル座標で固定でOK
         parent.spawn((
             Camera3d::default(),
+            Camera {
+                order: 1, // メニューカメラ(order=0)より上
+                ..default()
+            },
             // ★重要追加: アンチエイリアス有効化
             Msaa::Sample4,
             Transform::from_xyz(0.0, 1.8, 0.0), // 目の高さ
             PlayerCamera, // マーカーコンポーネント
         ));
     });
+}
+
+/// プレイヤーを削除
+pub fn despawn_player(
+    mut commands: Commands,
+    query: Query<Entity, With<Player>>,
+) {
+    for entity in &query {
+        commands.entity(entity).despawn_recursive();
+    }
 }
 
 pub fn look_player(

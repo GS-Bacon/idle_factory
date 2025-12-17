@@ -18,6 +18,7 @@ use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;
 use crate::ui::command_ui::CommandUiState;
 use crate::ui::settings_ui::SettingsUiState;
+use crate::ui::main_menu::AppState;
 
 pub struct GameplayPlugin;
 
@@ -36,31 +37,38 @@ impl Plugin for GameplayPlugin {
             .init_resource::<building::BuildTool>()
             .init_resource::<building::HologramState>()
             .add_event::<building::MachinePlacedEvent>()
-            .add_systems(Startup, player::spawn_player)
+            // プレイヤーはInGame開始時にスポーン
+            .add_systems(OnEnter(AppState::InGame), player::spawn_player)
+            // InGame退出時にプレイヤーを削除
+            .add_systems(OnExit(AppState::InGame), player::despawn_player)
             .add_systems(Update, (
                 building::handle_building.run_if(
-                    in_state(InventoryUiState::Closed)
+                    in_state(AppState::InGame)
+                    .and(in_state(InventoryUiState::Closed))
                     .and(in_state(CommandUiState::Closed))
                     .and(in_state(SettingsUiState::Closed))
                 ),
                 player::move_player.run_if(
-                    in_state(InventoryUiState::Closed)
+                    in_state(AppState::InGame)
+                    .and(in_state(InventoryUiState::Closed))
                     .and(in_state(CommandUiState::Closed))
                     .and(in_state(SettingsUiState::Closed))
                 ),
                 player::look_player.run_if(
-                    in_state(InventoryUiState::Closed)
+                    in_state(AppState::InGame)
+                    .and(in_state(InventoryUiState::Closed))
                     .and(in_state(CommandUiState::Closed))
                     .and(in_state(SettingsUiState::Closed))
                 ),
                 player::grab_cursor.run_if(
-                    in_state(InventoryUiState::Closed)
+                    in_state(AppState::InGame)
+                    .and(in_state(InventoryUiState::Closed))
                     .and(in_state(CommandUiState::Closed))
                     .and(in_state(SettingsUiState::Closed))
                 ),
-                player::handle_hotbar_selection,
-                player::handle_hotbar_scroll,
-                items::update_visual_items,
+                player::handle_hotbar_selection.run_if(in_state(AppState::InGame)),
+                player::handle_hotbar_scroll.run_if(in_state(AppState::InGame)),
+                items::update_visual_items.run_if(in_state(AppState::InGame)),
             ));
 
         machines::register_machines(app);

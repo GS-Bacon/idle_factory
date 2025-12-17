@@ -144,7 +144,8 @@ fn spawn_main_menu(mut commands: Commands) {
             align_items: AlignItems::Center,
             ..default()
         },
-        BackgroundColor(Color::srgb(0.08, 0.08, 0.12)),
+        BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.95)),
+        GlobalZIndex(100), // 最前面に表示
         MainMenuUi,
     )).with_children(|parent| {
         // パネル
@@ -214,7 +215,8 @@ fn spawn_save_select(
             align_items: AlignItems::Center,
             ..default()
         },
-        BackgroundColor(Color::srgb(0.08, 0.08, 0.12)),
+        BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.95)),
+        GlobalZIndex(100), // 最前面に表示
         SaveSelectUi,
     )).with_children(|parent| {
         // パネル
@@ -358,7 +360,8 @@ fn spawn_world_generation(
             align_items: AlignItems::Center,
             ..default()
         },
-        BackgroundColor(Color::srgb(0.08, 0.08, 0.12)),
+        BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.95)),
+        GlobalZIndex(100), // 最前面に表示
         WorldGenUi,
     )).with_children(|parent| {
         parent.spawn((

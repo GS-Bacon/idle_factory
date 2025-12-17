@@ -1,5 +1,36 @@
 # Development Changelog
 
+## 2025-12-17: メニュー画面のレイヤリングとゲームプレイ分離を修正
+
+### Fixed
+- **メニュー画面がワールドの後ろに表示される問題を修正**
+  - メニューUI(MainMenu, SaveSelect, WorldGeneration)にGlobalZIndex(100)を追加
+  - 背景色を半透明に変更（0.95 alpha）で背景ワールドが見える
+
+- **メニュー画面でプレイできてしまう問題を修正**
+  - 全てのゲームプレイシステムにAppState::InGame条件を追加
+  - プレイヤーの移動、視点操作、建築、ホットバー選択がInGame時のみ動作
+
+- **プレイヤーのスポーン/デスポーンをステート管理**
+  - spawn_player: StartupからOnEnter(AppState::InGame)に変更
+  - despawn_player: OnExit(AppState::InGame)で削除
+  - 既存プレイヤーがいる場合はスポーンをスキップ
+
+### Changed
+- **プレイヤーカメラのorder設定**
+  - プレイヤーカメラのorder=1（メニューカメラorder=0より上）
+
+### Technical Details
+- gameplay/mod.rs: AppState依存を追加
+- gameplay/player.rs: despawn_player関数追加、spawn_player引数追加
+- ui/main_menu.rs: 3画面すべてにGlobalZIndex追加
+
+### Tests
+- 全57テストがパス
+- Clippyチェック通過
+
+---
+
 ## 2025-12-16: Clippy修正とメニューUI改善
 
 ### Fixed
