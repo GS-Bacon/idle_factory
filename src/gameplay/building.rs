@@ -264,11 +264,18 @@ fn update_hologram(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    _build_tool: &BuildTool,
+    build_tool: &BuildTool,
     chunk: &Chunk,
 ) {
+    // 設置するアイテムがない場合はホログラムを表示しない
+    let effective_pos = if build_tool.active_block_id.is_empty() {
+        None
+    } else {
+        place_pos
+    };
+
     // 位置が変わったか、または位置がなくなったらホログラムを更新
-    let needs_update = hologram_state.last_position != place_pos;
+    let needs_update = hologram_state.last_position != effective_pos;
 
     if !needs_update {
         return;
@@ -280,10 +287,10 @@ fn update_hologram(
         hologram_state.current_entity = None;
     }
 
-    hologram_state.last_position = place_pos;
+    hologram_state.last_position = effective_pos;
 
     // 新しいホログラムを生成
-    if let Some(pos) = place_pos {
+    if let Some(pos) = effective_pos {
         // 設置可能かチェック
         let is_occupied = if let Some(existing) = chunk.get_block(pos.x as usize, pos.y as usize, pos.z as usize) {
             existing != "air"
