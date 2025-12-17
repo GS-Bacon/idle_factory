@@ -48,3 +48,7 @@ coverage/
 # Local environment
 .env
 .env.local
+
+# Tauri/Node tools
+tools/*/node_modules/
+tools/*/src-tauri/target/

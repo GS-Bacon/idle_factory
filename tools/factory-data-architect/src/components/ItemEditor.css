@@ -1,0 +1,219 @@
+.item-editor {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.item-editor h2 {
+  margin-bottom: 20px;
+  border-bottom: 2px solid #333;
+  padding-bottom: 10px;
+}
+
+.editor-section {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.editor-section h3 {
+  margin: 0 0 16px 0;
+  color: #888;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.form-row {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-row label {
+  font-size: 14px;
+  color: #aaa;
+}
+
+.form-row input[type="text"],
+.form-row input[type="number"],
+.form-row select,
+.form-row textarea {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-row input[type="text"]:focus,
+.form-row input[type="number"]:focus,
+.form-row select:focus,
+.form-row textarea:focus {
+  border-color: #646cff;
+  outline: none;
+}
+
+.form-row input[readonly] {
+  background: #222;
+  color: #666;
+}
+
+/* File Input Row */
+.file-input-row {
+  margin-bottom: 16px;
+}
+
+.drop-zone {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border: 2px dashed #444;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.drop-zone.dragging {
+  border-color: #646cff;
+  background: rgba(100, 108, 255, 0.1);
+}
+
+.drop-zone input {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+}
+
+.drop-zone button {
+  padding: 8px 16px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.drop-zone button:hover {
+  background: #444;
+}
+
+/* Preview Container */
+.preview-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 8px;
+  background: #222;
+  border-radius: 4px;
+}
+
+.icon-preview {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  background: #333;
+  border-radius: 4px;
+}
+
+.path-display {
+  font-size: 12px;
+  color: #888;
+  word-break: break-all;
+}
+
+/* Vector Input */
+.vector-input {
+  display: flex;
+  gap: 8px;
+}
+
+.vector-input input {
+  flex: 1;
+  width: auto;
+}
+
+/* Animation Params */
+.animation-params {
+  margin-top: 12px;
+  padding: 12px;
+  background: #222;
+  border-radius: 4px;
+}
+
+.animation-params .form-row {
+  margin-bottom: 8px;
+}
+
+.animation-params .form-row:last-child {
+  margin-bottom: 0;
+}
+
+/* Checkbox style */
+.form-row input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+
+/* Localization Grid */
+.localization-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.localization-lang {
+  background: #222;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.localization-lang h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.localization-lang textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* Actions */
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.save-button {
+  padding: 12px 32px;
+  background: #646cff;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.save-button:hover {
+  background: #535bf2;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .localization-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vector-input {
+    flex-direction: column;
+  }
+}

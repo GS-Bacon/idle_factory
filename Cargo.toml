@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "tools/factory-data-architect/src-tauri"]
+resolver = "2"
+
 # 開発用ビルド設定 (cargo run)
 [profile.dev]
 opt-level = 1 # 自分のコードは少しだけ最適化

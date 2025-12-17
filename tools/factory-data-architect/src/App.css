@@ -1,0 +1,188 @@
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+
+  color: #f6f6f6;
+  background-color: #1a1a1a;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.container {
+  margin: 0;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+/* Setup Screen */
+.setup-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.setup-screen h1 {
+  margin-bottom: 20px;
+}
+
+.setup-screen p {
+  margin: 8px 0;
+  color: #888;
+}
+
+.setup-screen .hint {
+  font-size: 14px;
+  max-width: 400px;
+}
+
+.setup-button {
+  margin-top: 30px;
+  padding: 16px 40px;
+  font-size: 18px;
+  background: #646cff;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.setup-button:hover {
+  background: #535bf2;
+}
+
+/* App Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background: #222;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.assets-path-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #888;
+}
+
+.change-path-button {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.change-path-button:hover {
+  background: #444;
+}
+
+/* Editor Tabs */
+.editor-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.editor-tabs button {
+  padding: 8px 16px;
+  font-size: 13px;
+  background: transparent;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.editor-tabs button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e0e0e0;
+}
+
+.editor-tabs button.active {
+  background: #333;
+  color: #fff;
+  border-bottom: 2px solid #646cff;
+}
+
+/* Editor Content */
+.editor-content {
+  height: calc(100vh - 100px);
+  background: #1a1a2e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Common Elements */
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: #535bf2;
+}
+
+h1 {
+  text-align: center;
+}
+
+input,
+button,
+select,
+textarea {
+  border-radius: 8px;
+  border: 1px solid #444;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  color: #fff;
+  background-color: #2a2a2a;
+  transition: border-color 0.25s;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #646cff;
+}
+
+button:active {
+  background-color: #333;
+}
+
+input:focus,
+button:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #646cff;
+}
