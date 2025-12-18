@@ -13,6 +13,8 @@ pub mod commands;
 pub mod held_item;
 pub mod scripting;
 pub mod signals;
+pub mod quest;
+pub mod delivery_platform;
 
 use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;
@@ -33,6 +35,8 @@ impl Plugin for GameplayPlugin {
             .add_plugins(held_item::HeldItemPlugin)
             .add_plugins(scripting::ScriptingPlugin)
             .add_plugins(signals::SignalPlugin)
+            .add_plugins(quest::QuestPlugin)
+            .add_plugins(delivery_platform::DeliveryPlatformPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
             .init_resource::<building::HologramState>()

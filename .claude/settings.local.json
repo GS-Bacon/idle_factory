@@ -27,7 +27,13 @@
       "Bash(timeout 20 cargo run:*)",
       "Bash(cargo clean:*)",
       "Bash(cargo clippy:*)",
-      "Bash(timeout 30 cargo run:*)"
+      "Bash(timeout 30 cargo run:*)",
+      "Bash(git checkout:*)",
+      "Bash(git init:*)",
+      "Bash(cat:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run tauri:*)"
     ]
   }
 }

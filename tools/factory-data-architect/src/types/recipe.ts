@@ -44,6 +44,43 @@ export interface RecipeDef {
   process_time: number;
   stress_impact: number;
   i18n_key: string;
+  // Fuel properties (for fuel items)
+  is_fuel?: boolean;
+  heat_value?: number; // kJ
+  burn_time?: number; // ticks
+}
+
+// Machine definition
+export interface MachineDef {
+  id: string;
+  i18n_key: string;
+  machine_type: MachineType;
+  // Slot configuration
+  input_slots: number;
+  output_slots: number;
+  fluid_input_slots: number;
+  fluid_output_slots: number;
+  // Performance
+  base_torque_consumption: number;
+  base_processing_speed: number;
+  // Effects
+  vibration_level: number;
+  heat_output: number;
+  // Supported work types
+  work_types: string[];
+  // Animation
+  animation_type: "none" | "rotational" | "linear" | "custom";
+  animation_speed?: number;
+}
+
+// Fuel definition
+export interface FuelDef {
+  id: string;
+  item_id: string;
+  heat_value: number; // kJ
+  burn_time: number; // ticks
+  residue_item?: string; // Item left after burning (e.g., ash)
+  residue_chance?: number;
 }
 
 // Catalog entry for palette
