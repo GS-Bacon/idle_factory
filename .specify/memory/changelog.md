@@ -1,5 +1,48 @@
 # Development Changelog
 
+## 2025-12-18: クエストシステムと納品プラットフォームを実装
+
+### Added
+
+#### クエストシステム (`src/gameplay/quest.rs`)
+- QuestData: クエスト定義（メイン/サブ、フェーズ、要件、報酬）
+- QuestProgress: プレイヤーのクエスト進捗管理
+- QuestManager: クエスト状態管理リソース
+- QuestRegistry: クエスト定義のレジストリ
+- 報酬タイプ: PortUnlock（ポート解放）, Item（アイテム報酬）
+- 前提条件システム: 順序付きメインクエスト対応
+- 4件のテスト追加
+
+#### 納品プラットフォーム (`src/gameplay/delivery_platform.rs`)
+- DeliveryPlatform: 12x12グリッドの納品エリア
+- DeliveryPort: コンベアからのアイテム受け入れポート（各辺3ポート）
+- コンベア連携: 完全に進んだアイテムを自動受け取り
+- クエスト連携: 納品アイテムを自動的にクエスト進捗に反映
+- ポート解放システム: クエスト報酬でポート数増加
+- ビジュアル生成: プラットフォームとポートの3Dメッシュ
+- 4件のテスト追加
+
+#### エディタ拡張 (`tools/factory-data-architect/`)
+- QuestEditor: React Flowによるノードベースクエスト編集（メイン/サブタブ）
+- MultiblockEditor: React Three Fiberによる3Dグリッド編集（最大10x10x10）
+- BiomeEditor: Canvas 2Dによるノイズプレビュー付きバイオーム編集
+- SoundEditor: オーディオプレビュー付きサウンド設定編集
+- 型定義: quest.ts, multiblock.ts, biome.ts, sound.ts
+
+#### UI改善
+- アイテム登録時のカテゴリ選択UI（アイテム/機械/マルチブロック）
+- 6タブ構成（Items, Recipes, Quests, Multiblock, Biomes, Sounds）
+
+### Technical Details
+- ゲーム仕様書作成: `.specify/specs/game-design-document.md`
+- React Three Fiber依存追加: @react-three/fiber, @react-three/drei, three
+- Clippy警告なし、TypeScriptビルド成功
+
+### Tests
+- 全65テストがパス（+8テスト追加）
+
+---
+
 ## 2025-12-17: メニュー画面のレイヤリングとゲームプレイ分離を修正
 
 ### Fixed
