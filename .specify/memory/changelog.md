@@ -1,5 +1,71 @@
 # Development Changelog
 
+## 2025-12-18: ゲームシステムとHUD UI追加
+
+### Added
+
+#### プレイヤーステータス (`src/gameplay/player_stats.rs`)
+- PlayerHealth: HP、再生、ダメージ、死亡システム
+- PlayerExperience: 経験値、レベルアップシステム
+- FallTracker: 落下ダメージ追跡
+- SpawnAnchor: リスポーン地点設定
+- DamageEvent, PlayerDeathEvent, PlayerRespawnEvent
+- 5件のテスト追加
+
+#### 天候システム (`src/gameplay/weather.rs`)
+- DayNightCycle: 昼夜サイクル（10分で1日）
+- Weather: 天候状態（晴れ、曇り、雨、嵐）
+- WeatherEffects: 天候による機械効率への影響
+- ExposedMachine, UnderRoof: 野ざらし/屋根判定
+- AmbientLight連携
+- 5件のテスト追加
+
+#### 液体システム (`src/gameplay/fluid.rs`)
+- FluidType: 液体の種類（水、溶岩、蒸気など）
+- Pipe: パイプ（3ティア、流量制御）
+- Tank: タンク（10,000mb容量、高温対応）
+- PipeNetwork: パイプネットワーク管理
+- Pump, DrainValve: ポンプ、排水バルブ
+- 5件のテスト追加
+
+#### 熱システム (`src/gameplay/heat.rs`)
+- HeatContainer: 熱容器（温度、熱容量、伝導率）
+- HeatSource: 熱源（ボイラー、電熱器）
+- Boiler: ボイラー（燃料→蒸気変換）
+- TemperatureRequirement: 機械の温度要件
+- 熱伝導、環境冷却、過熱チェック
+- 4件のテスト追加
+
+#### 振動システム (`src/gameplay/vibration.rs`)
+- VibrationSource: 振動源（機械の振動レベル）
+- VibrationReceiver: 振動受信（効率低下）
+- VibrationDamper: 防振台
+- VibrationMap: 振動マップ（3x3x3伝播）
+- 5件のテスト追加
+
+#### ミニマップUI (`src/ui/minimap.rs`)
+- 右上に常時表示
+- プレイヤー位置中央固定
+- 周辺機械検出
+- 方位（N）表示
+- 設定可能：サイズ、範囲、ズーム
+
+#### HP HUD (`src/ui/health_hud.rs`)
+- 左下にHP表示
+- HPバー（色変化：緑→黄→赤）
+- ダメージ時の赤フラッシュ
+- HP数値テキスト
+
+#### クエストHUD (`src/ui/quest_hud.rs`)
+- アクティブクエスト表示
+- 進捗バー
+- [J]キーでクエスト一覧切り替え
+
+### Tests
+- 全92テストがパス（+27テスト追加）
+
+---
+
 ## 2025-12-18: クエストシステムと納品プラットフォームを実装
 
 ### Added
