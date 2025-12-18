@@ -7,6 +7,9 @@ pub mod command_ui;
 pub mod settings_ui;
 pub mod main_menu;
 pub mod menu_camera;
+pub mod minimap;
+pub mod health_hud;
+pub mod quest_hud;
 
 pub struct UiPlugin;
 
@@ -25,5 +28,11 @@ impl Plugin for UiPlugin {
         app.add_plugins(command_ui::CommandUiPlugin);
         // Settings UI plugin
         app.add_plugins(settings_ui::SettingsUiPlugin);
+        // Minimap plugin
+        app.add_plugins(minimap::MinimapPlugin);
+        // Health HUD plugin
+        app.add_plugins(health_hud::HealthHudPlugin);
+        // Quest HUD plugin
+        app.add_plugins(quest_hud::QuestHudPlugin);
     }
 }
