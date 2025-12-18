@@ -15,6 +15,11 @@ pub mod scripting;
 pub mod signals;
 pub mod quest;
 pub mod delivery_platform;
+pub mod player_stats;
+pub mod weather;
+pub mod fluid;
+pub mod heat;
+pub mod vibration;
 
 use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;
@@ -37,6 +42,11 @@ impl Plugin for GameplayPlugin {
             .add_plugins(signals::SignalPlugin)
             .add_plugins(quest::QuestPlugin)
             .add_plugins(delivery_platform::DeliveryPlatformPlugin)
+            .add_plugins(player_stats::PlayerStatsPlugin)
+            .add_plugins(weather::WeatherPlugin)
+            .add_plugins(fluid::FluidPlugin)
+            .add_plugins(heat::HeatPlugin)
+            .add_plugins(vibration::VibrationPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
             .init_resource::<building::HologramState>()
