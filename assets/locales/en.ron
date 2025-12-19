@@ -1,0 +1,12 @@
+(
+    entries: {
+        "undefined.stone": (
+            name: "",
+            description: "",
+        ),
+        "item.stone": (
+            name: "",
+            description: "",
+        ),
+    },
+)

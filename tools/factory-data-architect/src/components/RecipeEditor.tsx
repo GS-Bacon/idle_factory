@@ -472,7 +472,10 @@ function RecipeEditorFlow() {
   useEffect(() => {
     invoke<AssetCatalog>("get_assets_catalog")
       .then(setCatalog)
-      .catch(console.error);
+      .catch((err) => {
+        console.error("Failed to load assets catalog:", err);
+        // Keep empty catalog on error
+      });
   }, []);
 
   const onConnect = useCallback(
@@ -531,7 +534,7 @@ function RecipeEditorFlow() {
           },
         };
       } else if (draggedItem.type === "machine") {
-        const mt = draggedItem.machineType || "Assembler";
+        const mt = draggedItem.machineType || { Custom: "unknown" };
         newNode = {
           id: newNodeId,
           type: "machine",
