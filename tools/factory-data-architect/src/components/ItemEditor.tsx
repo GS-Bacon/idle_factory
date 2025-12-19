@@ -1,4 +1,4 @@
-import { useState, useCallback, DragEvent } from "react";
+import { useState, useCallback, useEffect, DragEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -30,16 +30,63 @@ type AnyAnimationParams = AnimationWithParams["params"];
 
 interface ItemEditorProps {
   assetsPath: string | null;
+  itemId?: string | null;
   onSave?: (item: ItemData, localization: LocalizationData) => void;
 }
 
-export function ItemEditor({ assetsPath, onSave }: ItemEditorProps) {
-  const [item, setItem] = useState<ItemData>(createDefaultItemData("new_item"));
+export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
+  const [item, setItem] = useState<ItemData>(createDefaultItemData(itemId || "new_item"));
   const [localization, setLocalization] = useState<LocalizationData>(
     createDefaultLocalizationData()
   );
   const [isDraggingIcon, setIsDraggingIcon] = useState(false);
   const [isDraggingModel, setIsDraggingModel] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Load item data when itemId changes
+  useEffect(() => {
+    if (itemId) {
+      setIsLoading(true);
+      setLoadError(null);
+
+      // Try to load item data from file
+      const loadItem = async () => {
+        try {
+          const itemData = await invoke<ItemData>("load_item_data", {
+            path: `${assetsPath}/data/items/${itemId}.ron`,
+          });
+          setItem(itemData);
+
+          // Also load localization
+          try {
+            const loc = await invoke<LocalizationData>("load_localization", {
+              i18nKey: itemData.i18n_key,
+            });
+            setLocalization(loc);
+          } catch {
+            // Localization may not exist yet
+            setLocalization(createDefaultLocalizationData());
+          }
+        } catch (err) {
+          console.error("Failed to load item:", err);
+          setLoadError(`アイテム読み込みエラー: ${err}`);
+          // Create new item with the given ID
+          setItem(createDefaultItemData(itemId));
+          setLocalization(createDefaultLocalizationData());
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadItem();
+    } else {
+      // New item
+      setItem(createDefaultItemData("new_item"));
+      setLocalization(createDefaultLocalizationData());
+      setLoadError(null);
+    }
+  }, [itemId, assetsPath]);
 
   // File selection handler
   const handleSelectFile = useCallback(
@@ -184,6 +231,12 @@ export function ItemEditor({ assetsPath, onSave }: ItemEditorProps) {
   // Save handler
   const handleSave = useCallback(async () => {
     try {
+      // Save item data to file
+      await invoke("save_item_data", {
+        item,
+        path: `${assetsPath}/data/items/${item.id}.ron`,
+      });
+
       // Save localization to locale files
       await invoke("save_localization", {
         i18nKey: item.i18n_key,
@@ -195,7 +248,7 @@ export function ItemEditor({ assetsPath, onSave }: ItemEditorProps) {
     } catch (error) {
       alert(`保存エラー: ${error}`);
     }
-  }, [item, localization, onSave]);
+  }, [item, localization, onSave, assetsPath]);
 
   // Get preview URL for icon
   const getIconPreviewUrl = useCallback((iconPath: string | null): string => {
@@ -205,9 +258,25 @@ export function ItemEditor({ assetsPath, onSave }: ItemEditorProps) {
     return iconPath;
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="item-editor">
+        <h2>アイテムエディタ</h2>
+        <div className="loading-state">読み込み中...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="item-editor">
       <h2>アイテムエディタ</h2>
+
+      {loadError && (
+        <div className="load-error">
+          <p>{loadError}</p>
+          <p>新規アイテムとして編集します。</p>
+        </div>
+      )}
 
       {/* Basic Info */}
       <section className="editor-section">

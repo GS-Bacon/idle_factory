@@ -60,6 +60,16 @@ pub struct LocalizationData {
     pub en: LocalizationEntry,
 }
 
+/// アイテムカテゴリ
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ItemCategory {
+    #[default]
+    Item,
+    Machine,
+    Multiblock,
+}
+
 /// アイテムデータ
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemData {
@@ -72,6 +82,9 @@ pub struct ItemData {
     /// カスタムプロパティ
     #[serde(default)]
     pub properties: HashMap<String, serde_json::Value>,
+    /// カテゴリ
+    #[serde(default)]
+    pub category: ItemCategory,
 }
 
 impl ItemData {
@@ -81,6 +94,7 @@ impl ItemData {
             id,
             asset: AssetConfig::default(),
             properties: HashMap::new(),
+            category: ItemCategory::Item,
         }
     }
 }

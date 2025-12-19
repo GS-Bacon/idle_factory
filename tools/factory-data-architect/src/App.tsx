@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Component, ErrorInfo, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { ItemEditor } from "./components/ItemEditor";
@@ -8,6 +8,57 @@ import MultiblockEditor from "./components/MultiblockEditor";
 import BiomeEditor from "./components/BiomeEditor";
 import SoundEditor from "./components/SoundEditor";
 import "./App.css";
+
+// Error Boundary for crash logging
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+}
+
+class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    this.setState({ errorInfo });
+    // Log error to console for debugging
+    console.error("=== CRASH LOG ===");
+    console.error("Error:", error.message);
+    console.error("Stack:", error.stack);
+    console.error("Component Stack:", errorInfo.componentStack);
+    console.error("=================");
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-boundary">
+          <h2>エラーが発生しました</h2>
+          <p>アプリケーションでエラーが発生しました。</p>
+          <details>
+            <summary>エラー詳細</summary>
+            <pre>{this.state.error?.message}</pre>
+            <pre>{this.state.error?.stack}</pre>
+            {this.state.errorInfo && (
+              <pre>{this.state.errorInfo.componentStack}</pre>
+            )}
+          </details>
+          <button onClick={() => window.location.reload()}>
+            再読み込み
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Default assets path
 const DEFAULT_ASSETS_PATH = "C:/Users/bacon/OneDrive/ドキュメント/github/IdealFactoryGame/my-bevy-project/assets";
@@ -98,10 +149,14 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
       {/* Right: Editor */}
       <div className="items-editor-panel">
         {showEditor ? (
-          <ItemEditor
-            assetsPath={assetsPath}
-            onSave={(item) => handleSaveItem({ id: item.id, i18n_key: item.i18n_key })}
-          />
+          <ErrorBoundary key={selectedItemId || "new"}>
+            <ItemEditor
+              key={selectedItemId || "new"}
+              assetsPath={assetsPath}
+              itemId={selectedItemId}
+              onSave={(item) => handleSaveItem({ id: item.id, i18n_key: item.i18n_key })}
+            />
+          </ErrorBoundary>
         ) : (
           <div className="no-selection">
             <p>左のリストからアイテムを選択するか、</p>

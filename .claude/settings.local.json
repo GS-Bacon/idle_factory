@@ -50,7 +50,9 @@
       "Bash(timeout 10 sleep:*)",
       "Bash(npx vite:*)",
       "Bash(RUST_BACKTRACE=1 timeout 30 npm run tauri:*)",
-      "Bash(RUST_BACKTRACE=1 npm run tauri:*)"
+      "Bash(RUST_BACKTRACE=1 npm run tauri:*)",
+      "Bash(timeout 60 npm run:*)",
+      "Bash(timeout 45 npm run tauri dev:*)"
     ]
   }
 }

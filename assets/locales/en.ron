@@ -4,6 +4,10 @@
             name: "",
             description: "",
         ),
+        "item.new_item": (
+            name: "",
+            description: "",
+        ),
         "item.stone": (
             name: "",
             description: "",
