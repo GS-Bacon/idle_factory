@@ -169,6 +169,22 @@ fn get_assets_catalog(state: State<AppState>) -> Result<AssetCatalog, String> {
     Ok(catalog)
 }
 
+// Internal functions for testing (not Tauri commands)
+fn internal_save_item_data(item: &ItemData, path: &std::path::Path) -> Result<(), String> {
+    // Create parent directories if they don't exist
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("ディレクトリ作成エラー: {}", e))?;
+    }
+    let content = ron::ser::to_string_pretty(item, ron::ser::PrettyConfig::default())
+        .map_err(|e| format!("シリアライズエラー: {}", e))?;
+    fs::write(path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))
+}
+
+fn internal_load_item_data(path: &std::path::Path) -> Result<ItemData, String> {
+    let content = fs::read_to_string(path).map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
+    ron::from_str(&content).map_err(|e| format!("パースエラー: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -183,4 +199,184 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use models::ItemCategory;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_greet() {
+        let result = greet("World");
+        assert_eq!(result, "Hello, World! You've been greeted from Rust!");
+    }
+
+    #[test]
+    fn test_create_item() {
+        let item = create_item("test_item".to_string());
+        assert_eq!(item.id, "test_item");
+        assert_eq!(item.i18n_key, "item.test_item");
+        assert_eq!(item.category, ItemCategory::Item);
+    }
+
+    #[test]
+    fn test_update_item_asset() {
+        let item = create_item("test".to_string());
+        let updated = update_item_asset(
+            item,
+            Some("icons/test.png".to_string()),
+            Some("models/test.glb".to_string()),
+            AnimationType::Rotational { axis: [0.0, 1.0, 0.0], speed: 90.0 },
+        );
+        assert_eq!(updated.asset.icon_path, Some("icons/test.png".to_string()));
+        assert_eq!(updated.asset.model_path, Some("models/test.glb".to_string()));
+    }
+
+    #[test]
+    fn test_save_and_load_item_data() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test_item.ron");
+
+        // Create item
+        let mut item = ItemData::new("test_item".to_string());
+        item.category = ItemCategory::Machine;
+        item.i18n_key = "machine.test_item".to_string();
+        item.asset.icon_path = Some("icons/machine.png".to_string());
+
+        // Save
+        internal_save_item_data(&item, &file_path).unwrap();
+        assert!(file_path.exists());
+
+        // Load
+        let loaded = internal_load_item_data(&file_path).unwrap();
+        assert_eq!(loaded.id, "test_item");
+        assert_eq!(loaded.category, ItemCategory::Machine);
+        assert_eq!(loaded.i18n_key, "machine.test_item");
+        assert_eq!(loaded.asset.icon_path, Some("icons/machine.png".to_string()));
+    }
+
+    #[test]
+    fn test_save_and_load_item_with_all_categories() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Test Item category
+        let item1 = ItemData::new("iron_ore".to_string());
+        let path1 = temp_dir.path().join("iron_ore.ron");
+        internal_save_item_data(&item1, &path1).unwrap();
+        let loaded1 = internal_load_item_data(&path1).unwrap();
+        assert_eq!(loaded1.category, ItemCategory::Item);
+
+        // Test Machine category
+        let mut item2 = ItemData::new("assembler".to_string());
+        item2.category = ItemCategory::Machine;
+        item2.i18n_key = "machine.assembler".to_string();
+        let path2 = temp_dir.path().join("assembler.ron");
+        internal_save_item_data(&item2, &path2).unwrap();
+        let loaded2 = internal_load_item_data(&path2).unwrap();
+        assert_eq!(loaded2.category, ItemCategory::Machine);
+
+        // Test Multiblock category
+        let mut item3 = ItemData::new("furnace".to_string());
+        item3.category = ItemCategory::Multiblock;
+        item3.i18n_key = "multiblock.furnace".to_string();
+        let path3 = temp_dir.path().join("furnace.ron");
+        internal_save_item_data(&item3, &path3).unwrap();
+        let loaded3 = internal_load_item_data(&path3).unwrap();
+        assert_eq!(loaded3.category, ItemCategory::Multiblock);
+    }
+
+    #[test]
+    fn test_save_and_load_item_with_properties() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("special_item.ron");
+
+        let mut item = ItemData::new("special_item".to_string());
+        item.properties.insert("durability".to_string(), serde_json::json!(100));
+        item.properties.insert("stackable".to_string(), serde_json::json!(true));
+        item.properties.insert("rarity".to_string(), serde_json::json!("rare"));
+
+        internal_save_item_data(&item, &file_path).unwrap();
+        let loaded = internal_load_item_data(&file_path).unwrap();
+
+        assert_eq!(loaded.properties.get("durability"), Some(&serde_json::json!(100)));
+        assert_eq!(loaded.properties.get("stackable"), Some(&serde_json::json!(true)));
+        assert_eq!(loaded.properties.get("rarity"), Some(&serde_json::json!("rare")));
+    }
+
+    #[test]
+    fn test_save_and_load_item_with_animations() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Rotational animation
+        let mut item1 = ItemData::new("rotating_item".to_string());
+        item1.asset.animation = AnimationType::Rotational {
+            axis: [0.0, 1.0, 0.0],
+            speed: 45.0,
+        };
+        let path1 = temp_dir.path().join("rotating.ron");
+        internal_save_item_data(&item1, &path1).unwrap();
+        let loaded1 = internal_load_item_data(&path1).unwrap();
+        assert!(matches!(loaded1.asset.animation, AnimationType::Rotational { .. }));
+
+        // Linear animation
+        let mut item2 = ItemData::new("moving_item".to_string());
+        item2.asset.animation = AnimationType::Linear {
+            direction: [1.0, 0.0, 0.0],
+            distance: 2.0,
+            speed: 1.0,
+        };
+        let path2 = temp_dir.path().join("moving.ron");
+        internal_save_item_data(&item2, &path2).unwrap();
+        let loaded2 = internal_load_item_data(&path2).unwrap();
+        assert!(matches!(loaded2.asset.animation, AnimationType::Linear { .. }));
+
+        // Skeletal animation
+        let mut item3 = ItemData::new("animated_item".to_string());
+        item3.asset.animation = AnimationType::Skeletal {
+            animation_path: "anims/idle.glb".to_string(),
+            looping: true,
+        };
+        let path3 = temp_dir.path().join("animated.ron");
+        internal_save_item_data(&item3, &path3).unwrap();
+        let loaded3 = internal_load_item_data(&path3).unwrap();
+        assert!(matches!(loaded3.asset.animation, AnimationType::Skeletal { .. }));
+    }
+
+    #[test]
+    fn test_load_nonexistent_file_returns_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let nonexistent_path = temp_dir.path().join("nonexistent.ron");
+
+        let result = internal_load_item_data(&nonexistent_path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("ファイル読み込みエラー"));
+    }
+
+    #[test]
+    fn test_load_invalid_ron_returns_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let invalid_path = temp_dir.path().join("invalid.ron");
+
+        // Write invalid RON content
+        fs::write(&invalid_path, "this is not valid RON").unwrap();
+
+        let result = internal_load_item_data(&invalid_path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("パースエラー"));
+    }
+
+    #[test]
+    fn test_save_creates_parent_directories() {
+        let temp_dir = TempDir::new().unwrap();
+        let nested_path = temp_dir.path().join("deep").join("nested").join("dir").join("item.ron");
+
+        let item = ItemData::new("nested_item".to_string());
+        internal_save_item_data(&item, &nested_path).unwrap();
+
+        assert!(nested_path.exists());
+        let loaded = internal_load_item_data(&nested_path).unwrap();
+        assert_eq!(loaded.id, "nested_item");
+    }
 }
