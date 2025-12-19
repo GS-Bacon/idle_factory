@@ -36,7 +36,7 @@ interface ItemEditorProps {
 }
 
 export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }: ItemEditorProps) {
-  const [item, setItem] = useState<ItemData>(createDefaultItemData(itemId || "new_item"));
+  const [item, setItem] = useState<ItemData>(createDefaultItemData(itemId || ""));
   const [localization, setLocalization] = useState<LocalizationData>(
     createDefaultLocalizationData()
   );
@@ -46,8 +46,9 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Check if current ID is a duplicate (excluding the item being edited)
-  const isDuplicateId = !itemId && existingItemIds.includes(item.id);
-  const isIdValid = item.id.trim() !== "" && !isDuplicateId;
+  const isDuplicateId = !itemId && item.id.trim() !== "" && existingItemIds.includes(item.id);
+  const isIdEmpty = item.id.trim() === "";
+  const isIdValid = !isIdEmpty && !isDuplicateId;
 
   // Load item data when itemId changes
   useEffect(() => {
@@ -86,8 +87,8 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
 
       loadItem();
     } else {
-      // New item
-      setItem(createDefaultItemData("new_item"));
+      // New item - start with empty ID
+      setItem(createDefaultItemData(""));
       setLocalization(createDefaultLocalizationData());
       setLoadError(null);
     }
@@ -302,13 +303,14 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
             <input
               type="text"
               value={item.id}
+              placeholder="アイテムIDを入力..."
               className={isDuplicateId ? "input-error" : ""}
               onChange={(e) => {
                 const id = e.target.value;
                 setItem((prev) => ({
                   ...prev,
                   id,
-                  i18n_key: generateI18nKey(id, prev.category),
+                  i18n_key: id ? generateI18nKey(id, prev.category) : "",
                 }));
               }}
             />
@@ -329,7 +331,7 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
                   setItem((prev) => ({
                     ...prev,
                     category: cat.value,
-                    i18n_key: generateI18nKey(prev.id, cat.value),
+                    i18n_key: prev.id ? generateI18nKey(prev.id, cat.value) : "",
                   }))
                 }
               >
@@ -338,6 +340,23 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
               </button>
             ))}
           </div>
+        </div>
+        <div className="form-row">
+          <label>
+            サブカテゴリ:
+            <input
+              type="text"
+              value={item.subcategory || ""}
+              placeholder="例: ore, ingot, tool, processor..."
+              onChange={(e) =>
+                setItem((prev) => ({
+                  ...prev,
+                  subcategory: e.target.value || undefined,
+                }))
+              }
+            />
+          </label>
+          <span className="auto-generated-hint">（任意、整理用）</span>
         </div>
         <div className="form-row">
           <label>

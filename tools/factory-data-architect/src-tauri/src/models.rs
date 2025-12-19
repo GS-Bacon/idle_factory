@@ -85,6 +85,9 @@ pub struct ItemData {
     /// カテゴリ
     #[serde(default)]
     pub category: ItemCategory,
+    /// サブカテゴリ（任意）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subcategory: Option<String>,
 }
 
 impl ItemData {
@@ -95,6 +98,7 @@ impl ItemData {
             asset: AssetConfig::default(),
             properties: HashMap::new(),
             category: ItemCategory::Item,
+            subcategory: None,
         }
     }
 }

@@ -4,11 +4,19 @@
             name: "",
             description: "",
         ),
+        "item.stone": (
+            name: "",
+            description: "",
+        ),
         "item.new_item": (
             name: "",
             description: "",
         ),
-        "item.stone": (
+        "item.wood": (
+            name: "",
+            description: "",
+        ),
+        "undefined.sss": (
             name: "",
             description: "",
         ),

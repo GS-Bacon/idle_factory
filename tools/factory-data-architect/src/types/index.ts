@@ -36,6 +36,7 @@ export interface ItemData {
   asset: AssetConfig;
   properties: Record<string, unknown>;
   category: ItemCategory;
+  subcategory?: string;
 }
 
 // Machine-specific data (extends item)
@@ -67,13 +68,14 @@ export function createDefaultLocalizationData(): LocalizationData {
   };
 }
 
-export function createDefaultItemData(id: string): ItemData {
+export function createDefaultItemData(id: string = ""): ItemData {
   return {
     id,
-    i18n_key: `item.${id}`,
+    i18n_key: id ? `item.${id}` : "",
     asset: createDefaultAssetConfig(),
     properties: {},
     category: "item",
+    subcategory: "",
   };
 }
 

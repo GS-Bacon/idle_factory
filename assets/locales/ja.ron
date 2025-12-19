@@ -1,14 +1,22 @@
 (
     entries: {
+        "item.wood": (
+            name: "",
+            description: "",
+        ),
+        "undefined.stone": (
+            name: "",
+            description: "",
+        ),
+        "undefined.sss": (
+            name: "",
+            description: "",
+        ),
         "item.new_item": (
             name: "",
             description: "",
         ),
         "item.stone": (
-            name: "",
-            description: "",
-        ),
-        "undefined.stone": (
             name: "",
             description: "",
         ),
