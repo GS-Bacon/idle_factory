@@ -140,12 +140,17 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
     });
   }, []);
 
-  const handleDeleteItem = useCallback((itemId: string) => {
-    if (confirm(`アイテム "${itemId}" を削除しますか？`)) {
-      setItems((prev) => prev.filter((i) => i.id !== itemId));
-      if (selectedItemId === itemId) {
-        setSelectedItemId(null);
-        setShowEditor(false);
+  const handleDeleteItem = useCallback(async (itemId: string) => {
+    if (confirm(`アイテム "${itemId}" を削除しますか？\n※ファイルも削除されます`)) {
+      try {
+        await invoke("delete_item_data", { itemId });
+        setItems((prev) => prev.filter((i) => i.id !== itemId));
+        if (selectedItemId === itemId) {
+          setSelectedItemId(null);
+          setShowEditor(false);
+        }
+      } catch (err) {
+        alert(`削除エラー: ${err}`);
       }
     }
   }, [selectedItemId]);

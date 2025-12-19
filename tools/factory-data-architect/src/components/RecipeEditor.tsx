@@ -178,6 +178,9 @@ interface InspectorPanelProps {
   processTime: number;
   stressImpact: number;
   i18nKey: string;
+  isRecipeIdEmpty: boolean;
+  isRecipeIdDuplicate: boolean;
+  isRecipeIdValid: boolean;
   catalog: AssetCatalog;
   onNodeUpdate: (nodeId: string, data: Partial<RecipeNodeData>) => void;
   onRecipeUpdate: (field: string, value: string | number) => void;
@@ -189,6 +192,9 @@ function InspectorPanel({
   processTime,
   stressImpact,
   i18nKey,
+  isRecipeIdEmpty,
+  isRecipeIdDuplicate,
+  isRecipeIdValid,
   catalog,
   onNodeUpdate,
   onRecipeUpdate,
@@ -208,16 +214,22 @@ function InspectorPanel({
             <input
               type="text"
               value={recipeId}
+              placeholder="レシピIDを入力..."
+              className={!isRecipeIdValid && !isRecipeIdEmpty ? "input-error" : ""}
               onChange={(e) => onRecipeUpdate("recipeId", e.target.value)}
             />
+            {isRecipeIdDuplicate && (
+              <span className="validation-error">⚠️ このIDは既に使用されています</span>
+            )}
           </div>
           <div className="form-group">
-            <label>Process Time (ticks)</label>
+            <label>Process Time (秒)</label>
             <input
               type="number"
+              step="0.1"
               value={processTime}
               onChange={(e) =>
-                onRecipeUpdate("processTime", parseInt(e.target.value) || 0)
+                onRecipeUpdate("processTime", parseFloat(e.target.value) || 0)
               }
             />
           </div>
@@ -237,8 +249,10 @@ function InspectorPanel({
             <input
               type="text"
               value={i18nKey}
-              onChange={(e) => onRecipeUpdate("i18nKey", e.target.value)}
+              readOnly
+              className="readonly-field"
             />
+            <span className="auto-generated-hint">（自動生成）</span>
           </div>
         </div>
 
@@ -454,10 +468,18 @@ function RecipeEditorFlow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
-  const [recipeId, setRecipeId] = useState("new_recipe");
+  const [recipeId, setRecipeId] = useState("");
   const [processTime, setProcessTime] = useState(60);
   const [stressImpact, setStressImpact] = useState(1.0);
-  const [i18nKey, setI18nKey] = useState("recipe.new_recipe");
+  const [existingRecipeIds, setExistingRecipeIds] = useState<string[]>([]);
+
+  // Derived i18n_key from recipeId
+  const i18nKey = recipeId ? `recipe.${recipeId}` : "";
+
+  // Validation
+  const isRecipeIdEmpty = recipeId.trim() === "";
+  const isRecipeIdDuplicate = existingRecipeIds.includes(recipeId.trim());
+  const isRecipeIdValid = !isRecipeIdEmpty && !isRecipeIdDuplicate;
 
   const [catalog, setCatalog] = useState<AssetCatalog>({
     items: [],
@@ -466,13 +488,19 @@ function RecipeEditorFlow() {
     tags: [],
   });
 
-  // Load catalog on mount
+  // Load catalog and existing recipes on mount
   useEffect(() => {
     invoke<AssetCatalog>("get_assets_catalog")
       .then(setCatalog)
       .catch((err) => {
         console.error("Failed to load assets catalog:", err);
         // Keep empty catalog on error
+      });
+
+    invoke<string[]>("list_recipes")
+      .then(setExistingRecipeIds)
+      .catch((err) => {
+        console.error("Failed to load existing recipes:", err);
       });
   }, []);
 
@@ -615,9 +643,7 @@ function RecipeEditorFlow() {
       case "stressImpact":
         setStressImpact(value as number);
         break;
-      case "i18nKey":
-        setI18nKey(value as string);
-        break;
+      // i18nKey is now auto-generated, no manual update needed
     }
   }, []);
 
@@ -680,16 +706,28 @@ function RecipeEditorFlow() {
   }, [nodes, edges, recipeId, processTime, stressImpact, i18nKey]);
 
   const handleSave = useCallback(async () => {
+    // Validate recipe ID before saving
+    if (!isRecipeIdValid) {
+      if (isRecipeIdEmpty) {
+        alert("エラー: レシピIDを入力してください。");
+      } else if (isRecipeIdDuplicate) {
+        alert(`エラー: レシピID "${recipeId}" は既に使用されています。`);
+      }
+      return;
+    }
+
     const recipe = convertToRecipeDef();
     if (!recipe) return;
 
     try {
       await invoke("save_recipe", { recipe });
+      // Add to existing IDs list
+      setExistingRecipeIds((prev) => [...prev, recipeId]);
       alert("Recipe saved successfully!");
     } catch (err) {
       alert(`Failed to save recipe: ${err}`);
     }
-  }, [convertToRecipeDef]);
+  }, [convertToRecipeDef, isRecipeIdValid, isRecipeIdEmpty, isRecipeIdDuplicate, recipeId]);
 
   const handleExportJson = useCallback(() => {
     const recipe = convertToRecipeDef();
@@ -741,6 +779,9 @@ function RecipeEditorFlow() {
         processTime={processTime}
         stressImpact={stressImpact}
         i18nKey={i18nKey}
+        isRecipeIdEmpty={isRecipeIdEmpty}
+        isRecipeIdDuplicate={isRecipeIdDuplicate}
+        isRecipeIdValid={isRecipeIdValid}
         catalog={catalog}
         onNodeUpdate={handleNodeUpdate}
         onRecipeUpdate={handleRecipeUpdate}

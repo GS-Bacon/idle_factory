@@ -96,6 +96,18 @@ fn load_item_data(path: String) -> Result<ItemData, String> {
 }
 
 #[tauri::command]
+fn delete_item_data(item_id: String, state: State<AppState>) -> Result<(), String> {
+    let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
+    let file_path = assets_path.join("data").join("items").join(format!("{}.ron", item_id));
+
+    if !file_path.exists() {
+        return Err(format!("アイテムファイルが見つかりません: {}", item_id));
+    }
+
+    fs::remove_file(&file_path).map_err(|e| format!("ファイル削除エラー: {}", e))
+}
+
+#[tauri::command]
 fn save_recipe(recipe: RecipeDef, state: State<AppState>) -> Result<String, String> {
     let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
     let recipes_path = assets_path.join("data").join("recipes");
@@ -123,7 +135,7 @@ fn list_recipes(state: State<AppState>) -> Result<Vec<String>, String> {
     for entry in fs::read_dir(&recipes_path).map_err(|e| format!("読み込みエラー: {}", e))? {
         let entry = entry.map_err(|e| format!("エントリエラー: {}", e))?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "ron") {
+        if path.extension().is_some_and(|ext| ext == "ron") {
             if let Some(stem) = path.file_stem() {
                 recipes.push(stem.to_string_lossy().to_string());
             }
@@ -143,7 +155,7 @@ fn get_assets_catalog(state: State<AppState>) -> Result<AssetCatalog, String> {
         if let Ok(entries) = fs::read_dir(&items_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "ron") {
+                if path.extension().is_some_and(|ext| ext == "ron") {
                     if let Ok(content) = fs::read_to_string(&path) {
                         if let Ok(item) = ron::from_str::<ItemData>(&content) {
                             catalog.items.push(CatalogEntry { id: item.id.clone(), name: item.id.clone(), icon_path: item.asset.icon_path });
@@ -170,6 +182,7 @@ fn get_assets_catalog(state: State<AppState>) -> Result<AssetCatalog, String> {
 }
 
 // Internal functions for testing (not Tauri commands)
+#[cfg(test)]
 fn internal_save_item_data(item: &ItemData, path: &std::path::Path) -> Result<(), String> {
     // Create parent directories if they don't exist
     if let Some(parent) = path.parent() {
@@ -180,6 +193,7 @@ fn internal_save_item_data(item: &ItemData, path: &std::path::Path) -> Result<()
     fs::write(path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))
 }
 
+#[cfg(test)]
 fn internal_load_item_data(path: &std::path::Path) -> Result<ItemData, String> {
     let content = fs::read_to_string(path).map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
     ron::from_str(&content).map_err(|e| format!("パースエラー: {}", e))
@@ -195,7 +209,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet, set_assets_path, get_assets_path, create_item, update_item_asset,
             save_localization, load_localization, update_locale, to_relative_path,
-            save_item_data, load_item_data, save_recipe, load_recipe, list_recipes, get_assets_catalog,
+            save_item_data, load_item_data, delete_item_data, save_recipe, load_recipe, list_recipes, get_assets_catalog,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

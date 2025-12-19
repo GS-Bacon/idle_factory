@@ -46,8 +46,9 @@ fn default_chance() -> f32 {
 }
 
 /// 機械タイプ
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum MachineType {
+    #[default]
     Assembler,
     Mixer,
     Press,
@@ -59,11 +60,6 @@ pub enum MachineType {
     Custom(String),
 }
 
-impl Default for MachineType {
-    fn default() -> Self {
-        MachineType::Assembler
-    }
-}
 
 /// レシピ定義
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +83,7 @@ pub struct RecipeDef {
 }
 
 impl RecipeDef {
+    #[allow(dead_code)]
     pub fn new(id: String) -> Self {
         Self {
             i18n_key: format!("recipe.{}", id),
@@ -100,9 +97,10 @@ impl RecipeDef {
     }
 }
 
-/// アセットツリーのノード
+/// アセットツリーのノード（将来の拡張用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[allow(dead_code)]
 pub enum AssetNode {
     /// ディレクトリ
     Directory {

@@ -43,7 +43,8 @@ pub struct AssetConfig {
     pub animation: AnimationType,
 }
 
-/// ItemVisuals は AssetConfig のエイリアス
+/// ItemVisuals は AssetConfig のエイリアス（将来の拡張用）
+#[allow(dead_code)]
 pub type ItemVisuals = AssetConfig;
 
 /// ローカライズエントリ

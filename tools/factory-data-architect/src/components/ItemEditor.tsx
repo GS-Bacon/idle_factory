@@ -329,8 +329,10 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], existingS
               type="text"
               value={item.id}
               placeholder="アイテムIDを入力..."
-              className={isDuplicateId ? "input-error" : ""}
+              className={isDuplicateId ? "input-error" : itemId ? "readonly-field" : ""}
+              readOnly={!!itemId}
               onChange={(e) => {
+                if (itemId) return; // Prevent editing existing item ID
                 const id = e.target.value;
                 setItem((prev) => ({
                   ...prev,
@@ -342,6 +344,9 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], existingS
           </label>
           {isDuplicateId && (
             <span className="validation-error">⚠️ このIDは既に使用されています</span>
+          )}
+          {itemId && (
+            <span className="auto-generated-hint">（既存アイテムのIDは変更できません）</span>
           )}
         </div>
         {/* サブカテゴリ（プルダウン＋自由入力） */}
