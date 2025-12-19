@@ -32,10 +32,11 @@ interface ItemEditorProps {
   assetsPath: string | null;
   itemId?: string | null;
   existingItemIds?: string[];
+  existingSubcategories?: string[];
   onSave?: (item: ItemData, localization: LocalizationData) => void;
 }
 
-export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }: ItemEditorProps) {
+export function ItemEditor({ assetsPath, itemId, existingItemIds = [], existingSubcategories = [], onSave }: ItemEditorProps) {
   const [item, setItem] = useState<ItemData>(createDefaultItemData(itemId || ""));
   const [localization, setLocalization] = useState<LocalizationData>(
     createDefaultLocalizationData()
@@ -297,28 +298,7 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
       {/* Basic Info */}
       <section className="editor-section">
         <h3>基本情報</h3>
-        <div className="form-row">
-          <label>
-            ID:
-            <input
-              type="text"
-              value={item.id}
-              placeholder="アイテムIDを入力..."
-              className={isDuplicateId ? "input-error" : ""}
-              onChange={(e) => {
-                const id = e.target.value;
-                setItem((prev) => ({
-                  ...prev,
-                  id,
-                  i18n_key: id ? generateI18nKey(id, prev.category) : "",
-                }));
-              }}
-            />
-          </label>
-          {isDuplicateId && (
-            <span className="validation-error">⚠️ このIDは既に使用されています</span>
-          )}
-        </div>
+        {/* カテゴリを最初に */}
         <div className="form-row">
           <label>カテゴリ:</label>
           <div className="category-selector-inline">
@@ -341,13 +321,38 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
             ))}
           </div>
         </div>
+        {/* ID入力 */}
+        <div className="form-row">
+          <label>
+            ID:
+            <input
+              type="text"
+              value={item.id}
+              placeholder="アイテムIDを入力..."
+              className={isDuplicateId ? "input-error" : ""}
+              onChange={(e) => {
+                const id = e.target.value;
+                setItem((prev) => ({
+                  ...prev,
+                  id,
+                  i18n_key: id ? generateI18nKey(id, prev.category) : "",
+                }));
+              }}
+            />
+          </label>
+          {isDuplicateId && (
+            <span className="validation-error">⚠️ このIDは既に使用されています</span>
+          )}
+        </div>
+        {/* サブカテゴリ（プルダウン＋自由入力） */}
         <div className="form-row">
           <label>
             サブカテゴリ:
             <input
               type="text"
+              list="subcategory-list"
               value={item.subcategory || ""}
-              placeholder="例: ore, ingot, tool, processor..."
+              placeholder="選択または入力..."
               onChange={(e) =>
                 setItem((prev) => ({
                   ...prev,
@@ -355,6 +360,11 @@ export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }:
                 }))
               }
             />
+            <datalist id="subcategory-list">
+              {existingSubcategories.map((sub) => (
+                <option key={sub} value={sub} />
+              ))}
+            </datalist>
           </label>
           <span className="auto-generated-hint">（任意、整理用）</span>
         </div>

@@ -1,0 +1,14 @@
+(
+    id: "book",
+    i18n_key: "item.book",
+    asset: (
+        icon_path: None,
+        model_path: None,
+        animation: (
+            type: None,
+        ),
+    ),
+    properties: {},
+    category: item,
+    subcategory: Some("aaa"),
+)

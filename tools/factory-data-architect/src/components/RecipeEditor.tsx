@@ -495,8 +495,11 @@ function RecipeEditorFlow() {
   );
 
   const handleDragStart = useCallback(
-    (_event: React.DragEvent, item: PaletteItem) => {
+    (event: React.DragEvent, item: PaletteItem) => {
       setDraggedItem(item);
+      // Required for drag to work in some browsers
+      event.dataTransfer.setData("application/reactflow", JSON.stringify(item));
+      event.dataTransfer.effectAllowed = "move";
     },
     []
   );
@@ -717,6 +720,8 @@ function RecipeEditorFlow() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onSelectionChange={onSelectionChange}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
           nodeTypes={nodeTypes}
           fitView
         >

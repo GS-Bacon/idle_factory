@@ -69,6 +69,7 @@ type EditorTab = "items" | "recipes" | "quests" | "multiblock" | "biome" | "soun
 interface SavedItem {
   id: string;
   i18n_key: string;
+  subcategory?: string;
 }
 
 // Asset catalog type from Rust
@@ -129,13 +130,13 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
     setShowEditor(true);
   }, []);
 
-  const handleSaveItem = useCallback((item: { id: string; i18n_key: string }) => {
+  const handleSaveItem = useCallback((item: { id: string; i18n_key: string; subcategory?: string }) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (existing) {
-        return prev.map((i) => (i.id === item.id ? { id: item.id, i18n_key: item.i18n_key } : i));
+        return prev.map((i) => (i.id === item.id ? { id: item.id, i18n_key: item.i18n_key, subcategory: item.subcategory } : i));
       }
-      return [...prev, { id: item.id, i18n_key: item.i18n_key }];
+      return [...prev, { id: item.id, i18n_key: item.i18n_key, subcategory: item.subcategory }];
     });
   }, []);
 
@@ -151,6 +152,9 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
 
   // Get existing item IDs for validation
   const existingItemIds = items.map((i) => i.id);
+
+  // Get existing subcategories for autocomplete
+  const existingSubcategories = [...new Set(items.map((i) => i.subcategory).filter((s): s is string => !!s))];
 
   if (isLoading) {
     return (
@@ -206,7 +210,8 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
               assetsPath={assetsPath}
               itemId={selectedItemId}
               existingItemIds={existingItemIds}
-              onSave={(item) => handleSaveItem({ id: item.id, i18n_key: item.i18n_key })}
+              existingSubcategories={existingSubcategories}
+              onSave={(item) => handleSaveItem({ id: item.id, i18n_key: item.i18n_key, subcategory: item.subcategory })}
             />
           </ErrorBoundary>
         ) : (

@@ -1,10 +1,10 @@
 (
     entries: {
-        "undefined.stone": (
+        "undefined.sss": (
             name: "",
             description: "",
         ),
-        "item.stone": (
+        "item.book": (
             name: "",
             description: "",
         ),
@@ -12,11 +12,15 @@
             name: "",
             description: "",
         ),
+        "item.stone": (
+            name: "",
+            description: "",
+        ),
         "item.wood": (
             name: "",
             description: "",
         ),
-        "undefined.sss": (
+        "undefined.stone": (
             name: "",
             description: "",
         ),
