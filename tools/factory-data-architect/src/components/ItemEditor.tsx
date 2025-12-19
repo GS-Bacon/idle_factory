@@ -8,7 +8,7 @@ import {
   LocalizationData,
   createDefaultItemData,
   createDefaultLocalizationData,
-} from "../types";
+} from "../types/index";
 
 // カテゴリ定義
 const ITEM_CATEGORIES: { value: ItemCategory; label: string; icon: string }[] = [

@@ -207,6 +207,38 @@ describe("LocalizationData", () => {
   });
 });
 
+describe("LocalizationEntry", () => {
+  test("can create localization entry", () => {
+    const entry: LocalizationEntry = { name: "Test", description: "Test description" };
+    expect(entry.name).toBe("Test");
+    expect(entry.description).toBe("Test description");
+  });
+});
+
+describe("MachineItemData", () => {
+  test("extends ItemData with machine-specific fields", () => {
+    const machine: MachineItemData = {
+      id: "assembler",
+      i18n_key: "machine.assembler",
+      asset: createDefaultAssetConfig(),
+      properties: {},
+      category: "machine",
+      workTypes: ["assembling", "crafting"],
+      inputSlots: 3,
+      outputSlots: 2,
+      fluidInputSlots: 1,
+      fluidOutputSlots: 0,
+      baseTorqueConsumption: 16,
+      baseProcessingSpeed: 1.5,
+      vibrationLevel: 2,
+    };
+
+    expect(machine.category).toBe("machine");
+    expect(machine.workTypes).toContain("assembling");
+    expect(machine.inputSlots).toBe(3);
+  });
+});
+
 describe("AssetConfig", () => {
   test("can have all animation types", () => {
     const configNone: AssetConfig = {

@@ -466,8 +466,6 @@ function RecipeEditorFlow() {
     tags: [],
   });
 
-  const [draggedItem, setDraggedItem] = useState<PaletteItem | null>(null);
-
   // Load catalog on mount
   useEffect(() => {
     invoke<AssetCatalog>("get_assets_catalog")
@@ -496,8 +494,7 @@ function RecipeEditorFlow() {
 
   const handleDragStart = useCallback(
     (event: React.DragEvent, item: PaletteItem) => {
-      setDraggedItem(item);
-      // Required for drag to work in some browsers
+      // Store item data in dataTransfer for cross-component communication
       event.dataTransfer.setData("application/reactflow", JSON.stringify(item));
       event.dataTransfer.effectAllowed = "move";
     },
@@ -512,9 +509,21 @@ function RecipeEditorFlow() {
   const handleDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
+      event.stopPropagation();
 
-      if (!draggedItem || !reactFlowWrapper.current) return;
+      // Get item data from dataTransfer instead of state
+      const dataStr = event.dataTransfer.getData("application/reactflow");
+      if (!dataStr) return;
 
+      let item: PaletteItem;
+      try {
+        item = JSON.parse(dataStr) as PaletteItem;
+      } catch {
+        console.error("Failed to parse dropped item data");
+        return;
+      }
+
+      // Get position - use screenToFlowPosition for accurate placement
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -523,21 +532,21 @@ function RecipeEditorFlow() {
       const newNodeId = `node_${Date.now()}`;
       let newNode: Node;
 
-      if (draggedItem.type === "source") {
+      if (item.type === "source") {
         newNode = {
           id: newNodeId,
           type: "source",
           position,
           data: {
             nodeType: "source",
-            itemType: draggedItem.itemType || "item",
-            itemId: draggedItem.id || "",
+            itemType: item.itemType || "item",
+            itemId: item.id || "",
             amount: 1,
-            label: draggedItem.id || "Source",
+            label: item.id || "Source",
           },
         };
-      } else if (draggedItem.type === "machine") {
-        const mt = draggedItem.machineType || { Custom: "unknown" };
+      } else if (item.type === "machine") {
+        const mt = item.machineType || { Custom: "unknown" };
         newNode = {
           id: newNodeId,
           type: "machine",
@@ -557,7 +566,7 @@ function RecipeEditorFlow() {
           position,
           data: {
             nodeType: "result",
-            itemType: (draggedItem.itemType as "item" | "fluid") || "item",
+            itemType: (item.itemType as "item" | "fluid") || "item",
             itemId: "",
             amount: 1,
             chance: 1.0,
@@ -567,9 +576,8 @@ function RecipeEditorFlow() {
       }
 
       setNodes((nds) => [...nds, newNode]);
-      setDraggedItem(null);
     },
-    [draggedItem, screenToFlowPosition, setNodes]
+    [screenToFlowPosition, setNodes]
   );
 
   const handleNodeUpdate = useCallback(
@@ -705,8 +713,6 @@ function RecipeEditorFlow() {
       <div
         className="canvas-panel"
         ref={reactFlowWrapper}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
       >
         <div className="canvas-toolbar">
           <button onClick={handleSave}>💾 Save</button>

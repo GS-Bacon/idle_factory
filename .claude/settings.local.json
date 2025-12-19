@@ -57,7 +57,8 @@
       "Bash(npm run build:*)",
       "Bash(RUST_BACKTRACE=1 timeout 45 npm run tauri dev:*)",
       "Bash(timeout 50 npm run:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(dir:*)"
     ]
   }
 }

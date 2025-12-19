@@ -1,5 +1,27 @@
 # Development Changelog
 
+## 2025-12-20: レシピエディタのドラッグ&ドロップ修正
+
+### Fixed
+
+#### ドラッグ&ドロップでノードが作成されない問題
+- 問題: パレットからアイテムをキャンバスにドラッグ&ドロップしてもノードが作成されない
+- 原因: `draggedItem`ステートを使った実装がReactFlowと競合していた
+- 解決: `event.dataTransfer`を使ってドラッグデータを直接渡すように変更
+  - `handleDragStart`: データを`dataTransfer.setData()`で保存
+  - `handleDrop`: `dataTransfer.getData()`でデータを取得してノード作成
+  - 不要になった`draggedItem`ステートを削除
+
+#### TypeScriptモジュール解決の問題
+- ItemEditorのインポートパスを`../types`から`../types/index`に変更
+- ItemCategory, subcategoryプロパティが見つからないエラーを解消
+
+### Tests
+- index.test.tsに2件のテスト追加（LocalizationEntry, MachineItemData）
+- 全27テストがパス
+
+---
+
 ## 2025-12-19: アイテム一覧表示とID重複バリデーション修正
 
 ### Fixed
