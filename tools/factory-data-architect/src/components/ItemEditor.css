@@ -203,8 +203,26 @@
   transition: background 0.2s;
 }
 
-.save-button:hover {
+.save-button:hover:not(:disabled) {
   background: #535bf2;
+}
+
+.save-button:disabled {
+  background: #444;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* Validation Error */
+.input-error {
+  border-color: #ff6666 !important;
+  background: rgba(255, 100, 100, 0.1) !important;
+}
+
+.validation-error {
+  color: #ff9999;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 /* Category Selector Inline */

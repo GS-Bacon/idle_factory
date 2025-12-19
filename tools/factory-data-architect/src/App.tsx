@@ -71,6 +71,20 @@ interface SavedItem {
   i18n_key: string;
 }
 
+// Asset catalog type from Rust
+interface CatalogEntry {
+  id: string;
+  name: string;
+  icon_path: string | null;
+}
+
+interface AssetCatalog {
+  items: CatalogEntry[];
+  fluids: CatalogEntry[];
+  machines: CatalogEntry[];
+  tags: string[];
+}
+
 // Items tab with category routing
 interface ItemsTabProps {
   assetsPath: string | null;
@@ -80,6 +94,30 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load existing items on mount
+  useEffect(() => {
+    const loadItems = async () => {
+      if (!assetsPath) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const catalog = await invoke<AssetCatalog>("get_assets_catalog");
+        const loadedItems: SavedItem[] = catalog.items.map((entry) => ({
+          id: entry.id,
+          i18n_key: `item.${entry.id}`, // Default, will be updated when item is loaded
+        }));
+        setItems(loadedItems);
+      } catch (err) {
+        console.error("Failed to load items:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadItems();
+  }, [assetsPath]);
 
   const handleNewItem = useCallback(() => {
     setSelectedItemId(null);
@@ -110,6 +148,19 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
       }
     }
   }, [selectedItemId]);
+
+  // Get existing item IDs for validation
+  const existingItemIds = items.map((i) => i.id);
+
+  if (isLoading) {
+    return (
+      <div className="items-tab-layout">
+        <div className="items-list-panel">
+          <div className="loading-state">読み込み中...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="items-tab-layout">
@@ -154,6 +205,7 @@ function ItemsTab({ assetsPath }: ItemsTabProps) {
               key={selectedItemId || "new"}
               assetsPath={assetsPath}
               itemId={selectedItemId}
+              existingItemIds={existingItemIds}
               onSave={(item) => handleSaveItem({ id: item.id, i18n_key: item.i18n_key })}
             />
           </ErrorBoundary>

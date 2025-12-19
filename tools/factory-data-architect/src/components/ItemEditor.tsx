@@ -31,10 +31,11 @@ type AnyAnimationParams = AnimationWithParams["params"];
 interface ItemEditorProps {
   assetsPath: string | null;
   itemId?: string | null;
+  existingItemIds?: string[];
   onSave?: (item: ItemData, localization: LocalizationData) => void;
 }
 
-export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
+export function ItemEditor({ assetsPath, itemId, existingItemIds = [], onSave }: ItemEditorProps) {
   const [item, setItem] = useState<ItemData>(createDefaultItemData(itemId || "new_item"));
   const [localization, setLocalization] = useState<LocalizationData>(
     createDefaultLocalizationData()
@@ -43,6 +44,10 @@ export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
   const [isDraggingModel, setIsDraggingModel] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Check if current ID is a duplicate (excluding the item being edited)
+  const isDuplicateId = !itemId && existingItemIds.includes(item.id);
+  const isIdValid = item.id.trim() !== "" && !isDuplicateId;
 
   // Load item data when itemId changes
   useEffect(() => {
@@ -230,6 +235,16 @@ export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
 
   // Save handler
   const handleSave = useCallback(async () => {
+    // Validate ID before saving
+    if (!isIdValid) {
+      if (isDuplicateId) {
+        alert(`エラー: ID "${item.id}" は既に使用されています。別のIDを入力してください。`);
+      } else {
+        alert("エラー: IDを入力してください。");
+      }
+      return;
+    }
+
     try {
       // Save item data to file
       await invoke("save_item_data", {
@@ -248,7 +263,7 @@ export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
     } catch (error) {
       alert(`保存エラー: ${error}`);
     }
-  }, [item, localization, onSave, assetsPath]);
+  }, [item, localization, onSave, assetsPath, isIdValid, isDuplicateId]);
 
   // Get preview URL for icon
   const getIconPreviewUrl = useCallback((iconPath: string | null): string => {
@@ -287,6 +302,7 @@ export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
             <input
               type="text"
               value={item.id}
+              className={isDuplicateId ? "input-error" : ""}
               onChange={(e) => {
                 const id = e.target.value;
                 setItem((prev) => ({
@@ -297,6 +313,9 @@ export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
               }}
             />
           </label>
+          {isDuplicateId && (
+            <span className="validation-error">⚠️ このIDは既に使用されています</span>
+          )}
         </div>
         <div className="form-row">
           <label>カテゴリ:</label>
@@ -686,7 +705,12 @@ export function ItemEditor({ assetsPath, itemId, onSave }: ItemEditorProps) {
 
       {/* Actions */}
       <section className="editor-actions">
-        <button type="button" onClick={handleSave} className="save-button">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="save-button"
+          disabled={!isIdValid}
+        >
           保存
         </button>
       </section>
