@@ -4,7 +4,7 @@ mod recipe;
 
 use localization::LocalizationManager;
 use models::{AnimationType, AssetConfig, ItemData, LocalizationData, LocalizationEntry};
-use recipe::{AssetCatalog, CatalogEntry, MachineCatalogEntry, MachineType, RecipeDef};
+use recipe::{AssetCatalog, CatalogEntry, RecipeDef};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -154,39 +154,17 @@ fn get_assets_catalog(state: State<AppState>) -> Result<AssetCatalog, String> {
         }
     }
 
-    // Default items if none found
-    if catalog.items.is_empty() {
-        catalog.items = vec![
-            CatalogEntry { id: "iron_ore".into(), name: "Iron Ore".into(), icon_path: None },
-            CatalogEntry { id: "iron_ingot".into(), name: "Iron Ingot".into(), icon_path: None },
-            CatalogEntry { id: "iron_plate".into(), name: "Iron Plate".into(), icon_path: None },
-            CatalogEntry { id: "copper_ore".into(), name: "Copper Ore".into(), icon_path: None },
-            CatalogEntry { id: "copper_ingot".into(), name: "Copper Ingot".into(), icon_path: None },
-            CatalogEntry { id: "gold_ore".into(), name: "Gold Ore".into(), icon_path: None },
-            CatalogEntry { id: "coal".into(), name: "Coal".into(), icon_path: None },
-        ];
-    }
+    // No default items - use empty list if none found
+    // Items should be defined in the Items tab of the editor
 
-    // Default fluids
-    catalog.fluids = vec![
-        CatalogEntry { id: "water".into(), name: "Water".into(), icon_path: None },
-        CatalogEntry { id: "lava".into(), name: "Lava".into(), icon_path: None },
-        CatalogEntry { id: "oil".into(), name: "Oil".into(), icon_path: None },
-        CatalogEntry { id: "steam".into(), name: "Steam".into(), icon_path: None },
-    ];
+    // No default fluids - use empty list
+    // Fluids should be defined in the Items tab of the editor
 
-    // Default machines
-    catalog.machines = vec![
-        MachineCatalogEntry { id: "assembler".into(), name: "Assembler".into(), machine_type: MachineType::Assembler, input_slots: 4, output_slots: 1 },
-        MachineCatalogEntry { id: "mixer".into(), name: "Mixer".into(), machine_type: MachineType::Mixer, input_slots: 2, output_slots: 2 },
-        MachineCatalogEntry { id: "press".into(), name: "Press".into(), machine_type: MachineType::Press, input_slots: 1, output_slots: 1 },
-        MachineCatalogEntry { id: "furnace".into(), name: "Furnace".into(), machine_type: MachineType::Furnace, input_slots: 1, output_slots: 1 },
-        MachineCatalogEntry { id: "crusher".into(), name: "Crusher".into(), machine_type: MachineType::Crusher, input_slots: 1, output_slots: 2 },
-        MachineCatalogEntry { id: "centrifuge".into(), name: "Centrifuge".into(), machine_type: MachineType::Centrifuge, input_slots: 1, output_slots: 3 },
-    ];
+    // No default machines - use empty list
+    // Machines should be defined in the Items tab of the editor
 
-    // Default tags
-    catalog.tags = vec!["forge:ores".into(), "forge:ingots".into(), "forge:plates".into(), "forge:dusts".into(), "forge:gems".into()];
+    // No default tags
+    // Tags should be defined by the user
 
     Ok(catalog)
 }

@@ -43,17 +43,7 @@ function getMachineTypeString(mt: MachineType): string {
   return typeof mt === "string" ? mt : mt.Custom;
 }
 
-// Standard machine types
-const MACHINE_TYPES: MachineType[] = [
-  "Assembler",
-  "Mixer",
-  "Press",
-  "Furnace",
-  "Crusher",
-  "Centrifuge",
-  "ChemicalReactor",
-  "Packager",
-];
+// Machine types are loaded from catalog - no hardcoded defaults
 
 // Palette Panel Component
 interface PalettePanelProps {
@@ -132,22 +122,19 @@ function PalettePanel({ catalog, onDragStart }: PalettePanelProps) {
         )}
         {activeTab === "machines" && (
           <div className="palette-list">
-            {MACHINE_TYPES.map((machineType) => {
-              const key = getMachineTypeString(machineType);
-              return (
-                <div
-                  key={key}
-                  className="palette-item machine"
-                  draggable
-                  onDragStart={(e) =>
-                    onDragStart(e, { type: "machine", machineType })
-                  }
-                >
-                  <span className="icon">⚙️</span>
-                  <span className="label">{key}</span>
-                </div>
-              );
-            })}
+            {catalog.machines.map((machine) => (
+              <div
+                key={machine.id}
+                className="palette-item machine"
+                draggable
+                onDragStart={(e) =>
+                  onDragStart(e, { type: "machine", machineType: { Custom: machine.id } })
+                }
+              >
+                <span className="icon">⚙️</span>
+                <span className="label">{machine.name}</span>
+              </div>
+            ))}
           </div>
         )}
         {activeTab === "tags" && (
@@ -268,6 +255,7 @@ function InspectorPanel({
             {nodeData.nodeType === "machine" && (
               <MachineNodeInspector
                 data={nodeData as MachineNodeData}
+                catalog={catalog}
                 onUpdate={(data) => onNodeUpdate(selectedNode.id, data)}
               />
             )}
@@ -348,49 +336,32 @@ function SourceNodeInspector({ data, catalog, onUpdate }: SourceNodeInspectorPro
 // Machine Node Inspector
 interface MachineNodeInspectorProps {
   data: MachineNodeData;
+  catalog: AssetCatalog;
   onUpdate: (data: Partial<MachineNodeData>) => void;
 }
 
-function MachineNodeInspector({ data, onUpdate }: MachineNodeInspectorProps) {
+function MachineNodeInspector({ data, catalog, onUpdate }: MachineNodeInspectorProps) {
   const currentType = getMachineTypeString(data.machineType);
-  const isCustom = typeof data.machineType !== "string";
 
   return (
     <>
       <div className="form-group">
         <label>Machine Type</label>
         <select
-          value={isCustom ? "Custom" : currentType}
+          value={currentType}
           onChange={(e) => {
             const val = e.target.value;
-            if (val === "Custom") {
-              onUpdate({ machineType: { Custom: "" } });
-            } else {
-              onUpdate({ machineType: val as MachineType });
-            }
+            onUpdate({ machineType: { Custom: val } });
           }}
         >
-          {MACHINE_TYPES.map((t) => {
-            const key = getMachineTypeString(t);
-            return (
-              <option key={key} value={key}>
-                {key}
-              </option>
-            );
-          })}
-          <option value="Custom">Custom</option>
+          <option value="">-- Select --</option>
+          {catalog.machines.map((machine) => (
+            <option key={machine.id} value={machine.id}>
+              {machine.name}
+            </option>
+          ))}
         </select>
       </div>
-      {isCustom && (
-        <div className="form-group">
-          <label>Custom Type Name</label>
-          <input
-            type="text"
-            value={typeof data.machineType === "object" ? data.machineType.Custom : ""}
-            onChange={(e) => onUpdate({ machineType: { Custom: e.target.value } })}
-          />
-        </div>
-      )}
       <div className="form-group">
         <label>Input Slots</label>
         <input

@@ -5,7 +5,46 @@
 //! - QuestManager: クエスト状態管理
 
 use bevy::prelude::*;
+use serde::Deserialize;
 use std::collections::HashMap;
+use std::fs;
+
+/// YAML用報酬定義
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type")]
+pub enum RewardDefinition {
+    PortUnlock { count: u32 },
+    Item { item_id: String, amount: u32 },
+}
+
+/// YAML用要件定義
+#[derive(Debug, Clone, Deserialize)]
+pub struct RequirementDefinition {
+    pub item_id: String,
+    pub amount: u32,
+    #[serde(default)]
+    pub item_type: String,
+}
+
+/// YAML用クエスト定義
+#[derive(Debug, Clone, Deserialize)]
+pub struct QuestDefinition {
+    pub id: String,
+    #[serde(default)]
+    pub quest_type: String,
+    #[serde(default = "default_phase")]
+    pub phase: u32,
+    #[serde(default)]
+    pub requirements: Vec<RequirementDefinition>,
+    #[serde(default)]
+    pub rewards: Vec<RewardDefinition>,
+    #[serde(default)]
+    pub prerequisites: Vec<String>,
+}
+
+fn default_phase() -> u32 {
+    1
+}
 
 /// 報酬タイプ
 #[derive(Debug, Clone, PartialEq)]
@@ -14,6 +53,15 @@ pub enum RewardType {
     PortUnlock(u32),
     /// アイテム報酬
     Item { item_id: String, amount: u32 },
+}
+
+impl From<RewardDefinition> for RewardType {
+    fn from(def: RewardDefinition) -> Self {
+        match def {
+            RewardDefinition::PortUnlock { count } => RewardType::PortUnlock(count),
+            RewardDefinition::Item { item_id, amount } => RewardType::Item { item_id, amount },
+        }
+    }
 }
 
 /// クエスト要件
@@ -34,12 +82,32 @@ pub enum RequirementType {
     Torque,
 }
 
+impl From<&str> for RequirementType {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "fluid" => RequirementType::Fluid,
+            "power" => RequirementType::Power,
+            "torque" => RequirementType::Torque,
+            _ => RequirementType::Item,
+        }
+    }
+}
+
 /// クエストタイプ
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum QuestType {
     #[default]
     Main,
     Sub,
+}
+
+impl From<&str> for QuestType {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "sub" => QuestType::Sub,
+            _ => QuestType::Main,
+        }
+    }
 }
 
 /// クエスト定義
@@ -90,6 +158,24 @@ impl QuestData {
     pub fn with_prerequisite(mut self, quest_id: impl Into<String>) -> Self {
         self.prerequisites.push(quest_id.into());
         self
+    }
+}
+
+impl From<QuestDefinition> for QuestData {
+    fn from(def: QuestDefinition) -> Self {
+        Self {
+            id: def.id.clone(),
+            i18n_key: format!("quest.{}", &def.id),
+            quest_type: QuestType::from(def.quest_type.as_str()),
+            phase: def.phase,
+            requirements: def.requirements.into_iter().map(|r| QuestRequirement {
+                item_id: r.item_id,
+                amount: r.amount,
+                item_type: RequirementType::from(r.item_type.as_str()),
+            }).collect(),
+            rewards: def.rewards.into_iter().map(|r| r.into()).collect(),
+            prerequisites: def.prerequisites,
+        }
     }
 }
 
@@ -244,8 +330,42 @@ impl Plugin for QuestPlugin {
     }
 }
 
-/// クエスト定義をロード
+/// クエスト定義をロード（YAMLファイルから読み込み + フォールバック）
 fn load_quests(mut registry: ResMut<QuestRegistry>) {
+    let path = "assets/data/quests/core.yaml";
+    let mut loaded_from_yaml = false;
+
+    if let Ok(content) = fs::read_to_string(path) {
+        match serde_yaml::from_str::<Vec<QuestDefinition>>(&content) {
+            Ok(defs) => {
+                for def in defs {
+                    info!("Loaded quest from YAML: {}", def.id);
+                    registry.register(def.into());
+                }
+                loaded_from_yaml = true;
+            }
+            Err(e) => {
+                error!("Failed to parse quests YAML: {}", e);
+            }
+        }
+    }
+
+    // YAMLからロードできなかった場合はフォールバック
+    if !loaded_from_yaml {
+        info!("Using fallback quest definitions");
+        register_fallback_quests(&mut registry);
+    }
+
+    info!(
+        "Loaded {} quests ({} main, {} sub phases)",
+        registry.quests.len(),
+        registry.main_quest_order.len(),
+        registry.sub_quests_by_phase.len()
+    );
+}
+
+/// フォールバック用のハードコードクエスト
+fn register_fallback_quests(registry: &mut QuestRegistry) {
     // Phase 1: 基本生産
     registry.register(
         QuestData::new("main_1_iron_ingots", QuestType::Main)
@@ -281,13 +401,6 @@ fn load_quests(mut registry: ResMut<QuestRegistry>) {
                 item_id: "storage_upgrade".to_string(),
                 amount: 3,
             }),
-    );
-
-    info!(
-        "Loaded {} quests ({} main, {} sub phases)",
-        registry.quests.len(),
-        registry.main_quest_order.len(),
-        registry.sub_quests_by_phase.len()
     );
 }
 

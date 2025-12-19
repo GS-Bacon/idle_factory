@@ -3,11 +3,24 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   ItemData,
+  ItemCategory,
   AnimationType,
   LocalizationData,
   createDefaultItemData,
   createDefaultLocalizationData,
 } from "../types";
+
+// カテゴリ定義
+const ITEM_CATEGORIES: { value: ItemCategory; label: string; icon: string }[] = [
+  { value: "item", label: "アイテム", icon: "📦" },
+  { value: "machine", label: "機械", icon: "⚙️" },
+  { value: "multiblock", label: "マルチブロック", icon: "🏗️" },
+];
+
+// カテゴリに基づいてi18n_keyを生成
+function generateI18nKey(id: string, category: ItemCategory): string {
+  return `${category}.${id}`;
+}
 
 import "./ItemEditor.css";
 
@@ -210,17 +223,40 @@ export function ItemEditor({ assetsPath, onSave }: ItemEditorProps) {
                 setItem((prev) => ({
                   ...prev,
                   id,
-                  i18n_key: `item.${id}`,
+                  i18n_key: generateI18nKey(id, prev.category),
                 }));
               }}
             />
           </label>
         </div>
         <div className="form-row">
+          <label>カテゴリ:</label>
+          <div className="category-selector-inline">
+            {ITEM_CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                type="button"
+                className={`category-btn-small ${item.category === cat.value ? "selected" : ""}`}
+                onClick={() =>
+                  setItem((prev) => ({
+                    ...prev,
+                    category: cat.value,
+                    i18n_key: generateI18nKey(prev.id, cat.value),
+                  }))
+                }
+              >
+                <span className="cat-icon">{cat.icon}</span>
+                <span className="cat-label">{cat.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="form-row">
           <label>
             i18n Key:
-            <input type="text" value={item.i18n_key} readOnly />
+            <input type="text" value={item.i18n_key} readOnly className="readonly-field" />
           </label>
+          <span className="auto-generated-hint">（自動生成）</span>
         </div>
       </section>
 

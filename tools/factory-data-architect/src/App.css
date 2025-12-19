@@ -304,3 +304,121 @@ textarea:focus {
   background: #4a4a8e;
   color: #fff;
 }
+
+/* Items Tab Layout - Two Panel */
+.items-tab-layout {
+  display: flex;
+  height: 100%;
+  gap: 0;
+}
+
+.items-list-panel {
+  width: 280px;
+  min-width: 280px;
+  background: #2a2a4e;
+  border-right: 1px solid #3a3a6e;
+  display: flex;
+  flex-direction: column;
+}
+
+.items-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #3a3a6e;
+}
+
+.items-list-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.items-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.empty-list {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 13px;
+}
+
+.item-list-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  background: #1a1a2e;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.item-list-entry:hover {
+  background: #252540;
+  border-color: #4a4a8e;
+}
+
+.item-list-entry.selected {
+  background: #3a3a6e;
+  border-color: #646cff;
+}
+
+.item-list-entry .item-icon {
+  font-size: 18px;
+}
+
+.item-list-entry .item-name {
+  flex: 1;
+  font-size: 13px;
+  color: #e0e0e0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-list-entry .delete-btn {
+  padding: 2px 8px;
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.item-list-entry:hover .delete-btn {
+  opacity: 1;
+}
+
+.item-list-entry .delete-btn:hover {
+  color: #ff6b6b;
+}
+
+.items-editor-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.no-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+  font-size: 14px;
+}
+
+.no-selection p {
+  margin: 4px 0;
+}

@@ -244,12 +244,6 @@ function ResourceEditor({ resources, catalog, onChange }: ResourceEditorProps) {
   };
 
   const availableResources = [
-    { id: "iron_ore", name: "Iron Ore" },
-    { id: "copper_ore", name: "Copper Ore" },
-    { id: "gold_ore", name: "Gold Ore" },
-    { id: "coal", name: "Coal" },
-    { id: "oil", name: "Oil" },
-    { id: "uranium", name: "Uranium" },
     ...catalog.items.map((item) => ({ id: item.id, name: item.name })),
   ];
 

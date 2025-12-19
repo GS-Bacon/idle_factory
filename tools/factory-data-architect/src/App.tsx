@@ -13,37 +13,11 @@ import "./App.css";
 const DEFAULT_ASSETS_PATH = "C:/Users/bacon/OneDrive/ドキュメント/github/IdealFactoryGame/my-bevy-project/assets";
 
 type EditorTab = "items" | "recipes" | "quests" | "multiblock" | "biome" | "sounds";
-type ItemCategory = "item" | "machine" | "multiblock";
 
-// Item category selector component
-interface ItemCategorySelectorProps {
-  onSelect: (category: ItemCategory) => void;
-}
-
-function ItemCategorySelector({ onSelect }: ItemCategorySelectorProps) {
-  return (
-    <div className="category-selector">
-      <h2>Create New Item</h2>
-      <p>Select the type of item to create:</p>
-      <div className="category-buttons">
-        <button className="category-btn item" onClick={() => onSelect("item")}>
-          <span className="icon">📦</span>
-          <span className="label">Simple Item</span>
-          <span className="desc">Basic item without special functionality</span>
-        </button>
-        <button className="category-btn machine" onClick={() => onSelect("machine")}>
-          <span className="icon">⚙️</span>
-          <span className="label">Machine</span>
-          <span className="desc">Single-block machine with processing capability</span>
-        </button>
-        <button className="category-btn multiblock" onClick={() => onSelect("multiblock")}>
-          <span className="icon">🏗️</span>
-          <span className="label">Multiblock Machine</span>
-          <span className="desc">Large machine spanning multiple blocks</span>
-        </button>
-      </div>
-    </div>
-  );
+// Saved item type
+interface SavedItem {
+  id: string;
+  i18n_key: string;
 }
 
 // Items tab with category routing
@@ -52,46 +26,89 @@ interface ItemsTabProps {
 }
 
 function ItemsTab({ assetsPath }: ItemsTabProps) {
-  const [selectedCategory, setSelectedCategory] = useState<ItemCategory | null>(null);
-  const [showSelector, setShowSelector] = useState(false);
+  const [items, setItems] = useState<SavedItem[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
 
   const handleNewItem = useCallback(() => {
-    setShowSelector(true);
-    setSelectedCategory(null);
+    setSelectedItemId(null);
+    setShowEditor(true);
   }, []);
 
-  const handleCategorySelect = useCallback((category: ItemCategory) => {
-    setSelectedCategory(category);
-    setShowSelector(false);
+  const handleSelectItem = useCallback((itemId: string) => {
+    setSelectedItemId(itemId);
+    setShowEditor(true);
   }, []);
 
-  const handleBack = useCallback(() => {
-    setSelectedCategory(null);
-    setShowSelector(false);
+  const handleSaveItem = useCallback((item: { id: string; i18n_key: string }) => {
+    setItems((prev) => {
+      const existing = prev.find((i) => i.id === item.id);
+      if (existing) {
+        return prev.map((i) => (i.id === item.id ? { id: item.id, i18n_key: item.i18n_key } : i));
+      }
+      return [...prev, { id: item.id, i18n_key: item.i18n_key }];
+    });
   }, []);
 
-  // Show category selector when creating new item
-  if (showSelector) {
-    return <ItemCategorySelector onSelect={handleCategorySelect} />;
-  }
+  const handleDeleteItem = useCallback((itemId: string) => {
+    if (confirm(`アイテム "${itemId}" を削除しますか？`)) {
+      setItems((prev) => prev.filter((i) => i.id !== itemId));
+      if (selectedItemId === itemId) {
+        setSelectedItemId(null);
+        setShowEditor(false);
+      }
+    }
+  }, [selectedItemId]);
 
-  // Route to appropriate editor based on category
-  if (selectedCategory === "multiblock") {
-    return (
-      <div className="editor-with-back">
-        <button onClick={handleBack} className="back-btn">← Back to Items</button>
-        <MultiblockEditor />
-      </div>
-    );
-  }
-
-  // Default: show item editor with "New" button
   return (
-    <div className="items-tab">
-      <div className="items-toolbar">
-        <button onClick={handleNewItem} className="new-item-btn">+ New Item</button>
+    <div className="items-tab-layout">
+      {/* Left: Item List */}
+      <div className="items-list-panel">
+        <div className="items-list-header">
+          <h3>アイテム一覧</h3>
+          <button onClick={handleNewItem} className="new-item-btn">+ 新規</button>
+        </div>
+        <div className="items-list">
+          {items.length === 0 ? (
+            <div className="empty-list">アイテムがありません</div>
+          ) : (
+            items.map((item) => (
+              <div
+                key={item.id}
+                className={`item-list-entry ${selectedItemId === item.id ? "selected" : ""}`}
+                onClick={() => handleSelectItem(item.id)}
+              >
+                <span className="item-icon">📦</span>
+                <span className="item-name">{item.id}</span>
+                <button
+                  className="delete-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteItem(item.id);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
-      <ItemEditor assetsPath={assetsPath} />
+
+      {/* Right: Editor */}
+      <div className="items-editor-panel">
+        {showEditor ? (
+          <ItemEditor
+            assetsPath={assetsPath}
+            onSave={(item) => handleSaveItem({ id: item.id, i18n_key: item.i18n_key })}
+          />
+        ) : (
+          <div className="no-selection">
+            <p>左のリストからアイテムを選択するか、</p>
+            <p>「+ 新規」ボタンで新しいアイテムを作成してください</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,65 @@
 # Development Changelog
 
+## 2025-12-19: Factory Data Architect エディタ改善
+
+### Changed
+
+#### アイテムエディタUI改善
+- カテゴリ選択機能を追加（アイテム/機械/マルチブロック）
+- i18n_keyを自動生成に変更（手動編集不可）
+- キーフォーマット: `{category}.{id}` (例: `item.iron_ore`, `machine.assembler`)
+- Itemsタブを2パネルレイアウトに変更（左:一覧、右:エディタ）
+
+#### ダミーデータの削除
+- RecipeEditorからハードコードされた機械タイプ（Assembler, Mixer等）を削除
+- BiomeEditorからハードコードされたリソースリストを削除
+- Rustバックエンド(lib.rs)からデフォルトアイテム/流体/機械/タグを削除
+- 全データをカタログから動的に読み込むように変更
+
+### Technical Details
+- カテゴリに基づくi18n_key生成関数を追加
+- MachineNodeInspectorにcatalog propを追加
+- Viteビルド成功確認
+
+---
+
+## 2025-12-19: エディタ-ゲーム連携テスト実装
+
+### Added
+
+#### YAML読み込み機能 (src/gameplay/inventory.rs)
+- ItemDefinition: YAMLからのアイテム定義読み込み用構造体
+- serde::Deserialize対応
+- From<ItemDefinition> for ItemData変換
+- フォールバック機能: YAMLファイルがない場合はハードコードを使用
+- test_item_definition_conversionテスト追加
+
+#### YAML読み込み機能 (src/gameplay/quest.rs)
+- QuestDefinition: YAMLからのクエスト定義読み込み用構造体
+- RewardDefinition: 報酬タイプ（PortUnlock/Item）
+- RequirementDefinition: 要件定義
+- From<QuestDefinition> for QuestData変換
+- フォールバック機能: YAMLファイルがない場合はハードコードを使用
+- test_quest_definition_conversionテスト追加
+
+#### テスト用データファイル
+- assets/data/items/core.yaml: 8アイテム定義（test_yaml_item含む）
+- assets/data/quests/core.yaml: 5クエスト定義（test_yaml_quest含む）
+
+### Technical Details
+- エディタ（Factory Data Architect）はRON形式で保存
+- ゲームはYAML形式で読み込み
+- 今後の拡張でエディタからYAMLエクスポート機能を追加予定
+
+### Tests
+- 全93テストがパス（+2テスト追加）
+- Clippyチェック通過
+- ゲーム起動確認:
+  - 8 items loaded from YAML
+  - 5 quests loaded from YAML
+
+---
+
 ## 2025-12-18: ゲームシステムとHUD UI追加
 
 ### Added
