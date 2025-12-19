@@ -1,5 +1,27 @@
 # Development Changelog
 
+## 2025-12-19: アイテム一覧表示とID重複バリデーション修正
+
+### Fixed
+
+#### アイテム一覧に既存アイテムが表示されない問題
+- ItemsTab起動時に`get_assets_catalog`でデータディレクトリから既存アイテムをロード
+- アイテム一覧が正しく表示されるように修正
+
+#### 重複IDで登録するとクラッシュする問題
+- `existingItemIds`をItemEditorに渡してID重複チェックを実装
+- 重複IDの場合:
+  - 入力欄が赤くハイライト
+  - 「⚠️ このIDは既に使用されています」エラーメッセージ表示
+  - 保存ボタンが無効化
+
+### Technical Details
+- App.tsx: `AssetCatalog`型定義追加、`isLoading`ステート追加
+- ItemEditor.tsx: `existingItemIds`プロップ追加、`isDuplicateId`/`isIdValid`バリデーション
+- ItemEditor.css: `.input-error`、`.validation-error`スタイル追加
+
+---
+
 ## 2025-12-19: Factory Data Architect エディタ改善
 
 ### Changed
