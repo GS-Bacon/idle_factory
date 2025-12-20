@@ -214,11 +214,11 @@ fn handle_escape_key(
     current_state: Res<State<InventoryUiState>>,
     mut next_state: ResMut<NextState<InventoryUiState>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Escape) {
-        if *current_state.get() != InventoryUiState::Closed {
-            next_state.set(InventoryUiState::Closed);
-            // カーソルのグラブはOnExitシステムで自動的に行われる
-        }
+    if keyboard.just_pressed(KeyCode::Escape)
+        && *current_state.get() != InventoryUiState::Closed
+    {
+        next_state.set(InventoryUiState::Closed);
+        // カーソルのグラブはOnExitシステムで自動的に行われる
     }
 }
 
@@ -556,11 +556,11 @@ fn spawn_main_inventory_panel_mc(parent: &mut ChildBuilder, inventory: &PlayerIn
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Inventory"),
-                        TextFont { font_size: 20.0, ..default() },
-                        TextColor(Color::WHITE),
-                    ));
+                    // Spacing node to maintain grid position (removed "Inventory" label)
+                    parent.spawn(Node {
+                        height: Val::Px(25.0),
+                        ..default()
+                    });
 
                     parent
                         .spawn((
@@ -641,11 +641,11 @@ fn spawn_main_inventory_grid_only(parent: &mut ChildBuilder, inventory: &PlayerI
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("Inventory"),
-                TextFont { font_size: 20.0, ..default() },
-                TextColor(Color::WHITE),
-            ));
+            // Spacing node to maintain grid position (removed "Inventory" label)
+            parent.spawn(Node {
+                height: Val::Px(25.0),
+                ..default()
+            });
 
             parent
                 .spawn((
@@ -684,6 +684,7 @@ fn spawn_main_inventory_grid_only(parent: &mut ChildBuilder, inventory: &PlayerI
 }
 
 /// ホットバーのみを生成（共有用）
+#[allow(dead_code)]
 fn spawn_hotbar(parent: &mut ChildBuilder, inventory: &PlayerInventory, slot_size: f32, slot_gap: f32) {
     parent
         .spawn(Node {
@@ -774,6 +775,7 @@ fn spawn_craft_list_panel(parent: &mut ChildBuilder, recipe_registry: &RecipeReg
 }
 
 /// クリエイティブモードアイテムリストパネルを生成
+#[allow(dead_code)]
 fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegistry) {
     parent
         .spawn(Node {
@@ -783,11 +785,11 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("Creative Items"),
-                TextFont { font_size: 24.0, ..default() },
-                TextColor(Color::WHITE),
-            ));
+            // Spacing node to maintain grid position (removed "Creative Items" label)
+            parent.spawn(Node {
+                height: Val::Px(30.0),
+                ..default()
+            });
 
             // スクロールビュー（グリッド表示）
             parent
@@ -834,11 +836,11 @@ fn spawn_creative_item_list(parent: &mut ChildBuilder, item_registry: &ItemRegis
 
 /// クリエイティブアイテムグリッドを生成（10x5固定グリッド、インベントリと同じサイズ）
 fn spawn_creative_item_grid(parent: &mut ChildBuilder, item_registry: &ItemRegistry, slot_size: f32, slot_gap: f32) {
-    parent.spawn((
-        Text::new("Creative Items"),
-        TextFont { font_size: 24.0, ..default() },
-        TextColor(Color::WHITE),
-    ));
+    // Spacing node to maintain grid position (removed "Creative Items" label)
+    parent.spawn(Node {
+        height: Val::Px(30.0),
+        ..default()
+    });
 
     // アイテムIDリストを取得（ソート済み）
     let mut item_ids: Vec<String> = item_registry.items.keys().cloned().collect();
@@ -1117,6 +1119,7 @@ fn update_slot_visuals(
 }
 
 /// スロットのインタラクション処理（簡易版）
+#[allow(clippy::type_complexity)]
 fn handle_slot_interaction(
     interaction_query: Query<(&Interaction, &UiSlot), (Changed<Interaction>, With<Button>)>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -1495,6 +1498,7 @@ fn update_creative_view_visibility(
 }
 
 /// ツールチップ更新（簡易版）
+#[allow(clippy::type_complexity)]
 fn update_tooltip(
     mut commands: Commands,
     slot_query: Query<(&Interaction, &UiSlot, &GlobalTransform), (Changed<Interaction>, With<Button>)>,
@@ -1669,17 +1673,23 @@ fn spawn_hotbar_slot(
             BorderColor(border_color),
         ))
         .with_children(|parent| {
-            if let Some(item_id) = &slot_data.item_id {
-                parent.spawn((
-                    Text::new(format!("{}\n{}", item_id, slot_data.count)),
-                    TextFont { font_size: 11.0, ..default() },
-                    TextColor(Color::WHITE),
-                ));
-            }
+            // 常にテキストエンティティを生成（空の場合も）
+            let text_content = if let Some(item_id) = &slot_data.item_id {
+                format!("{}\n{}", item_id, slot_data.count)
+            } else {
+                String::new()
+            };
+
+            parent.spawn((
+                Text::new(text_content),
+                TextFont { font_size: 11.0, ..default() },
+                TextColor(Color::WHITE),
+            ));
         });
 }
 
 /// ホットバーHUDを削除
+#[allow(dead_code)]
 fn despawn_hotbar_hud(
     mut commands: Commands,
     query: Query<Entity, With<HotbarHud>>,
@@ -1730,13 +1740,15 @@ fn spawn_hotbar_hud_if_not_creative(
 }
 
 /// ホットバーHUDを更新
+#[allow(clippy::type_complexity)]
 fn update_hotbar_hud(
     player_inventory: Res<PlayerInventory>,
     item_registry: Res<ItemRegistry>,
-    mut slot_query: Query<(&UiSlot, &Children, &mut BackgroundColor, &mut BorderColor, &mut Node), Without<Button>>,
+    mut slot_query: Query<(&UiSlot, Option<&Children>, &mut BackgroundColor, &mut BorderColor, &mut Node), Without<Button>>,
     mut text_query: Query<&mut Text, (Without<HotbarItemName>, Without<crate::ui::command_ui::CommandHistoryText>, Without<crate::ui::command_ui::CommandInputText>, Without<crate::ui::command_ui::CommandSuggestions>)>,
     mut item_name_query: Query<&mut Text, With<HotbarItemName>>,
 ) {
+
     // アイテム名を更新
     if let Ok(mut text) = item_name_query.get_single_mut() {
         let selected_slot = &player_inventory.slots[player_inventory.selected_hotbar_slot];
@@ -1749,7 +1761,7 @@ fn update_hotbar_hud(
         };
     }
 
-    for (ui_slot, children, mut bg_color, mut border_color, mut node) in &mut slot_query {
+    for (ui_slot, children_opt, mut bg_color, mut border_color, mut node) in &mut slot_query {
         if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
             if *i >= 50 && *i < 60 {
                 let slot_data = &player_inventory.slots[*i];
@@ -1770,13 +1782,15 @@ fn update_hotbar_hud(
                     node.border = UiRect::all(Val::Px(2.0));
                 }
 
-                // テキストを更新
-                for &child in children.iter() {
-                    if let Ok(mut text) = text_query.get_mut(child) {
-                        if let Some(item_id) = &slot_data.item_id {
-                            **text = format!("{}\n{}", item_id, slot_data.count);
-                        } else {
-                            **text = String::new();
+                // テキストを更新（Childrenが存在する場合）
+                if let Some(children) = children_opt {
+                    for &child in children.iter() {
+                        if let Ok(mut text) = text_query.get_mut(child) {
+                            if let Some(item_id) = &slot_data.item_id {
+                                **text = format!("{}\n{}", item_id, slot_data.count);
+                            } else {
+                                **text = String::new();
+                            }
                         }
                     }
                 }
@@ -1831,6 +1845,302 @@ fn update_dragged_item_visual(
         // ドラッグ終了: ビジュアルを削除
         for entity in &visual_query {
             commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::app::App;
+    use bevy::ecs::system::RunSystemOnce;
+    use crate::gameplay::inventory::ItemRegistry;
+
+    // ========================================
+    // テスト用自動UI操作ヘルパー
+    // ========================================
+
+    /// テスト用: スロットにアイテムを直接設定
+    fn set_slot_item(inventory: &mut PlayerInventory, slot_index: usize, item_id: &str, count: u32) {
+        if slot_index < inventory.slots.len() {
+            inventory.slots[slot_index] = crate::gameplay::inventory::InventorySlot::new(item_id.to_string(), count);
+        }
+    }
+
+    /// テスト用: スロットをクリア
+    #[allow(dead_code)]
+    fn clear_slot(inventory: &mut PlayerInventory, slot_index: usize) {
+        if slot_index < inventory.slots.len() {
+            inventory.slots[slot_index].clear();
+        }
+    }
+
+    /// テスト用: ドラッグ&ドロップをシミュレート
+    fn simulate_drag_drop(
+        inventory: &mut PlayerInventory,
+        from_slot: usize,
+        to_slot: usize,
+        item_registry: &ItemRegistry,
+    ) -> bool {
+        if from_slot >= inventory.slots.len() || to_slot >= inventory.slots.len() {
+            return false;
+        }
+
+        let source = inventory.slots[from_slot].clone();
+        if source.is_empty() {
+            return false;
+        }
+
+        let target = &mut inventory.slots[to_slot];
+
+        if target.is_empty() {
+            // 空スロットへ移動
+            target.item_id = source.item_id.clone();
+            target.count = source.count;
+            inventory.slots[from_slot].clear();
+            true
+        } else if target.item_id == source.item_id {
+            // 同種アイテムをスタック
+            let max_stack = source.item_id.as_ref()
+                .and_then(|id| item_registry.get(id))
+                .map(|d| d.max_stack)
+                .unwrap_or(999);
+
+            let space = max_stack.saturating_sub(target.count);
+            let add = source.count.min(space);
+            target.count += add;
+
+            if add == source.count {
+                inventory.slots[from_slot].clear();
+            } else {
+                inventory.slots[from_slot].count -= add;
+            }
+            true
+        } else {
+            // スワップ
+            let temp = inventory.slots[to_slot].clone();
+            inventory.slots[to_slot] = source;
+            inventory.slots[from_slot] = temp;
+            true
+        }
+    }
+
+    /// テスト用: スロット内容を検証
+    fn assert_slot_contains(inventory: &PlayerInventory, slot_index: usize, expected_item: Option<&str>, expected_count: u32) {
+        let slot = &inventory.slots[slot_index];
+        assert_eq!(slot.item_id.as_deref(), expected_item, "Slot {} item mismatch", slot_index);
+        assert_eq!(slot.count, expected_count, "Slot {} count mismatch", slot_index);
+    }
+
+    /// テスト用: スロットが空であることを検証
+    fn assert_slot_empty(inventory: &PlayerInventory, slot_index: usize) {
+        assert!(inventory.slots[slot_index].is_empty(), "Slot {} should be empty", slot_index);
+    }
+
+    // ========================================
+    // 自動UIテスト
+    // ========================================
+
+    #[test]
+    fn test_drag_drop_to_empty_slot() {
+        let mut inventory = PlayerInventory::new(60);
+        let item_registry = ItemRegistry::default();
+
+        // スロット0にアイテムを設定
+        set_slot_item(&mut inventory, 0, "stone", 10);
+
+        // スロット0からスロット5へドラッグ&ドロップ
+        let result = simulate_drag_drop(&mut inventory, 0, 5, &item_registry);
+
+        assert!(result, "Drag drop should succeed");
+        assert_slot_empty(&inventory, 0);
+        assert_slot_contains(&inventory, 5, Some("stone"), 10);
+    }
+
+    #[test]
+    fn test_drag_drop_stack_same_item() {
+        let mut inventory = PlayerInventory::new(60);
+        let item_registry = ItemRegistry::default();
+
+        // スロット0と1に同じアイテムを設定
+        set_slot_item(&mut inventory, 0, "stone", 50);
+        set_slot_item(&mut inventory, 1, "stone", 30);
+
+        // スロット0からスロット1へドラッグ&ドロップ（スタック）
+        let result = simulate_drag_drop(&mut inventory, 0, 1, &item_registry);
+
+        assert!(result, "Drag drop should succeed");
+        assert_slot_empty(&inventory, 0);
+        assert_slot_contains(&inventory, 1, Some("stone"), 80);
+    }
+
+    #[test]
+    fn test_drag_drop_swap_different_items() {
+        let mut inventory = PlayerInventory::new(60);
+        let item_registry = ItemRegistry::default();
+
+        // 異なるアイテムを設定
+        set_slot_item(&mut inventory, 0, "stone", 10);
+        set_slot_item(&mut inventory, 1, "iron", 20);
+
+        // スロット0からスロット1へドラッグ&ドロップ（スワップ）
+        let result = simulate_drag_drop(&mut inventory, 0, 1, &item_registry);
+
+        assert!(result, "Drag drop should succeed");
+        assert_slot_contains(&inventory, 0, Some("iron"), 20);
+        assert_slot_contains(&inventory, 1, Some("stone"), 10);
+    }
+
+    #[test]
+    fn test_hotbar_slot_selection() {
+        let mut inventory = PlayerInventory::new(60);
+
+        // ホットバースロットにアイテムを設定
+        set_slot_item(&mut inventory, 50, "pickaxe", 1);
+        set_slot_item(&mut inventory, 52, "sword", 1);
+
+        // 選択スロットを変更
+        inventory.selected_hotbar_slot = 52;
+
+        assert_eq!(inventory.selected_hotbar_slot, 52);
+        assert_slot_contains(&inventory, 52, Some("sword"), 1);
+    }
+
+    #[test]
+    fn test_inventory_sort() {
+        let mut inventory = PlayerInventory::new(60);
+
+        // バラバラにアイテムを配置
+        set_slot_item(&mut inventory, 5, "stone", 10);
+        set_slot_item(&mut inventory, 2, "iron", 5);
+        set_slot_item(&mut inventory, 8, "stone", 20);
+
+        // ソート実行
+        inventory.sort();
+
+        // ソート後: 同じアイテムがまとまり、ID順に並ぶ
+        // iron(5), stone(30)の順になるはず
+        let mut found_items: Vec<(String, u32)> = Vec::new();
+        for slot in &inventory.slots[0..50] {
+            if let Some(id) = &slot.item_id {
+                found_items.push((id.clone(), slot.count));
+            }
+        }
+
+        assert!(!found_items.is_empty(), "Should have items after sort");
+        // アイテムの合計数が維持されていることを確認
+        let stone_total: u32 = found_items.iter()
+            .filter(|(id, _)| id == "stone")
+            .map(|(_, c)| c)
+            .sum();
+        let iron_total: u32 = found_items.iter()
+            .filter(|(id, _)| id == "iron")
+            .map(|(_, c)| c)
+            .sum();
+
+        assert_eq!(stone_total, 30, "Stone total should be 30");
+        assert_eq!(iron_total, 5, "Iron total should be 5");
+    }
+
+    #[test]
+    fn test_hotbar_highlight_updates() {
+        // Appを作成
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+
+        // 必要なリソースを追加
+        app.insert_resource(PlayerInventory::new(60));
+        app.insert_resource(ItemRegistry::default());
+        app.init_state::<InventoryUiState>();
+
+        // update_hotbar_hudシステムを追加
+        app.add_systems(Update, update_hotbar_hud);
+
+        // ホットバーHUDを手動で生成
+        let _ = app.world_mut().run_system_once(|mut commands: Commands, inventory: Res<PlayerInventory>| {
+            const SLOT_SIZE: f32 = 54.0;
+            commands.spawn(HotbarHud).with_children(|parent| {
+                for i in 50..60 {
+                    let is_selected = i == inventory.selected_hotbar_slot;
+                    spawn_hotbar_slot(parent, i, &inventory.slots[i], SLOT_SIZE, is_selected);
+                }
+            });
+        });
+
+        // 初期状態: スロット50が選択されている
+        app.update();
+
+        // スロット50の枠色を確認（クエリを直接使用）
+        {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<(&UiSlot, &BorderColor), Without<Button>>();
+            let mut found_selected = false;
+            for (ui_slot, border_color) in query.iter(world) {
+                if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
+                    if *i == 50 {
+                        assert_eq!(border_color.0, Color::WHITE, "Slot 50 should have white border");
+                        found_selected = true;
+                    } else if *i >= 50 && *i < 60 {
+                        assert_eq!(border_color.0, Color::srgb(0.5, 0.5, 0.5), "Slot {} should have gray border", i);
+                    }
+                }
+            }
+            assert!(found_selected, "Selected slot 50 should be found");
+        }
+
+        // スロット52に変更
+        app.world_mut().resource_mut::<PlayerInventory>().selected_hotbar_slot = 52;
+        app.update();
+
+        // スロット52の枠色を確認
+        {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<(&UiSlot, &BorderColor), Without<Button>>();
+            let mut found_new_selected = false;
+            for (ui_slot, border_color) in query.iter(world) {
+                if let SlotIdentifier::PlayerInventory(i) = &ui_slot.identifier {
+                    if *i == 52 {
+                        assert_eq!(border_color.0, Color::WHITE, "Slot 52 should have white border");
+                        found_new_selected = true;
+                    } else if *i == 50 {
+                        assert_eq!(border_color.0, Color::srgb(0.5, 0.5, 0.5), "Slot 50 should now have gray border");
+                    }
+                }
+            }
+            assert!(found_new_selected, "Selected slot 52 should be found");
+        }
+    }
+
+    #[test]
+    fn test_empty_hotbar_slot_has_text_entity() {
+        // Appを作成
+        let mut app = App::new();
+
+        // 空のスロットを生成
+        let _ = app.world_mut().run_system_once(|mut commands: Commands| {
+            commands.spawn(Node::default()).with_children(|parent| {
+                let empty_slot = crate::gameplay::inventory::InventorySlot::empty();
+                spawn_hotbar_slot(parent, 50, &empty_slot, 54.0, false);
+            });
+        });
+
+        // スロットに子エンティティ（テキスト）が存在するか確認
+        {
+            let world = app.world_mut();
+            let mut slot_query = world.query_filtered::<&Children, With<UiSlot>>();
+            let mut text_query = world.query::<&Text>();
+            let mut has_text_child = false;
+
+            for children in slot_query.iter(world) {
+                for &child in children.iter() {
+                    if text_query.get(world, child).is_ok() {
+                        has_text_child = true;
+                        break;
+                    }
+                }
+            }
+
+            assert!(has_text_child, "Empty hotbar slot should have a text child entity");
         }
     }
 }

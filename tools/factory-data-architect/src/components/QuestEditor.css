@@ -1,0 +1,296 @@
+.quest-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.quest-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  background: #1a1a2e;
+  border-bottom: 1px solid #333;
+}
+
+.quest-tabs button {
+  padding: 8px 24px;
+  border: none;
+  background: #2a2a4e;
+  color: #888;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  font-weight: 500;
+}
+
+.quest-tabs button.active {
+  background: #3a3a6e;
+  color: #fff;
+}
+
+.quest-tabs button:hover:not(.active) {
+  background: #333366;
+}
+
+.quest-editor {
+  display: flex;
+  flex: 1;
+  height: calc(100% - 50px);
+}
+
+.canvas-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a2e;
+  position: relative;
+}
+
+.canvas-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #2a2a4e;
+  border-bottom: 1px solid #333;
+}
+
+.canvas-toolbar button {
+  padding: 6px 16px;
+  border: none;
+  background: #4a4a8e;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.canvas-toolbar button:hover {
+  background: #5a5a9e;
+}
+
+/* Quest Node Styles */
+.quest-node {
+  background: #2a2a4e;
+  border: 2px solid #4a4a8e;
+  border-radius: 8px;
+  padding: 0;
+  min-width: 180px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.quest-node.main {
+  border-color: #f59e0b;
+}
+
+.quest-node.sub {
+  border-color: #3b82f6;
+}
+
+.quest-node.selected {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.quest-node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px 6px 0 0;
+}
+
+.quest-type-badge {
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.quest-node.main .quest-type-badge {
+  background: #f59e0b;
+  color: #000;
+}
+
+.quest-node.sub .quest-type-badge {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.quest-phase {
+  font-size: 10px;
+  color: #888;
+}
+
+.quest-node-body {
+  padding: 10px;
+}
+
+.quest-id {
+  font-weight: bold;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.quest-requirements,
+.quest-rewards {
+  font-size: 11px;
+  color: #888;
+}
+
+/* Phase Overlay */
+.phase-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.phase-label {
+  position: absolute;
+  left: 10px;
+  background: rgba(74, 74, 142, 0.3);
+  color: #888;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Quest Inspector */
+.quest-inspector {
+  width: 300px;
+  background: #1a1a2e;
+  border-left: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+}
+
+.inspector-header {
+  padding: 12px 16px;
+  background: #2a2a4e;
+  border-bottom: 1px solid #333;
+}
+
+.inspector-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+}
+
+.inspector-empty {
+  padding: 24px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.inspector-section {
+  margin-bottom: 20px;
+}
+
+.inspector-section h4 {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  background: #2a2a4e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 13px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #4a4a8e;
+}
+
+/* Requirement & Reward Items */
+.requirement-item,
+.reward-item {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.requirement-item select,
+.reward-item select {
+  flex: 1;
+  padding: 6px;
+  background: #2a2a4e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.requirement-item input,
+.reward-item input {
+  width: 60px;
+  padding: 6px;
+  background: #2a2a4e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.remove-btn {
+  padding: 4px 8px;
+  background: #dc2626;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.remove-btn:hover {
+  background: #ef4444;
+}
+
+.add-btn {
+  padding: 6px 12px;
+  background: #22c55e;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.add-btn:hover {
+  background: #16a34a;
+}
+
+.reward-add-buttons {
+  display: flex;
+  gap: 8px;
+}

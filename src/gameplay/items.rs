@@ -41,17 +41,15 @@ pub fn update_visual_items(
                 if from_dir == current_dir {
                     let offset = current_dir * (item.progress - 0.5);
                     center_pos + offset
+                } else if item.progress < 0.5 {
+                    let start_point = center_pos - (from_dir * 0.5);
+                    let t = item.progress * 2.0;
+                    start_point.lerp(center_pos, t)
                 } else {
-                    if item.progress < 0.5 {
-                        let start_point = center_pos - (from_dir * 0.5);
-                        let t = item.progress * 2.0;
-                        start_point.lerp(center_pos, t)
-                    } else {
-                        let mid_point = center_pos;
-                        let end_point = center_pos + (current_dir * 0.5);
-                        let t = (item.progress - 0.5) * 2.0;
-                        mid_point.lerp(end_point, t)
-                    }
+                    let mid_point = center_pos;
+                    let end_point = center_pos + (current_dir * 0.5);
+                    let t = (item.progress - 0.5) * 2.0;
+                    mid_point.lerp(end_point, t)
                 }
             } else {
                  pos.as_vec3() + Vec3::new(0.5, 1.1, 0.5)

@@ -5,7 +5,28 @@
 //! - InventoryOperations: インベントリ操作のヘルパー関数
 
 use bevy::prelude::*;
+use serde::Deserialize;
 use std::collections::HashMap;
+use std::fs;
+
+/// YAML用アイテム定義構造体
+#[derive(Debug, Clone, Deserialize)]
+pub struct ItemDefinition {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub icon: String,
+    #[serde(default = "default_max_stack")]
+    pub max_stack: u32,
+    #[serde(default)]
+    pub properties: HashMap<String, String>,
+}
+
+fn default_max_stack() -> u32 {
+    999
+}
 
 /// アイテムの定義情報
 /// YAMLファイルから読み込まれ、カスタムプロパティを柔軟に保持
@@ -46,6 +67,19 @@ impl ItemData {
     pub fn with_max_stack(mut self, max_stack: u32) -> Self {
         self.max_stack = max_stack;
         self
+    }
+}
+
+impl From<ItemDefinition> for ItemData {
+    fn from(def: ItemDefinition) -> Self {
+        Self {
+            id: def.id,
+            name: def.name,
+            description: def.description,
+            icon: def.icon,
+            max_stack: def.max_stack,
+            custom_properties: def.properties,
+        }
     }
 }
 
@@ -277,9 +311,37 @@ impl Plugin for InventoryPlugin {
     }
 }
 
-/// アイテム定義をロード
+/// アイテム定義をロード（YAMLファイルから読み込み + フォールバック）
 fn load_items(mut registry: ResMut<ItemRegistry>) {
-    // TODO: YAMLから読み込む（現在はハードコード）
+    let path = "assets/data/items/core.yaml";
+    let mut loaded_from_yaml = false;
+
+    if let Ok(content) = fs::read_to_string(path) {
+        match serde_yaml::from_str::<Vec<ItemDefinition>>(&content) {
+            Ok(defs) => {
+                for def in defs {
+                    info!("Loaded item from YAML: {}", def.id);
+                    registry.register(def.into());
+                }
+                loaded_from_yaml = true;
+            }
+            Err(e) => {
+                error!("Failed to parse items YAML: {}", e);
+            }
+        }
+    }
+
+    // YAMLからロードできなかった場合はフォールバック
+    if !loaded_from_yaml {
+        info!("Using fallback item definitions");
+        register_fallback_items(&mut registry);
+    }
+
+    info!("Loaded {} items", registry.items.len());
+}
+
+/// フォールバック用のハードコードアイテム
+fn register_fallback_items(registry: &mut ItemRegistry) {
     registry.register(
         ItemData::new("raw_ore", "Raw Ore")
             .with_property("description", "Unprocessed ore from mining")
@@ -327,8 +389,6 @@ fn load_items(mut registry: ResMut<ItemRegistry>) {
             .with_property("placeable", "true")
             .with_max_stack(64),
     );
-
-    info!("Loaded {} items", registry.items.len());
 }
 
 #[cfg(test)]
@@ -389,5 +449,24 @@ mod tests {
         assert_eq!(inventory.slots[0].item_id.as_deref(), Some("item_a"));
         assert_eq!(inventory.slots[1].item_id.as_deref(), Some("item_b"));
         assert_eq!(inventory.slots[2].item_id.as_deref(), Some("item_c"));
+    }
+
+    #[test]
+    fn test_item_definition_conversion() {
+        let def = ItemDefinition {
+            id: "test".to_string(),
+            name: "Test Item".to_string(),
+            description: "A test item".to_string(),
+            icon: "icons/test.png".to_string(),
+            max_stack: 64,
+            properties: HashMap::from([("custom_prop".to_string(), "value".to_string())]),
+        };
+
+        let item: ItemData = def.into();
+        assert_eq!(item.id, "test");
+        assert_eq!(item.name, "Test Item");
+        assert_eq!(item.description, "A test item");
+        assert_eq!(item.max_stack, 64);
+        assert_eq!(item.get_property("custom_prop"), Some(&"value".to_string()));
     }
 }

@@ -9,6 +9,7 @@ pub struct MeshBuilder<'a> {
 }
 
 impl<'a> MeshBuilder<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn push_cuboid(&mut self, x: f32, y: f32, z: f32, sx: f32, sy: f32, sz: f32, color: [f32; 4]) {
         self.face([x, y+sy, z+sz], [x+sx, y+sy, z+sz], [x+sx, y+sy, z], [x, y+sy, z], [0.0, 1.0, 0.0], color); // Top
         self.face([x, y, z], [x+sx, y, z], [x+sx, y, z+sz], [x, y, z+sz], [0.0, -1.0, 0.0], color); // Bottom

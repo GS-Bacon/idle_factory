@@ -9,6 +9,7 @@ use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::core::config::GameConfig;
 use crate::ui::inventory_ui::InventoryUiState;
 use crate::ui::command_ui::CommandUiState;
+use crate::ui::main_menu::AppState;
 
 /// 設定UIのステート
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -70,7 +71,9 @@ impl Plugin for SettingsUiPlugin {
         app
             .init_state::<SettingsUiState>()
             .add_systems(Update, handle_escape_key.run_if(
-                in_state(InventoryUiState::Closed).and(in_state(CommandUiState::Closed))
+                in_state(AppState::InGame)
+                    .and(in_state(InventoryUiState::Closed))
+                    .and(in_state(CommandUiState::Closed))
             ))
             .add_systems(OnEnter(SettingsUiState::ButtonVisible), spawn_settings_button)
             .add_systems(OnExit(SettingsUiState::ButtonVisible), despawn_settings_button)
@@ -582,6 +585,7 @@ fn handle_sensitivity_buttons(
 }
 
 /// トグルボタンのクリック処理
+#[allow(clippy::type_complexity)]
 fn handle_toggle_buttons(
     highlight_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<HighlightToggleButton>)>,
     blur_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<UiBlurToggleButton>)>,

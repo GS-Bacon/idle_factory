@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "tools/factory-data-architect/src-tauri"]
+resolver = "2"
+
 # 開発用ビルド設定 (cargo run)
 [profile.dev]
 opt-level = 1 # 自分のコードは少しだけ最適化
@@ -14,7 +18,10 @@ edition = "2021"
 
 [dependencies]
 # "serialize" を追加！これで KeyCode が読み込めるようになります
-bevy = { version = "0.15", features = ["dynamic_linking", "serialize"] } 
+bevy = { version = "0.15", features = ["dynamic_linking", "serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
 dot_vox = "5.1"
+mlua = { version = "0.10", features = ["lua54", "vendored", "send", "serialize"] }

@@ -7,6 +7,7 @@ use crate::core::registry::BlockRegistry;
 use crate::gameplay::machines::{conveyor::Conveyor, miner::Miner, assembler::Assembler};
 use crate::gameplay::commands::GameMode;
 use crate::gameplay::inventory::PlayerInventory;
+use crate::gameplay::held_item::PlayerCamera;
 
 #[derive(Resource, Default)]
 pub struct BuildTool {
@@ -31,10 +32,11 @@ pub struct MachinePlacedEvent {
     pub machine_id: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_building(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<PlayerCamera>>,
     mut grid: ResMut<SimulationGrid>,
     mut chunk_query: Query<(Entity, &mut Chunk)>,
     mut commands: Commands,
@@ -61,12 +63,9 @@ pub fn handle_building(
         build_tool.active_block_id = String::new();
     }
 
-    // アイテムが選択されていない場合は何もしない
-    if build_tool.active_block_id.is_empty() {
-        return;
-    }
-
-    let (_camera, cam_transform) = camera_query.single();
+    let Ok((_camera, cam_transform)) = camera_query.get_single() else {
+        return; // PlayerCameraがない場合（メニュー画面等）は何もしない
+    };
     let ray_origin = cam_transform.translation();
     let ray_dir = cam_transform.forward();
 
@@ -108,8 +107,10 @@ pub fn handle_building(
                                 if diff.x > 0.0 { IVec3::X } else { IVec3::NEG_X }
                             } else if abs_diff.y > abs_diff.x && abs_diff.y > abs_diff.z {
                                 if diff.y > 0.0 { IVec3::Y } else { IVec3::NEG_Y }
+                            } else if diff.z > 0.0 {
+                                IVec3::Z
                             } else {
-                                if diff.z > 0.0 { IVec3::Z } else { IVec3::NEG_Z }
+                                IVec3::NEG_Z
                             };
 
                             let place_pos = iblock + normal;
@@ -182,18 +183,24 @@ pub fn handle_building(
         }
 
         if is_placing {
-            // ブロック設置
-            let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
-                existing != "air"
-            } else { true };
+            // アイテムが選択されていない場合はブロック設置をスキップ
+            if build_tool.active_block_id.is_empty() {
+                // 空のスロットでは設置できないが、破壊は可能
+            } else {
+                // ブロック設置
+                let is_occupied = if let Some(existing) = chunk.get_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize) {
+                    existing != "air"
+                } else { true };
 
-            if !is_occupied {
+                if !is_occupied {
                 let cam_forward = cam_transform.forward();
                 let flat_forward = Vec3::new(cam_forward.x, 0.0, cam_forward.z).normalize_or_zero();
                 let player_facing_direction = if flat_forward.x.abs() > flat_forward.z.abs() {
                     if flat_forward.x > 0.0 { Direction::East } else { Direction::West }
+                } else if flat_forward.z > 0.0 {
+                    Direction::South
                 } else {
-                    if flat_forward.z > 0.0 { Direction::South } else { Direction::North }
+                    Direction::North
                 };
 
                 let id = build_tool.active_block_id.clone();
@@ -228,11 +235,12 @@ pub fn handle_building(
                 chunk.set_block(place_pos.x as usize, place_pos.y as usize, place_pos.z as usize, &id);
                 commands.entity(chunk_entity).insert(MeshDirty);
 
-                // Emit MachinePlacedEvent
-                machine_placed_events.send(MachinePlacedEvent {
-                    pos: place_pos,
-                    machine_id: id,
-                });
+                    // Emit MachinePlacedEvent
+                    machine_placed_events.send(MachinePlacedEvent {
+                        pos: place_pos,
+                        machine_id: id,
+                    });
+                }
             }
         }
     }
@@ -256,11 +264,18 @@ fn update_hologram(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    _build_tool: &BuildTool,
+    build_tool: &BuildTool,
     chunk: &Chunk,
 ) {
+    // 設置するアイテムがない場合はホログラムを表示しない
+    let effective_pos = if build_tool.active_block_id.is_empty() {
+        None
+    } else {
+        place_pos
+    };
+
     // 位置が変わったか、または位置がなくなったらホログラムを更新
-    let needs_update = hologram_state.last_position != place_pos;
+    let needs_update = hologram_state.last_position != effective_pos;
 
     if !needs_update {
         return;
@@ -272,10 +287,10 @@ fn update_hologram(
         hologram_state.current_entity = None;
     }
 
-    hologram_state.last_position = place_pos;
+    hologram_state.last_position = effective_pos;
 
     // 新しいホログラムを生成
-    if let Some(pos) = place_pos {
+    if let Some(pos) = effective_pos {
         // 設置可能かチェック
         let is_occupied = if let Some(existing) = chunk.get_block(pos.x as usize, pos.y as usize, pos.z as usize) {
             existing != "air"

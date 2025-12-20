@@ -2,12 +2,19 @@ pub mod assembler;
 pub mod conveyor;
 pub mod miner;
 pub mod render;
-pub mod debug; // Added this line
+pub mod debug;
+pub mod machine_components;
+pub mod recipe_system;
+pub mod kinetic_machines;
 
 use bevy::prelude::*;
 
 // マシン関連のシステムをまとめて登録するプラグイン的関数
 pub fn register_machines(app: &mut App) {
+    // レシピシステムとKinetic機械プラグインを追加
+    app.add_plugins(recipe_system::RecipeSystemPlugin);
+    app.add_plugins(kinetic_machines::KineticMachinesPlugin);
+
     app.add_systems(Update, (
         conveyor::tick_conveyors,
         conveyor::draw_conveyor_guides,

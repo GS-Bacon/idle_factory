@@ -1,0 +1,28 @@
+(
+    entries: {
+        "item.new_item": (
+            name: "",
+            description: "",
+        ),
+        "item.book": (
+            name: "",
+            description: "",
+        ),
+        "undefined.sss": (
+            name: "",
+            description: "",
+        ),
+        "undefined.stone": (
+            name: "",
+            description: "",
+        ),
+        "item.wood": (
+            name: "",
+            description: "",
+        ),
+        "item.stone": (
+            name: "",
+            description: "",
+        ),
+    },
+)

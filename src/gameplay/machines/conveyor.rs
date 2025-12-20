@@ -106,16 +106,16 @@ pub fn tick_conveyors(
                 Machine::Conveyor(target_conveyor) => {
                     info!("[Test-Debug] Target at {:?} is a Conveyor.", to_pos);
                     let is_facing_each_other = target_machine.orientation == src_dir.opposite();
-                    if !is_facing_each_other {
-                        if target_conveyor.inventory.len() < max_items_on_conveyor {
-                            let min_progress = target_conveyor.inventory.iter()
-                                .map(|it| it.progress)
-                                .fold(1.0f32, |a, b| a.min(b));
-                            
-                            if target_conveyor.inventory.is_empty() || min_progress > item_size {
-                                target_conveyor.inventory.push(ItemSlot { progress: 0.0, ..item });
-                                accepted = true;
-                            }
+                    if !is_facing_each_other
+                        && target_conveyor.inventory.len() < max_items_on_conveyor
+                    {
+                        let min_progress = target_conveyor.inventory.iter()
+                            .map(|it| it.progress)
+                            .fold(1.0f32, |a, b| a.min(b));
+
+                        if target_conveyor.inventory.is_empty() || min_progress > item_size {
+                            target_conveyor.inventory.push(ItemSlot { progress: 0.0, ..item });
+                            accepted = true;
                         }
                     }
                 }

@@ -215,46 +215,69 @@ src/
   - Real-time inventory display
   - Event-driven state management
 
-### Phase 4: Advanced Automation and Scripting ⏳ PLANNED
+### Phase 4: Advanced Automation and Scripting ✅ COMPLETE
 **Goal:** Enable player-created logic and automation
 
-**Planned Features:**
+**Completed Features:**
 - Lua VM integration (mlua)
-  - Sandbox API for safe script execution
-  - Script asset loading system
-  - API exposure (sensors, actuators, logic gates)
+  - Lua 5.4 with vendored build
+  - Sandbox API (os, io, load, require disabled)
+  - ScriptEngine and ScriptRegistry resources
+  - Programmable component for machines
+  - Built-in functions (print, clamp, lerp)
 - Signal system
-  - Wire-based signal transmission
-  - Logic gates (AND, OR, NOT, etc.)
-  - Numerical signal processing
+  - Wire-based signal transmission (SignalNetwork)
+  - SignalEmitter/SignalReceiver components
+  - Logic gates (AND, OR, NOT, XOR, NAND, NOR)
+  - Numerical processors (Add, Subtract, Multiply, Divide, Compare, Equal)
+  - BFS-based network group detection
 
-**Technical Requirements:**
-- Sandboxed execution environment
-- Performance budget: < 1ms per script per tick
-- Hot-reload support for scripts
-- Debugging tools (script inspector, error messages)
+**Technical Details:**
+- Thread-safe Lua VM (Arc<Mutex<Lua>>)
+- SignalValue enum for type-safe signal passing
+- 12 new tests (5 scripting + 7 signals)
 
-### Phase 5: Optimization and Distribution ⏳ PLANNED
+### Phase 5: Optimization and Distribution ✅ COMPLETE
 **Goal:** Performance optimization and modding support
 
-**Planned Features:**
+**Completed Features:**
 - Multithreading
-  - Parallel chunk generation
-  - Parallel machine updates (where possible)
-  - Async rendering pipeline
+  - AsyncComputeTaskPool for parallel chunk generation
+  - ChunkLoadQueue for non-blocking terrain generation
+  - Task completion polling with block_on/poll_once
 - LOD (Level of Detail)
-  - Distance-based mesh simplification
-  - Icon representation for distant machines
-  - Chunk unloading for memory management
+  - ChunkLod component (Full, Medium, Low, Icon)
+  - Distance-based LOD updates
+  - Automatic chunk unloading for memory management
+  - Configurable LOD distances via LodSettings
 - Modding SDK
-  - Example mod (vanilla as a mod)
-  - Mod loader architecture
-  - Documentation and tutorials
+  - ModManifest YAML schema with dependencies
+  - ModRegistry for mod management
+  - Automatic mod discovery from `mods/` directory
+  - Dependency resolution and load order
 
-**Performance Targets:**
-- 10,000+ machines without frame drops
-- 100,000+ items in transit
-- < 2 second world save/load time
+**Technical Details:**
+- 6 new tests (3 optimization + 3 modding)
+
+### Main Menu and Save System ✅ COMPLETE
+**Goal:** Professional game flow with save management
+
+**Completed Features:**
+- Main Menu UI
+  - AppState state machine (MainMenu → SaveSelect → WorldGeneration → InGame)
+  - Flexbox-based UI with button interactions
+  - Keyboard text input for world name/seed
+- Menu Camera
+  - Orbiting background camera
+  - State-based spawn/despawn
+- Save System
+  - SaveMetadata with chrono timestamps
+  - JSON persistence to `saves/` directory
+  - 8 save slots with automatic loading
+
+**Technical Details:**
+- 6 new tests (2 camera + 4 save system)
+- Total: 46 tests passing
 
 ---
 

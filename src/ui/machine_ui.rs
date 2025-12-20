@@ -431,6 +431,7 @@ fn handle_recipe_button_click(
 }
 
 /// Handle close button click
+#[allow(clippy::type_complexity)]
 fn handle_close_button_click(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),

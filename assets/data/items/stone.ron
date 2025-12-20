@@ -1,0 +1,13 @@
+(
+    id: "stone",
+    i18n_key: "undefined.stone",
+    asset: (
+        icon_path: None,
+        model_path: None,
+        animation: (
+            type: None,
+        ),
+    ),
+    properties: {},
+    category: item,
+)

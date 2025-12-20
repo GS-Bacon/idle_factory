@@ -62,17 +62,15 @@ fn toggle_command_ui(
     mut next_state: ResMut<NextState<CommandUiState>>,
 ) {
     // スラッシュキーまたはTキーでコマンドUIを開く
-    if keyboard.just_pressed(KeyCode::Slash) || keyboard.just_pressed(KeyCode::KeyT) {
-        if *state.get() == CommandUiState::Closed {
-            next_state.set(CommandUiState::Open);
-        }
+    if (keyboard.just_pressed(KeyCode::Slash) || keyboard.just_pressed(KeyCode::KeyT))
+        && *state.get() == CommandUiState::Closed
+    {
+        next_state.set(CommandUiState::Open);
     }
 
     // Escapeキーで閉じる
-    if keyboard.just_pressed(KeyCode::Escape) {
-        if *state.get() == CommandUiState::Open {
-            next_state.set(CommandUiState::Closed);
-        }
+    if keyboard.just_pressed(KeyCode::Escape) && *state.get() == CommandUiState::Open {
+        next_state.set(CommandUiState::Closed);
     }
 }
 
