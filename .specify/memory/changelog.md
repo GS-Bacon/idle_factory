@@ -1,9 +1,9 @@
 # Development Changelog
 
-## 2025-12-22: Steam実績システム仕様確定
+## 2025-12-22: Steam実績システム＆エディタ仕様確定
 
 ### 概要
-Steam販売準備として、実績システムとエディタの仕様を確定
+Steam販売準備として、実績システム、エディタ、MOD/プロファイルシステムの仕様を確定
 
 ### 決定事項
 
@@ -25,10 +25,18 @@ Steam販売準備として、実績システムとエディタの仕様を確定
 - total_playtime_seconds, current_phase
 - アイテム別生産数 ({item_id}_produced)
 
-### MOD＆プロファイルシステム（前セッションで決定）
-- `mods/{mod_id}/{version}/` でバージョン管理
-- `profiles/{name}/profile.yaml` でMOD構成管理
+### MOD＆プロファイルシステム
+- `profiles/`: ローカル編集可能（エディタ対象）
+  - `vanilla/`: 公式コンテンツ（Steam配布）
+  - ユーザー作成MODもここに配置
+- `mods/`: ダウンロード専用（外部MODをバージョン管理）
 - Tauriラッパーによる疑似ホットリロード
+
+### プロファイル直接編集（エクスポート不要）
+- **旧方式**: エディタ → [Export] → assets/data/
+- **新方式**: エディタ → Target選択 → profiles/{target}/data/に自動保存
+- 開発者モード: vanillaプロファイルをターゲット
+- MODユーザー: カスタムプロファイルをターゲット
 
 ### 仕様ファイル
 - `.specify/specs/steam-editor-mode.md` （確定版）
