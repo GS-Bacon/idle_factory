@@ -1,5 +1,41 @@
 # Development Changelog
 
+## 2025-12-22: Steam実績システム仕様確定
+
+### 概要
+Steam販売準備として、実績システムとエディタの仕様を確定
+
+### 決定事項
+
+#### 実績の種類
+- **通常実績**: 条件達成で即解除（初めての機械設置等）
+- **プログレス実績**: 段階的に進捗表示（アイテム1000個生産等）
+- **隠し実績**: 解除まで内容非表示（隠しエリア発見等）
+
+#### トリガー条件
+- クエスト完了、アイテム生産数、機械設置数
+- プレイ時間、フェーズ到達、カスタム条件
+
+#### エクスポート形式
+- 内部: JSON/YAML形式（エディタで扱いやすい）
+- Steamworks: VDFに変換してエクスポート
+
+#### 統計システム
+- total_items_produced, total_machines_placed
+- total_playtime_seconds, current_phase
+- アイテム別生産数 ({item_id}_produced)
+
+### MOD＆プロファイルシステム（前セッションで決定）
+- `mods/{mod_id}/{version}/` でバージョン管理
+- `profiles/{name}/profile.yaml` でMOD構成管理
+- Tauriラッパーによる疑似ホットリロード
+
+### 仕様ファイル
+- `.specify/specs/steam-editor-mode.md` （確定版）
+- `.specify/specs/steam-release-preparation.md` （調査レポート）
+
+---
+
 ## 2025-12-22: アーキテクチャ推奨事項の全面実装
 
 ### 概要
