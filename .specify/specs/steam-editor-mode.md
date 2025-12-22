@@ -24,7 +24,25 @@
 ### ディレクトリ構造
 
 ```
-mods/
+profiles/
+  vanilla/                    ← 公式コンテンツ（Steam配布）
+    profile.yaml
+    data/
+      items.yaml              ← エディタで直接編集
+      recipes.yaml
+      quests.yaml
+      achievements.yaml       ← Steam実績（開発者モード）
+    assets/
+      icons/
+      models/
+
+  my_custom_mod/              ← ユーザー作成MOD
+    profile.yaml
+    data/
+      items.yaml
+      recipes.yaml
+
+mods/                         ← サードパーティMOD（ダウンロード）
   steel_age/
     1.0.0/
       mod.yaml
@@ -32,25 +50,21 @@ mods/
     1.2.0/
       mod.yaml
       data/
-  power_plus/
-    1.0.0/
-      mod.yaml
-      data/
-
-profiles/
-  vanilla/
-    profile.yaml
-  industrial/
-    profile.yaml
 
 config/
-  active_profile.yaml   ← 起動時に読み込み
+  active_profile.yaml         ← 起動時に読み込み
 
 saves/
   slot_1/
-    profile: industrial
+    profile: vanilla
     world.dat
 ```
+
+### 重要な区別
+| 種類 | 場所 | 用途 |
+|-----|------|------|
+| profiles/ | ローカル編集可能 | エディタで直接編集 |
+| mods/ | ダウンロード専用 | 外部MODをバージョン管理 |
 
 ### profile.yaml
 
@@ -118,6 +132,57 @@ profile: "industrial"
 - ユーザーからは**ホットリロードに見える**
 - 実際は完全再起動なので**MOD競合リスク低**
 - ランチャー不要（Tauriエディタがラッパー）
+
+---
+
+## 3.5 プロファイル直接編集（エクスポート不要）
+
+### 従来のワークフロー（廃止）
+```
+エディタで編集 → [📤 Export] → assets/data/
+```
+
+### 新ワークフロー
+```
+┌─────────────────────────────────────────────────────────┐
+│ [Items] [Recipes] [Quests]    Target: [vanilla ▼] [▶]  │
+│                                       └─ vanilla       │
+│                                          my_mod        │
+│                                          industrial    │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  編集内容は自動的にターゲットプロファイルに保存          │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### データフロー
+```
+[エディタで編集]
+       ↓ 自動保存
+profiles/{target}/data/
+       ├── items.yaml
+       ├── recipes.yaml
+       └── quests.yaml
+       ↓ ゲーム起動時
+[Bevy: プロファイル読み込み]
+```
+
+### 開発者モード（Steam特別モード）
+- ターゲット: `vanilla`（デフォルトプロファイル）
+- `vanilla`は公式コンテンツとして配布
+- Steam実績もvanillaプロファイル内で管理
+
+### MODユーザーモード
+- ターゲット: 任意のカスタムプロファイル
+- 新規プロファイル作成可能
+- vanillaを参照しつつ追加コンテンツを編集
+
+### メリット
+- **エクスポート操作が不要**
+- **編集対象が明確**（どのプロファイルを編集中か表示）
+- **即座にテスト可能**（▶ボタンで対象プロファイルを起動）
+- **Steam版とMOD版で同じUI**（ターゲットが違うだけ）
 
 ---
 
