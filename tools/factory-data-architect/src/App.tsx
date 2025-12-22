@@ -60,8 +60,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
   }
 }
 
-// Default assets path
-const DEFAULT_ASSETS_PATH = "C:/Users/bacon/OneDrive/ドキュメント/github/IdealFactoryGame/my-bevy-project/assets";
+// No default assets path - user must select on first launch
 
 type EditorTab = "items" | "recipes" | "quests" | "multiblock" | "biome" | "sounds";
 
@@ -234,8 +233,23 @@ function App() {
   const [assetsPath, setAssetsPath] = useState<string | null>(null);
   const [isSettingUp, setIsSettingUp] = useState(true);
   const [activeTab, setActiveTab] = useState<EditorTab>("items");
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
-  // Load saved assets path on startup, or use default
+  // Export all data to YAML for game compatibility
+  const handleExportToYaml = useCallback(async () => {
+    try {
+      setExportStatus("エクスポート中...");
+      const itemResult = await invoke<string>("export_items_to_yaml");
+      const recipeResult = await invoke<string>("export_recipes_to_yaml");
+      setExportStatus(`${itemResult}\n${recipeResult}`);
+      setTimeout(() => setExportStatus(null), 5000);
+    } catch (error) {
+      setExportStatus(`エラー: ${error}`);
+      setTimeout(() => setExportStatus(null), 5000);
+    }
+  }, []);
+
+  // Load saved assets path on startup
   useEffect(() => {
     const initAssetsPath = async () => {
       // Check existing settings first
@@ -246,15 +260,8 @@ function App() {
         return;
       }
 
-      // Set default path
-      try {
-        await invoke("set_assets_path", { path: DEFAULT_ASSETS_PATH });
-        setAssetsPath(DEFAULT_ASSETS_PATH);
-        setIsSettingUp(false);
-      } catch {
-        // If default path is invalid, prompt manual selection
-        setIsSettingUp(true);
-      }
+      // No default path - prompt manual selection
+      setIsSettingUp(true);
     };
 
     initAssetsPath();
@@ -342,7 +349,15 @@ function App() {
           <button onClick={handleSelectAssetsFolder} className="change-path-button">
             Change
           </button>
+          <button onClick={handleExportToYaml} className="export-button">
+            📤 Export to YAML
+          </button>
         </div>
+        {exportStatus && (
+          <div className="export-status">
+            {exportStatus}
+          </div>
+        )}
       </header>
 
       <div className="editor-content">

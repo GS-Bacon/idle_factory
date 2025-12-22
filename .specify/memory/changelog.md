@@ -1,5 +1,469 @@
 # Development Changelog
 
+## 2025-12-22: 大規模トピック調査＆デザインパターン追加
+
+### 概要
+マルチプレイ、セキュリティ、UI、MOD、レベルデザイン、Bevy、Rust、アクセシビリティ/ローカライズについて調査し、ベストプラクティス/アンチパターンレポートとデザインパターンを作成
+
+### 成果物
+
+#### レポート（10ファイル）
+1. `multiplayer-networking-best-practices.md` - マルチプレイヤーネットワーク実装
+2. `multiplayer-networking-antipatterns.md` - ネットワークアンチパターン
+3. `security-anticheat-best-practices.md` - セキュリティ・チート対策
+4. `security-anticheat-antipatterns.md` - セキュリティアンチパターン
+5. `game-ui-hud-best-practices.md` - ゲームUI/HUD設計
+6. `mod-development-best-practices.md` - MOD API設計（Factorioモデル）
+7. `level-design-progression-best-practices.md` - レベルデザイン・進行設計
+8. `bevy-ecs-best-practices.md` - Bevy ECS活用
+9. `rust-gamedev-best-practices.md` - Rustゲーム開発
+10. `accessibility-localization-best-practices.md` - アクセシビリティ・ローカライズ
+
+#### デザインパターン追加（Part 18-28）
+- Part 18: マルチプレイヤー/ネットワークパターン（N1-N4）
+  - N1. サーバー権威、N2. クライアント予測、N3. 帯域最適化、N4. 再接続処理
+- Part 19: マルチプレイヤーアンチパターン速見表
+- Part 20: セキュリティ/チート対策パターン（C1-C3）
+  - C1. 多層防御、C2. 入力バリデーション、C3. セーブデータ保護
+- Part 21: セキュリティアンチパターン速見表
+- Part 22: MOD API設計パターン（M1-M3）
+  - M1. データライフサイクル、M2. サンドボックス化、M3. バージョニング
+- Part 23: レベルデザインパターン（L1-L3）
+  - L1. 進行フェーズ、L2. 探索報酬、L3. 待機時間管理
+- Part 24: Bevy ECSパターン（B1-B3）
+  - B1. コンポーネント分割、B2. システム順序、B3. 変更検出
+- Part 25: Rustゲーム開発パターン（RS1-RS3）
+  - RS1. 所有権活用、RS2. アロケーション最小化、RS3. エラーハンドリング
+- Part 26: アクセシビリティパターン（A1-A3）
+  - A1. 視覚アクセシビリティ、A2. 聴覚アクセシビリティ、A3. 運動アクセシビリティ
+- Part 27: ローカライズパターン（I1-I2）
+  - I1. 文字列外部化、I2. レイアウト対応
+- Part 28: 総合評価テンプレート
+
+### 調査したBevy向けネットワークライブラリ
+| ライブラリ | 特徴 |
+|-----------|------|
+| Lightyear | 予測/ロールバック内蔵、WASM対応 |
+| Renet/bevy_renet | シンプル、高速UDP |
+| bevy_ggrs | 格闘ゲーム向けロールバック |
+
+### 調査した外部チート対策ソリューション
+- Easy Anti-Cheat (EAC) - Epic提供、基本無料
+- Anybrain - サーバーサイド中心、行動分析
+- FairFight - 非侵入型
+
+### デザインパターン総数
+- 進行パターン: P1-P4
+- レシピパターン: R1-R4
+- クエストパターン: Q1-Q4
+- UI/UXパターン: U1-U4
+- エディタパターン: E1-E6
+- テストパターン: T1-T4
+- サウンドパターン: S1-S4
+- グラフィックパターン: G1-G4
+- ネットワークパターン: N1-N4
+- セキュリティパターン: C1-C3
+- MODパターン: M1-M3
+- レベルデザインパターン: L1-L3
+- Bevyパターン: B1-B3
+- Rustパターン: RS1-RS3
+- アクセシビリティパターン: A1-A3
+- ローカライズパターン: I1-I2
+- **合計: 52パターン**
+
+---
+
+## 2025-12-22: グラフィック/レンダリング研究＆デザインパターン追加
+
+### 概要
+ゲームグラフィック/レンダリング実装のベストプラクティスとアンチパターンを調査し、デザインパターンに追加
+
+### 調査対象
+- 2024年の最適化問題ゲーム（DSOG調査）
+- Bevy/Unity/Unrealの最適化手法
+- ボクセルゲーム（Minecraft、Factorio）の技術
+- アクセシビリティガイドライン（WCAG、Xbox）
+
+### 成果物
+
+#### 1. グラフィック実装ベストプラクティス (`graphics-implementation-best-practices.md`)
+- フレーム時間予算配分（60FPS目標）
+- カリング技術（フラスタム、オクルージョン）
+- バッチング/インスタンシング（Bevy自動バッチング）
+- LODシステム（距離ベース）
+- ボクセル最適化（チャンク、グリーディメッシング）
+- シェーダーコンパイル対策
+- パーティクル/VFX最適化
+- グラフィック設定UI
+
+#### 2. グラフィック実装アンチパターン (`graphics-implementation-antipatterns.md`)
+- 致命的: シェーダースタッター、トラバーサルスタッター、VRAMリーク
+- 最適化: 描画コール過多、カリング不足、オーバードロー
+- ボクセル特有: 毎フレームメッシュ再生成、アイテムエンティティ爆発
+- UI: 設定項目不足、アクセシビリティ無視
+
+#### 3. デザインパターン集更新 (`design-patterns.md`)
+- Part 15: グラフィック/レンダリングパターン（G1-G4）追加
+- Part 16: グラフィックアンチパターン速見表追加
+- Part 17: グラフィック評価テンプレート追加
+
+### グラフィックパターン（G1-G4）
+- G1. インスタンシング活用（同種オブジェクトのバッチ描画）
+- G2. LODシステム（距離ベースの詳細度切り替え）
+- G3. カリング最適化（不可視オブジェクトの描画除外）
+- G4. シェーダープリコンパイル（起動時コンパイル）
+
+### パフォーマンス目標
+| 項目 | 目標値 |
+|------|--------|
+| フレームレート | 60 FPS安定 |
+| 描画コール | <500/フレーム |
+| フレームタイム変動 | <5ms |
+| オーバードロー | <2.0 |
+
+---
+
+## 2025-12-22: サウンド実装研究＆デザインパターン追加
+
+### 概要
+ゲームサウンド実装のベストプラクティスとアンチパターンを調査し、デザインパターンに追加
+
+### 調査対象
+- プレイヤーレビュー（ResetEra, Steam, Reddit）
+- オーディオミドルウェア（Wwise, FMOD）
+- 工場ゲーム（Factorio, Satisfactory）のサウンド設計
+- アクセシビリティガイドライン
+
+### 成果物
+
+#### 1. サウンド実装ベストプラクティス (`sound-implementation-best-practices.md`)
+- ミキシング優先度システム
+- ダッキング実装（パラメータ推奨値）
+- 反復疲労防止（バリエーション、ランダム化）
+- 空間オーディオ設定
+- UIサウンドの原則
+- アダプティブミュージック
+- アクセシビリティ対応
+
+#### 2. サウンド実装アンチパターン (`sound-implementation-antipatterns.md`)
+- 致命的: ダイアログ埋没、爆発音問題、空間崩壊、反復地獄
+- ミキシング: スライダー不足、帯域衝突、圧縮アーティファクト
+- UI: シャープアタック、過剰通知、感情的混乱
+- 工場ゲーム特有: 機械カオス、警告音疲労、進捗音過剰
+
+#### 3. デザインパターン集更新 (`design-patterns.md`)
+- Part 12: サウンド実装パターン（S1-S4）追加
+- Part 13: サウンドアンチパターン速見表追加
+- Part 14: サウンド評価テンプレート追加
+
+### サウンドパターン（S1-S4）
+- S1. ミキシング優先度（ダイアログ > SE > 環境音 > BGM）
+- S2. 反復疲労防止（バリエーション、ピッチ/ボリュームランダム化）
+- S3. 空間オーディオ（距離減衰、遮蔽、リバーブ）
+- S4. UIサウンドフィードバック（成功=上昇音、失敗=下降音）
+
+### 推奨ラウドネス
+| プラットフォーム | 推奨値 |
+|-----------------|--------|
+| コンソール/PC | -24 LUFS |
+| ポータブル | -16 LUFS |
+
+---
+
+## 2025-12-22: テスト手法研究＆デザインパターン追加
+
+### 概要
+Bevy + Tauriプロジェクトに適用可能なテスト手法を調査し、デザインパターンに追加
+
+### 調査対象
+- ゲームE2Eテスト（GameDriver, Test.AI）
+- Bevyテスト（leafwing-input-manager, World直接操作）
+- Tauriテスト（WebdriverIO, Selenium）
+- テストパターン（リプレイ、プロパティベース、ファズ）
+
+### 成果物
+
+#### 1. テスト手法研究レポート (`testing-methods-research.md`)
+- ゲーム特有のテスト課題（非決定性、状態量、フレーム依存）
+- 適用可能なツール（leafwing-input-manager, WebdriverIO, proptest）
+- テストパターン（リプレイ、プロパティベース、ゴールデン、ファズ）
+- CI/CD統合（ヘッドレステスト、パフォーマンス回帰）
+- 本プロジェクトへの適用案（優先実装順）
+
+#### 2. デザインパターン集更新 (`design-patterns.md`)
+- Part 9: テストパターン（T1-T4）追加
+- Part 10: テストアンチパターン速見表追加
+- Part 11: テスト評価テンプレート追加
+
+### テストパターン（T1-T4）
+- T1. ECSユニットテスト（World直接操作）
+- T2. リプレイシステム（入力記録・再生）
+- T3. プロパティベーステスト（不変条件検証）
+- T4. E2Eテスト（UI操作シミュレート）
+
+### 推奨ツールセット
+| レイヤー | ツール |
+|---------|--------|
+| Bevy入力 | leafwing-input-manager |
+| ECSテスト | 組み込みWorld操作 |
+| Tauri UI | WebdriverIO |
+| プロパティ | proptest |
+| ファズ | cargo-fuzz |
+| CI | GitHub Actions + xvfb |
+
+---
+
+## 2025-12-22: エディタUX研究＆デザインパターン追加
+
+### 概要
+ゲーム内エディタの設計指針を確立するため、各種エディタのUXを調査
+
+### 調査対象
+- Unity Editor, Blender, MagicaVoxel
+- Unreal Blueprint, LDtk
+- 各種ノードエディタ、GUIエディタ
+
+### 成果物
+
+#### 1. エディタUXベストプラクティス (`editor-ux-best-practices.md`)
+- Unity公式の4原則（Modern, Familiar, Accessible, Efficient）
+- MagicaVoxelの成功要因（シンプル、軽量、ツールチップ）
+- Unreal Blueprintの成功要因（色分け、フロー可視化）
+- キーボードショートカット設計
+- Undo/Redo設計
+
+#### 2. エディタUXアンチパターン (`editor-ux-antipatterns.md`)
+- 致命的: 一貫性欠如、機能の迷路、情報過多、Blender症候群
+- 操作系: フィードバック欠如、不可逆操作、モード地獄
+- 学習曲線: チュートリアル不足、断崖式学習
+
+#### 3. デザインパターン集更新 (`design-patterns.md`)
+- Part 6: エディタUIパターン（E1-E6）追加
+- Part 7: エディタアンチパターン速見表追加
+- Part 8: エディタUI評価テンプレート追加
+
+### エディタUIパターン（E1-E6）
+- E1. ツールチップの完備
+- E2. 深いUndo/Redo（100+ステップ）
+- E3. キーボードショートカットの可視性
+- E4. ノードエディタの標準
+- E5. 即時プレビュー
+- E6. 検索とフィルタ
+
+---
+
+## 2025-12-22: 工場ゲームUX研究＆デザインパターン策定
+
+### 概要
+理想の工場ゲーム体験を追求するため、競合ゲームの口コミ・レビューを調査し、
+設計・評価に使えるデザインパターン集を作成
+
+### 調査対象
+- Factorio, Satisfactory, Shapez 2
+- Dyson Sphere Program, Minecraft Create Mod
+
+### 成果物
+
+#### 1. UX研究レポート (`factory-game-ux-research.md`)
+- 共通する快感要素（最適化、時間消失、視覚的成長、問題解決）
+- 各ゲームの強み・弱み分析
+- 音と視覚のフィードバック設計
+- 本作への提言
+
+#### 2. アンチパターン集 (`factory-game-antipatterns.md`)
+- 致命的アンチパターン（仕事感、カスケード問題、チュートリアル不足）
+- 進行系アンチパターン（難易度の崖、終盤グラインド）
+- 操作系アンチパターン（移動コスト、解体の苦痛）
+- 根本原因の4分類
+
+#### 3. デザインパターン集 (`design-patterns.md`)
+- 進行パターン（P1-P4）
+- レシピ設計パターン（R1-R4）
+- クエスト設計パターン（Q1-Q4）
+- UI/UXパターン（U1-U4）
+- 評価テンプレート付き
+
+### 使い方
+レシピツリーやクエストツリーを設計する際、
+`design-patterns.md`のチェックリストで評価可能
+
+---
+
+## 2025-12-22: Steam実績システム＆エディタ仕様確定
+
+### 概要
+Steam販売準備として、実績システム、エディタ、MOD/プロファイルシステムの仕様を確定
+
+### 決定事項
+
+#### 実績の種類
+- **通常実績**: 条件達成で即解除（初めての機械設置等）
+- **プログレス実績**: 段階的に進捗表示（アイテム1000個生産等）
+- **隠し実績**: 解除まで内容非表示（隠しエリア発見等）
+
+#### トリガー条件
+- クエスト完了、アイテム生産数、機械設置数
+- プレイ時間、フェーズ到達、カスタム条件
+
+#### エクスポート形式
+- 内部: JSON/YAML形式（エディタで扱いやすい）
+- Steamworks: VDFに変換してエクスポート
+
+#### 統計システム
+- total_items_produced, total_machines_placed
+- total_playtime_seconds, current_phase
+- アイテム別生産数 ({item_id}_produced)
+
+### MOD＆プロファイルシステム
+- `profiles/`: ローカル編集可能（エディタ対象）
+  - `vanilla/`: 公式コンテンツ（Steam配布）
+  - ユーザー作成MODもここに配置
+- `mods/`: ダウンロード専用（外部MODをバージョン管理）
+- Tauriラッパーによる疑似ホットリロード
+
+### プロファイル直接編集（エクスポート不要）
+- **旧方式**: エディタ → [Export] → assets/data/
+- **新方式**: エディタ → Target選択 → profiles/{target}/data/に自動保存
+- 開発者モード: vanillaプロファイルをターゲット
+- MODユーザー: カスタムプロファイルをターゲット
+
+### 仕様ファイル
+- `.specify/specs/steam-editor-mode.md` （確定版）
+- `.specify/specs/steam-release-preparation.md` （調査レポート）
+
+---
+
+## 2025-12-22: アーキテクチャ推奨事項の全面実装
+
+### 概要
+ARCHITECTURE_REVIEW.mdで挙げられたすべての推奨事項を実装完了
+
+### 実装内容
+
+#### 短期対策
+1. **エクスポートボタン追加**
+   - App.tsxに「📤 Export to YAML」ボタン追加
+   - アイテムとレシピをゲーム用形式でエクスポート
+
+2. **レシピ型互換性レイヤー**
+   - MachineType → WorkType変換関数
+   - Ingredient → ItemIO変換
+   - Product → ItemIO変換
+
+#### 中期対策
+3. **共通型定義crate (factory-data-types) 作成**
+   - `crates/factory-data-types/`
+   - ItemData, GameItemData
+   - RecipeDef, GameRecipe
+   - QuestData, QuestRequirement, RewardType
+   - 7件のテスト追加
+
+4. **TypeScript型自動生成 (ts-rs)**
+   - `cargo test --features typescript -p factory-data-types`で.ts生成
+   - bindings/ディレクトリに出力
+
+#### 長期対策
+5. **データフォーマットYAML統一**
+   - 保存: YAML形式（デフォルト）
+   - 読込: YAML優先、RONフォールバック
+   - 削除: 両形式を削除
+   - カタログ・エクスポート: 両形式対応
+   - 出力ファイル（core.yaml, kinetic.yaml）スキップ
+
+6. **ホットリロード対応**
+   - `src/core/hot_reload.rs`新規作成
+   - F5キーでデータ再読み込み
+   - ReloadDataEvent追加
+   - ItemRegistry.clear()追加
+   - RecipeManager.clear()追加
+
+### Clippy修正
+- `derivable_impls`: AnimationType derive Default
+- `double_ended_iterator_last`: next_back()に変更
+- `should_implement_trait`: from_str → parseに名前変更
+
+### テスト
+- factory-data-types: 7件パス
+
+### Files Created
+- `crates/factory-data-types/Cargo.toml`
+- `crates/factory-data-types/src/lib.rs`
+- `crates/factory-data-types/src/item.rs`
+- `crates/factory-data-types/src/recipe.rs`
+- `crates/factory-data-types/src/quest.rs`
+- `crates/factory-data-types/src/export_ts.rs`
+- `src/core/hot_reload.rs`
+
+### Files Modified
+- `Cargo.toml` - workspaceにcrate追加
+- `src/core/mod.rs` - hot_reloadモジュール追加
+- `src/gameplay/inventory.rs` - clear()追加
+- `src/gameplay/machines/recipe_system.rs` - clear()追加
+- `tools/factory-data-architect/src-tauri/src/lib.rs` - YAML統一
+- `tools/factory-data-architect/src/App.tsx` - エクスポートボタン
+- `tools/factory-data-architect/src/App.css` - スタイル追加
+
+---
+
+## 2025-12-22: アーキテクチャレビューと修正
+
+### 調査実施
+エディタ、ゲーム、連携について包括的な調査を実施。
+
+**調査結果**: `tools/factory-data-architect/ARCHITECTURE_REVIEW.md`
+
+### 発見した重大な問題
+
+#### 1. データフォーマット不整合 (Critical)
+- エディタ: RON形式で保存
+- ゲーム: YAML形式で読み込み
+- **影響**: エディタで作成したデータをゲームで直接使用できない
+
+#### 2. レシピ型の非互換性
+- エディタ: `RecipeDef` (machine_type, ingredients, results, process_time)
+- ゲーム: `Recipe` (work_type, inputs, outputs, craft_time)
+- フィールド名が異なり、互換性がない
+
+#### 3. 型定義の三重重複 (DRY違反)
+- エディタRust、エディタTypeScript、ゲームRustで同じ概念が別々に定義
+
+### 修正内容
+
+#### ハードコードパスの削除
+- `App.tsx`: `DEFAULT_ASSETS_PATH`を削除
+- 初回起動時は必ずフォルダ選択を促すように変更
+
+#### YAMLエクスポート機能追加
+- `lib.rs`: 以下のコマンドを追加
+  - `save_item_data_yaml`: アイテムをYAML形式で保存
+  - `save_recipe_yaml`: レシピをYAML形式で保存
+  - `export_items_to_yaml`: 全アイテムをゲーム用core.yamlにエクスポート
+- `Cargo.toml`: `serde_yaml = "0.9"`を追加
+
+### 今後の推奨アクション
+
+#### 短期
+1. エクスポートボタンをUIに追加（TypeScript側）
+2. レシピ型の互換性レイヤー作成
+
+#### 中期
+1. 共通型定義crate作成
+2. TypeScript型をRust型から自動生成
+
+#### 長期
+1. データフォーマット統一（YAMLまたはRON）
+2. ホットリロード対応
+
+### Files Modified
+- `tools/factory-data-architect/src/App.tsx`
+- `tools/factory-data-architect/src-tauri/Cargo.toml`
+- `tools/factory-data-architect/src-tauri/src/lib.rs`
+
+### Files Created
+- `tools/factory-data-architect/ARCHITECTURE_REVIEW.md`
+
+---
+
 ## 2025-12-20: エディタ懸念点修正
 
 ### Fixed

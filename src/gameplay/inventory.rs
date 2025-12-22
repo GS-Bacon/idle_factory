@@ -97,6 +97,11 @@ impl ItemRegistry {
     pub fn get(&self, id: &str) -> Option<&ItemData> {
         self.items.get(id)
     }
+
+    /// レジストリをクリアして再読み込み可能な状態にする
+    pub fn clear(&mut self) {
+        self.items.clear();
+    }
 }
 
 /// インベントリスロット

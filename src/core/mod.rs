@@ -5,6 +5,7 @@ pub mod debug;
 pub mod optimization;
 pub mod modding;
 pub mod save_system;
+pub mod hot_reload;
 
 use bevy::prelude::*;
 
@@ -19,6 +20,7 @@ impl Plugin for CorePlugin {
             .add_plugins(debug::DebugPlugin)
             .add_plugins(optimization::OptimizationPlugin)
             .add_plugins(modding::ModdingPlugin)
-            .add_plugins(save_system::SaveSystemPlugin);
+            .add_plugins(save_system::SaveSystemPlugin)
+            .add_plugins(hot_reload::HotReloadPlugin);
     }
 }

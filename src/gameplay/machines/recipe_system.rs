@@ -161,6 +161,13 @@ impl RecipeManager {
         self.recipes.insert(id, recipe);
     }
 
+    /// 全てのレシピをクリアして再読み込み可能な状態にする
+    pub fn clear(&mut self) {
+        self.recipes.clear();
+        self.by_work_type.clear();
+        self.by_input_item.clear();
+    }
+
     /// IDでレシピを取得
     pub fn get(&self, id: &str) -> Option<&Recipe> {
         self.recipes.get(id)
