@@ -6,6 +6,9 @@ pub mod optimization;
 pub mod modding;
 pub mod save_system;
 pub mod hot_reload;
+pub mod encryption;
+pub mod accessibility;
+pub mod sound;
 
 use bevy::prelude::*;
 
@@ -21,6 +24,8 @@ impl Plugin for CorePlugin {
             .add_plugins(optimization::OptimizationPlugin)
             .add_plugins(modding::ModdingPlugin)
             .add_plugins(save_system::SaveSystemPlugin)
-            .add_plugins(hot_reload::HotReloadPlugin);
+            .add_plugins(hot_reload::HotReloadPlugin)
+            .add_plugins(accessibility::AccessibilityPlugin)
+            .add_plugins(sound::SoundPlugin);
     }
 }

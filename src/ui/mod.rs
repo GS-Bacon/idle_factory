@@ -10,6 +10,7 @@ pub mod menu_camera;
 pub mod minimap;
 pub mod health_hud;
 pub mod quest_hud;
+pub mod feedback;
 
 pub struct UiPlugin;
 
@@ -34,5 +35,7 @@ impl Plugin for UiPlugin {
         app.add_plugins(health_hud::HealthHudPlugin);
         // Quest HUD plugin
         app.add_plugins(quest_hud::QuestHudPlugin);
+        // UI Feedback plugin (U2)
+        app.add_plugins(feedback::UiFeedbackPlugin);
     }
 }

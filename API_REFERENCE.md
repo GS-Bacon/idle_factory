@@ -10,7 +10,10 @@ src/
 │   ├── config.rs    # GameConfig, ConfigPlugin
 │   ├── input.rs     # KeyBindings
 │   ├── registry.rs  # BlockRegistry, RecipeRegistry, RegistryPlugin
-│   └── debug.rs     # DebugPlugin
+│   ├── debug.rs     # DebugPlugin
+│   ├── encryption.rs # AES-256-GCM暗号化 (C3)
+│   ├── accessibility.rs # アクセシビリティ (A1-A3)
+│   └── sound.rs     # サウンドシステム (S1-S4)
 ├── rendering/
 │   ├── mod.rs       # RenderingPlugin
 │   ├── chunk.rs     # Chunk (CHUNK_SIZE=32)
@@ -36,7 +39,8 @@ src/
 ├── ui/
 │   ├── mod.rs       # UiPlugin
 │   ├── hud.rs       # spawn_crosshair
-│   └── machine_ui.rs # MachineUiPlugin, MachineUiState
+│   ├── machine_ui.rs # MachineUiPlugin, MachineUiState
+│   └── feedback.rs  # UIフィードバック (U2)
 └── network/
     ├── mod.rs       # NetworkPlugin (stub)
     ├── client.rs    # client_network_system (stub)
@@ -122,6 +126,55 @@ pub struct DebugState {
 }
 
 pub struct DebugPlugin; // FPS display, compass
+```
+
+### encryption.rs (C3)
+```rust
+/// セーブデータ暗号化 (AES-256-GCM)
+pub fn encrypt_data(data: &[u8]) -> Result<String, EncryptionError>;
+pub fn decrypt_data(encrypted: &str) -> Result<Vec<u8>, EncryptionError>;
+pub fn save_encrypted<P: AsRef<Path>>(path: P, data: &[u8]) -> Result<(), EncryptionError>;
+pub fn load_encrypted<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, EncryptionError>;
+pub fn save_encrypted_json<T: Serialize, P: AsRef<Path>>(path: P, data: &T) -> Result<(), EncryptionError>;
+pub fn load_encrypted_json<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<T, EncryptionError>;
+```
+
+### accessibility.rs (A1-A3)
+```rust
+#[derive(Resource)]
+pub struct AccessibilitySettings {
+    pub color_blind_mode: ColorBlindMode,  // Normal, Protanopia, Deuteranopia, Tritanopia, HighContrast
+    pub ui_scale: f32,                     // 0.75 - 2.0
+    pub subtitles_enabled: bool,
+    pub visual_sound_indicators: bool,
+    pub sprint_mode: InputMode,            // Hold or Toggle
+    pub mouse_sensitivity: f32,            // 0.1 - 3.0
+}
+
+pub enum ColorBlindMode { Normal, Protanopia, Deuteranopia, Tritanopia, HighContrast }
+pub enum InputMode { Hold, Toggle }
+
+pub struct AccessibilityPlugin;
+```
+
+### sound.rs (S1-S4)
+```rust
+#[derive(Resource)]
+pub struct SoundSettings {
+    pub volumes: HashMap<SoundCategory, f32>,  // Master, Music, Sfx, Voice, Ambient, Ui
+    pub max_simultaneous_sounds: usize,        // default: 32
+    pub pitch_variation: f32,                  // ±10% randomization
+}
+
+pub enum SoundCategory { Master, Music, Sfx, Voice, Ambient, Ui }
+
+#[derive(Event)]
+pub struct PlaySoundEvent {
+    pub sound_id: String,
+    pub position: Option<Vec3>,  // None = 2D, Some = 3D spatial
+}
+
+pub struct SoundPlugin;
 ```
 
 ---
@@ -437,6 +490,38 @@ pub struct MachineUiPlugin;
 // Update: handle_machine_interaction, handle_open/close_ui_event,
 //         handle_recipe_button_click, handle_close_button_click,
 //         update_inventory_display, handle_escape_key, apply_recipe_event
+```
+
+### feedback.rs (U2)
+```rust
+pub enum FeedbackType { Success, Error, Warning, Info, Neutral }
+
+#[derive(Event)]
+pub struct FeedbackEvent {
+    pub feedback_type: FeedbackType,
+    pub message: Option<String>,
+    pub position: Option<Vec3>,
+    pub show_flash: bool,
+    pub shake_screen: bool,
+}
+
+impl FeedbackEvent {
+    pub fn success() -> Self;
+    pub fn error() -> Self;
+    pub fn warning() -> Self;
+    pub fn with_message(self, message: impl Into<String>) -> Self;
+    pub fn at_position(self, position: Vec3) -> Self;
+}
+
+#[derive(Resource)]
+pub struct FeedbackSettings {
+    pub visual_enabled: bool,
+    pub audio_enabled: bool,
+    pub flash_enabled: bool,
+    pub display_duration: f32,  // default: 0.5s
+}
+
+pub struct UiFeedbackPlugin;
 ```
 
 ---

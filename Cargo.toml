@@ -25,3 +25,7 @@ serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 dot_vox = "5.1"
 mlua = { version = "0.10", features = ["lua54", "vendored", "send", "serialize"] }
+# セキュリティ（C3: セーブ暗号化）
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = "0.22"
