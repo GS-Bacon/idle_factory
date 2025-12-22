@@ -1,5 +1,77 @@
 # Development Changelog
 
+## 2025-12-22: アーキテクチャ推奨事項の全面実装
+
+### 概要
+ARCHITECTURE_REVIEW.mdで挙げられたすべての推奨事項を実装完了
+
+### 実装内容
+
+#### 短期対策
+1. **エクスポートボタン追加**
+   - App.tsxに「📤 Export to YAML」ボタン追加
+   - アイテムとレシピをゲーム用形式でエクスポート
+
+2. **レシピ型互換性レイヤー**
+   - MachineType → WorkType変換関数
+   - Ingredient → ItemIO変換
+   - Product → ItemIO変換
+
+#### 中期対策
+3. **共通型定義crate (factory-data-types) 作成**
+   - `crates/factory-data-types/`
+   - ItemData, GameItemData
+   - RecipeDef, GameRecipe
+   - QuestData, QuestRequirement, RewardType
+   - 7件のテスト追加
+
+4. **TypeScript型自動生成 (ts-rs)**
+   - `cargo test --features typescript -p factory-data-types`で.ts生成
+   - bindings/ディレクトリに出力
+
+#### 長期対策
+5. **データフォーマットYAML統一**
+   - 保存: YAML形式（デフォルト）
+   - 読込: YAML優先、RONフォールバック
+   - 削除: 両形式を削除
+   - カタログ・エクスポート: 両形式対応
+   - 出力ファイル（core.yaml, kinetic.yaml）スキップ
+
+6. **ホットリロード対応**
+   - `src/core/hot_reload.rs`新規作成
+   - F5キーでデータ再読み込み
+   - ReloadDataEvent追加
+   - ItemRegistry.clear()追加
+   - RecipeManager.clear()追加
+
+### Clippy修正
+- `derivable_impls`: AnimationType derive Default
+- `double_ended_iterator_last`: next_back()に変更
+- `should_implement_trait`: from_str → parseに名前変更
+
+### テスト
+- factory-data-types: 7件パス
+
+### Files Created
+- `crates/factory-data-types/Cargo.toml`
+- `crates/factory-data-types/src/lib.rs`
+- `crates/factory-data-types/src/item.rs`
+- `crates/factory-data-types/src/recipe.rs`
+- `crates/factory-data-types/src/quest.rs`
+- `crates/factory-data-types/src/export_ts.rs`
+- `src/core/hot_reload.rs`
+
+### Files Modified
+- `Cargo.toml` - workspaceにcrate追加
+- `src/core/mod.rs` - hot_reloadモジュール追加
+- `src/gameplay/inventory.rs` - clear()追加
+- `src/gameplay/machines/recipe_system.rs` - clear()追加
+- `tools/factory-data-architect/src-tauri/src/lib.rs` - YAML統一
+- `tools/factory-data-architect/src/App.tsx` - エクスポートボタン
+- `tools/factory-data-architect/src/App.css` - スタイル追加
+
+---
+
 ## 2025-12-22: アーキテクチャレビューと修正
 
 ### 調査実施
