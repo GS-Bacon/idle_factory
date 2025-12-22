@@ -1,5 +1,44 @@
 # Development Changelog
 
+## 2025-12-22: エディタUX研究＆デザインパターン追加
+
+### 概要
+ゲーム内エディタの設計指針を確立するため、各種エディタのUXを調査
+
+### 調査対象
+- Unity Editor, Blender, MagicaVoxel
+- Unreal Blueprint, LDtk
+- 各種ノードエディタ、GUIエディタ
+
+### 成果物
+
+#### 1. エディタUXベストプラクティス (`editor-ux-best-practices.md`)
+- Unity公式の4原則（Modern, Familiar, Accessible, Efficient）
+- MagicaVoxelの成功要因（シンプル、軽量、ツールチップ）
+- Unreal Blueprintの成功要因（色分け、フロー可視化）
+- キーボードショートカット設計
+- Undo/Redo設計
+
+#### 2. エディタUXアンチパターン (`editor-ux-antipatterns.md`)
+- 致命的: 一貫性欠如、機能の迷路、情報過多、Blender症候群
+- 操作系: フィードバック欠如、不可逆操作、モード地獄
+- 学習曲線: チュートリアル不足、断崖式学習
+
+#### 3. デザインパターン集更新 (`design-patterns.md`)
+- Part 6: エディタUIパターン（E1-E6）追加
+- Part 7: エディタアンチパターン速見表追加
+- Part 8: エディタUI評価テンプレート追加
+
+### エディタUIパターン（E1-E6）
+- E1. ツールチップの完備
+- E2. 深いUndo/Redo（100+ステップ）
+- E3. キーボードショートカットの可視性
+- E4. ノードエディタの標準
+- E5. 即時プレビュー
+- E6. 検索とフィルタ
+
+---
+
 ## 2025-12-22: 工場ゲームUX研究＆デザインパターン策定
 
 ### 概要
