@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "tools/factory-data-architect/src-tauri"]
+members = [".", "tools/factory-data-architect/src-tauri", "crates/factory-data-types"]
 resolver = "2"
 
 # 開発用ビルド設定 (cargo run)

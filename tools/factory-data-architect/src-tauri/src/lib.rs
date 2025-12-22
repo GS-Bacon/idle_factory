@@ -83,51 +83,84 @@ fn to_relative_path(absolute_path: String, state: State<AppState>) -> Result<Str
     abs.strip_prefix(&assets_path).map(|p| p.to_string_lossy().to_string()).map_err(|_| "ファイルがアセットディレクトリ外にあります".to_string())
 }
 
+/// アイテムをYAML形式で保存（デフォルト）
 #[tauri::command]
 fn save_item_data(item: ItemData, path: String) -> Result<(), String> {
-    let content = ron::ser::to_string_pretty(&item, ron::ser::PrettyConfig::default()).map_err(|e| format!("シリアライズエラー: {}", e))?;
-    std::fs::write(&path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))
+    // YAMLに変更（ゲームと統一）
+    let yaml_path = if path.ends_with(".ron") {
+        path.replace(".ron", ".yaml")
+    } else if path.ends_with(".yaml") {
+        path
+    } else {
+        format!("{}.yaml", path)
+    };
+    let content = serde_yaml::to_string(&item).map_err(|e| format!("YAMLシリアライズエラー: {}", e))?;
+    std::fs::write(&yaml_path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))
 }
 
-/// アイテムをYAML形式で保存（ゲーム互換用）
+/// アイテムをYAML形式で保存（明示的）
 #[tauri::command]
 fn save_item_data_yaml(item: ItemData, path: String) -> Result<(), String> {
     let content = serde_yaml::to_string(&item).map_err(|e| format!("YAMLシリアライズエラー: {}", e))?;
     std::fs::write(&path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))
 }
 
+/// アイテムを読み込み（YAML優先、RONフォールバック）
 #[tauri::command]
 fn load_item_data(path: String) -> Result<ItemData, String> {
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
+    // YAMLを優先で試す
+    let yaml_path = if path.ends_with(".ron") {
+        path.replace(".ron", ".yaml")
+    } else {
+        path.clone()
+    };
+
+    if let Ok(content) = std::fs::read_to_string(&yaml_path) {
+        if let Ok(item) = serde_yaml::from_str::<ItemData>(&content) {
+            return Ok(item);
+        }
+    }
+
+    // RONファイルをフォールバック
+    let ron_path = if path.ends_with(".yaml") {
+        path.replace(".yaml", ".ron")
+    } else {
+        path
+    };
+
+    let content = std::fs::read_to_string(&ron_path).map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
     ron::from_str(&content).map_err(|e| format!("パースエラー: {}", e))
 }
 
+/// アイテムを削除（YAML優先、RONもあれば削除）
 #[tauri::command]
 fn delete_item_data(item_id: String, state: State<AppState>) -> Result<(), String> {
     let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
-    let file_path = assets_path.join("data").join("items").join(format!("{}.ron", item_id));
+    let yaml_path = assets_path.join("data").join("items").join(format!("{}.yaml", item_id));
+    let ron_path = assets_path.join("data").join("items").join(format!("{}.ron", item_id));
 
-    if !file_path.exists() {
+    let mut deleted = false;
+
+    if yaml_path.exists() {
+        fs::remove_file(&yaml_path).map_err(|e| format!("YAML削除エラー: {}", e))?;
+        deleted = true;
+    }
+
+    if ron_path.exists() {
+        fs::remove_file(&ron_path).map_err(|e| format!("RON削除エラー: {}", e))?;
+        deleted = true;
+    }
+
+    if !deleted {
         return Err(format!("アイテムファイルが見つかりません: {}", item_id));
     }
 
-    fs::remove_file(&file_path).map_err(|e| format!("ファイル削除エラー: {}", e))
+    Ok(())
 }
 
+/// レシピをYAML形式で保存（デフォルト）
 #[tauri::command]
 fn save_recipe(recipe: RecipeDef, state: State<AppState>) -> Result<String, String> {
-    let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
-    let recipes_path = assets_path.join("data").join("recipes");
-    fs::create_dir_all(&recipes_path).map_err(|e| format!("ディレクトリ作成エラー: {}", e))?;
-    let file_path = recipes_path.join(format!("{}.ron", recipe.id));
-    let content = ron::ser::to_string_pretty(&recipe, ron::ser::PrettyConfig::default()).map_err(|e| format!("シリアライズエラー: {}", e))?;
-    fs::write(&file_path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))?;
-    Ok(file_path.to_string_lossy().to_string())
-}
-
-/// レシピをYAML形式で保存（ゲーム互換用）
-#[tauri::command]
-fn save_recipe_yaml(recipe: RecipeDef, state: State<AppState>) -> Result<String, String> {
     let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
     let recipes_path = assets_path.join("data").join("recipes");
     fs::create_dir_all(&recipes_path).map_err(|e| format!("ディレクトリ作成エラー: {}", e))?;
@@ -137,30 +170,140 @@ fn save_recipe_yaml(recipe: RecipeDef, state: State<AppState>) -> Result<String,
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// レシピをYAML形式で保存（明示的）
+#[tauri::command]
+fn save_recipe_yaml(recipe: RecipeDef, state: State<AppState>) -> Result<String, String> {
+    save_recipe(recipe, state)
+}
+
+/// レシピを読み込み（YAML優先、RONフォールバック）
 #[tauri::command]
 fn load_recipe(recipe_id: String, state: State<AppState>) -> Result<RecipeDef, String> {
     let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
-    let file_path = assets_path.join("data").join("recipes").join(format!("{}.ron", recipe_id));
-    let content = fs::read_to_string(&file_path).map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
+    let yaml_path = assets_path.join("data").join("recipes").join(format!("{}.yaml", recipe_id));
+    let ron_path = assets_path.join("data").join("recipes").join(format!("{}.ron", recipe_id));
+
+    // YAML優先
+    if let Ok(content) = fs::read_to_string(&yaml_path) {
+        if let Ok(recipe) = serde_yaml::from_str::<RecipeDef>(&content) {
+            return Ok(recipe);
+        }
+    }
+
+    // RONフォールバック
+    let content = fs::read_to_string(&ron_path).map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
     ron::from_str(&content).map_err(|e| format!("パースエラー: {}", e))
 }
 
+/// レシピ一覧を取得（YAMLとRON両方）
 #[tauri::command]
 fn list_recipes(state: State<AppState>) -> Result<Vec<String>, String> {
     let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
     let recipes_path = assets_path.join("data").join("recipes");
     if !recipes_path.exists() { return Ok(Vec::new()); }
-    let mut recipes = Vec::new();
+    let mut recipes = std::collections::HashSet::new();
     for entry in fs::read_dir(&recipes_path).map_err(|e| format!("読み込みエラー: {}", e))? {
         let entry = entry.map_err(|e| format!("エントリエラー: {}", e))?;
         let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "ron") {
+        if path.extension().is_some_and(|ext| ext == "yaml" || ext == "ron") {
             if let Some(stem) = path.file_stem() {
-                recipes.push(stem.to_string_lossy().to_string());
+                recipes.insert(stem.to_string_lossy().to_string());
             }
         }
     }
-    Ok(recipes)
+    Ok(recipes.into_iter().collect())
+}
+
+/// MachineTypeからWorkType文字列に変換
+fn machine_type_to_work_type(machine_type: &recipe::MachineType) -> &'static str {
+    match machine_type {
+        recipe::MachineType::Assembler => "assembling",
+        recipe::MachineType::Press => "pressing",
+        recipe::MachineType::Crusher => "crushing",
+        recipe::MachineType::Mixer => "mixing",
+        recipe::MachineType::Furnace => "smelting",
+        recipe::MachineType::Centrifuge => "washing",
+        recipe::MachineType::ChemicalReactor => "mixing",
+        recipe::MachineType::Packager => "assembling",
+        recipe::MachineType::Custom(_) => "assembling",
+    }
+}
+
+/// 全レシピをゲーム用YAMLにエクスポート
+#[tauri::command]
+fn export_recipes_to_yaml(state: State<AppState>) -> Result<String, String> {
+    let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
+    let recipes_path = assets_path.join("data").join("recipes");
+    let output_path = recipes_path.join("kinetic.yaml");
+
+    // 全レシピを収集（YAML優先、RONフォールバック）
+    let mut game_recipes: Vec<serde_json::Value> = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
+
+    if recipes_path.exists() {
+        if let Ok(entries) = fs::read_dir(&recipes_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let ext = path.extension().and_then(|e| e.to_str());
+
+                // kinetic.yamlはスキップ（出力ファイル）
+                if path.file_name().is_some_and(|n| n == "kinetic.yaml") {
+                    continue;
+                }
+
+                let recipe_opt = if ext == Some("yaml") || ext == Some("yml") {
+                    fs::read_to_string(&path).ok()
+                        .and_then(|content| serde_yaml::from_str::<recipe::RecipeDef>(&content).ok())
+                } else if ext == Some("ron") {
+                    fs::read_to_string(&path).ok()
+                        .and_then(|content| ron::from_str::<recipe::RecipeDef>(&content).ok())
+                } else {
+                    None
+                };
+
+                if let Some(recipe_def) = recipe_opt {
+                    if seen_ids.insert(recipe_def.id.clone()) {
+                        // ゲーム互換形式に変換
+                        let inputs: Vec<serde_json::Value> = recipe_def.ingredients.iter().map(|ing| {
+                            let item = match &ing.ingredient_type {
+                                recipe::IngredientType::Item(id) => id.clone(),
+                                recipe::IngredientType::Tag(tag) => tag.clone(),
+                            };
+                            serde_json::json!({
+                                "item": item,
+                                "count": ing.amount
+                            })
+                        }).collect();
+
+                        let outputs: Vec<serde_json::Value> = recipe_def.results.iter().filter_map(|prod| {
+                            match &prod.product_type {
+                                recipe::ProductType::Item(id) => Some(serde_json::json!({
+                                    "item": id,
+                                    "count": prod.amount
+                                })),
+                                recipe::ProductType::Fluid(_) => None,
+                            }
+                        }).collect();
+
+                        let game_recipe = serde_json::json!({
+                            "id": recipe_def.id,
+                            "name": recipe_def.i18n_key.replace("recipe.", ""),
+                            "inputs": inputs,
+                            "outputs": outputs,
+                            "craft_time": recipe_def.process_time,
+                            "work_type": machine_type_to_work_type(&recipe_def.machine_type)
+                        });
+                        game_recipes.push(game_recipe);
+                    }
+                }
+            }
+        }
+    }
+
+    let content = serde_yaml::to_string(&game_recipes).map_err(|e| format!("YAMLシリアライズエラー: {}", e))?;
+    fs::write(&output_path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))?;
+
+    Ok(format!("{}レシピをエクスポートしました: {}", game_recipes.len(), output_path.display()))
 }
 
 /// 全アイテムをゲーム用YAMLにエクスポート
@@ -170,26 +313,43 @@ fn export_items_to_yaml(state: State<AppState>) -> Result<String, String> {
     let items_path = assets_path.join("data").join("items");
     let output_path = items_path.join("core.yaml");
 
-    // 全アイテムを収集
+    // 全アイテムを収集（YAML優先、RONフォールバック）
     let mut items: Vec<serde_json::Value> = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
+
     if items_path.exists() {
         if let Ok(entries) = fs::read_dir(&items_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().is_some_and(|ext| ext == "ron") {
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        if let Ok(item) = ron::from_str::<ItemData>(&content) {
-                            // ゲーム互換形式に変換
-                            let game_item = serde_json::json!({
-                                "id": item.id,
-                                "name": item.i18n_key.replace("item.", "").replace("machine.", "").replace("multiblock.", ""),
-                                "description": "",
-                                "icon": item.asset.icon_path.unwrap_or_default(),
-                                "max_stack": 999,
-                                "properties": item.properties.iter().map(|(k, v)| (k.clone(), v.to_string())).collect::<std::collections::HashMap<_, _>>()
-                            });
-                            items.push(game_item);
-                        }
+                let ext = path.extension().and_then(|e| e.to_str());
+
+                // core.yamlはスキップ（出力ファイル）
+                if path.file_name().is_some_and(|n| n == "core.yaml") {
+                    continue;
+                }
+
+                let item_opt = if ext == Some("yaml") || ext == Some("yml") {
+                    fs::read_to_string(&path).ok()
+                        .and_then(|content| serde_yaml::from_str::<ItemData>(&content).ok())
+                } else if ext == Some("ron") {
+                    fs::read_to_string(&path).ok()
+                        .and_then(|content| ron::from_str::<ItemData>(&content).ok())
+                } else {
+                    None
+                };
+
+                if let Some(item) = item_opt {
+                    if seen_ids.insert(item.id.clone()) {
+                        // ゲーム互換形式に変換
+                        let game_item = serde_json::json!({
+                            "id": item.id,
+                            "name": item.i18n_key.replace("item.", "").replace("machine.", "").replace("multiblock.", ""),
+                            "description": "",
+                            "icon": item.asset.icon_path.unwrap_or_default(),
+                            "max_stack": 999,
+                            "properties": item.properties.iter().map(|(k, v)| (k.clone(), v.to_string())).collect::<std::collections::HashMap<_, _>>()
+                        });
+                        items.push(game_item);
                     }
                 }
             }
@@ -206,35 +366,47 @@ fn export_items_to_yaml(state: State<AppState>) -> Result<String, String> {
 fn get_assets_catalog(state: State<AppState>) -> Result<AssetCatalog, String> {
     let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
     let mut catalog = AssetCatalog::default();
+    let mut seen_ids = std::collections::HashSet::new();
 
-    // Load items from data/items/*.ron
+    // Load items from data/items/*.yaml and *.ron (YAML優先)
     let items_path = assets_path.join("data").join("items");
     if items_path.exists() {
         if let Ok(entries) = fs::read_dir(&items_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().is_some_and(|ext| ext == "ron") {
+                let ext = path.extension().and_then(|e| e.to_str());
+
+                // YAMLファイルを処理
+                if ext == Some("yaml") || ext == Some("yml") {
+                    if let Ok(content) = fs::read_to_string(&path) {
+                        if let Ok(item) = serde_yaml::from_str::<ItemData>(&content) {
+                            if seen_ids.insert(item.id.clone()) {
+                                catalog.items.push(CatalogEntry {
+                                    id: item.id.clone(),
+                                    name: item.id.clone(),
+                                    icon_path: item.asset.icon_path
+                                });
+                            }
+                        }
+                    }
+                }
+                // RONファイルを処理（YAMLが存在しない場合のみ）
+                else if ext == Some("ron") {
                     if let Ok(content) = fs::read_to_string(&path) {
                         if let Ok(item) = ron::from_str::<ItemData>(&content) {
-                            catalog.items.push(CatalogEntry { id: item.id.clone(), name: item.id.clone(), icon_path: item.asset.icon_path });
+                            if seen_ids.insert(item.id.clone()) {
+                                catalog.items.push(CatalogEntry {
+                                    id: item.id.clone(),
+                                    name: item.id.clone(),
+                                    icon_path: item.asset.icon_path
+                                });
+                            }
                         }
                     }
                 }
             }
         }
     }
-
-    // No default items - use empty list if none found
-    // Items should be defined in the Items tab of the editor
-
-    // No default fluids - use empty list
-    // Fluids should be defined in the Items tab of the editor
-
-    // No default machines - use empty list
-    // Machines should be defined in the Items tab of the editor
-
-    // No default tags
-    // Tags should be defined by the user
 
     Ok(catalog)
 }
@@ -269,7 +441,7 @@ pub fn run() {
             save_localization, load_localization, update_locale, to_relative_path,
             save_item_data, save_item_data_yaml, load_item_data, delete_item_data,
             save_recipe, save_recipe_yaml, load_recipe, list_recipes,
-            export_items_to_yaml, get_assets_catalog,
+            export_items_to_yaml, export_recipes_to_yaml, get_assets_catalog,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -233,6 +233,21 @@ function App() {
   const [assetsPath, setAssetsPath] = useState<string | null>(null);
   const [isSettingUp, setIsSettingUp] = useState(true);
   const [activeTab, setActiveTab] = useState<EditorTab>("items");
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+
+  // Export all data to YAML for game compatibility
+  const handleExportToYaml = useCallback(async () => {
+    try {
+      setExportStatus("エクスポート中...");
+      const itemResult = await invoke<string>("export_items_to_yaml");
+      const recipeResult = await invoke<string>("export_recipes_to_yaml");
+      setExportStatus(`${itemResult}\n${recipeResult}`);
+      setTimeout(() => setExportStatus(null), 5000);
+    } catch (error) {
+      setExportStatus(`エラー: ${error}`);
+      setTimeout(() => setExportStatus(null), 5000);
+    }
+  }, []);
 
   // Load saved assets path on startup
   useEffect(() => {
@@ -334,7 +349,15 @@ function App() {
           <button onClick={handleSelectAssetsFolder} className="change-path-button">
             Change
           </button>
+          <button onClick={handleExportToYaml} className="export-button">
+            📤 Export to YAML
+          </button>
         </div>
+        {exportStatus && (
+          <div className="export-status">
+            {exportStatus}
+          </div>
+        )}
       </header>
 
       <div className="editor-content">
