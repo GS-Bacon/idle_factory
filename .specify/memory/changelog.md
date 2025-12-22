@@ -1,5 +1,48 @@
 # Development Changelog
 
+## 2025-12-22: テスト手法研究＆デザインパターン追加
+
+### 概要
+Bevy + Tauriプロジェクトに適用可能なテスト手法を調査し、デザインパターンに追加
+
+### 調査対象
+- ゲームE2Eテスト（GameDriver, Test.AI）
+- Bevyテスト（leafwing-input-manager, World直接操作）
+- Tauriテスト（WebdriverIO, Selenium）
+- テストパターン（リプレイ、プロパティベース、ファズ）
+
+### 成果物
+
+#### 1. テスト手法研究レポート (`testing-methods-research.md`)
+- ゲーム特有のテスト課題（非決定性、状態量、フレーム依存）
+- 適用可能なツール（leafwing-input-manager, WebdriverIO, proptest）
+- テストパターン（リプレイ、プロパティベース、ゴールデン、ファズ）
+- CI/CD統合（ヘッドレステスト、パフォーマンス回帰）
+- 本プロジェクトへの適用案（優先実装順）
+
+#### 2. デザインパターン集更新 (`design-patterns.md`)
+- Part 9: テストパターン（T1-T4）追加
+- Part 10: テストアンチパターン速見表追加
+- Part 11: テスト評価テンプレート追加
+
+### テストパターン（T1-T4）
+- T1. ECSユニットテスト（World直接操作）
+- T2. リプレイシステム（入力記録・再生）
+- T3. プロパティベーステスト（不変条件検証）
+- T4. E2Eテスト（UI操作シミュレート）
+
+### 推奨ツールセット
+| レイヤー | ツール |
+|---------|--------|
+| Bevy入力 | leafwing-input-manager |
+| ECSテスト | 組み込みWorld操作 |
+| Tauri UI | WebdriverIO |
+| プロパティ | proptest |
+| ファズ | cargo-fuzz |
+| CI | GitHub Actions + xvfb |
+
+---
+
 ## 2025-12-22: エディタUX研究＆デザインパターン追加
 
 ### 概要

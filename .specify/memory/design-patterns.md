@@ -664,5 +664,181 @@
 
 ---
 
+## Part 9: テストパターン
+
+### T1. ECSユニットテスト（ECS Unit Testing）
+
+**原則**: 個々のシステムをWorld直接操作でテスト
+
+```rust
+良い例:
+  #[test]
+  fn test_machine_production() {
+      let mut app = App::new();
+      app.add_systems(Update, production_system);
+
+      // 初期状態セットアップ
+      app.world.spawn((Machine::new(), Inventory::new()));
+
+      // 100フレーム経過
+      for _ in 0..100 { app.update(); }
+
+      // 検証
+      assert!(production_completed(&app));
+  }
+
+悪い例:
+  統合テストのみ（個別システムをテストしない）
+```
+
+**評価基準**:
+| チェック項目 | ✓ |
+|-------------|---|
+| 各システムに個別テストがあるか | |
+| 外部依存なしでテストできるか | |
+| フレーム単位で検証できるか | |
+
+---
+
+### T2. リプレイシステム（Replay System）
+
+**原則**: 入力を記録し、決定的に再生できる
+
+```rust
+良い例:
+  struct Replay {
+      seed: u64,         // 乱数シード固定
+      inputs: Vec<(u64, Action)>,  // (フレーム, 操作)
+  }
+  // 同じReplayは常に同じ結果
+
+悪い例:
+  乱数シードが記録されていない
+  フレーム番号なしで入力だけ記録
+```
+
+**評価基準**:
+| チェック項目 | ✓ |
+|-------------|---|
+| 入力記録・再生機能があるか | |
+| 乱数シードが固定できるか | |
+| 再生が決定的か（毎回同じ結果） | |
+
+---
+
+### T3. プロパティベーステスト（Property-Based Testing）
+
+**原則**: 不変条件をランダム入力で検証
+
+```rust
+良い例:
+  proptest! {
+      #[test]
+      fn inventory_never_negative(items in vec(any::<Item>(), 0..100)) {
+          let mut inv = Inventory::new();
+          for item in items { inv.add(item); }
+
+          // 不変条件: 数量は常に0以上
+          for slot in inv.slots() {
+              prop_assert!(slot.count >= 0);
+          }
+      }
+  }
+
+悪い例:
+  固定の入力パターンのみでテスト
+```
+
+**評価基準**:
+| チェック項目 | ✓ |
+|-------------|---|
+| 重要な不変条件が定義されているか | |
+| proptestでランダム入力をテストしているか | |
+| 境界条件が自動探索されているか | |
+
+---
+
+### T4. E2Eテスト（End-to-End Testing）
+
+**原則**: 実際のUI操作をシミュレート
+
+```javascript
+良い例:
+  // WebdriverIO + Tauri
+  it('creates recipe', async () => {
+      await $('#new-recipe-btn').click();
+      await $('#recipe-name').setValue('Iron Ingot');
+      await $('#save-btn').click();
+
+      expect(await $$('.recipe-item')).toHaveLength(1);
+  });
+
+悪い例:
+  UIテストなし（手動テストのみ）
+```
+
+**評価基準**:
+| チェック項目 | ✓ |
+|-------------|---|
+| 主要なUI操作にE2Eテストがあるか | |
+| CIで自動実行されるか | |
+| スクリーンショット比較があるか | |
+
+---
+
+## Part 10: テストアンチパターン速見表
+
+### 絶対に避ける
+
+| パターン | 症状 | 対策 |
+|----------|------|------|
+| sleep固定待機 | 遅くて不安定 | 条件待機（poll） |
+| 手動テストのみ | 回帰を見逃す | 自動化必須 |
+| 巨大統合テスト | 遅くて脆い | 小さなユニットテスト |
+| 非決定的テスト | 結果がバラバラ | シード固定 |
+
+### 注意する
+
+| パターン | 症状 | 対策 |
+|----------|------|------|
+| 画像マッチング依存 | 解像度で壊れる | セマンティック検証 |
+| フレーム依存 | 環境で結果異なる | 論理フレームで検証 |
+| 状態リーク | テスト間で干渉 | テストごとにリセット |
+| カバレッジ至上主義 | 無意味なテスト増 | 重要パスに集中 |
+
+---
+
+## Part 11: テスト評価テンプレート
+
+```markdown
+## テストカバレッジ評価: [モジュール名]
+
+### 基本情報
+- 総テスト数:
+- ユニットテスト数:
+- 統合テスト数:
+- E2Eテスト数:
+
+### パターンチェック
+| パターン | 適合 | 備考 |
+|----------|------|------|
+| T1. ECSユニットテスト | ☐ | |
+| T2. リプレイシステム | ☐ | |
+| T3. プロパティベース | ☐ | |
+| T4. E2Eテスト | ☐ | |
+
+### アンチパターンチェック
+| アンチパターン | 該当 | 対策 |
+|---------------|------|------|
+| sleep固定待機 | ☐ | |
+| 非決定的テスト | ☐ | |
+| 状態リーク | ☐ | |
+
+### 推奨アクション
+-
+```
+
+---
+
 *最終更新: 2025-12-22*
-*ソース: factory-game-ux-research.md, factory-game-antipatterns.md, editor-ux-best-practices.md, editor-ux-antipatterns.md*
+*ソース: factory-game-ux-research.md, factory-game-antipatterns.md, editor-ux-best-practices.md, editor-ux-antipatterns.md, testing-methods-research.md*
