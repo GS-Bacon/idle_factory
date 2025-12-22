@@ -89,6 +89,13 @@ fn save_item_data(item: ItemData, path: String) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))
 }
 
+/// アイテムをYAML形式で保存（ゲーム互換用）
+#[tauri::command]
+fn save_item_data_yaml(item: ItemData, path: String) -> Result<(), String> {
+    let content = serde_yaml::to_string(&item).map_err(|e| format!("YAMLシリアライズエラー: {}", e))?;
+    std::fs::write(&path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))
+}
+
 #[tauri::command]
 fn load_item_data(path: String) -> Result<ItemData, String> {
     let content = std::fs::read_to_string(&path).map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
@@ -118,6 +125,18 @@ fn save_recipe(recipe: RecipeDef, state: State<AppState>) -> Result<String, Stri
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// レシピをYAML形式で保存（ゲーム互換用）
+#[tauri::command]
+fn save_recipe_yaml(recipe: RecipeDef, state: State<AppState>) -> Result<String, String> {
+    let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
+    let recipes_path = assets_path.join("data").join("recipes");
+    fs::create_dir_all(&recipes_path).map_err(|e| format!("ディレクトリ作成エラー: {}", e))?;
+    let file_path = recipes_path.join(format!("{}.yaml", recipe.id));
+    let content = serde_yaml::to_string(&recipe).map_err(|e| format!("YAMLシリアライズエラー: {}", e))?;
+    fs::write(&file_path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))?;
+    Ok(file_path.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn load_recipe(recipe_id: String, state: State<AppState>) -> Result<RecipeDef, String> {
     let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
@@ -142,6 +161,45 @@ fn list_recipes(state: State<AppState>) -> Result<Vec<String>, String> {
         }
     }
     Ok(recipes)
+}
+
+/// 全アイテムをゲーム用YAMLにエクスポート
+#[tauri::command]
+fn export_items_to_yaml(state: State<AppState>) -> Result<String, String> {
+    let assets_path = state.assets_path.lock().unwrap().clone().ok_or("アセットパスが設定されていません")?;
+    let items_path = assets_path.join("data").join("items");
+    let output_path = items_path.join("core.yaml");
+
+    // 全アイテムを収集
+    let mut items: Vec<serde_json::Value> = Vec::new();
+    if items_path.exists() {
+        if let Ok(entries) = fs::read_dir(&items_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "ron") {
+                    if let Ok(content) = fs::read_to_string(&path) {
+                        if let Ok(item) = ron::from_str::<ItemData>(&content) {
+                            // ゲーム互換形式に変換
+                            let game_item = serde_json::json!({
+                                "id": item.id,
+                                "name": item.i18n_key.replace("item.", "").replace("machine.", "").replace("multiblock.", ""),
+                                "description": "",
+                                "icon": item.asset.icon_path.unwrap_or_default(),
+                                "max_stack": 999,
+                                "properties": item.properties.iter().map(|(k, v)| (k.clone(), v.to_string())).collect::<std::collections::HashMap<_, _>>()
+                            });
+                            items.push(game_item);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let content = serde_yaml::to_string(&items).map_err(|e| format!("YAMLシリアライズエラー: {}", e))?;
+    fs::write(&output_path, content).map_err(|e| format!("ファイル書き込みエラー: {}", e))?;
+
+    Ok(format!("{}アイテムをエクスポートしました: {}", items.len(), output_path.display()))
 }
 
 #[tauri::command]
@@ -209,7 +267,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet, set_assets_path, get_assets_path, create_item, update_item_asset,
             save_localization, load_localization, update_locale, to_relative_path,
-            save_item_data, load_item_data, delete_item_data, save_recipe, load_recipe, list_recipes, get_assets_catalog,
+            save_item_data, save_item_data_yaml, load_item_data, delete_item_data,
+            save_recipe, save_recipe_yaml, load_recipe, list_recipes,
+            export_items_to_yaml, get_assets_catalog,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

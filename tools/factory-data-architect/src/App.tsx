@@ -60,8 +60,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
   }
 }
 
-// Default assets path
-const DEFAULT_ASSETS_PATH = "C:/Users/bacon/OneDrive/ドキュメント/github/IdealFactoryGame/my-bevy-project/assets";
+// No default assets path - user must select on first launch
 
 type EditorTab = "items" | "recipes" | "quests" | "multiblock" | "biome" | "sounds";
 
@@ -235,7 +234,7 @@ function App() {
   const [isSettingUp, setIsSettingUp] = useState(true);
   const [activeTab, setActiveTab] = useState<EditorTab>("items");
 
-  // Load saved assets path on startup, or use default
+  // Load saved assets path on startup
   useEffect(() => {
     const initAssetsPath = async () => {
       // Check existing settings first
@@ -246,15 +245,8 @@ function App() {
         return;
       }
 
-      // Set default path
-      try {
-        await invoke("set_assets_path", { path: DEFAULT_ASSETS_PATH });
-        setAssetsPath(DEFAULT_ASSETS_PATH);
-        setIsSettingUp(false);
-      } catch {
-        // If default path is invalid, prompt manual selection
-        setIsSettingUp(true);
-      }
+      // No default path - prompt manual selection
+      setIsSettingUp(true);
     };
 
     initAssetsPath();

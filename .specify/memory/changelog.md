@@ -1,5 +1,64 @@
 # Development Changelog
 
+## 2025-12-22: アーキテクチャレビューと修正
+
+### 調査実施
+エディタ、ゲーム、連携について包括的な調査を実施。
+
+**調査結果**: `tools/factory-data-architect/ARCHITECTURE_REVIEW.md`
+
+### 発見した重大な問題
+
+#### 1. データフォーマット不整合 (Critical)
+- エディタ: RON形式で保存
+- ゲーム: YAML形式で読み込み
+- **影響**: エディタで作成したデータをゲームで直接使用できない
+
+#### 2. レシピ型の非互換性
+- エディタ: `RecipeDef` (machine_type, ingredients, results, process_time)
+- ゲーム: `Recipe` (work_type, inputs, outputs, craft_time)
+- フィールド名が異なり、互換性がない
+
+#### 3. 型定義の三重重複 (DRY違反)
+- エディタRust、エディタTypeScript、ゲームRustで同じ概念が別々に定義
+
+### 修正内容
+
+#### ハードコードパスの削除
+- `App.tsx`: `DEFAULT_ASSETS_PATH`を削除
+- 初回起動時は必ずフォルダ選択を促すように変更
+
+#### YAMLエクスポート機能追加
+- `lib.rs`: 以下のコマンドを追加
+  - `save_item_data_yaml`: アイテムをYAML形式で保存
+  - `save_recipe_yaml`: レシピをYAML形式で保存
+  - `export_items_to_yaml`: 全アイテムをゲーム用core.yamlにエクスポート
+- `Cargo.toml`: `serde_yaml = "0.9"`を追加
+
+### 今後の推奨アクション
+
+#### 短期
+1. エクスポートボタンをUIに追加（TypeScript側）
+2. レシピ型の互換性レイヤー作成
+
+#### 中期
+1. 共通型定義crate作成
+2. TypeScript型をRust型から自動生成
+
+#### 長期
+1. データフォーマット統一（YAMLまたはRON）
+2. ホットリロード対応
+
+### Files Modified
+- `tools/factory-data-architect/src/App.tsx`
+- `tools/factory-data-architect/src-tauri/Cargo.toml`
+- `tools/factory-data-architect/src-tauri/src/lib.rs`
+
+### Files Created
+- `tools/factory-data-architect/ARCHITECTURE_REVIEW.md`
+
+---
+
 ## 2025-12-20: エディタ懸念点修正
 
 ### Fixed
