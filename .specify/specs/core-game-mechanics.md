@@ -527,12 +527,98 @@ As a player, I want to see my active hotbar items at the bottom of the screen wi
 
 ---
 
+## Recipe Design Guidelines (R1-R4)
+
+### R1. Input/Output Balance
+- **Principle**: All byproducts must have a consumption destination
+- **Check**: No recipe creates waste without disposal/recycling path
+- **Example**: Oil refining → gasoline (generators) + plastic (electronics)
+
+### R2. Ratio Elegance
+- **Principle**: Prefer simple integer ratios for easy calculation
+- **Good**: 2:1:1, 1:1:1, 3:1
+- **Avoid**: 3:7:2 (fractional line setups)
+
+### R3. Depth Limit
+- **Maximum Depth**: 5 tiers from raw material to final product
+- **Each Tier**: Must represent meaningful transformation
+- **Example**: Ore → Ingot → Plate → Component → Product (4 tiers)
+
+### R4. Visibility
+- **Tree View**: Dependency tree must be visualizable
+- **Reverse Lookup**: "What uses this item?" must be answerable
+- **Bottleneck Detection**: Visual indication of constraint points
+
+---
+
+## Progression Design (P1-P4, L1-L3)
+
+### Phase Structure
+
+| Phase | Duration | Focus | Milestone |
+|-------|----------|-------|-----------|
+| Learning | 0-2h | Manual operations, basic automation | First automated production line |
+| Strategy | 2-10h | Production line design, resource management | Self-sustaining factory |
+| Expansion | 10-50h | Large-scale factory, optimization | Space station delivery begins |
+| Mastery | 50h+ | Mega-factory, efficiency maximization | Space station completion |
+
+### P1. Gradual Complexity
+- First recipes: 1-2 inputs only
+- New materials derive from existing ones
+- Complex recipes introduced after simpler variants mastered
+
+### P2. Clear Milestones
+- Each phase has explicit goal visible in UI
+- Achievement feedback on milestone completion
+- Next objective always visible
+
+### P3. Multiple Paths
+- At least 2 routes to progress through each phase
+- No single bottleneck can completely block progress
+- Players can skip difficult tasks and return later
+
+### P4. Immediate Rewards
+- Machines begin operation within seconds of placement
+- First output visible within 30 seconds
+- Alternative tasks available during wait times
+
+### L3. Wait Time Management
+During production waits, players should have:
+- **Exploration**: Discover new resources/areas
+- **Optimization**: Improve existing lines
+- **Planning**: Design next expansion
+- **Decoration**: Aesthetic improvements
+
+---
+
+## Accessibility Requirements (A1-A3)
+
+### Visual (A1)
+- [ ] Color blind modes (Protanopia, Deuteranopia, Tritanopia)
+- [ ] Contrast ratio 4.5:1 or higher
+- [ ] Information conveyed by color+shape (never color alone)
+- [ ] UI scale adjustment (75%-200%)
+
+### Audio (A2)
+- [ ] Subtitle option for all audio cues
+- [ ] Visual sound indicators (directional)
+- [ ] Category volume sliders (Master/Music/SFX/Voice)
+
+### Motor (A3)
+- [ ] All keys remappable
+- [ ] Hold/Toggle option for all hold actions
+- [ ] Mouse sensitivity adjustment
+- [ ] One-hand mode option
+
+---
+
 ## Related Documents
 
 - `.specify/memory/constitution.md` - Project principles and standards
+- `.specify/memory/patterns-compact.md` - Design patterns reference
 - `API_REFERENCE.md` - Complete API documentation
 - `.specify/memory/changelog.md` - Development history
 
 ---
 
-*This specification is based on the implemented GAME_SPEC.md and represents the current state of the game as of Phase 3 completion.*
+*This specification is based on the implemented GAME_SPEC.md and represents the current state of the game as of Phase 3 completion. Updated 2025-12-22 with design pattern integration.*
