@@ -17,6 +17,7 @@
 *.swo
 *~
 .DS_Store
+*.code-workspace
 
 # OS
 Thumbs.db

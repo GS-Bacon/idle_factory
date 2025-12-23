@@ -185,6 +185,26 @@ UiVerification {
 
 **テスト**: 109件すべて成功
 
+### プロファイル別リソースパック設定
+
+- `src/core/profile.rs` - プロファイルシステム実装
+  - プロファイルごとに有効なリソースパックを設定可能
+  - 優先度オーバーライドでパックの適用順序を制御
+  - プロファイル変更時に自動でリソースパック切り替え
+  - MOD依存関係管理
+- `profiles/vanilla/profile.yaml` - 公式プロファイル
+- `profiles/industrial/profile.yaml` - カスタムプロファイル例
+- `config/active_profile.yaml` - 起動時のプロファイル設定
+
+### リソースパックシステム実装
+
+- `src/core/resource_pack.rs` - Minecraft風リソースパック
+  - テクスチャ、モデル、サウンド、フォントの部分上書き
+  - 翻訳ファイル（多言語対応）
+  - パック優先度による積み重ね
+  - ホットリロード対応
+- `resource_packs/example-pack/` - サンプルパック作成
+
 ---
 
 ## 2025-12-22

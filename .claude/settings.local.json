@@ -59,7 +59,15 @@
       "Bash(timeout 50 npm run:*)",
       "Bash(cargo check:*)",
       "Bash(dir:*)",
-      "Bash(timeout 120 cargo test:*)"
+      "Bash(timeout 120 cargo test:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(git restore:*)",
+      "Bash(timeout 60 cargo run:*)",
+      "Bash(timeout 120 cargo run:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(rm:*)"
     ]
   }
 }
