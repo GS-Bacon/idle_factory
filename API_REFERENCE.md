@@ -13,7 +13,8 @@ src/
 │   ├── debug.rs     # DebugPlugin
 │   ├── encryption.rs # AES-256-GCM暗号化 (C3)
 │   ├── accessibility.rs # アクセシビリティ (A1-A3)
-│   └── sound.rs     # サウンドシステム (S1-S4)
+│   ├── sound.rs     # サウンドシステム (S1-S4)
+│   └── resource_pack.rs # リソースパックシステム
 ├── rendering/
 │   ├── mod.rs       # RenderingPlugin
 │   ├── chunk.rs     # Chunk (CHUNK_SIZE=32)
@@ -175,6 +176,58 @@ pub struct PlaySoundEvent {
 }
 
 pub struct SoundPlugin;
+```
+
+### resource_pack.rs
+```rust
+/// リソースパックのメタ情報
+pub struct ResourcePackManifest {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub version: String,
+    pub author: String,
+    pub priority: i32,
+}
+
+/// リソースパックマネージャー
+#[derive(Resource)]
+pub struct ResourcePackManager {
+    pub available_packs: Vec<ResourcePack>,
+}
+
+impl ResourcePackManager {
+    pub fn scan_packs(&mut self);
+    pub fn enable_pack(&mut self, pack_id: &str) -> bool;
+    pub fn disable_pack(&mut self, pack_id: &str) -> bool;
+    pub fn get_enabled_packs(&self) -> Vec<&ResourcePack>;
+}
+
+/// 解決済みリソースパス
+#[derive(Resource)]
+pub struct ActiveResourcePacks {
+    pub textures: HashMap<String, PathBuf>,
+    pub models: HashMap<String, PathBuf>,
+    pub sounds: HashMap<String, PathBuf>,
+    pub fonts: HashMap<String, PathBuf>,
+}
+
+/// 翻訳マネージャー
+#[derive(Resource)]
+pub struct TranslationManager {
+    pub current_language: String,
+}
+
+impl TranslationManager {
+    pub fn get(&self, key: &str) -> &str;
+    pub fn get_with_args(&self, key: &str, args: &[(&str, &str)]) -> String;
+    pub fn set_language(&mut self, language: &str);
+}
+
+#[derive(Event)] pub struct ResourcePackChangedEvent;
+#[derive(Event)] pub struct ReloadResourcePacksEvent;
+
+pub struct ResourcePackPlugin;
 ```
 
 ---

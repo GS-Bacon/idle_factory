@@ -1,0 +1,27 @@
+# リソースパックのメタ情報
+id: example-pack
+name: Example Resource Pack
+description: リソースパックの作り方を示すサンプル
+version: "1.0.0"
+author: Example Author
+game_version: "0.1.0"
+# icon: icon.png  # パック内のアイコン画像（オプション）
+priority: 100  # 優先度（高いほど後に適用、上書き優先）
+
+# === 使い方 ===
+#
+# 1. このディレクトリに以下のフォルダを作成：
+#    - textures/  : PNG/JPG画像（UI、ブロックテクスチャ）
+#    - models/    : .voxファイル（ボクセルモデル）
+#    - sounds/    : OGG/WAV/MP3（サウンドファイル）
+#    - fonts/     : TTF/OTFファイル（フォント）
+#    - lang/      : YAML翻訳ファイル（ja.yaml, en.yaml等）
+#
+# 2. デフォルトアセットと同じパスのファイルを置くと上書き
+#    例: textures/ui/button.png → デフォルトのボタン画像を置き換え
+#
+# 3. 新しいファイルを追加することも可能
+#    例: textures/custom/my_texture.png → 新規テクスチャを追加
+#
+# 4. 翻訳ファイルは部分的な上書きが可能
+#    lang/ja.yaml に一部のキーだけ書けば、そのキーだけ上書き
