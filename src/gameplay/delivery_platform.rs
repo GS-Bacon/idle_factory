@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 use super::grid::{Direction, SimulationGrid};
 use super::quest::{QuestManager, QuestRegistry, QuestStatus};
+use crate::ui::main_menu::AppState;
 
 /// 納品プラットフォームのサイズ
 pub const PLATFORM_SIZE: i32 = 12;
@@ -169,14 +170,15 @@ impl Plugin for DeliveryPlatformPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ItemDeliveredEvent>()
             .add_event::<SpawnPlatformEvent>()
-            .add_systems(Startup, spawn_initial_platform)
+            // InGame開始時にプラットフォームをスポーン
+            .add_systems(OnEnter(AppState::InGame), spawn_initial_platform)
             .add_systems(
                 Update,
                 (
-                    handle_spawn_platform,
-                    receive_items_from_conveyors,
-                    sync_delivery_to_quest,
-                    update_port_availability,
+                    handle_spawn_platform.run_if(in_state(AppState::InGame)),
+                    receive_items_from_conveyors.run_if(in_state(AppState::InGame)),
+                    sync_delivery_to_quest.run_if(in_state(AppState::InGame)),
+                    update_port_availability.run_if(in_state(AppState::InGame)),
                 ),
             );
     }

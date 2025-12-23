@@ -10,6 +10,7 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::gameplay::inventory::{PlayerInventory, EquipmentSlots, ItemRegistry, EquipmentSlotType};
 use crate::core::registry::RecipeRegistry;
+use crate::ui::main_menu::AppState;
 
 /// インベントリUIのステート
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -168,9 +169,12 @@ impl Plugin for InventoryUiPlugin {
             ))
             .add_systems(OnExit(InventoryUiState::PlayerInventory), (despawn_inventory_ui, spawn_hotbar_hud_if_not_creative, grab_cursor))
             .add_systems(OnExit(InventoryUiState::Container), (despawn_inventory_ui, grab_cursor))
-            .add_systems(OnEnter(InventoryUiState::Closed), spawn_hotbar_hud)
-            .add_systems(OnEnter(InventoryUiState::PlayerInventory), spawn_hotbar_hud_if_creative)
-            .add_systems(OnExit(InventoryUiState::Closed), despawn_hotbar_hud_if_not_creative)
+            // ホットバーHUDはInGame開始時にスポーン、終了時にデスポーン
+            .add_systems(OnEnter(AppState::InGame), spawn_hotbar_hud)
+            .add_systems(OnExit(AppState::InGame), despawn_hotbar_hud)
+            // インベントリ開閉時の表示切替
+            .add_systems(OnEnter(InventoryUiState::PlayerInventory), (spawn_hotbar_hud_if_creative, hide_hotbar_hud_if_not_creative))
+            .add_systems(OnExit(InventoryUiState::Closed), hide_hotbar_hud_if_not_creative)
             .add_systems(Update, (
                 (
                     handle_slot_interaction,
@@ -1699,20 +1703,6 @@ fn despawn_hotbar_hud(
     }
 }
 
-/// クリエイティブモードでない場合のみホットバーHUDを削除
-fn despawn_hotbar_hud_if_not_creative(
-    mut commands: Commands,
-    query: Query<Entity, With<HotbarHud>>,
-    game_mode: Res<crate::gameplay::commands::GameMode>,
-) {
-    // サバイバルモードの場合のみ削除
-    if *game_mode == crate::gameplay::commands::GameMode::Survival {
-        for entity in &query {
-            commands.entity(entity).despawn_recursive();
-        }
-    }
-}
-
 /// クリエイティブモードの場合のみホットバーHUDを生成
 fn spawn_hotbar_hud_if_creative(
     commands: Commands,
@@ -1726,16 +1716,29 @@ fn spawn_hotbar_hud_if_creative(
     }
 }
 
-/// サバイバルモードの場合のみホットバーHUDを生成
+/// サバイバルモードの場合のみホットバーHUDを表示
 fn spawn_hotbar_hud_if_not_creative(
-    commands: Commands,
-    player_inventory: Res<PlayerInventory>,
-    item_registry: Res<ItemRegistry>,
+    mut query: Query<&mut Visibility, With<HotbarHud>>,
     game_mode: Res<crate::gameplay::commands::GameMode>,
 ) {
-    // サバイバルモードの場合のみ生成
+    // サバイバルモードの場合のみ表示
     if *game_mode == crate::gameplay::commands::GameMode::Survival {
-        spawn_hotbar_hud(commands, player_inventory, item_registry);
+        for mut visibility in &mut query {
+            *visibility = Visibility::Visible;
+        }
+    }
+}
+
+/// サバイバルモードの場合のみホットバーHUDを非表示
+fn hide_hotbar_hud_if_not_creative(
+    mut query: Query<&mut Visibility, With<HotbarHud>>,
+    game_mode: Res<crate::gameplay::commands::GameMode>,
+) {
+    // サバイバルモードの場合のみ非表示
+    if *game_mode == crate::gameplay::commands::GameMode::Survival {
+        for mut visibility in &mut query {
+            *visibility = Visibility::Hidden;
+        }
     }
 }
 

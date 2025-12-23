@@ -42,13 +42,14 @@ impl Plugin for SoundPlugin {
 }
 
 /// サウンドカテゴリ
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum SoundCategory {
     /// マスターボリューム
     Master,
     /// 音楽
     Music,
     /// 効果音
+    #[default]
     Sfx,
     /// ボイス/アナウンス
     Voice,
@@ -56,12 +57,6 @@ pub enum SoundCategory {
     Ambient,
     /// UI音
     Ui,
-}
-
-impl Default for SoundCategory {
-    fn default() -> Self {
-        Self::Sfx
-    }
 }
 
 /// サウンド設定

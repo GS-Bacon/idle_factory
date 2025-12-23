@@ -8,6 +8,7 @@ pub mod recipe_system;
 pub mod kinetic_machines;
 
 use bevy::prelude::*;
+use crate::ui::main_menu::AppState;
 
 // マシン関連のシステムをまとめて登録するプラグイン的関数
 pub fn register_machines(app: &mut App) {
@@ -15,6 +16,7 @@ pub fn register_machines(app: &mut App) {
     app.add_plugins(recipe_system::RecipeSystemPlugin);
     app.add_plugins(kinetic_machines::KineticMachinesPlugin);
 
+    // InGame時のみマシンシステムを実行
     app.add_systems(Update, (
         conveyor::tick_conveyors,
         conveyor::draw_conveyor_guides,
@@ -24,5 +26,5 @@ pub fn register_machines(app: &mut App) {
         // Note: Assembler interaction is now handled by MachineUiPlugin
         render::update_machine_visuals,
         debug::draw_machine_io_markers,
-    ));
+    ).run_if(in_state(AppState::InGame)));
 }

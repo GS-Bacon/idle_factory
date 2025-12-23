@@ -1,5 +1,9 @@
 use bevy::prelude::*;
 
+/// クロスヘアマーカー
+#[derive(Component)]
+pub struct CrosshairRoot;
+
 // クロスヘア（照準）を描画
 pub fn spawn_crosshair(mut commands: Commands) {
     let color = Color::srgba(1.0, 1.0, 1.0, 0.5); // 半透明の白
@@ -7,13 +11,16 @@ pub fn spawn_crosshair(mut commands: Commands) {
     let length = Val::Px(10.0);
 
     // 画面中央に配置する親Node (色は不要なので Node だけでOK)
-    commands.spawn(Node {
-        width: Val::Percent(100.0),
-        height: Val::Percent(100.0),
-        align_items: AlignItems::Center, // 上下中央
-        justify_content: JustifyContent::Center, // 左右中央
-        ..default()
-    }).with_children(|parent| {
+    commands.spawn((
+        CrosshairRoot,
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center, // 上下中央
+            justify_content: JustifyContent::Center, // 左右中央
+            ..default()
+        },
+    )).with_children(|parent| {
         // 横棒
         parent.spawn((
             Node {
@@ -35,4 +42,14 @@ pub fn spawn_crosshair(mut commands: Commands) {
             BackgroundColor(color), // ★修正: ここも同じ
         ));
     });
+}
+
+/// クロスヘアを削除
+pub fn despawn_crosshair(
+    mut commands: Commands,
+    query: Query<Entity, With<CrosshairRoot>>,
+) {
+    for entity in &query {
+        commands.entity(entity).despawn_recursive();
+    }
 }

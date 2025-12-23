@@ -89,14 +89,14 @@ impl ColorBlindMode {
 
     /// 高コントラスト（彩度と明度を強調）
     fn apply_high_contrast(&self, color: Color) -> Color {
-        let hsla = color.to_srgba();
+        let hsla: Hsla = color.into();
         // 明度を強調（暗い色はより暗く、明るい色はより明るく）
-        let lightness = if hsla.lightness() < 0.5 {
-            hsla.lightness() * 0.5
+        let new_lightness = if hsla.lightness < 0.5 {
+            hsla.lightness * 0.5
         } else {
-            1.0 - (1.0 - hsla.lightness()) * 0.5
+            1.0 - (1.0 - hsla.lightness) * 0.5
         };
-        Color::srgba(hsla.red, hsla.green, hsla.blue, hsla.alpha).with_luminance(lightness)
+        Color::from(Hsla::new(hsla.hue, hsla.saturation, new_lightness, hsla.alpha))
     }
 
     /// 次のモードを取得
