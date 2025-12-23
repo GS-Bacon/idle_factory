@@ -1,0 +1,32 @@
+# English translations (example of partial override)
+# Only list keys you want to override from defaults
+
+# UI text
+ui:
+  main_menu:
+    play: Start Game
+    settings: Settings
+    quit: Quit
+
+  inventory:
+    title: Inventory
+    sort: Sort
+    trash: Trash
+
+# Item names
+items:
+  raw_ore: Raw Ore
+  iron_ingot: Iron Ingot
+  copper_ingot: Copper Ingot
+
+# Machine names
+machines:
+  conveyor: Conveyor Belt
+  miner: Miner
+  assembler: Assembler
+
+# Messages
+messages:
+  welcome: "Welcome, {name}!"
+  item_placed: "{item} placed"
+  power_overload: Power Overload!

@@ -13,7 +13,9 @@ src/
 │   ├── debug.rs     # DebugPlugin
 │   ├── encryption.rs # AES-256-GCM暗号化 (C3)
 │   ├── accessibility.rs # アクセシビリティ (A1-A3)
-│   └── sound.rs     # サウンドシステム (S1-S4)
+│   ├── sound.rs     # サウンドシステム (S1-S4)
+│   ├── resource_pack.rs # リソースパックシステム
+│   └── profile.rs   # プロファイルシステム
 ├── rendering/
 │   ├── mod.rs       # RenderingPlugin
 │   ├── chunk.rs     # Chunk (CHUNK_SIZE=32)
@@ -175,6 +177,121 @@ pub struct PlaySoundEvent {
 }
 
 pub struct SoundPlugin;
+```
+
+### resource_pack.rs
+```rust
+/// リソースパックのメタ情報
+pub struct ResourcePackManifest {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub version: String,
+    pub author: String,
+    pub priority: i32,
+}
+
+/// リソースパックマネージャー
+#[derive(Resource)]
+pub struct ResourcePackManager {
+    pub available_packs: Vec<ResourcePack>,
+}
+
+impl ResourcePackManager {
+    pub fn scan_packs(&mut self);
+    pub fn enable_pack(&mut self, pack_id: &str) -> bool;
+    pub fn disable_pack(&mut self, pack_id: &str) -> bool;
+    pub fn get_enabled_packs(&self) -> Vec<&ResourcePack>;
+}
+
+/// 解決済みリソースパス
+#[derive(Resource)]
+pub struct ActiveResourcePacks {
+    pub textures: HashMap<String, PathBuf>,
+    pub models: HashMap<String, PathBuf>,
+    pub sounds: HashMap<String, PathBuf>,
+    pub fonts: HashMap<String, PathBuf>,
+}
+
+/// 翻訳マネージャー
+#[derive(Resource)]
+pub struct TranslationManager {
+    pub current_language: String,
+}
+
+impl TranslationManager {
+    pub fn get(&self, key: &str) -> &str;
+    pub fn get_with_args(&self, key: &str, args: &[(&str, &str)]) -> String;
+    pub fn set_language(&mut self, language: &str);
+}
+
+#[derive(Event)] pub struct ResourcePackChangedEvent;
+#[derive(Event)] pub struct ReloadResourcePacksEvent;
+
+pub struct ResourcePackPlugin;
+```
+
+### profile.rs
+```rust
+/// プロファイル設定（profile.yaml）
+pub struct ProfileConfig {
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub author: String,
+    pub mods: Vec<ModDependency>,
+    pub resource_packs: Vec<ResourcePackEntry>,  // プロファイル固有のリソースパック設定
+    pub server_origin: Option<String>,
+}
+
+/// リソースパックエントリ（プロファイル内）
+pub struct ResourcePackEntry {
+    pub id: String,
+    pub priority_override: Option<i32>,  // パックの優先度を上書き
+}
+
+/// プロファイル
+pub struct Profile {
+    pub id: String,
+    pub config: ProfileConfig,
+    pub path: PathBuf,
+    pub data_path: PathBuf,    // items.yaml, recipes.yaml, quests.yaml
+    pub assets_path: PathBuf,  // icons/, models/
+}
+
+impl Profile {
+    pub fn items_path(&self) -> PathBuf;
+    pub fn recipes_path(&self) -> PathBuf;
+    pub fn quests_path(&self) -> PathBuf;
+    pub fn achievements_path(&self) -> PathBuf;
+}
+
+/// プロファイルマネージャー
+#[derive(Resource)]
+pub struct ProfileManager {
+    pub available_profiles: Vec<Profile>,
+}
+
+impl ProfileManager {
+    pub fn scan_profiles(&mut self);
+    pub fn get_profile(&self, id: &str) -> Option<&Profile>;
+    pub fn get_default_profile(&self) -> Option<&Profile>;
+}
+
+/// アクティブプロファイル
+#[derive(Resource)]
+pub struct ActiveProfile {
+    pub id: Option<String>,
+    pub config: Option<ProfileConfig>,
+    pub path: Option<PathBuf>,
+}
+
+// Events
+#[derive(Event)] pub struct ProfileChangedEvent { pub profile_id: String }
+#[derive(Event)] pub struct LoadProfileEvent { pub profile_id: String }
+
+pub struct ProfilePlugin;
+// プロファイル変更時に自動でリソースパックを切り替え
 ```
 
 ---
@@ -627,7 +744,11 @@ GamePlugin (lib.rs)
 │   ├── ConfigPlugin
 │   ├── InputPlugin
 │   ├── RegistryPlugin
-│   └── DebugPlugin
+│   ├── DebugPlugin
+│   ├── AccessibilityPlugin
+│   ├── SoundPlugin
+│   ├── ResourcePackPlugin
+│   └── ProfilePlugin      # リソースパックをプロファイルと連携
 ├── RenderingPlugin
 ├── GameplayPlugin
 │   ├── InteractionPlugin
@@ -635,7 +756,8 @@ GamePlugin (lib.rs)
 │   ├── MultiblockPlugin
 │   └── register_machines()
 ├── UiPlugin
-│   └── MachineUiPlugin
+│   ├── MachineUiPlugin
+│   └── UiFeedbackPlugin
 └── NetworkPlugin (stub)
 ```
 
@@ -673,8 +795,37 @@ GamePlugin (lib.rs)
 - `assets/data/recipes/vanilla.yaml` - Recipe definitions
 - `assets/models/*.vox` - Voxel models
 
+## Profile Structure
+```
+profiles/
+├── vanilla/                    # 公式コンテンツ
+│   ├── profile.yaml           # プロファイル設定（リソースパック指定含む）
+│   ├── data/
+│   │   ├── items.yaml
+│   │   ├── recipes.yaml       # レシピツリー
+│   │   └── quests.yaml
+│   └── assets/
+│       └── icons/
+├── industrial/                 # カスタムプロファイル例
+│   └── profile.yaml
+└── ...
+
+resource_packs/
+├── example-pack/
+│   ├── pack.yaml
+│   ├── textures/
+│   ├── sounds/
+│   └── lang/
+└── ...
+
+config/
+└── active_profile.yaml        # 起動時のアクティブプロファイル
+```
+
 ## Tests
 - power.rs: 2 tests (grouping, overstress)
 - multiblock.rs: 4 tests (pattern offsets, validation)
 - machine_ui.rs: 2 tests (state transitions, recipe setting)
 - assembler.rs: 1 test (full cycle)
+- resource_pack.rs: 4 tests (translation, serialization)
+- profile.rs: 4 tests (config serialization, paths, mod dependency)

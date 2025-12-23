@@ -1,0 +1,32 @@
+# 日本語翻訳（部分的な上書きの例）
+# デフォルトの翻訳を上書きしたいキーだけ記載
+
+# UIテキスト
+ui:
+  main_menu:
+    play: ゲームを始める
+    settings: 設定を開く
+    quit: 終了する
+
+  inventory:
+    title: インベントリ
+    sort: 整理
+    trash: ゴミ箱
+
+# アイテム名
+items:
+  raw_ore: 原石
+  iron_ingot: 鉄インゴット
+  copper_ingot: 銅インゴット
+
+# 機械名
+machines:
+  conveyor: コンベアベルト
+  miner: 採掘機
+  assembler: 組立機
+
+# メッセージ
+messages:
+  welcome: "{name}さん、ようこそ！"
+  item_placed: "{item}を設置しました"
+  power_overload: 電力過負荷！

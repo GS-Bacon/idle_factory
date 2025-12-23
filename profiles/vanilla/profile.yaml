@@ -1,0 +1,21 @@
+# Vanilla プロファイル
+# 公式コンテンツ（Steam配布用）
+
+name: "Vanilla"
+version: "1.0.0"
+description: "標準ゲームコンテンツ"
+author: "Factory Game Team"
+
+# 依存MOD（なし）
+mods: []
+
+# 有効なリソースパック（後のものが優先）
+# 各プロファイルで個別に設定可能
+resource_packs: []
+  # 例:
+  # - id: hd-textures
+  #   priority_override: 100  # 優先度を上書き（省略可）
+  # - id: japanese-translation
+
+# マルチプレイサーバー（シングルプレイの場合はnull）
+server_origin: null
