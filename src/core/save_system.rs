@@ -17,6 +17,7 @@ impl Plugin for SaveSystemPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SaveSlotData>()
             .init_resource::<WorldGenerationParams>()
+            .init_resource::<PlayTimeTracker>()
             .add_systems(Startup, load_save_slots);
     }
 }
@@ -188,6 +189,105 @@ pub fn delete_save(slot_index: usize) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+// ========================================
+// ワールドセーブデータ
+// ========================================
+
+/// インベントリスロットのセーブデータ
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SavedInventorySlot {
+    pub item_id: Option<String>,
+    pub count: u32,
+}
+
+/// プレイヤーデータのセーブ
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SavedPlayerData {
+    pub position: [f32; 3],
+    pub yaw: f32,
+    pub pitch: f32,
+    pub inventory: Vec<SavedInventorySlot>,
+    pub selected_hotbar_slot: usize,
+}
+
+/// ワールドセーブデータ
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorldSaveData {
+    pub player: SavedPlayerData,
+    pub game_mode: String,
+    // 将来的に追加: チャンクデータ、配置した機械など
+}
+
+/// ワールドデータのパス
+fn world_data_path(slot_index: usize) -> PathBuf {
+    save_dir().join(format!("slot_{}", slot_index)).join("world.json")
+}
+
+/// ワールドデータを保存
+pub fn save_world_data(data: &WorldSaveData, slot_index: usize) -> Result<(), String> {
+    let dir = save_dir().join(format!("slot_{}", slot_index));
+
+    // ディレクトリを作成
+    if !dir.exists() {
+        fs::create_dir_all(&dir)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
+    let path = world_data_path(slot_index);
+    let content = serde_json::to_string_pretty(data)
+        .map_err(|e| format!("Serialize error: {}", e))?;
+
+    fs::write(&path, content)
+        .map_err(|e| format!("Write error: {}", e))?;
+
+    info!("Saved world data to {:?}", path);
+    Ok(())
+}
+
+/// ワールドデータを読み込み
+pub fn load_world_data(slot_index: usize) -> Result<WorldSaveData, String> {
+    let path = world_data_path(slot_index);
+
+    if !path.exists() {
+        return Err("World data not found".to_string());
+    }
+
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Read error: {}", e))?;
+
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Parse error: {}", e))
+}
+
+/// プレイ時間トラッキングリソース
+#[derive(Resource, Default)]
+pub struct PlayTimeTracker {
+    pub session_start: Option<std::time::Instant>,
+    pub total_seconds: f64,
+}
+
+impl PlayTimeTracker {
+    /// セッション開始
+    pub fn start_session(&mut self) {
+        self.session_start = Some(std::time::Instant::now());
+    }
+
+    /// セッション終了、トータル時間を更新
+    pub fn end_session(&mut self) {
+        if let Some(start) = self.session_start.take() {
+            self.total_seconds += start.elapsed().as_secs_f64();
+        }
+    }
+
+    /// 現在のトータル時間を取得（セッション中の時間を含む）
+    pub fn current_total(&self) -> f64 {
+        let session_time = self.session_start
+            .map(|s| s.elapsed().as_secs_f64())
+            .unwrap_or(0.0);
+        self.total_seconds + session_time
+    }
 }
 
 #[cfg(test)]

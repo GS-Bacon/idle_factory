@@ -7,7 +7,14 @@
 use bevy::prelude::*;
 use bevy::app::AppExit;
 use bevy::input::keyboard::{Key, KeyboardInput};
-use crate::core::save_system::{SaveSlotData, SaveMetadata, WorldGenerationParams, save_metadata};
+use crate::core::save_system::{
+    SaveSlotData, SaveMetadata, WorldGenerationParams, save_metadata,
+    PlayTimeTracker, WorldSaveData, SavedPlayerData, SavedInventorySlot,
+    save_world_data, load_world_data,
+};
+use crate::gameplay::inventory::PlayerInventory;
+use crate::gameplay::player::Player;
+use crate::gameplay::commands::GameMode;
 
 /// メインメニュープラグイン
 pub struct MainMenuPlugin;
@@ -34,6 +41,9 @@ impl Plugin for MainMenuPlugin {
             // ポーズメニュー
             .add_systems(OnEnter(AppState::PauseMenu), spawn_pause_menu)
             .add_systems(OnExit(AppState::PauseMenu), despawn_with::<PauseMenuUi>)
+            // InGame
+            .add_systems(OnEnter(AppState::InGame), start_play_session)
+            .add_systems(OnExit(AppState::InGame), end_play_session)
             .add_systems(Update, (
                 button_interaction_system,
                 main_menu_buttons.run_if(in_state(AppState::MainMenu)),
@@ -42,6 +52,7 @@ impl Plugin for MainMenuPlugin {
                 save_select_buttons.run_if(in_state(AppState::SaveSelect)),
                 world_gen_buttons.run_if(in_state(AppState::WorldGeneration)),
                 text_input_system.run_if(in_state(AppState::WorldGeneration)),
+                update_text_input_display.run_if(in_state(AppState::WorldGeneration)),
                 pause_menu_buttons.run_if(in_state(AppState::PauseMenu)),
                 handle_menu_escape_key,
                 handle_ingame_escape_key.run_if(in_state(AppState::InGame)),
@@ -538,10 +549,16 @@ fn spawn_pause_menu(mut commands: Commands) {
     });
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn pause_menu_buttons(
     query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     mut next_state: ResMut<NextState<AppState>>,
+    player_query: Query<(&Transform, &Player)>,
+    player_inventory: Res<PlayerInventory>,
+    world_params: Res<WorldGenerationParams>,
+    game_mode: Res<GameMode>,
+    mut slot_data: ResMut<SaveSlotData>,
+    mut play_time: ResMut<PlayTimeTracker>,
 ) {
     for (interaction, action) in &query {
         if *interaction != Interaction::Pressed { continue; }
@@ -550,8 +567,45 @@ fn pause_menu_buttons(
             MenuButtonAction::Resume => next_state.set(AppState::InGame),
             MenuButtonAction::ReturnToMainMenu => next_state.set(AppState::MainMenu),
             MenuButtonAction::SaveAndQuit => {
-                // TODO: セーブ処理
-                info!("Saving game...");
+                // セーブ処理
+                if let Some(slot_index) = world_params.slot_index {
+                    // プレイヤーデータを収集
+                    if let Ok((transform, player)) = player_query.get_single() {
+                        let saved_inventory: Vec<SavedInventorySlot> = player_inventory.slots.iter()
+                            .map(|slot| SavedInventorySlot {
+                                item_id: slot.item_id.clone(),
+                                count: slot.count,
+                            })
+                            .collect();
+
+                        let world_data = WorldSaveData {
+                            player: SavedPlayerData {
+                                position: [transform.translation.x, transform.translation.y, transform.translation.z],
+                                yaw: player.yaw,
+                                pitch: player.pitch,
+                                inventory: saved_inventory,
+                                selected_hotbar_slot: player_inventory.selected_hotbar_slot,
+                            },
+                            game_mode: format!("{:?}", *game_mode),
+                        };
+
+                        if let Err(e) = save_world_data(&world_data, slot_index) {
+                            warn!("Failed to save world data: {}", e);
+                        }
+
+                        // プレイ時間を更新してメタデータを保存
+                        play_time.end_session();
+                        if let Some(meta) = slot_data.slots[slot_index].as_mut() {
+                            meta.play_time = play_time.current_total();
+                            meta.last_played_date = chrono::Utc::now();
+                            if let Err(e) = save_metadata(meta, slot_index) {
+                                warn!("Failed to save metadata: {}", e);
+                            }
+                        }
+
+                        info!("Game saved to slot {}", slot_index);
+                    }
+                }
                 next_state.set(AppState::MainMenu);
             }
             MenuButtonAction::Settings => info!("Settings (not implemented)"),
@@ -568,6 +622,65 @@ fn handle_ingame_escape_key(
     if keyboard.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::PauseMenu);
     }
+}
+
+/// プレイセッション開始時の処理
+fn start_play_session(
+    mut play_time: ResMut<PlayTimeTracker>,
+    world_params: Res<WorldGenerationParams>,
+    mut player_query: Query<(&mut Transform, &mut Player)>,
+    mut player_inventory: ResMut<PlayerInventory>,
+    slot_data: Res<SaveSlotData>,
+) {
+    // プレイ時間トラッキング開始
+    if let Some(slot_index) = world_params.slot_index {
+        // メタデータからプレイ時間を復元
+        if let Some(meta) = slot_data.get(slot_index) {
+            play_time.total_seconds = meta.play_time;
+        }
+    }
+    play_time.start_session();
+
+    // 既存のワールドをロード
+    if !world_params.is_new_world {
+        if let Some(slot_index) = world_params.slot_index {
+            match load_world_data(slot_index) {
+                Ok(world_data) => {
+                    // プレイヤー位置を復元
+                    if let Ok((mut transform, mut player)) = player_query.get_single_mut() {
+                        transform.translation = Vec3::new(
+                            world_data.player.position[0],
+                            world_data.player.position[1],
+                            world_data.player.position[2],
+                        );
+                        player.yaw = world_data.player.yaw;
+                        player.pitch = world_data.player.pitch;
+                    }
+
+                    // インベントリを復元
+                    for (i, saved_slot) in world_data.player.inventory.iter().enumerate() {
+                        if i < player_inventory.slots.len() {
+                            player_inventory.slots[i].item_id = saved_slot.item_id.clone();
+                            player_inventory.slots[i].count = saved_slot.count;
+                        }
+                    }
+                    player_inventory.selected_hotbar_slot = world_data.player.selected_hotbar_slot;
+
+                    info!("Loaded world from slot {}", slot_index);
+                }
+                Err(e) => {
+                    info!("No world data to load: {}", e);
+                }
+            }
+        }
+    }
+}
+
+/// プレイセッション終了時の処理
+fn end_play_session(
+    mut play_time: ResMut<PlayTimeTracker>,
+) {
+    play_time.end_session();
 }
 
 // ========================================
@@ -881,18 +994,9 @@ fn world_gen_buttons(
 
 fn text_input_system(
     mut input_query: Query<(&Interaction, &mut TextInput, &mut BackgroundColor)>,
-    mut display_query: Query<(&mut Text, &TextInputDisplay)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut key_events: EventReader<KeyboardInput>,
 ) {
-    // フォーカス切り替え
-    for (interaction, mut input, mut bg) in &mut input_query {
-        if *interaction == Interaction::Pressed {
-            input.active = true;
-            *bg = BackgroundColor(Color::srgb(0.22, 0.22, 0.28));
-        }
-    }
-
     // キー入力を収集
     let mut chars_to_add: Vec<String> = Vec::new();
     for event in key_events.read() {
@@ -903,7 +1007,13 @@ fn text_input_system(
     }
 
     // 入力処理
-    for (_, mut input, _) in &mut input_query {
+    for (interaction, mut input, mut bg) in &mut input_query {
+        // クリックでフォーカス切り替え
+        if *interaction == Interaction::Pressed {
+            input.active = true;
+            *bg = BackgroundColor(Color::srgb(0.22, 0.22, 0.28));
+        }
+
         if !input.active { continue; }
 
         // Backspace
@@ -914,6 +1024,7 @@ fn text_input_system(
         // Enter でフォーカス解除
         if keyboard.just_pressed(KeyCode::Enter) {
             input.active = false;
+            *bg = BackgroundColor(Color::srgb(0.15, 0.15, 0.18));
         }
 
         // 文字入力
@@ -924,8 +1035,15 @@ fn text_input_system(
                 }
             }
         }
+    }
+}
 
-        // 表示更新
+/// テキスト入力の表示を更新
+fn update_text_input_display(
+    input_query: Query<&TextInput>,
+    mut display_query: Query<(&mut Text, &TextInputDisplay)>,
+) {
+    for input in &input_query {
         for (mut text, display) in &mut display_query {
             if display.0 == input.field_type {
                 **text = if input.value.is_empty() { " ".to_string() } else { input.value.clone() };
