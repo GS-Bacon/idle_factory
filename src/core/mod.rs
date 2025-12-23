@@ -10,6 +10,7 @@ pub mod encryption;
 pub mod accessibility;
 pub mod sound;
 pub mod resource_pack;
+pub mod profile;
 
 use bevy::prelude::*;
 
@@ -28,6 +29,7 @@ impl Plugin for CorePlugin {
             .add_plugins(hot_reload::HotReloadPlugin)
             .add_plugins(accessibility::AccessibilityPlugin)
             .add_plugins(sound::SoundPlugin)
-            .add_plugins(resource_pack::ResourcePackPlugin);
+            .add_plugins(resource_pack::ResourcePackPlugin)
+            .add_plugins(profile::ProfilePlugin);
     }
 }
