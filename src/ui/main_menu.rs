@@ -15,19 +15,36 @@ pub struct MainMenuPlugin;
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<AppState>()
+            .init_resource::<ProfileList>()
+            // メインメニュー
             .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
             .add_systems(OnExit(AppState::MainMenu), despawn_with::<MainMenuUi>)
+            // プロファイル選択
+            .add_systems(OnEnter(AppState::ProfileSelect), spawn_profile_select)
+            .add_systems(OnExit(AppState::ProfileSelect), despawn_with::<ProfileSelectUi>)
+            // プロファイル設定
+            .add_systems(OnEnter(AppState::ProfileSettings), spawn_profile_settings)
+            .add_systems(OnExit(AppState::ProfileSettings), despawn_with::<ProfileSettingsUi>)
+            // セーブ選択
             .add_systems(OnEnter(AppState::SaveSelect), spawn_save_select)
             .add_systems(OnExit(AppState::SaveSelect), despawn_with::<SaveSelectUi>)
+            // ワールド生成
             .add_systems(OnEnter(AppState::WorldGeneration), spawn_world_generation)
             .add_systems(OnExit(AppState::WorldGeneration), despawn_with::<WorldGenUi>)
+            // ポーズメニュー
+            .add_systems(OnEnter(AppState::PauseMenu), spawn_pause_menu)
+            .add_systems(OnExit(AppState::PauseMenu), despawn_with::<PauseMenuUi>)
             .add_systems(Update, (
                 button_interaction_system,
                 main_menu_buttons.run_if(in_state(AppState::MainMenu)),
+                profile_select_buttons.run_if(in_state(AppState::ProfileSelect)),
+                profile_settings_buttons.run_if(in_state(AppState::ProfileSettings)),
                 save_select_buttons.run_if(in_state(AppState::SaveSelect)),
                 world_gen_buttons.run_if(in_state(AppState::WorldGeneration)),
                 text_input_system.run_if(in_state(AppState::WorldGeneration)),
+                pause_menu_buttons.run_if(in_state(AppState::PauseMenu)),
                 handle_menu_escape_key,
+                handle_ingame_escape_key.run_if(in_state(AppState::InGame)),
             ));
     }
 }
@@ -37,9 +54,12 @@ impl Plugin for MainMenuPlugin {
 pub enum AppState {
     #[default]
     MainMenu,
+    ProfileSelect,
+    ProfileSettings,
     SaveSelect,
     WorldGeneration,
     InGame,
+    PauseMenu,
 }
 
 // ========================================
@@ -50,10 +70,19 @@ pub enum AppState {
 pub struct MainMenuUi;
 
 #[derive(Component)]
+pub struct ProfileSelectUi;
+
+#[derive(Component)]
+pub struct ProfileSettingsUi;
+
+#[derive(Component)]
 pub struct SaveSelectUi;
 
 #[derive(Component)]
 pub struct WorldGenUi;
+
+#[derive(Component)]
+pub struct PauseMenuUi;
 
 /// ボタンの種類
 #[derive(Component, Clone)]
@@ -65,6 +94,14 @@ pub enum MenuButtonAction {
     SelectSlot(usize),
     CreateWorld,
     DeleteSlot(usize),
+    // プロファイル関連
+    SelectProfile(String),
+    EditProfile,
+    CreateProfile,
+    // ポーズメニュー関連
+    Resume,
+    ReturnToMainMenu,
+    SaveAndQuit,
 }
 
 /// テキスト入力フィールド
@@ -88,6 +125,32 @@ pub struct TextInputDisplay(pub TextInputType);
 /// 選択中のスロット
 #[derive(Resource, Default)]
 pub struct SelectedSlotIndex(pub Option<usize>);
+
+/// 利用可能なプロファイル一覧
+#[derive(Resource)]
+pub struct ProfileList {
+    pub profiles: Vec<ProfileInfo>,
+    pub active: String,
+}
+
+impl Default for ProfileList {
+    fn default() -> Self {
+        Self {
+            profiles: vec![
+                ProfileInfo { id: "vanilla".to_string(), name: "Vanilla".to_string(), description: "Official content".to_string() },
+            ],
+            active: "vanilla".to_string(),
+        }
+    }
+}
+
+/// プロファイル情報
+#[derive(Clone)]
+pub struct ProfileInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+}
 
 // ========================================
 // UIスタイル定数
@@ -191,11 +254,319 @@ fn main_menu_buttons(
         if *interaction != Interaction::Pressed { continue; }
 
         match action {
-            MenuButtonAction::Play => { next_state.set(AppState::SaveSelect); }
+            MenuButtonAction::Play => { next_state.set(AppState::ProfileSelect); }
             MenuButtonAction::Settings => { info!("Settings (not implemented)"); }
             MenuButtonAction::Quit => { exit.send(AppExit::Success); }
             _ => {}
         }
+    }
+}
+
+// ========================================
+// プロファイル選択画面
+// ========================================
+
+fn spawn_profile_select(
+    mut commands: Commands,
+    profile_list: Res<ProfileList>,
+) {
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.95)),
+        GlobalZIndex(100),
+        ProfileSelectUi,
+    )).with_children(|parent| {
+        parent.spawn((
+            Node {
+                width: Val::Px(450.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Px(30.0)),
+                row_gap: Val::Px(15.0),
+                ..default()
+            },
+            BackgroundColor(PANEL_BG),
+            BorderRadius::all(Val::Px(12.0)),
+        )).with_children(|panel| {
+            // タイトル
+            panel.spawn((
+                Text::new("Select Profile"),
+                TextFont { font_size: 28.0, ..default() },
+                TextColor(TEXT_PRIMARY),
+                Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
+            ));
+
+            // プロファイル一覧
+            panel.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(250.0),
+                    flex_direction: FlexDirection::Column,
+                    overflow: Overflow::clip_y(),
+                    row_gap: Val::Px(8.0),
+                    ..default()
+                },
+            )).with_children(|scroll| {
+                for profile in &profile_list.profiles {
+                    spawn_profile_slot(scroll, profile, profile.id == profile_list.active);
+                }
+            });
+
+            // ボタン行
+            panel.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceEvenly,
+                    margin: UiRect::top(Val::Px(10.0)),
+                    ..default()
+                },
+            )).with_children(|row| {
+                spawn_button(row, "Back", MenuButtonAction::Back, 120.0);
+                spawn_button(row, "Settings", MenuButtonAction::EditProfile, 120.0);
+                spawn_button(row, "Continue", MenuButtonAction::SelectProfile(profile_list.active.clone()), 120.0);
+            });
+        });
+    });
+}
+
+fn spawn_profile_slot(parent: &mut ChildBuilder, profile: &ProfileInfo, is_active: bool) {
+    let bg = if is_active {
+        Color::srgb(0.20, 0.35, 0.25)
+    } else {
+        Color::srgb(0.18, 0.18, 0.22)
+    };
+
+    parent.spawn((
+        Button,
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Px(60.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            padding: UiRect::horizontal(Val::Px(15.0)),
+            ..default()
+        },
+        BackgroundColor(bg),
+        BorderRadius::all(Val::Px(6.0)),
+        MenuButtonAction::SelectProfile(profile.id.clone()),
+    )).with_children(|slot| {
+        slot.spawn((
+            Text::new(format!("{}{}", profile.name, if is_active { " ✓" } else { "" })),
+            TextFont { font_size: 18.0, ..default() },
+            TextColor(TEXT_PRIMARY),
+        ));
+        slot.spawn((
+            Text::new(&profile.description),
+            TextFont { font_size: 13.0, ..default() },
+            TextColor(TEXT_SECONDARY),
+        ));
+    });
+}
+
+#[allow(clippy::type_complexity)]
+fn profile_select_buttons(
+    query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut profile_list: ResMut<ProfileList>,
+) {
+    for (interaction, action) in &query {
+        if *interaction != Interaction::Pressed { continue; }
+
+        match action {
+            MenuButtonAction::Back => next_state.set(AppState::MainMenu),
+            MenuButtonAction::EditProfile => next_state.set(AppState::ProfileSettings),
+            MenuButtonAction::SelectProfile(id) => {
+                profile_list.active = id.clone();
+                next_state.set(AppState::SaveSelect);
+            }
+            _ => {}
+        }
+    }
+}
+
+// ========================================
+// プロファイル設定画面
+// ========================================
+
+fn spawn_profile_settings(
+    mut commands: Commands,
+    profile_list: Res<ProfileList>,
+) {
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.95)),
+        GlobalZIndex(100),
+        ProfileSettingsUi,
+    )).with_children(|parent| {
+        parent.spawn((
+            Node {
+                width: Val::Px(500.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Px(30.0)),
+                row_gap: Val::Px(15.0),
+                ..default()
+            },
+            BackgroundColor(PANEL_BG),
+            BorderRadius::all(Val::Px(12.0)),
+        )).with_children(|panel| {
+            // タイトル
+            panel.spawn((
+                Text::new("Profile Settings"),
+                TextFont { font_size: 28.0, ..default() },
+                TextColor(TEXT_PRIMARY),
+                Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
+            ));
+
+            // 現在のプロファイル
+            panel.spawn((
+                Text::new(format!("Active: {}", profile_list.active)),
+                TextFont { font_size: 16.0, ..default() },
+                TextColor(TEXT_SECONDARY),
+            ));
+
+            // プロファイル管理セクション
+            panel.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(200.0),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(15.0)),
+                    row_gap: Val::Px(10.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.12, 0.12, 0.15)),
+                BorderRadius::all(Val::Px(6.0)),
+            )).with_children(|section| {
+                section.spawn((
+                    Text::new("Profile Management"),
+                    TextFont { font_size: 16.0, ..default() },
+                    TextColor(TEXT_PRIMARY),
+                ));
+                section.spawn((
+                    Text::new("• Create new profiles in the Factory Data Architect editor"),
+                    TextFont { font_size: 13.0, ..default() },
+                    TextColor(TEXT_SECONDARY),
+                ));
+                section.spawn((
+                    Text::new("• Edit items, recipes, and quests for each profile"),
+                    TextFont { font_size: 13.0, ..default() },
+                    TextColor(TEXT_SECONDARY),
+                ));
+                section.spawn((
+                    Text::new("• Download MODs from Steam Workshop (coming soon)"),
+                    TextFont { font_size: 13.0, ..default() },
+                    TextColor(TEXT_SECONDARY),
+                ));
+            });
+
+            // ボタン
+            spawn_button(panel, "Back", MenuButtonAction::Back, 180.0);
+        });
+    });
+}
+
+#[allow(clippy::type_complexity)]
+fn profile_settings_buttons(
+    query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for (interaction, action) in &query {
+        if *interaction != Interaction::Pressed { continue; }
+
+        if let MenuButtonAction::Back = action {
+            next_state.set(AppState::ProfileSelect);
+        }
+    }
+}
+
+// ========================================
+// ポーズメニュー
+// ========================================
+
+fn spawn_pause_menu(mut commands: Commands) {
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+        GlobalZIndex(200), // ゲームUIより前面
+        PauseMenuUi,
+    )).with_children(|parent| {
+        parent.spawn((
+            Node {
+                width: Val::Px(350.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Px(30.0)),
+                row_gap: Val::Px(15.0),
+                ..default()
+            },
+            BackgroundColor(PANEL_BG),
+            BorderRadius::all(Val::Px(12.0)),
+        )).with_children(|panel| {
+            // タイトル
+            panel.spawn((
+                Text::new("Paused"),
+                TextFont { font_size: 32.0, ..default() },
+                TextColor(TEXT_PRIMARY),
+                Node { margin: UiRect::bottom(Val::Px(20.0)), ..default() },
+            ));
+
+            spawn_button(panel, "Resume", MenuButtonAction::Resume, 200.0);
+            spawn_button(panel, "Settings", MenuButtonAction::Settings, 200.0);
+            spawn_button(panel, "Save & Quit", MenuButtonAction::SaveAndQuit, 200.0);
+            spawn_button(panel, "Main Menu", MenuButtonAction::ReturnToMainMenu, 200.0);
+        });
+    });
+}
+
+#[allow(clippy::type_complexity)]
+fn pause_menu_buttons(
+    query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for (interaction, action) in &query {
+        if *interaction != Interaction::Pressed { continue; }
+
+        match action {
+            MenuButtonAction::Resume => next_state.set(AppState::InGame),
+            MenuButtonAction::ReturnToMainMenu => next_state.set(AppState::MainMenu),
+            MenuButtonAction::SaveAndQuit => {
+                // TODO: セーブ処理
+                info!("Saving game...");
+                next_state.set(AppState::MainMenu);
+            }
+            MenuButtonAction::Settings => info!("Settings (not implemented)"),
+            _ => {}
+        }
+    }
+}
+
+/// InGame中のESCキー処理
+fn handle_ingame_escape_key(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        next_state.set(AppState::PauseMenu);
     }
 }
 
@@ -605,12 +976,11 @@ fn handle_menu_escape_key(
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
         match state.get() {
-            AppState::SaveSelect => {
-                next_state.set(AppState::MainMenu);
-            }
-            AppState::WorldGeneration => {
-                next_state.set(AppState::SaveSelect);
-            }
+            AppState::ProfileSelect => next_state.set(AppState::MainMenu),
+            AppState::ProfileSettings => next_state.set(AppState::ProfileSelect),
+            AppState::SaveSelect => next_state.set(AppState::ProfileSelect),
+            AppState::WorldGeneration => next_state.set(AppState::SaveSelect),
+            AppState::PauseMenu => next_state.set(AppState::InGame),
             _ => {}
         }
     }
