@@ -15,6 +15,7 @@ use crate::core::save_system::{
 use crate::gameplay::inventory::PlayerInventory;
 use crate::gameplay::player::Player;
 use crate::gameplay::commands::GameMode;
+use crate::ui::settings_ui::SettingsUiState;
 
 /// メインメニュープラグイン
 pub struct MainMenuPlugin;
@@ -121,6 +122,8 @@ pub struct TextInput {
     pub field_type: TextInputType,
     pub value: String,
     pub active: bool,
+    /// 最初のクリックでデフォルト値をクリアするかどうか
+    pub is_default: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -553,6 +556,7 @@ fn spawn_pause_menu(mut commands: Commands) {
 fn pause_menu_buttons(
     query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut settings_state: ResMut<NextState<SettingsUiState>>,
     player_query: Query<(&Transform, &Player)>,
     player_inventory: Res<PlayerInventory>,
     world_params: Res<WorldGenerationParams>,
@@ -608,7 +612,10 @@ fn pause_menu_buttons(
                 }
                 next_state.set(AppState::MainMenu);
             }
-            MenuButtonAction::Settings => info!("Settings (not implemented)"),
+            MenuButtonAction::Settings => {
+                // 設定画面を開く
+                settings_state.set(SettingsUiState::SettingsOpen);
+            }
             _ => {}
         }
     }
@@ -923,6 +930,7 @@ fn spawn_text_input(parent: &mut ChildBuilder, label: &str, input_type: TextInpu
                 field_type: input_type,
                 value: default_value.to_string(),
                 active: false,
+                is_default: true,
             },
         )).with_children(|field| {
             field.spawn((
@@ -1010,6 +1018,11 @@ fn text_input_system(
     for (interaction, mut input, mut bg) in &mut input_query {
         // クリックでフォーカス切り替え
         if *interaction == Interaction::Pressed {
+            // デフォルト値の場合、クリックでクリア
+            if input.is_default {
+                input.value.clear();
+                input.is_default = false;
+            }
             input.active = true;
             *bg = BackgroundColor(Color::srgb(0.22, 0.22, 0.28));
         }
@@ -1027,11 +1040,12 @@ fn text_input_system(
             *bg = BackgroundColor(Color::srgb(0.15, 0.15, 0.18));
         }
 
-        // 文字入力
+        // 文字入力 - デフォルト値フラグを解除
         for c in &chars_to_add {
             for ch in c.chars() {
                 if (ch.is_ascii_alphanumeric() || ch == ' ' || ch == '_' || ch == '-') && input.value.len() < 32 {
                     input.value.push(ch);
+                    input.is_default = false;
                 }
             }
         }

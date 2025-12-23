@@ -7,9 +7,6 @@
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::core::config::GameConfig;
-use crate::ui::inventory_ui::InventoryUiState;
-use crate::ui::command_ui::CommandUiState;
-use crate::ui::main_menu::AppState;
 
 /// 設定UIのステート
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -70,10 +67,12 @@ impl Plugin for SettingsUiPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_state::<SettingsUiState>()
-            .add_systems(Update, handle_escape_key.run_if(
-                in_state(AppState::InGame)
-                    .and(in_state(InventoryUiState::Closed))
-                    .and(in_state(CommandUiState::Closed))
+            // InGame時のESCはmain_menu.rsのPauseMenuで処理するため、ここではButtonVisible時のみ処理
+            .add_systems(Update, handle_escape_from_button.run_if(
+                in_state(SettingsUiState::ButtonVisible)
+            ))
+            .add_systems(Update, handle_escape_from_settings.run_if(
+                in_state(SettingsUiState::SettingsOpen)
             ))
             .add_systems(OnEnter(SettingsUiState::ButtonVisible), spawn_settings_button)
             .add_systems(OnExit(SettingsUiState::ButtonVisible), despawn_settings_button)
@@ -89,34 +88,32 @@ impl Plugin for SettingsUiPlugin {
     }
 }
 
-/// Escキーで設定ボタンを表示/非表示
-fn handle_escape_key(
+/// ButtonVisible状態でESCを押したら閉じる
+fn handle_escape_from_button(
     keyboard: Res<ButtonInput<KeyCode>>,
-    state: Res<State<SettingsUiState>>,
     mut next_state: ResMut<NextState<SettingsUiState>>,
     mut window_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
-        match state.get() {
-            SettingsUiState::Closed => {
-                next_state.set(SettingsUiState::ButtonVisible);
-            }
-            SettingsUiState::ButtonVisible => {
-                next_state.set(SettingsUiState::Closed);
-                // カーソルを自動的にグラブして通常プレイに戻る
-                if let Ok(mut window) = window_query.get_single_mut() {
-                    window.cursor_options.grab_mode = CursorGrabMode::Locked;
-                    window.cursor_options.visible = false;
-                }
-            }
-            SettingsUiState::SettingsOpen => {
-                next_state.set(SettingsUiState::Closed);
-                // カーソルを自動的にグラブして通常プレイに戻る
-                if let Ok(mut window) = window_query.get_single_mut() {
-                    window.cursor_options.grab_mode = CursorGrabMode::Locked;
-                    window.cursor_options.visible = false;
-                }
-            }
+        next_state.set(SettingsUiState::Closed);
+        if let Ok(mut window) = window_query.get_single_mut() {
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
+        }
+    }
+}
+
+/// SettingsOpen状態でESCを押したら閉じる
+fn handle_escape_from_settings(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<SettingsUiState>>,
+    mut window_query: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        next_state.set(SettingsUiState::Closed);
+        if let Ok(mut window) = window_query.get_single_mut() {
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
         }
     }
 }

@@ -6,6 +6,19 @@
 
 ## 2025-12-23
 
+### UI改善
+
+**修正**
+
+- Settingsボタン重複: ESC→PauseMenuに統一、角のSettingsボタンを削除
+- テキスト入力: デフォルト値（"New World"）をクリックでクリア可能に
+
+**技術詳細**
+
+- settings_ui.rs: InGame時のESCハンドリングを削除（PauseMenuに委譲）
+- main_menu.rs: PauseMenuのSettingsボタンからSettingsUiState::SettingsOpenに遷移
+- TextInput: is_defaultフラグ追加、クリック時にデフォルト値をクリア
+
 ### ワールドセーブ/ロード実装
 
 **新機能**
