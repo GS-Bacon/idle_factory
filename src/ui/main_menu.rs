@@ -24,6 +24,7 @@ impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<AppState>()
             .init_resource::<ProfileList>()
+            .init_resource::<SelectedGameMode>()
             // メインメニュー
             .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
             .add_systems(OnExit(AppState::MainMenu), despawn_with::<MainMenuUi>)
@@ -114,6 +115,8 @@ pub enum MenuButtonAction {
     Resume,
     ReturnToMainMenu,
     SaveAndQuit,
+    // ゲームモード選択
+    SelectGameMode(GameMode),
 }
 
 /// テキスト入力フィールド
@@ -139,6 +142,20 @@ pub struct TextInputDisplay(pub TextInputType);
 /// 選択中のスロット
 #[derive(Resource, Default)]
 pub struct SelectedSlotIndex(pub Option<usize>);
+
+/// 選択中のゲームモード（ワールド作成時）
+#[derive(Resource)]
+pub struct SelectedGameMode(pub GameMode);
+
+impl Default for SelectedGameMode {
+    fn default() -> Self {
+        Self(GameMode::Creative) // デフォルトはクリエイティブ
+    }
+}
+
+/// ゲームモードボタンのマーカー
+#[derive(Component)]
+pub struct GameModeButtonMarker(pub GameMode);
 
 /// 利用可能なプロファイル一覧
 #[derive(Resource)]
@@ -840,8 +857,10 @@ fn save_select_buttons(
 fn spawn_world_generation(
     mut commands: Commands,
     selected: Res<SelectedSlotIndex>,
+    selected_game_mode: Res<SelectedGameMode>,
 ) {
     let slot_index = selected.0.unwrap_or(0);
+    let current_mode = selected_game_mode.0;
 
     commands.spawn((
         Node {
@@ -881,6 +900,36 @@ fn spawn_world_generation(
             // シード値入力
             spawn_text_input(panel, "Seed (optional)", TextInputType::Seed, "");
 
+            // ゲームモード選択
+            panel.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(5.0),
+                    ..default()
+                },
+            )).with_children(|container| {
+                // ラベル
+                container.spawn((
+                    Text::new("Game Mode"),
+                    TextFont { font_size: 14.0, ..default() },
+                    TextColor(TEXT_SECONDARY),
+                ));
+
+                // ゲームモードボタン行
+                container.spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(10.0),
+                        ..default()
+                    },
+                )).with_children(|row| {
+                    spawn_game_mode_button(row, "Survival", GameMode::Survival, current_mode == GameMode::Survival);
+                    spawn_game_mode_button(row, "Creative", GameMode::Creative, current_mode == GameMode::Creative);
+                });
+            });
+
             // ボタン行
             panel.spawn((
                 Node {
@@ -895,6 +944,43 @@ fn spawn_world_generation(
                 spawn_button(row, "Create", MenuButtonAction::CreateWorld, 140.0);
             });
         });
+    });
+}
+
+/// ゲームモード選択ボタンを生成
+fn spawn_game_mode_button(parent: &mut ChildBuilder, label: &str, mode: GameMode, is_selected: bool) {
+    let bg_color = if is_selected {
+        Color::srgb(0.3, 0.5, 0.3) // 選択中: 緑がかった色
+    } else {
+        NORMAL_BUTTON
+    };
+    let border_color = if is_selected {
+        Color::srgb(0.5, 0.8, 0.5)
+    } else {
+        Color::srgb(0.3, 0.3, 0.35)
+    };
+
+    parent.spawn((
+        Button,
+        Node {
+            width: Val::Percent(50.0),
+            height: Val::Px(40.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border: UiRect::all(Val::Px(2.0)),
+            ..default()
+        },
+        BackgroundColor(bg_color),
+        BorderColor(border_color),
+        BorderRadius::all(Val::Px(6.0)),
+        MenuButtonAction::SelectGameMode(mode),
+        GameModeButtonMarker(mode),
+    )).with_children(|btn| {
+        btn.spawn((
+            Text::new(label),
+            TextFont { font_size: 16.0, ..default() },
+            TextColor(TEXT_PRIMARY),
+        ));
     });
 }
 
@@ -951,12 +1037,28 @@ fn world_gen_buttons(
     selected: Res<SelectedSlotIndex>,
     mut world_params: ResMut<WorldGenerationParams>,
     mut slot_data: ResMut<SaveSlotData>,
+    mut selected_game_mode: ResMut<SelectedGameMode>,
+    mut game_mode: ResMut<GameMode>,
+    mut game_mode_buttons: Query<(&GameModeButtonMarker, &mut BackgroundColor, &mut BorderColor)>,
 ) {
     for (interaction, action) in &query {
         if *interaction != Interaction::Pressed { continue; }
 
         match action {
             MenuButtonAction::Back => next_state.set(AppState::SaveSelect),
+            MenuButtonAction::SelectGameMode(mode) => {
+                selected_game_mode.0 = *mode;
+                // ボタンの見た目を更新
+                for (marker, mut bg, mut border) in &mut game_mode_buttons {
+                    if marker.0 == *mode {
+                        *bg = BackgroundColor(Color::srgb(0.3, 0.5, 0.3));
+                        *border = BorderColor(Color::srgb(0.5, 0.8, 0.5));
+                    } else {
+                        *bg = BackgroundColor(NORMAL_BUTTON);
+                        *border = BorderColor(Color::srgb(0.3, 0.3, 0.35));
+                    }
+                }
+            }
             MenuButtonAction::CreateWorld => {
                 let mut world_name = "New World".to_string();
                 let mut seed: u64 = generate_random_seed();
@@ -986,6 +1088,9 @@ fn world_gen_buttons(
                     warn!("Failed to save metadata: {}", e);
                 }
                 slot_data.set(slot_index, meta);
+
+                // ゲームモードを設定
+                *game_mode = selected_game_mode.0;
 
                 // パラメータを設定
                 world_params.world_name = world_name;

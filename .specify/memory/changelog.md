@@ -6,6 +6,137 @@
 
 ## 2025-12-23
 
+### インタラクションテストシナリオを追加
+
+**新機能**
+
+- `interaction_test`: 全操作パターンのE2Eテスト（10フェーズ）
+- F8キー: インタラクションテスト実行
+
+**テストフェーズ**
+
+| Phase | 内容 | 検証項目 |
+|-------|------|----------|
+| 1 | メニュー遷移 | MainMenu↔SaveSelect↔WorldGen |
+| 2 | 移動操作 | WASD, Space, Shift |
+| 3 | ホットバー | 1-9キー選択 |
+| 4 | マウス操作 | 左/右クリック、ホールド |
+| 5 | インベントリ | E開閉、ソート |
+| 6 | ポーズメニュー | ESC、各ボタン |
+| 7 | コンテナ | 右クリック開閉 |
+| 8 | クイックアクセス | J, F3 |
+| 9 | 複合操作 | 移動+ジャンプ、斜め移動 |
+| 10 | 終了 | MainMenuに戻る |
+
+**テスト結果**: 11/11 成功 ✅
+
+### E2Eテストシステムを実装・トークン消費最適化
+
+**新機能**
+
+- `src/core/e2e_test.rs`: 自動テスト・スクリーンショット撮影システム
+- F9キー: 手動スクリーンショット撮影
+- F10キー: UIテストシナリオ実行
+- F11キー: フルテストシナリオ実行（全画面遷移）
+- F12キー: UIダンプ（テキストベース）
+- `--e2e-test`: コマンドライン引数で自動テスト開始
+
+**トークン消費最適化**
+
+| 出力ファイル | トークン消費 | 用途 |
+|-------------|-------------|------|
+| `test_report.txt` | 極小（1-2KB） | Pass/Fail結果のみ |
+| `*_ui_dump.txt` | 小（5-10KB） | UI構造のテキストダンプ |
+| `*.png` | 大（画像） | 視覚確認（必要時のみ） |
+
+**推奨ワークフロー**
+1. `test_report.txt` を読んで検証結果を確認
+2. 失敗した検証がある場合のみ、該当のUIダンプを確認
+3. 視覚的な問題の場合のみスクリーンショットを確認
+
+**テストステップ**
+
+- `DumpUi(name)`: UIツリーをテキストでダンプ
+- `VerifyElement(UiVerification)`: UI要素の自動検証
+- `SaveReport`: 検証結果をレポートファイルに保存
+- `ClearReport`: レポートをクリア
+
+**UiVerification構造体**
+```rust
+UiVerification {
+    name: String,           // 検証名
+    component_name: Option<String>,  // コンポーネント名で検索
+    text_contains: Option<String>,   // テキスト内容で検索
+    min_count: Option<usize>,        // 最小要素数
+    max_count: Option<usize>,        // 最大要素数
+}
+```
+
+**検証結果** ✅
+
+| UI | 状態 | 確認項目 |
+|----|------|----------|
+| メインメニュー | ✅ | Play/Settingsボタン存在 |
+| セーブ選択 | ✅ | Select World/Backボタン存在 |
+| ワールド生成 | ✅ | Createボタン存在 |
+| インゲーム | ✅ | HP表示存在 |
+| インベントリ | ✅ | Sort/Trashボタン存在 |
+| ポーズメニュー | ✅ | Resume/MainMenuボタン存在 |
+
+**技術詳細**
+
+- `TestScenarioBuilder`: カスタムシナリオ作成用ビルダー（verify_text等追加）
+- `SimulateInputEvent`: キー・マウス入力シミュレーション
+- `TakeScreenshotEvent`: スクリーンショット撮影イベント
+- `DumpUiEvent`: UIダンプイベント
+- `VerifyUiEvent`: UI検証イベント
+- `TestReport`: 検証結果を蓄積しレポート生成
+- スクリーンショット・ダンプは `screenshots/` に保存
+
+### ワールド作成時のゲームモード選択を追加
+
+**新機能**
+
+- ワールド作成画面にSurvival/Creativeの選択ボタンを追加
+- 選択中のモードは緑色でハイライト表示
+- CreateWorld時にGameModeリソースを更新
+
+**技術詳細**
+
+- `SelectedGameMode`リソース: 選択中のゲームモードを保持
+- `GameModeButtonMarker`コンポーネント: ボタンの識別用
+- `MenuButtonAction::SelectGameMode(GameMode)`: 選択アクション
+
+### インベントリUIをCSS Gridで自動整列に改善
+
+**改善点**
+
+- メインコンテナをCSS Gridに変更（`Display::Grid`）
+- ハードコードされた`margin: UiRect::top(Val::Px(35.0))`を削除
+- 装備パネル、メインインベントリ、クラフトリストが自動で上揃え
+- コンテナUIも同様にCSS Gridで自動整列
+
+**技術詳細**
+
+- `grid_template_columns: vec![GridTrack::auto(), ...]`で列を定義
+- `align_items: AlignItems::Start`でグリッドセル内で上揃え
+
+### UIデザインルール策定
+
+**新規ドキュメント**
+
+- `.specify/memory/ui-design-rules.md`: UIデザインルールを策定
+  - レイアウト整列ルール（横並びは上揃え）
+  - スペーシング定数（スロット54px、間隔4px）
+  - 色定数
+  - コンポーネント規約
+
+**インベントリUI修正**
+
+- 装備パネルとインベントリグリッドの高さを揃えた
+- `align_items: AlignItems::Start`で上揃え
+- 装備パネルに35pxの上余白を追加
+
 ### UI改善
 
 **修正**

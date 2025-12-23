@@ -287,26 +287,36 @@ fn spawn_player_inventory_ui(
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, bg_alpha)),
         ))
         .with_children(|parent| {
-            // メインコンテナ (Minecraft風)
+            // メインコンテナ - CSS Gridで自動整列
             parent
                 .spawn((
                     Node {
-                        flex_direction: FlexDirection::Row,
+                        display: Display::Grid,
+                        // 列: 装備パネル | メインインベントリ | クラフトリスト(オプション)
+                        grid_template_columns: vec![
+                            GridTrack::auto(),  // 装備パネル
+                            GridTrack::auto(),  // メインインベントリ
+                            GridTrack::auto(),  // クラフトリスト
+                        ],
+                        // 行: 全て自動サイズ
+                        grid_auto_rows: GridTrack::auto(),
                         padding: UiRect::all(Val::Px(20.0)),
                         column_gap: Val::Px(20.0),
-                        position_type: PositionType::Relative,
+                        row_gap: Val::Px(10.0),
+                        align_items: AlignItems::Start, // グリッドセル内で上揃え
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
                 ))
                 .with_children(|parent| {
-                    // 左側: 装備スロット (縦並び) - マーカーコンポーネント追加
+                    // 左側: 装備スロット (縦並び) - CSS Gridで自動整列されるのでmargin不要
                     parent
                         .spawn((
                             EquipmentPanel,
                             Node {
                                 flex_direction: FlexDirection::Column,
                                 row_gap: Val::Px(SLOT_GAP),
+                                align_self: AlignSelf::Start, // 上揃え
                                 ..default()
                             },
                         ))
@@ -317,6 +327,7 @@ fn spawn_player_inventory_ui(
                     // 中央: インベントリ OR アイテムカタログ（クリエイティブモード）
                     if *game_mode == crate::gameplay::commands::GameMode::Creative {
                         // クリエイティブモード: グリッド部分とホットバーを分離し、グリッドのみをトグル
+                        // 中央列: インベントリ/カタロググリッド + ホットバー
                         parent
                             .spawn(Node {
                                 flex_direction: FlexDirection::Column,
@@ -366,7 +377,7 @@ fn spawn_player_inventory_ui(
                                             });
                                     });
 
-                                // 共有ホットバー行（ホットバーグリッド + トグルボタン + ゴミ箱スロット）
+                                // ホットバー行（ホットバー + トグルボタン + ゴミ箱）
                                 parent
                                     .spawn(Node {
                                         flex_direction: FlexDirection::Row,
@@ -376,7 +387,7 @@ fn spawn_player_inventory_ui(
                                         ..default()
                                     })
                                     .with_children(|parent| {
-                                        // ホットバーグリッド（タイトルなし、グリッドのみ）
+                                        // ホットバーグリッド（10スロット）
                                         parent
                                             .spawn(Node {
                                                 display: Display::Grid,
@@ -484,18 +495,37 @@ fn spawn_container_ui(
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
         ))
         .with_children(|parent| {
+            // メインコンテナ - CSS Gridで自動整列
             parent
                 .spawn((
                     Node {
-                        flex_direction: FlexDirection::Row,
+                        display: Display::Grid,
+                        // 列: 装備パネル | メインインベントリ | コンテナ
+                        grid_template_columns: vec![
+                            GridTrack::auto(),  // 装備パネル
+                            GridTrack::auto(),  // メインインベントリ
+                            GridTrack::auto(),  // コンテナ
+                        ],
+                        grid_auto_rows: GridTrack::auto(),
                         padding: UiRect::all(Val::Px(20.0)),
                         column_gap: Val::Px(20.0),
+                        row_gap: Val::Px(10.0),
+                        align_items: AlignItems::Start, // グリッドセル内で上揃え
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
                 ))
                 .with_children(|parent| {
-                    spawn_equipment_panel(parent, &equipment);
+                    // 装備パネル - CSS Gridで自動整列されるのでmargin不要
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            align_self: AlignSelf::Start, // 上揃え
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            spawn_equipment_panel(parent, &equipment);
+                        });
                     spawn_inventory_panel(parent, &player_inventory);
                     spawn_container_panel(parent);
                 });
@@ -547,42 +577,30 @@ fn spawn_main_inventory_panel_mc(parent: &mut ChildBuilder, inventory: &PlayerIn
         .spawn(Node {
             flex_direction: FlexDirection::Column,
             row_gap: Val::Px(10.0),
+            position_type: PositionType::Relative, // ソートボタンの絶対位置の基準
             ..default()
         })
         .with_children(|parent| {
-            // タイトルとソートボタン
+            // ソートボタン（グリッド右上に絶対位置で配置）
             parent
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
-                    align_items: AlignItems::Center,
-                    width: Val::Px(10.0 * slot_size + 9.0 * slot_gap),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    // Spacing node to maintain grid position (removed "Inventory" label)
-                    parent.spawn(Node {
-                        height: Val::Px(25.0),
+                .spawn((
+                    SortButton,
+                    Button,
+                    Node {
+                        position_type: PositionType::Absolute,
+                        right: Val::Px(0.0),
+                        top: Val::Px(-35.0), // グリッドの上に配置
+                        padding: UiRect::all(Val::Px(8.0)),
                         ..default()
-                    });
-
-                    parent
-                        .spawn((
-                            SortButton,
-                            Button,
-                            Node {
-                                padding: UiRect::all(Val::Px(8.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn((
-                                Text::new("Sort"),
-                                TextFont { font_size: 14.0, ..default() },
-                                TextColor(Color::WHITE),
-                            ));
-                        });
+                    },
+                    BackgroundColor(Color::srgb(0.4, 0.4, 0.4)),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Sort"),
+                        TextFont { font_size: 14.0, ..default() },
+                        TextColor(Color::WHITE),
+                    ));
                 });
 
             // メインインベントリ (10x5 = 50スロット、スロット0-49)

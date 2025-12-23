@@ -10,6 +10,7 @@
 | 中断禁止 | 確認を求めず最後まで完了させる |
 | 記録 | 完了/失敗時は`changelog.md`に追記 |
 | パターン | 仕様変更/実装前に`patterns-compact.md`確認 |
+| UI実装 | UI作成/修正時は`ui-design-rules.md`に従う |
 | 動作確認 | 指示時は自動操作でテスト、クラッシュ時はログ解析 |
 
 ## 参照ファイル
@@ -20,6 +21,7 @@
 | 状況 | `.specify/memory/constitution.md` | プロジェクト原則 |
 | 状況 | `.specify/memory/changelog.md` | 開発履歴 |
 | 状況 | `.specify/memory/patterns-compact.md` | 52パターン |
+| 状況 | `.specify/memory/ui-design-rules.md` | UIデザインルール |
 | 状況 | `.specify/specs/index-compact.md` | 全仕様集約 |
 | 詳細時 | `.specify/specs/*.md`, `src/**/*.rs` | 個別レポート/ソース |
 
