@@ -41,7 +41,7 @@ This constitution defines the foundational principles, coding standards, and arc
 - **Logging**: Use `info!`, `warn!`, `error!` macros appropriately
 - **Graceful Degradation**: Systems should handle missing data without crashing
 
-## Testing Standards
+## Testing Standards (T1-T4)
 
 ### Coverage Requirements
 - **Minimum Coverage**: 70% for core gameplay systems
@@ -52,6 +52,9 @@ This constitution defines the foundational principles, coding standards, and arc
 - **Unit Tests**: For isolated logic (inventory operations, recipes, validators)
 - **Integration Tests**: For system interactions (conveyor → assembler → output)
 - **Simulation Tests**: For deterministic gameplay scenarios
+- **Snapshot Tests**: UI regression detection (insta crate)
+- **Fuzz Tests**: Boundary value testing (cargo-fuzz)
+- **Property Tests**: Invariant validation (proptest)
 
 ### Test-Driven Development
 - **New Features**: Write failing tests first
@@ -66,11 +69,14 @@ This constitution defines the foundational principles, coding standards, and arc
 - **Resources**: Global state only when necessary
 - **Events**: For cross-system communication
 
-### Performance Requirements
+### Performance Requirements (G1-G4)
 - **Target FPS**: 60 FPS minimum
+- **Draw Calls**: 500 or fewer per frame
 - **Chunk Loading**: Async, non-blocking
 - **Item Rendering**: Instanced rendering for 1000+ items
-- **Memory**: Efficient data structures, avoid clones
+- **Shader Management**: Precompile at startup (no stutter)
+- **Culling**: Frustum + basic occlusion culling
+- **Memory**: Efficient data structures, avoid clones (RS1-RS2)
 
 ### Module Organization
 ```
@@ -92,17 +98,38 @@ src/
 ### Controls
 - **Keyboard First**: Primary controls via WASD + hotkeys
 - **Mouse Support**: Camera control + UI interaction
-- **Accessibility**: Rebindable keys, colorblind-friendly UI
+- **Full Remapping**: All keys must be rebindable
+- **Hold/Toggle**: Option to switch between hold and toggle for actions
 
 ### UI Design
 - **Minecraft-Inspired**: Familiar slot-based inventories
 - **Minimalist HUD**: Show only essential information
 - **Tooltips**: Comprehensive information on hover
+- **Response Time**: All interactions must provide feedback within 0.1 seconds
+
+### Accessibility (A1-A3)
+- **Visual**: Color blind modes (P/D/T types), contrast ratio 4.5:1+, color+shape
+- **Audio**: Subtitles option, visual sound indicators (directional)
+- **Motor**: Full key remapping, hold/toggle switch, sensitivity adjustment
+- **Cognitive**: Optional hints, pause anywhere, difficulty adjustment
+
+### Sound Design (S1-S4)
+- **Mixing Hierarchy**: Master > Music/SFX/Voice with category-specific volume
+- **Variation**: 3+ clips for frequent sounds, pitch ±10% randomization
+- **Spatial Audio**: Distance attenuation, limit simultaneous sources
+- **Feedback**: Audio confirmation for all player actions
 
 ### Feedback
 - **Visual Indicators**: Clear markers for machine state (active/idle/overstressed)
-- **Sound Design**: Audio feedback for actions (placement, crafting)
+- **Audio Feedback**: Distinct sounds for success/failure/warning
 - **Progression**: Clear goals and achievement milestones
+
+## Localization (I1-I2)
+
+- **String Externalization**: All UI strings via fluent/i18n (no hardcoded text)
+- **Layout Flexibility**: 30% text expansion margin for translations
+- **RTL Ready**: Preparation for right-to-left languages
+- **Plural Support**: Proper handling of pluralization rules
 
 ## Technical Constraints
 
@@ -118,13 +145,15 @@ src/
 - **Overstress Behavior**: Graceful shutdown, no cascading failures
 - **Deterministic**: Same input = same output, every time
 
-### Multiplayer (Future)
-- **Client-Server**: Authoritative server architecture
+### Multiplayer (Future) (N1-N4)
+- **Server Authority**: All critical logic (position, HP, inventory) on server
+- **Client Prediction**: Immediate input application with server reconciliation
+- **Input Validation**: Speed/range/rate limiting on all client inputs
+- **Reconnection**: Session persistence, full state sync on reconnect
+- **Bandwidth**: Delta compression, Interest Management for efficiency
 - **Fixed Timestep**: 20 TPS simulation
-- **Client Prediction**: For smooth player movement
-- **State Sync**: Delta compression for efficiency
 
-## Security & Safety
+## Security & Safety (C1-C3)
 
 ### Memory Safety
 - **Rust Guarantees**: Leverage ownership and borrowing
@@ -133,8 +162,14 @@ src/
 
 ### Data Validation
 - **YAML Parsing**: Fail gracefully on malformed data
-- **Save Files**: Version checking and migration support
+- **Save Encryption**: AES-256-GCM for save data (achievement protection)
+- **Version Checking**: Save file migration support
 - **User Input**: Sanitize all external data
+
+### Anti-Cheat (Multiplayer)
+- **Multi-Layer Defense**: Server authority + input validation + anomaly detection
+- **Rate Limiting**: Action frequency limits
+- **Logging**: Detailed audit trail for suspicious activity
 
 ## Development Workflow
 
