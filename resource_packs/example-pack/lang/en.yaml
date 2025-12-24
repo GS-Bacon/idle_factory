@@ -27,6 +27,10 @@ items:
   sulfur_ore: Sulfur Ore
   uranium_ore: Uranium Ore
 
+  # --- Byproducts ---
+  stone_dust: Stone Dust
+  slag: Slag
+
   # --- Wood ---
   log: Log
   wood_plank: Wood Plank
@@ -52,6 +56,7 @@ items:
   nickel_ingot: Nickel Ingot
   steel_ingot: Steel Ingot
   bronze_ingot: Bronze Ingot
+  invar_ingot: Invar Ingot
 
   # --- Plates ---
   iron_plate: Iron Plate
@@ -65,6 +70,7 @@ items:
   copper_dust: Copper Dust
   gold_dust: Gold Dust
   coal_dust: Coal Dust
+  tin_dust: Tin Dust
   sulfur: Sulfur
 
   # --- Wires ---
@@ -81,6 +87,7 @@ items:
   iron_gear: Iron Gear
   copper_gear: Copper Gear
   steel_gear: Steel Gear
+  bronze_gear: Bronze Gear
 
   # --- Pipes ---
   iron_pipe: Iron Pipe
@@ -105,6 +112,7 @@ items:
   heat_exchanger: Heat Exchanger
   filter: Filter
   bearing: Bearing
+  iron_mechanical_component: Iron Mechanical Component
 
   # --- Fluids ---
   water_bucket: Water Bucket
@@ -136,6 +144,7 @@ items:
   stone_pickaxe: Stone Pickaxe
   iron_pickaxe: Iron Pickaxe
   steel_pickaxe: Steel Pickaxe
+  bronze_pickaxe: Bronze Pickaxe
   wooden_axe: Wooden Axe
   stone_axe: Stone Axe
   iron_axe: Iron Axe

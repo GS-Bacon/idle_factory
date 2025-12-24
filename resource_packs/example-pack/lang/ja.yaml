@@ -27,6 +27,25 @@ items:
   sulfur_ore: 硫黄鉱石
   uranium_ore: ウラン鉱石
 
+  # --- 副産物 ---
+  stone_dust: 石粉
+  slag: スラグ
+
+  # --- 追加インゴット ---
+  invar_ingot: インバーインゴット
+
+  # --- 追加粉末 ---
+  tin_dust: 錫粉
+
+  # --- 追加ギア ---
+  bronze_gear: 青銅歯車
+
+  # --- 追加部品 ---
+  iron_mechanical_component: 鉄機械部品
+
+  # --- 追加ツール ---
+  bronze_pickaxe: 青銅のツルハシ
+
   # --- 木材 ---
   log: 原木
   wood_plank: 木材
