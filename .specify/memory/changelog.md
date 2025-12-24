@@ -6,6 +6,27 @@
 
 ## 2025-12-24
 
+### 3Dモデル生成ルール策定
+
+**追加ファイル**
+- `docs/style-guide.json`: Industrial Lowpoly Style Guide v1.0.0
+- `docs/3D_MODEL_GUIDELINES.md`: 技術仕様書
+- `CLAUDE.md`: モデル生成サブエージェント起動ルール
+- `tools/blender_scripts/`: Blenderスクリプト出力先
+
+**スタイルガイド概要**
+- Create mod風の工業的ローポリスタイル
+- 八角形ベースの曲線代替（円/球/円柱禁止）
+- 0.0625単位グリッドスナップ
+- PBRマテリアルプリセット（iron/copper/brass等）
+- 機械パーツ形状仕様（ギア/パイプ/シャフト）
+- ボーン/アニメーション命名規則
+
+**使い方**
+「〇〇のモデルを作成して」→ サブエージェントがBlenderスクリプト生成
+
+---
+
 ### ビルド問題調査
 
 **問題**
