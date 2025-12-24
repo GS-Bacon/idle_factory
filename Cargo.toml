@@ -18,7 +18,7 @@ edition = "2021"
 
 [dependencies]
 # "serialize" を追加！これで KeyCode が読み込めるようになります
-bevy = { version = "0.15", features = ["dynamic_linking", "serialize"] }
+bevy = { version = "0.15", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1.0"
