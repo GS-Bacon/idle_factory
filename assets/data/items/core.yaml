@@ -1,3 +1,1133 @@
-# アイテム定義ファイル（エディタからエクスポート可能）
-# Factory Data Architectで編集したデータをここにエクスポート
+# =============================================================================
+# アイテム定義ファイル
+# Factory Idle Game - Default Item Preset
+# =============================================================================
 
+# =============================================================================
+# 1. 鉱石・素材 (Ores & Raw Materials)
+# =============================================================================
+
+# --- 鉱石 (Ores) ---
+- id: "iron_ore"
+  name: "Iron Ore"
+  description: "Raw iron ore extracted from the earth"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "3"
+
+- id: "copper_ore"
+  name: "Copper Ore"
+  description: "Raw copper ore with a distinctive color"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "2"
+
+- id: "gold_ore"
+  name: "Gold Ore"
+  description: "Precious gold ore"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "2"
+    rarity: "rare"
+
+- id: "tin_ore"
+  name: "Tin Ore"
+  description: "Soft tin ore used for alloys"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "1"
+
+- id: "nickel_ore"
+  name: "Nickel Ore"
+  description: "Nickel ore for steel production"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "3"
+
+- id: "coal_ore"
+  name: "Coal Ore"
+  description: "Coal deposit in stone"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "2"
+
+- id: "sulfur_ore"
+  name: "Sulfur Ore"
+  description: "Yellow sulfur deposits"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "1"
+
+- id: "uranium_ore"
+  name: "Uranium Ore"
+  description: "Radioactive uranium ore - handle with care"
+  max_stack: 999
+  properties:
+    category: "ore"
+    hardness: "4"
+    rarity: "legendary"
+    radioactive: "true"
+
+# --- 木材 (Wood) ---
+- id: "log"
+  name: "Log"
+  description: "Raw log from a tree"
+  max_stack: 999
+  properties:
+    category: "wood"
+    burn_time: "300"
+
+- id: "wood_plank"
+  name: "Wood Plank"
+  description: "Processed wooden plank"
+  max_stack: 999
+  properties:
+    category: "wood"
+    burn_time: "200"
+
+- id: "stick"
+  name: "Stick"
+  description: "A simple wooden stick"
+  max_stack: 999
+  properties:
+    category: "wood"
+    burn_time: "100"
+
+# --- 石材 (Stone) ---
+- id: "stone"
+  name: "Stone"
+  description: "Common stone block"
+  max_stack: 999
+  properties:
+    category: "stone"
+    hardness: "2"
+
+- id: "cobblestone"
+  name: "Cobblestone"
+  description: "Rough cobblestone"
+  max_stack: 999
+  properties:
+    category: "stone"
+    hardness: "2"
+
+- id: "gravel"
+  name: "Gravel"
+  description: "Loose gravel"
+  max_stack: 999
+  properties:
+    category: "stone"
+    hardness: "1"
+
+- id: "sand"
+  name: "Sand"
+  description: "Fine sand particles"
+  max_stack: 999
+  properties:
+    category: "stone"
+    hardness: "0"
+
+- id: "clay"
+  name: "Clay"
+  description: "Soft clay material"
+  max_stack: 999
+  properties:
+    category: "stone"
+    hardness: "0"
+
+# --- その他素材 (Other Raw Materials) ---
+- id: "coal"
+  name: "Coal"
+  description: "Fuel for furnaces and generators"
+  max_stack: 999
+  properties:
+    category: "fuel"
+    burn_time: "1600"
+
+- id: "rubber_sap"
+  name: "Rubber Sap"
+  description: "Raw rubber sap from rubber trees"
+  max_stack: 999
+  properties:
+    category: "raw"
+
+- id: "raw_quartz"
+  name: "Raw Quartz"
+  description: "Unprocessed quartz crystal"
+  max_stack: 999
+  properties:
+    category: "crystal"
+    rarity: "uncommon"
+
+# =============================================================================
+# 2. 加工品 - インゴット (Processed - Ingots)
+# =============================================================================
+
+- id: "iron_ingot"
+  name: "Iron Ingot"
+  description: "Refined iron ingot"
+  max_stack: 999
+  properties:
+    category: "ingot"
+    material: "iron"
+
+- id: "copper_ingot"
+  name: "Copper Ingot"
+  description: "Refined copper ingot"
+  max_stack: 999
+  properties:
+    category: "ingot"
+    material: "copper"
+
+- id: "gold_ingot"
+  name: "Gold Ingot"
+  description: "Precious gold ingot"
+  max_stack: 999
+  properties:
+    category: "ingot"
+    material: "gold"
+    rarity: "rare"
+
+- id: "tin_ingot"
+  name: "Tin Ingot"
+  description: "Soft tin ingot"
+  max_stack: 999
+  properties:
+    category: "ingot"
+    material: "tin"
+
+- id: "nickel_ingot"
+  name: "Nickel Ingot"
+  description: "Nickel ingot for alloys"
+  max_stack: 999
+  properties:
+    category: "ingot"
+    material: "nickel"
+
+- id: "steel_ingot"
+  name: "Steel Ingot"
+  description: "Strong steel alloy ingot"
+  max_stack: 999
+  properties:
+    category: "ingot"
+    material: "steel"
+    rarity: "uncommon"
+
+- id: "bronze_ingot"
+  name: "Bronze Ingot"
+  description: "Bronze alloy ingot (copper + tin)"
+  max_stack: 999
+  properties:
+    category: "ingot"
+    material: "bronze"
+
+# =============================================================================
+# 3. 加工品 - 板材 (Processed - Plates)
+# =============================================================================
+
+- id: "iron_plate"
+  name: "Iron Plate"
+  description: "Flat iron plate"
+  max_stack: 999
+  properties:
+    category: "plate"
+    material: "iron"
+
+- id: "copper_plate"
+  name: "Copper Plate"
+  description: "Flat copper plate for electronics"
+  max_stack: 999
+  properties:
+    category: "plate"
+    material: "copper"
+
+- id: "gold_plate"
+  name: "Gold Plate"
+  description: "Precious gold plate"
+  max_stack: 999
+  properties:
+    category: "plate"
+    material: "gold"
+    rarity: "rare"
+
+- id: "steel_plate"
+  name: "Steel Plate"
+  description: "Strong steel plate"
+  max_stack: 999
+  properties:
+    category: "plate"
+    material: "steel"
+    rarity: "uncommon"
+
+- id: "bronze_plate"
+  name: "Bronze Plate"
+  description: "Bronze alloy plate"
+  max_stack: 999
+  properties:
+    category: "plate"
+    material: "bronze"
+
+# =============================================================================
+# 4. 加工品 - 粉末 (Processed - Dusts)
+# =============================================================================
+
+- id: "iron_dust"
+  name: "Iron Dust"
+  description: "Crushed iron powder"
+  max_stack: 999
+  properties:
+    category: "dust"
+    material: "iron"
+
+- id: "copper_dust"
+  name: "Copper Dust"
+  description: "Crushed copper powder"
+  max_stack: 999
+  properties:
+    category: "dust"
+    material: "copper"
+
+- id: "gold_dust"
+  name: "Gold Dust"
+  description: "Fine gold powder"
+  max_stack: 999
+  properties:
+    category: "dust"
+    material: "gold"
+    rarity: "rare"
+
+- id: "coal_dust"
+  name: "Coal Dust"
+  description: "Pulverized coal"
+  max_stack: 999
+  properties:
+    category: "dust"
+    burn_time: "800"
+
+- id: "sulfur"
+  name: "Sulfur"
+  description: "Yellow sulfur powder"
+  max_stack: 999
+  properties:
+    category: "dust"
+
+# =============================================================================
+# 5. 加工品 - ワイヤー・ロッド・ギア (Processed - Wires/Rods/Gears)
+# =============================================================================
+
+# --- ワイヤー (Wires) ---
+- id: "copper_wire"
+  name: "Copper Wire"
+  description: "Thin copper wire for electronics"
+  max_stack: 999
+  properties:
+    category: "wire"
+    material: "copper"
+
+- id: "iron_wire"
+  name: "Iron Wire"
+  description: "Iron wire for construction"
+  max_stack: 999
+  properties:
+    category: "wire"
+    material: "iron"
+
+- id: "gold_wire"
+  name: "Gold Wire"
+  description: "High-conductivity gold wire"
+  max_stack: 999
+  properties:
+    category: "wire"
+    material: "gold"
+    rarity: "rare"
+
+# --- ロッド (Rods) ---
+- id: "iron_rod"
+  name: "Iron Rod"
+  description: "Solid iron rod"
+  max_stack: 999
+  properties:
+    category: "rod"
+    material: "iron"
+
+- id: "steel_rod"
+  name: "Steel Rod"
+  description: "Strong steel rod"
+  max_stack: 999
+  properties:
+    category: "rod"
+    material: "steel"
+
+- id: "copper_rod"
+  name: "Copper Rod"
+  description: "Conductive copper rod"
+  max_stack: 999
+  properties:
+    category: "rod"
+    material: "copper"
+
+# --- ギア (Gears) ---
+- id: "iron_gear"
+  name: "Iron Gear"
+  description: "Iron gear for machinery"
+  max_stack: 999
+  properties:
+    category: "gear"
+    material: "iron"
+    stress_impact: "1.0"
+
+- id: "copper_gear"
+  name: "Copper Gear"
+  description: "Copper gear for light machinery"
+  max_stack: 999
+  properties:
+    category: "gear"
+    material: "copper"
+    stress_impact: "0.5"
+
+- id: "steel_gear"
+  name: "Steel Gear"
+  description: "Heavy-duty steel gear"
+  max_stack: 999
+  properties:
+    category: "gear"
+    material: "steel"
+    stress_impact: "2.0"
+    rarity: "uncommon"
+
+# =============================================================================
+# 6. 加工品 - パイプ・その他 (Processed - Pipes/Others)
+# =============================================================================
+
+# --- パイプ (Pipes) ---
+- id: "iron_pipe"
+  name: "Iron Pipe"
+  description: "Iron pipe for fluid transport"
+  max_stack: 999
+  properties:
+    category: "pipe"
+    material: "iron"
+
+- id: "copper_pipe"
+  name: "Copper Pipe"
+  description: "Copper pipe for fluid transport"
+  max_stack: 999
+  properties:
+    category: "pipe"
+    material: "copper"
+
+- id: "steel_pipe"
+  name: "Steel Pipe"
+  description: "High-pressure steel pipe"
+  max_stack: 999
+  properties:
+    category: "pipe"
+    material: "steel"
+
+# --- その他加工品 ---
+- id: "rubber"
+  name: "Rubber"
+  description: "Processed rubber"
+  max_stack: 999
+  properties:
+    category: "processed"
+
+- id: "plastic"
+  name: "Plastic"
+  description: "Synthetic plastic material"
+  max_stack: 999
+  properties:
+    category: "processed"
+
+- id: "glass"
+  name: "Glass"
+  description: "Transparent glass"
+  max_stack: 999
+  properties:
+    category: "processed"
+
+- id: "brick"
+  name: "Brick"
+  description: "Fired clay brick"
+  max_stack: 999
+  properties:
+    category: "processed"
+
+- id: "concrete"
+  name: "Concrete"
+  description: "Solid concrete block"
+  max_stack: 999
+  properties:
+    category: "processed"
+
+# =============================================================================
+# 7. 中間部品 (Intermediate Products)
+# =============================================================================
+
+- id: "circuit_board"
+  name: "Circuit Board"
+  description: "Basic electronic circuit board"
+  max_stack: 999
+  properties:
+    category: "component"
+    tier: "1"
+
+- id: "advanced_circuit"
+  name: "Advanced Circuit"
+  description: "Advanced electronic circuit"
+  max_stack: 999
+  properties:
+    category: "component"
+    tier: "2"
+    rarity: "uncommon"
+
+- id: "processor"
+  name: "Processor"
+  description: "High-performance processor chip"
+  max_stack: 999
+  properties:
+    category: "component"
+    tier: "3"
+    rarity: "rare"
+
+- id: "electric_motor"
+  name: "Electric Motor"
+  description: "Motor for powered machines"
+  max_stack: 999
+  properties:
+    category: "component"
+    stress_capacity: "256"
+
+- id: "piston"
+  name: "Piston"
+  description: "Mechanical piston"
+  max_stack: 999
+  properties:
+    category: "component"
+
+- id: "battery"
+  name: "Battery"
+  description: "Rechargeable battery"
+  max_stack: 999
+  properties:
+    category: "component"
+    energy_capacity: "10000"
+
+- id: "solar_cell"
+  name: "Solar Cell"
+  description: "Photovoltaic solar cell"
+  max_stack: 999
+  properties:
+    category: "component"
+    energy_output: "60"
+
+- id: "heat_exchanger"
+  name: "Heat Exchanger"
+  description: "Thermal transfer component"
+  max_stack: 999
+  properties:
+    category: "component"
+
+- id: "filter"
+  name: "Filter"
+  description: "Industrial filter"
+  max_stack: 999
+  properties:
+    category: "component"
+
+- id: "bearing"
+  name: "Bearing"
+  description: "Mechanical bearing for rotation"
+  max_stack: 999
+  properties:
+    category: "component"
+    stress_impact: "0.5"
+
+# =============================================================================
+# 8. 液体 (Fluids)
+# =============================================================================
+
+- id: "water_bucket"
+  name: "Water Bucket"
+  description: "Bucket of water"
+  max_stack: 16
+  properties:
+    category: "fluid"
+    fluid_type: "water"
+    amount: "1000"
+
+- id: "crude_oil_bucket"
+  name: "Crude Oil Bucket"
+  description: "Bucket of crude oil"
+  max_stack: 16
+  properties:
+    category: "fluid"
+    fluid_type: "crude_oil"
+    amount: "1000"
+
+- id: "fuel_bucket"
+  name: "Fuel Bucket"
+  description: "Bucket of refined fuel"
+  max_stack: 16
+  properties:
+    category: "fluid"
+    fluid_type: "fuel"
+    amount: "1000"
+    burn_time: "20000"
+
+- id: "lubricant_bucket"
+  name: "Lubricant Bucket"
+  description: "Bucket of lubricant"
+  max_stack: 16
+  properties:
+    category: "fluid"
+    fluid_type: "lubricant"
+    amount: "1000"
+
+- id: "sulfuric_acid_bucket"
+  name: "Sulfuric Acid Bucket"
+  description: "Bucket of sulfuric acid - corrosive!"
+  max_stack: 16
+  properties:
+    category: "fluid"
+    fluid_type: "sulfuric_acid"
+    amount: "1000"
+    hazardous: "true"
+
+- id: "lava_bucket"
+  name: "Lava Bucket"
+  description: "Bucket of molten lava"
+  max_stack: 16
+  properties:
+    category: "fluid"
+    fluid_type: "lava"
+    amount: "1000"
+    temperature: "1200"
+
+# =============================================================================
+# 9. 気体 (Gases)
+# =============================================================================
+
+- id: "oxygen_canister"
+  name: "Oxygen Canister"
+  description: "Compressed oxygen"
+  max_stack: 16
+  properties:
+    category: "gas"
+    gas_type: "oxygen"
+    pressure: "200"
+
+- id: "hydrogen_canister"
+  name: "Hydrogen Canister"
+  description: "Compressed hydrogen - flammable!"
+  max_stack: 16
+  properties:
+    category: "gas"
+    gas_type: "hydrogen"
+    pressure: "200"
+    flammable: "true"
+
+- id: "nitrogen_canister"
+  name: "Nitrogen Canister"
+  description: "Compressed nitrogen"
+  max_stack: 16
+  properties:
+    category: "gas"
+    gas_type: "nitrogen"
+    pressure: "200"
+
+- id: "natural_gas_canister"
+  name: "Natural Gas Canister"
+  description: "Compressed natural gas - flammable!"
+  max_stack: 16
+  properties:
+    category: "gas"
+    gas_type: "natural_gas"
+    pressure: "200"
+    flammable: "true"
+    burn_time: "8000"
+
+- id: "steam_canister"
+  name: "Steam Canister"
+  description: "Pressurized steam"
+  max_stack: 16
+  properties:
+    category: "gas"
+    gas_type: "steam"
+    pressure: "100"
+
+# =============================================================================
+# 10. 食料 (Food)
+# =============================================================================
+
+- id: "wheat"
+  name: "Wheat"
+  description: "Raw wheat grain"
+  max_stack: 999
+  properties:
+    category: "food_raw"
+
+- id: "flour"
+  name: "Flour"
+  description: "Ground wheat flour"
+  max_stack: 999
+  properties:
+    category: "food_processed"
+
+- id: "bread"
+  name: "Bread"
+  description: "Freshly baked bread"
+  max_stack: 64
+  properties:
+    category: "food"
+    nutrition: "5"
+    saturation: "6"
+
+- id: "vegetables"
+  name: "Vegetables"
+  description: "Fresh vegetables"
+  max_stack: 64
+  properties:
+    category: "food"
+    nutrition: "3"
+    saturation: "2"
+
+- id: "raw_meat"
+  name: "Raw Meat"
+  description: "Uncooked meat"
+  max_stack: 64
+  properties:
+    category: "food_raw"
+    nutrition: "2"
+    saturation: "1"
+
+- id: "cooked_meat"
+  name: "Cooked Meat"
+  description: "Delicious cooked meat"
+  max_stack: 64
+  properties:
+    category: "food"
+    nutrition: "8"
+    saturation: "10"
+
+- id: "apple"
+  name: "Apple"
+  description: "A fresh apple"
+  max_stack: 64
+  properties:
+    category: "food"
+    nutrition: "4"
+    saturation: "3"
+
+- id: "golden_apple"
+  name: "Golden Apple"
+  description: "A magical golden apple"
+  max_stack: 64
+  properties:
+    category: "food"
+    nutrition: "4"
+    saturation: "10"
+    rarity: "legendary"
+    effect: "regeneration"
+
+# =============================================================================
+# 11. 装備 - ツール (Equipment - Tools)
+# =============================================================================
+
+# --- ツルハシ (Pickaxes) ---
+- id: "wooden_pickaxe"
+  name: "Wooden Pickaxe"
+  description: "Basic wooden pickaxe"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "pickaxe"
+    material: "wood"
+    durability: "59"
+    mining_speed: "2"
+
+- id: "stone_pickaxe"
+  name: "Stone Pickaxe"
+  description: "Stone pickaxe for mining"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "pickaxe"
+    material: "stone"
+    durability: "131"
+    mining_speed: "4"
+
+- id: "iron_pickaxe"
+  name: "Iron Pickaxe"
+  description: "Sturdy iron pickaxe"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "pickaxe"
+    material: "iron"
+    durability: "250"
+    mining_speed: "6"
+
+- id: "steel_pickaxe"
+  name: "Steel Pickaxe"
+  description: "Heavy-duty steel pickaxe"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "pickaxe"
+    material: "steel"
+    durability: "500"
+    mining_speed: "8"
+    rarity: "uncommon"
+
+# --- 斧 (Axes) ---
+- id: "wooden_axe"
+  name: "Wooden Axe"
+  description: "Basic wooden axe"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "axe"
+    material: "wood"
+    durability: "59"
+    attack_damage: "3"
+
+- id: "stone_axe"
+  name: "Stone Axe"
+  description: "Stone axe for chopping"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "axe"
+    material: "stone"
+    durability: "131"
+    attack_damage: "4"
+
+- id: "iron_axe"
+  name: "Iron Axe"
+  description: "Sturdy iron axe"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "axe"
+    material: "iron"
+    durability: "250"
+    attack_damage: "5"
+
+# --- シャベル (Shovels) ---
+- id: "wooden_shovel"
+  name: "Wooden Shovel"
+  description: "Basic wooden shovel"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "shovel"
+    material: "wood"
+    durability: "59"
+
+- id: "iron_shovel"
+  name: "Iron Shovel"
+  description: "Sturdy iron shovel"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "shovel"
+    material: "iron"
+    durability: "250"
+
+# --- 工業ツール (Industrial Tools) ---
+- id: "hammer"
+  name: "Hammer"
+  description: "Heavy hammer for crafting"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "hammer"
+    durability: "500"
+
+- id: "wrench"
+  name: "Wrench"
+  description: "Wrench for machine maintenance"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "wrench"
+    durability: "1000"
+
+- id: "wire_cutter"
+  name: "Wire Cutter"
+  description: "Cuts and strips wire"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tool_type: "cutter"
+    durability: "500"
+
+# =============================================================================
+# 12. 装備 - 防具 (Equipment - Armor)
+# =============================================================================
+
+# --- 革装備 (Leather Armor) ---
+- id: "leather_helmet"
+  name: "Leather Helmet"
+  description: "Basic leather helmet"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "helmet"
+    material: "leather"
+    defense: "1"
+    durability: "55"
+
+- id: "leather_chestplate"
+  name: "Leather Chestplate"
+  description: "Basic leather chestplate"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "chestplate"
+    material: "leather"
+    defense: "3"
+    durability: "80"
+
+- id: "leather_leggings"
+  name: "Leather Leggings"
+  description: "Basic leather leggings"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "leggings"
+    material: "leather"
+    defense: "2"
+    durability: "75"
+
+- id: "leather_boots"
+  name: "Leather Boots"
+  description: "Basic leather boots"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "boots"
+    material: "leather"
+    defense: "1"
+    durability: "65"
+
+# --- 鉄装備 (Iron Armor) ---
+- id: "iron_helmet"
+  name: "Iron Helmet"
+  description: "Sturdy iron helmet"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "helmet"
+    material: "iron"
+    defense: "2"
+    durability: "165"
+
+- id: "iron_chestplate"
+  name: "Iron Chestplate"
+  description: "Sturdy iron chestplate"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "chestplate"
+    material: "iron"
+    defense: "6"
+    durability: "240"
+
+- id: "iron_leggings"
+  name: "Iron Leggings"
+  description: "Sturdy iron leggings"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "leggings"
+    material: "iron"
+    defense: "5"
+    durability: "225"
+
+- id: "iron_boots"
+  name: "Iron Boots"
+  description: "Sturdy iron boots"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "boots"
+    material: "iron"
+    defense: "2"
+    durability: "195"
+
+# --- 鋼鉄装備 (Steel Armor) ---
+- id: "steel_helmet"
+  name: "Steel Helmet"
+  description: "Heavy-duty steel helmet"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "helmet"
+    material: "steel"
+    defense: "3"
+    durability: "363"
+    rarity: "uncommon"
+
+- id: "steel_chestplate"
+  name: "Steel Chestplate"
+  description: "Heavy-duty steel chestplate"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "chestplate"
+    material: "steel"
+    defense: "8"
+    durability: "528"
+    rarity: "uncommon"
+
+- id: "steel_leggings"
+  name: "Steel Leggings"
+  description: "Heavy-duty steel leggings"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "leggings"
+    material: "steel"
+    defense: "6"
+    durability: "495"
+    rarity: "uncommon"
+
+- id: "steel_boots"
+  name: "Steel Boots"
+  description: "Heavy-duty steel boots"
+  max_stack: 1
+  properties:
+    category: "armor"
+    armor_type: "boots"
+    material: "steel"
+    defense: "3"
+    durability: "429"
+    rarity: "uncommon"
+
+# =============================================================================
+# 13. 機械アイテム (Machine Items)
+# =============================================================================
+
+- id: "miner"
+  name: "Mining Drill"
+  description: "Automated mining machine"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "4.0"
+
+- id: "conveyor"
+  name: "Conveyor Belt"
+  description: "Transports items automatically"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "0.5"
+
+- id: "assembler"
+  name: "Assembler"
+  description: "Crafts items from recipes"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "2.0"
+
+- id: "furnace"
+  name: "Furnace"
+  description: "Smelts ores into ingots"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+
+- id: "crusher"
+  name: "Crusher"
+  description: "Crushes ores into dust"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "4.0"
+
+- id: "press"
+  name: "Mechanical Press"
+  description: "Presses ingots into plates"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "2.0"
+
+- id: "mixer"
+  name: "Mixer"
+  description: "Mixes materials together"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "2.0"
+
+- id: "centrifuge"
+  name: "Centrifuge"
+  description: "Separates materials by density"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "4.0"
+
+- id: "chemical_reactor"
+  name: "Chemical Reactor"
+  description: "Performs chemical reactions"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "4.0"
+
+- id: "pump"
+  name: "Pump"
+  description: "Pumps fluids"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_impact: "2.0"
+
+- id: "tank"
+  name: "Fluid Tank"
+  description: "Stores fluids"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    fluid_capacity: "16000"
+
+- id: "generator"
+  name: "Generator"
+  description: "Generates rotational force"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    stress_capacity: "256"
+
+- id: "solar_panel"
+  name: "Solar Panel"
+  description: "Generates power from sunlight"
+  max_stack: 64
+  properties:
+    category: "machine"
+    placeable: "true"
+    energy_output: "60"
