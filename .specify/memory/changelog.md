@@ -25,6 +25,19 @@
 **使い方**
 「〇〇のモデルを作成して」→ サブエージェントがBlenderスクリプト生成
 
+### Blender共通モジュール追加
+
+**tools/blender_scripts/_base.py** (約350行)
+- プリミティブ: create_octagon, create_chamfered_cube, create_hexagon, create_trapezoid
+- 機械パーツ: create_gear, create_shaft, create_pipe, create_bolt, create_piston
+- マテリアル: apply_preset_material (6種)
+- アニメーション: create_rotation_animation, create_translation_animation
+- エクスポート: export_gltf, finalize_model
+
+**_example_mechanical_press.py**: プレス機サンプル
+
+**効果**: サブエージェントのトークン消費を大幅削減
+
 ---
 
 ### ビルド問題調査
