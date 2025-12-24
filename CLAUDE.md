@@ -12,6 +12,36 @@
 | パターン | 仕様変更/実装前に`patterns-compact.md`確認 |
 | UI実装 | UI作成/修正時は`ui-design-rules.md`に従う |
 | 動作確認 | 指示時は自動操作でテスト、クラッシュ時はログ解析 |
+| 3Dモデル | 「XXXのモデルを作成」指示でサブエージェント起動 |
+
+## 3Dモデル生成ルール
+
+「〇〇のモデルを作成して」という指示を受けたら:
+
+1. **サブエージェント起動** (Task tool, subagent_type: general-purpose)
+2. **プロンプト内容**:
+```
+docs/style-guide.json を読み込み、以下のモデルのBlender Pythonスクリプトを生成せよ。
+
+【モデル】{ユーザー指定のモデル名}
+【カテゴリ】{machine/item/structureを推定}
+
+【必須要件】
+- スタイルガイドのgeometry.primitives.allowed_shapesのみ使用
+- 円/球/円柱はcurve_substitutionsで八角形に置換
+- grid.snap_unit (0.0625) でスナップ
+- polygon_budgetの上限を守る
+- materials.presetsから適切な素材選択
+- mechanical_partsの形状仕様に従う
+- originの位置規則に従う
+- 可動部があればbonesとanimation規則に従う
+
+【出力】
+tools/blender_scripts/{model_name}.py にスクリプトを書き出し、
+使用方法をユーザーに報告せよ。
+```
+
+3. **サブエージェント完了後**: 結果をユーザーに報告
 
 ## 参照ファイル
 
@@ -22,6 +52,7 @@
 | 状況 | `.specify/memory/changelog.md` | 開発履歴 |
 | 状況 | `.specify/memory/patterns-compact.md` | 52パターン |
 | 状況 | `.specify/memory/ui-design-rules.md` | UIデザインルール |
+| 状況 | `docs/style-guide.json` | 3Dモデルスタイルガイド |
 | 状況 | `.specify/specs/index-compact.md` | 全仕様集約 |
 | 詳細時 | `.specify/specs/*.md`, `src/**/*.rs` | 個別レポート/ソース |
 

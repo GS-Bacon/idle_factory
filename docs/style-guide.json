@@ -1,0 +1,180 @@
+{
+  "meta": {
+    "name": "Industrial Lowpoly Style Guide",
+    "version": "1.0.0",
+    "description": "Create mod風の工業的ローポリスタイル + Bevy技術仕様",
+    "engine": "Bevy",
+    "format": "glTF 2.0"
+  },
+
+  "geometry": {
+    "primitives": {
+      "allowed_shapes": ["quad", "hexagon", "octagon", "chamfered_cube", "trapezoid"],
+      "forbidden": ["circle", "sphere", "cylinder", "bezier_curve", "nurbs"],
+      "curve_substitutions": {
+        "circle": "octagon",
+        "sphere": "chamfered_cube_24face",
+        "cylinder": "octagonal_prism",
+        "cone": "octagonal_pyramid",
+        "torus": "octagonal_ring"
+      }
+    },
+    "grid": {
+      "snap_unit": 0.0625,
+      "comment": "1/16ブロック単位でスナップ"
+    },
+    "chamfer": {
+      "enabled": true,
+      "angle": 45,
+      "size_ratio": 0.1,
+      "comment": "エッジは45度面取りで機械的表現"
+    },
+    "symmetry": {
+      "mechanical_parts": true,
+      "organic_parts": false
+    }
+  },
+
+  "scale": {
+    "unit": "1 unit = 1 block = 1 meter",
+    "categories": {
+      "single_block_machine": { "size": [1.0, 1.0, 1.0] },
+      "handheld_item": { "size": [0.3, 0.3, 0.3] },
+      "dropped_item": { "size": [0.4, 0.4, 0.4] },
+      "player": { "size": [0.6, 1.8, 0.6] }
+    }
+  },
+
+  "origin": {
+    "machines": {
+      "position": "bottom_center",
+      "coordinates": [0, 0, 0],
+      "forward": "+Z"
+    },
+    "items": {
+      "position": "center",
+      "forward": "+Z"
+    },
+    "multiblock": {
+      "position": "master_block_bottom_center",
+      "forward": "+Z"
+    }
+  },
+
+  "polygon_budget": {
+    "triangles": {
+      "handheld_item": { "recommended": [50, 200], "max": 500 },
+      "dropped_item": { "recommended": [20, 100], "max": 200 },
+      "single_block_machine": { "recommended": [200, 800], "max": 1500 },
+      "multiblock_small": { "recommended": [500, 2000], "max": 4000 },
+      "multiblock_large": { "recommended": [2000, 5000], "max": 10000 }
+    },
+    "lod": {
+      "lod0": { "ratio": 1.0, "distance": [0, 50] },
+      "lod1": { "ratio": 0.5, "distance": [50, 150] },
+      "lod2": { "ratio": 0.25, "distance": [150, 300] }
+    }
+  },
+
+  "materials": {
+    "shading": "flat",
+    "pbr": {
+      "supported": ["base_color", "metallic", "roughness", "normal", "emissive", "occlusion"]
+    },
+    "presets": {
+      "iron": { "base_color": "#4A4A4A", "metallic": 1.0, "roughness": [0.4, 0.6] },
+      "copper": { "base_color": "#B87333", "metallic": 1.0, "roughness": [0.3, 0.5] },
+      "brass": { "base_color": "#C9A227", "metallic": 1.0, "roughness": [0.3, 0.5] },
+      "dark_steel": { "base_color": "#2D2D2D", "metallic": 1.0, "roughness": [0.5, 0.7] },
+      "wood": { "base_color": "#8B6914", "metallic": 0.0, "roughness": [0.7, 0.9] },
+      "stone": { "base_color": "#696969", "metallic": 0.0, "roughness": [0.6, 0.8] }
+    },
+    "accent_colors": {
+      "danger": "#CC3333",
+      "warning": "#CCAA33",
+      "power": "#3366CC",
+      "active": "#33CC66"
+    },
+    "vertex_color_shading": {
+      "enabled": true,
+      "edge_darkening": 0.85,
+      "comment": "エッジ付近を暗くして立体感を出す"
+    }
+  },
+
+  "textures": {
+    "resolution": {
+      "item_icon": [64, 128],
+      "machine": [256, 512],
+      "large_structure": [512, 1024]
+    },
+    "uv": { "range": [0, 1], "padding_px": 4 },
+    "naming": "{model_name}_{texture_type}.png"
+  },
+
+  "mechanical_parts": {
+    "gear": { "base_shape": "octagon", "teeth_shape": "trapezoid", "teeth_count": [8, 12, 16], "hole_shape": "octagon" },
+    "pipe": { "cross_section": "octagon", "joint_style": "flanged" },
+    "shaft": { "cross_section": "octagon", "end_style": "chamfered" },
+    "bolt": { "head_shape": "hexagon", "sizes": [0.0625, 0.125] },
+    "rivet": { "shape": "octagonal_dome", "size": 0.0625 },
+    "wheel": { "rim_shape": "octagon", "spoke_count": [4, 6, 8] },
+    "belt": { "style": "flat_segments", "segment_count_per_unit": 8 },
+    "piston": { "rod_shape": "octagonal_prism", "head_shape": "chamfered_cube" },
+    "fan_blade": { "shape": "trapezoid", "count": [4, 6, 8] }
+  },
+
+  "bones": {
+    "max_count": 30,
+    "root_required": true,
+    "root_names": ["root", "armature"],
+    "naming": "{function}_{part}_{number}",
+    "examples": ["press_head", "crusher_wheel", "mixer_blade_01", "conveyor_roller_01"],
+    "transform": { "allowed": ["rotation", "translation"], "discouraged": ["scale"] }
+  },
+
+  "animation": {
+    "fps": 30,
+    "naming": { "loop": "{action}_cycle", "oneshot": "{action}_once" },
+    "examples": ["press_cycle", "crush_cycle", "saw_spin", "door_open_once"],
+    "style": { "motion_type": "mechanical", "easing": "linear", "comment": "機械的な動きはリニア補間を基本に" }
+  },
+
+  "export": {
+    "format": "gltf_separate",
+    "extensions": [".gltf", ".bin"],
+    "settings": {
+      "y_up": true,
+      "apply_modifiers": true,
+      "uvs": true,
+      "normals": true,
+      "tangents": true,
+      "vertex_colors": "optional",
+      "materials": "export",
+      "animations": "if_present",
+      "sampling_rate": 30
+    },
+    "checklist": [
+      "スケール適用済み",
+      "回転適用済み",
+      "原点位置が正しい",
+      "UV展開が0-1範囲内",
+      "マテリアル設定済み",
+      "不要な頂点・面を削除"
+    ]
+  },
+
+  "file_structure": {
+    "models": {
+      "machines": "assets/models/machines/",
+      "items": "assets/models/items/",
+      "structures": "assets/models/structures/"
+    },
+    "textures": "assets/textures/"
+  },
+
+  "validation": {
+    "tool": "glTF Validator",
+    "url": "https://github.khronos.org/glTF-Validator/"
+  }
+}
