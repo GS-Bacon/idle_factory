@@ -21,24 +21,26 @@
 1. **サブエージェント起動** (Task tool, subagent_type: general-purpose)
 2. **プロンプト内容**:
 ```
-docs/style-guide.json を読み込み、以下のモデルのBlender Pythonスクリプトを生成せよ。
+tools/blender_scripts/_base.py を読み込み、以下のモデルのスクリプトを生成せよ。
 
 【モデル】{ユーザー指定のモデル名}
-【カテゴリ】{machine/item/structureを推定}
+【カテゴリ】{machine/item/structure}
 
-【必須要件】
-- スタイルガイドのgeometry.primitives.allowed_shapesのみ使用
-- 円/球/円柱はcurve_substitutionsで八角形に置換
-- grid.snap_unit (0.0625) でスナップ
-- polygon_budgetの上限を守る
-- materials.presetsから適切な素材選択
-- mechanical_partsの形状仕様に従う
-- originの位置規則に従う
-- 可動部があればbonesとanimation規則に従う
+【使用する関数】_base.pyから:
+- プリミティブ: create_octagon, create_octagonal_prism, create_chamfered_cube, create_hexagon, create_trapezoid
+- パーツ: create_gear, create_shaft, create_pipe, create_bolt, create_piston
+- マテリアル: apply_preset_material(obj, "iron"/"copper"/"brass"/"dark_steel"/"wood"/"stone")
+- アニメーション: create_rotation_animation, create_translation_animation
+- 仕上げ: finalize_model, export_gltf
 
-【出力】
-tools/blender_scripts/{model_name}.py にスクリプトを書き出し、
-使用方法をユーザーに報告せよ。
+【スクリプト構造】
+exec(open("tools/blender_scripts/_base.py").read())
+# パーツ生成
+# マテリアル適用
+# アニメーション設定（必要時）
+# finalize_model + export_gltf
+
+【出力】tools/blender_scripts/{model_name}.py
 ```
 
 3. **サブエージェント完了後**: 結果をユーザーに報告
@@ -53,6 +55,7 @@ tools/blender_scripts/{model_name}.py にスクリプトを書き出し、
 | 状況 | `.specify/memory/patterns-compact.md` | 52パターン |
 | 状況 | `.specify/memory/ui-design-rules.md` | UIデザインルール |
 | 状況 | `docs/style-guide.json` | 3Dモデルスタイルガイド |
+| 状況 | `tools/blender_scripts/_base.py` | Blender共通モジュール |
 | 状況 | `.specify/specs/index-compact.md` | 全仕様集約 |
 | 詳細時 | `.specify/specs/*.md`, `src/**/*.rs` | 個別レポート/ソース |
 
