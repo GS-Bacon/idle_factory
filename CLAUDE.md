@@ -27,6 +27,15 @@
 
 **原則**: 圧縮版優先、詳細は必要時のみ
 
+## 開発環境セットアップ
+
+新規環境では最初に実行: `./scripts/setup-dev.sh`
+
+| OS | 内容 |
+|----|------|
+| Linux | mold(高速リンカ), clang, Bevy依存関係をインストール |
+| Windows | Visual Studio Build Toolsの確認案内 |
+
 ## README.md
 
 **含める**: 概要、AI駆動開発の特徴、エディタ/MOD、実装済み機能、予定、技術スタック
