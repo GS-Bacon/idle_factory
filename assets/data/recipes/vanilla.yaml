@@ -1,9 +1,1147 @@
-- id: "ore_to_ingot"
-  name: "Iron Ingot"
+# =============================================================================
+# レシピ定義ファイル
+# Factory Idle Game - Default Recipe Preset
+# =============================================================================
+# デザインパターン準拠:
+#   P1: 段階的複雑化 - Tier毎に入力数制限 (T1:1-2, T2:2-3, T3:3-4, T4:4+)
+#   P3: 複数経路 - 鉱石加工に2ルート（直接精錬 vs 粉砕ルート）
+#   R1: 入出力バランス - 副産物に消費先を用意
+#   R2: 比率美学 - 全て整数比
+#   R3: 深さ制限 - 最大5階層
+# =============================================================================
+# 加工チェーン例（5階層以内）:
+#   鉱石(1) → 粉末(2) → インゴット(3) → 板/ロッド(4) → 部品(5)
+# =============================================================================
+
+# =============================================================================
+# Tier 1: 基本レシピ (1-2入力、手作業可能)
+# =============================================================================
+
+# --- 木材加工 (1入力) ---
+- id: "craft_wood_plank"
+  name: "Craft Wood Plank"
   inputs:
-    - item: "raw_ore"
+    - item: "log"
       count: 1
   outputs:
-    - item: "ingot"
+    - item: "wood_plank"
+      count: 4
+  craft_time: 0.5
+
+- id: "craft_stick"
+  name: "Craft Stick"
+  inputs:
+    - item: "wood_plank"
+      count: 2
+  outputs:
+    - item: "stick"
+      count: 4
+  craft_time: 0.25
+
+# --- 直接精錬ルート (1入力) - P3: 経路A（シンプル） ---
+- id: "smelt_iron_ore"
+  name: "Smelt Iron Ore"
+  inputs:
+    - item: "iron_ore"
       count: 1
+  outputs:
+    - item: "iron_ingot"
+      count: 1
+  craft_time: 2.0
+
+- id: "smelt_copper_ore"
+  name: "Smelt Copper Ore"
+  inputs:
+    - item: "copper_ore"
+      count: 1
+  outputs:
+    - item: "copper_ingot"
+      count: 1
+  craft_time: 2.0
+
+- id: "smelt_tin_ore"
+  name: "Smelt Tin Ore"
+  inputs:
+    - item: "tin_ore"
+      count: 1
+  outputs:
+    - item: "tin_ingot"
+      count: 1
+  craft_time: 2.0
+
+# --- その他精錬 (1入力) ---
+- id: "smelt_sand_to_glass"
+  name: "Smelt Sand to Glass"
+  inputs:
+    - item: "sand"
+      count: 1
+  outputs:
+    - item: "glass"
+      count: 1
+  craft_time: 2.0
+
+- id: "smelt_clay_to_brick"
+  name: "Smelt Clay to Brick"
+  inputs:
+    - item: "clay"
+      count: 1
+  outputs:
+    - item: "brick"
+      count: 1
+  craft_time: 2.0
+
+- id: "cook_raw_meat"
+  name: "Cook Raw Meat"
+  inputs:
+    - item: "raw_meat"
+      count: 1
+  outputs:
+    - item: "cooked_meat"
+      count: 1
+  craft_time: 1.5
+
+# --- 石材粉砕 (1入力) ---
+- id: "crush_stone"
+  name: "Crush Stone"
+  inputs:
+    - item: "stone"
+      count: 1
+  outputs:
+    - item: "gravel"
+      count: 1
+  craft_time: 1.0
+
+- id: "crush_gravel"
+  name: "Crush Gravel"
+  inputs:
+    - item: "gravel"
+      count: 1
+  outputs:
+    - item: "sand"
+      count: 1
+  craft_time: 1.0
+
+- id: "crush_cobblestone"
+  name: "Crush Cobblestone"
+  inputs:
+    - item: "cobblestone"
+      count: 1
+  outputs:
+    - item: "gravel"
+      count: 1
+  craft_time: 1.0
+
+- id: "crush_coal"
+  name: "Crush Coal"
+  inputs:
+    - item: "coal"
+      count: 1
+  outputs:
+    - item: "coal_dust"
+      count: 1
+  craft_time: 1.0
+
+# --- 簡単なクラフト (2入力) ---
+- id: "craft_wooden_pickaxe"
+  name: "Craft Wooden Pickaxe"
+  inputs:
+    - item: "wood_plank"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "wooden_pickaxe"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_stone_pickaxe"
+  name: "Craft Stone Pickaxe"
+  inputs:
+    - item: "cobblestone"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "stone_pickaxe"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_wooden_axe"
+  name: "Craft Wooden Axe"
+  inputs:
+    - item: "wood_plank"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "wooden_axe"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_stone_axe"
+  name: "Craft Stone Axe"
+  inputs:
+    - item: "cobblestone"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "stone_axe"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_wooden_shovel"
+  name: "Craft Wooden Shovel"
+  inputs:
+    - item: "wood_plank"
+      count: 1
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "wooden_shovel"
+      count: 1
+  craft_time: 1.5
+
+- id: "craft_furnace"
+  name: "Craft Furnace"
+  inputs:
+    - item: "cobblestone"
+      count: 8
+  outputs:
+    - item: "furnace"
+      count: 1
+  craft_time: 5.0
+
+# --- 食料加工 (1入力) ---
+- id: "grind_wheat_to_flour"
+  name: "Grind Wheat to Flour"
+  inputs:
+    - item: "wheat"
+      count: 1
+  outputs:
+    - item: "flour"
+      count: 1
+  craft_time: 1.0
+
+- id: "bake_bread"
+  name: "Bake Bread"
+  inputs:
+    - item: "flour"
+      count: 3
+  outputs:
+    - item: "bread"
+      count: 1
+  craft_time: 2.0
+
+# =============================================================================
+# Tier 2: 中級レシピ (2-3入力、機械加工)
+# =============================================================================
+
+# --- 粉砕ルート (1入力、2倍出力) - P3: 経路B（効率的） ---
+- id: "crush_iron_ore"
+  name: "Crush Iron Ore"
+  inputs:
+    - item: "iron_ore"
+      count: 1
+  outputs:
+    - item: "iron_dust"
+      count: 2
+  craft_time: 1.5
+
+- id: "crush_copper_ore"
+  name: "Crush Copper Ore"
+  inputs:
+    - item: "copper_ore"
+      count: 1
+  outputs:
+    - item: "copper_dust"
+      count: 2
+  craft_time: 1.5
+
+- id: "crush_tin_ore"
+  name: "Crush Tin Ore"
+  inputs:
+    - item: "tin_ore"
+      count: 1
+  outputs:
+    - item: "tin_dust"
+      count: 2
+  craft_time: 1.5
+
+- id: "crush_gold_ore"
+  name: "Crush Gold Ore"
+  inputs:
+    - item: "gold_ore"
+      count: 1
+  outputs:
+    - item: "gold_dust"
+      count: 2
+  craft_time: 2.0
+
+# --- 粉末精錬 (粉砕ルートの続き) ---
+- id: "smelt_iron_dust"
+  name: "Smelt Iron Dust"
+  inputs:
+    - item: "iron_dust"
+      count: 1
+  outputs:
+    - item: "iron_ingot"
+      count: 1
+  craft_time: 1.5
+
+- id: "smelt_copper_dust"
+  name: "Smelt Copper Dust"
+  inputs:
+    - item: "copper_dust"
+      count: 1
+  outputs:
+    - item: "copper_ingot"
+      count: 1
+  craft_time: 1.5
+
+- id: "smelt_tin_dust"
+  name: "Smelt Tin Dust"
+  inputs:
+    - item: "tin_dust"
+      count: 1
+  outputs:
+    - item: "tin_ingot"
+      count: 1
+  craft_time: 1.5
+
+- id: "smelt_gold_dust"
+  name: "Smelt Gold Dust"
+  inputs:
+    - item: "gold_dust"
+      count: 1
+  outputs:
+    - item: "gold_ingot"
+      count: 1
+  craft_time: 2.0
+
+- id: "smelt_gold_ore"
+  name: "Smelt Gold Ore"
+  inputs:
+    - item: "gold_ore"
+      count: 1
+  outputs:
+    - item: "gold_ingot"
+      count: 1
+  craft_time: 3.0
+
+- id: "smelt_nickel_ore"
+  name: "Smelt Nickel Ore"
+  inputs:
+    - item: "nickel_ore"
+      count: 1
+  outputs:
+    - item: "nickel_ingot"
+      count: 1
+  craft_time: 2.5
+
+# --- プレス加工 (1入力) ---
+- id: "press_iron_plate"
+  name: "Press Iron Plate"
+  inputs:
+    - item: "iron_ingot"
+      count: 1
+  outputs:
+    - item: "iron_plate"
+      count: 1
+  craft_time: 1.0
+
+- id: "press_copper_plate"
+  name: "Press Copper Plate"
+  inputs:
+    - item: "copper_ingot"
+      count: 1
+  outputs:
+    - item: "copper_plate"
+      count: 1
+  craft_time: 1.0
+
+- id: "press_gold_plate"
+  name: "Press Gold Plate"
+  inputs:
+    - item: "gold_ingot"
+      count: 1
+  outputs:
+    - item: "gold_plate"
+      count: 1
+  craft_time: 1.5
+
+- id: "press_bronze_plate"
+  name: "Press Bronze Plate"
+  inputs:
+    - item: "bronze_ingot"
+      count: 1
+  outputs:
+    - item: "bronze_plate"
+      count: 1
+  craft_time: 1.0
+
+- id: "press_steel_plate"
+  name: "Press Steel Plate"
+  inputs:
+    - item: "steel_ingot"
+      count: 1
+  outputs:
+    - item: "steel_plate"
+      count: 1
+  craft_time: 1.5
+
+# --- 伸線 (1入力) ---
+- id: "draw_copper_wire"
+  name: "Draw Copper Wire"
+  inputs:
+    - item: "copper_ingot"
+      count: 1
+  outputs:
+    - item: "copper_wire"
+      count: 2
+  craft_time: 1.0
+
+- id: "draw_iron_wire"
+  name: "Draw Iron Wire"
+  inputs:
+    - item: "iron_ingot"
+      count: 1
+  outputs:
+    - item: "iron_wire"
+      count: 2
+  craft_time: 1.0
+
+- id: "draw_gold_wire"
+  name: "Draw Gold Wire"
+  inputs:
+    - item: "gold_ingot"
+      count: 1
+  outputs:
+    - item: "gold_wire"
+      count: 2
+  craft_time: 1.5
+
+# --- 棒加工 (1入力) ---
+- id: "craft_iron_rod"
+  name: "Craft Iron Rod"
+  inputs:
+    - item: "iron_ingot"
+      count: 1
+  outputs:
+    - item: "iron_rod"
+      count: 2
+  craft_time: 0.5
+
+- id: "craft_copper_rod"
+  name: "Craft Copper Rod"
+  inputs:
+    - item: "copper_ingot"
+      count: 1
+  outputs:
+    - item: "copper_rod"
+      count: 2
+  craft_time: 0.5
+
+- id: "craft_steel_rod"
+  name: "Craft Steel Rod"
+  inputs:
+    - item: "steel_ingot"
+      count: 1
+  outputs:
+    - item: "steel_rod"
+      count: 2
+  craft_time: 0.75
+
+# --- ギア (1入力、階層2の加工品) ---
+- id: "craft_iron_gear"
+  name: "Craft Iron Gear"
+  inputs:
+    - item: "iron_plate"
+      count: 4
+  outputs:
+    - item: "iron_gear"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_copper_gear"
+  name: "Craft Copper Gear"
+  inputs:
+    - item: "copper_plate"
+      count: 4
+  outputs:
+    - item: "copper_gear"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_bronze_gear"
+  name: "Craft Bronze Gear"
+  inputs:
+    - item: "bronze_plate"
+      count: 4
+  outputs:
+    - item: "bronze_gear"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_steel_gear"
+  name: "Craft Steel Gear"
+  inputs:
+    - item: "steel_plate"
+      count: 4
+  outputs:
+    - item: "steel_gear"
+      count: 1
+  craft_time: 3.0
+
+# --- パイプ (1入力) ---
+- id: "craft_iron_pipe"
+  name: "Craft Iron Pipe"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+  outputs:
+    - item: "iron_pipe"
+      count: 1
+  craft_time: 1.0
+
+- id: "craft_copper_pipe"
+  name: "Craft Copper Pipe"
+  inputs:
+    - item: "copper_plate"
+      count: 2
+  outputs:
+    - item: "copper_pipe"
+      count: 1
+  craft_time: 1.0
+
+- id: "craft_steel_pipe"
+  name: "Craft Steel Pipe"
+  inputs:
+    - item: "steel_plate"
+      count: 2
+  outputs:
+    - item: "steel_pipe"
+      count: 1
+  craft_time: 1.5
+
+# --- 合金 (2入力) ---
+- id: "alloy_bronze"
+  name: "Alloy Bronze"
+  inputs:
+    - item: "copper_ingot"
+      count: 3
+    - item: "tin_ingot"
+      count: 1
+  outputs:
+    - item: "bronze_ingot"
+      count: 4
+  craft_time: 3.0
+
+- id: "alloy_steel"
+  name: "Alloy Steel"
+  inputs:
+    - item: "iron_ingot"
+      count: 2
+    - item: "coal"
+      count: 1
+  outputs:
+    - item: "steel_ingot"
+      count: 1
+  craft_time: 4.0
+
+# --- ゴム加工 (1入力) ---
+- id: "process_rubber"
+  name: "Process Rubber"
+  inputs:
+    - item: "rubber_sap"
+      count: 3
+  outputs:
+    - item: "rubber"
+      count: 1
+  craft_time: 2.0
+
+# --- コンクリート (2入力) - R2: 整数比 4:4→8 ---
+- id: "craft_concrete"
+  name: "Craft Concrete"
+  inputs:
+    - item: "gravel"
+      count: 4
+    - item: "sand"
+      count: 4
+  outputs:
+    - item: "concrete"
+      count: 8
+  craft_time: 3.0
+
+# --- 基本部品 (2入力) ---
+- id: "craft_circuit_board"
+  name: "Craft Circuit Board"
+  inputs:
+    - item: "copper_plate"
+      count: 2
+    - item: "copper_wire"
+      count: 4
+  outputs:
+    - item: "circuit_board"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_iron_mechanical_component"
+  name: "Craft Iron Mechanical Component"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "iron_rod"
+      count: 2
+  outputs:
+    - item: "iron_mechanical_component"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_bearing"
+  name: "Craft Bearing"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "steel_rod"
+      count: 1
+  outputs:
+    - item: "bearing"
+      count: 2
+  craft_time: 2.0
+
+- id: "craft_piston"
+  name: "Craft Piston"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "iron_rod"
+      count: 2
+  outputs:
+    - item: "piston"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_filter"
+  name: "Craft Filter"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "iron_wire"
+      count: 4
+  outputs:
+    - item: "filter"
+      count: 1
+  craft_time: 2.0
+
+# --- Tier 2 ツール (2入力) ---
+- id: "craft_iron_pickaxe"
+  name: "Craft Iron Pickaxe"
+  inputs:
+    - item: "iron_ingot"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "iron_pickaxe"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_iron_axe"
+  name: "Craft Iron Axe"
+  inputs:
+    - item: "iron_ingot"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "iron_axe"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_iron_shovel"
+  name: "Craft Iron Shovel"
+  inputs:
+    - item: "iron_ingot"
+      count: 1
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "iron_shovel"
+      count: 1
+  craft_time: 2.0
+
+- id: "craft_bronze_pickaxe"
+  name: "Craft Bronze Pickaxe"
+  inputs:
+    - item: "bronze_ingot"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "bronze_pickaxe"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_hammer"
+  name: "Craft Hammer"
+  inputs:
+    - item: "iron_ingot"
+      count: 6
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "hammer"
+      count: 1
+  craft_time: 4.0
+
+- id: "craft_wrench"
+  name: "Craft Wrench"
+  inputs:
+    - item: "iron_ingot"
+      count: 4
+  outputs:
+    - item: "wrench"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_wire_cutter"
+  name: "Craft Wire Cutter"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "iron_rod"
+      count: 2
+  outputs:
+    - item: "wire_cutter"
+      count: 1
+  craft_time: 2.5
+
+# --- Tier 2 防具 (1入力) ---
+- id: "craft_iron_helmet"
+  name: "Craft Iron Helmet"
+  inputs:
+    - item: "iron_ingot"
+      count: 5
+  outputs:
+    - item: "iron_helmet"
+      count: 1
+  craft_time: 4.0
+
+- id: "craft_iron_chestplate"
+  name: "Craft Iron Chestplate"
+  inputs:
+    - item: "iron_ingot"
+      count: 8
+  outputs:
+    - item: "iron_chestplate"
+      count: 1
+  craft_time: 5.0
+
+- id: "craft_iron_leggings"
+  name: "Craft Iron Leggings"
+  inputs:
+    - item: "iron_ingot"
+      count: 7
+  outputs:
+    - item: "iron_leggings"
+      count: 1
+  craft_time: 4.5
+
+- id: "craft_iron_boots"
+  name: "Craft Iron Boots"
+  inputs:
+    - item: "iron_ingot"
+      count: 4
+  outputs:
+    - item: "iron_boots"
+      count: 1
+  craft_time: 3.0
+
+# --- Tier 2 機械 (2-3入力) ---
+- id: "craft_conveyor"
+  name: "Craft Conveyor Belt"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "rubber"
+      count: 2
+    - item: "iron_gear"
+      count: 1
+  outputs:
+    - item: "conveyor"
+      count: 4
+  craft_time: 3.0
+
+- id: "craft_crusher"
+  name: "Craft Crusher"
+  inputs:
+    - item: "iron_plate"
+      count: 8
+    - item: "iron_gear"
+      count: 4
+    - item: "piston"
+      count: 2
+  outputs:
+    - item: "crusher"
+      count: 1
+  craft_time: 10.0
+
+- id: "craft_press"
+  name: "Craft Mechanical Press"
+  inputs:
+    - item: "iron_plate"
+      count: 6
+    - item: "iron_gear"
+      count: 2
+    - item: "piston"
+      count: 1
+  outputs:
+    - item: "press"
+      count: 1
+  craft_time: 8.0
+
+- id: "craft_pump"
+  name: "Craft Pump"
+  inputs:
+    - item: "iron_plate"
+      count: 4
+    - item: "iron_pipe"
+      count: 4
+    - item: "iron_gear"
+      count: 2
+  outputs:
+    - item: "pump"
+      count: 1
+  craft_time: 6.0
+
+- id: "craft_tank"
+  name: "Craft Fluid Tank"
+  inputs:
+    - item: "iron_plate"
+      count: 8
+    - item: "glass"
+      count: 4
+  outputs:
+    - item: "tank"
+      count: 1
+  craft_time: 5.0
+
+# =============================================================================
+# Tier 3: 上級レシピ (3-4入力)
+# =============================================================================
+
+# --- 上級合金 (2入力) ---
+- id: "alloy_invar"
+  name: "Alloy Invar"
+  inputs:
+    - item: "iron_ingot"
+      count: 2
+    - item: "nickel_ingot"
+      count: 1
+  outputs:
+    - item: "invar_ingot"
+      count: 3
+  craft_time: 4.0
+
+# --- 上級部品 (3入力) ---
+- id: "craft_advanced_circuit"
+  name: "Craft Advanced Circuit"
+  inputs:
+    - item: "circuit_board"
+      count: 2
+    - item: "gold_wire"
+      count: 4
+    - item: "rubber"
+      count: 2
+  outputs:
+    - item: "advanced_circuit"
+      count: 1
+  craft_time: 5.0
+
+- id: "craft_electric_motor"
+  name: "Craft Electric Motor"
+  inputs:
+    - item: "iron_plate"
+      count: 4
+    - item: "copper_wire"
+      count: 8
+    - item: "iron_gear"
+      count: 2
+  outputs:
+    - item: "electric_motor"
+      count: 1
+  craft_time: 5.0
+
+- id: "craft_battery"
+  name: "Craft Battery"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "copper_wire"
+      count: 4
+    - item: "sulfur"
+      count: 2
+  outputs:
+    - item: "battery"
+      count: 1
+  craft_time: 4.0
+
+- id: "craft_solar_cell"
+  name: "Craft Solar Cell"
+  inputs:
+    - item: "glass"
+      count: 3
+    - item: "copper_wire"
+      count: 4
+    - item: "raw_quartz"
+      count: 2
+  outputs:
+    - item: "solar_cell"
+      count: 1
+  craft_time: 5.0
+
+- id: "craft_heat_exchanger"
+  name: "Craft Heat Exchanger"
+  inputs:
+    - item: "copper_pipe"
+      count: 4
+    - item: "copper_plate"
+      count: 4
+  outputs:
+    - item: "heat_exchanger"
+      count: 1
+  craft_time: 4.0
+
+# --- Tier 3 ツール (2入力) ---
+- id: "craft_steel_pickaxe"
+  name: "Craft Steel Pickaxe"
+  inputs:
+    - item: "steel_ingot"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "steel_pickaxe"
+      count: 1
+  craft_time: 4.0
+
+# --- Tier 3 防具 (1入力) ---
+- id: "craft_steel_helmet"
+  name: "Craft Steel Helmet"
+  inputs:
+    - item: "steel_ingot"
+      count: 5
+  outputs:
+    - item: "steel_helmet"
+      count: 1
+  craft_time: 5.0
+
+- id: "craft_steel_chestplate"
+  name: "Craft Steel Chestplate"
+  inputs:
+    - item: "steel_ingot"
+      count: 8
+  outputs:
+    - item: "steel_chestplate"
+      count: 1
+  craft_time: 6.0
+
+- id: "craft_steel_leggings"
+  name: "Craft Steel Leggings"
+  inputs:
+    - item: "steel_ingot"
+      count: 7
+  outputs:
+    - item: "steel_leggings"
+      count: 1
+  craft_time: 5.5
+
+- id: "craft_steel_boots"
+  name: "Craft Steel Boots"
+  inputs:
+    - item: "steel_ingot"
+      count: 4
+  outputs:
+    - item: "steel_boots"
+      count: 1
+  craft_time: 4.0
+
+# --- Tier 3 機械 (3-4入力) ---
+- id: "craft_miner"
+  name: "Craft Mining Drill"
+  inputs:
+    - item: "iron_plate"
+      count: 8
+    - item: "iron_gear"
+      count: 4
+    - item: "electric_motor"
+      count: 1
+    - item: "circuit_board"
+      count: 1
+  outputs:
+    - item: "miner"
+      count: 1
+  craft_time: 10.0
+
+- id: "craft_assembler"
+  name: "Craft Assembler"
+  inputs:
+    - item: "iron_plate"
+      count: 10
+    - item: "iron_gear"
+      count: 6
+    - item: "electric_motor"
+      count: 2
+    - item: "circuit_board"
+      count: 2
+  outputs:
+    - item: "assembler"
+      count: 1
+  craft_time: 15.0
+
+- id: "craft_mixer"
+  name: "Craft Mixer"
+  inputs:
+    - item: "iron_plate"
+      count: 6
+    - item: "iron_gear"
+      count: 4
+    - item: "electric_motor"
+      count: 1
+  outputs:
+    - item: "mixer"
+      count: 1
+  craft_time: 8.0
+
+- id: "craft_centrifuge"
+  name: "Craft Centrifuge"
+  inputs:
+    - item: "iron_plate"
+      count: 8
+    - item: "steel_gear"
+      count: 4
+    - item: "electric_motor"
+      count: 2
+  outputs:
+    - item: "centrifuge"
+      count: 1
+  craft_time: 12.0
+
+- id: "craft_generator"
+  name: "Craft Generator"
+  inputs:
+    - item: "iron_plate"
+      count: 8
+    - item: "copper_wire"
+      count: 16
+    - item: "iron_gear"
+      count: 4
+    - item: "electric_motor"
+      count: 1
+  outputs:
+    - item: "generator"
+      count: 1
+  craft_time: 15.0
+
+# --- 特殊アイテム (2入力) ---
+- id: "craft_golden_apple"
+  name: "Craft Golden Apple"
+  inputs:
+    - item: "apple"
+      count: 1
+    - item: "gold_ingot"
+      count: 8
+  outputs:
+    - item: "golden_apple"
+      count: 1
+  craft_time: 10.0
+
+# =============================================================================
+# Tier 4: 最上級レシピ (4+入力)
+# =============================================================================
+
+# --- 最上級部品 (4入力) ---
+- id: "craft_processor"
+  name: "Craft Processor"
+  inputs:
+    - item: "advanced_circuit"
+      count: 2
+    - item: "gold_plate"
+      count: 2
+    - item: "raw_quartz"
+      count: 1
+  outputs:
+    - item: "processor"
+      count: 1
+  craft_time: 8.0
+
+# --- Tier 4 機械 (4+入力) ---
+- id: "craft_chemical_reactor"
+  name: "Craft Chemical Reactor"
+  inputs:
+    - item: "steel_plate"
+      count: 8
+    - item: "steel_pipe"
+      count: 4
+    - item: "advanced_circuit"
+      count: 2
+    - item: "heat_exchanger"
+      count: 2
+  outputs:
+    - item: "chemical_reactor"
+      count: 1
+  craft_time: 20.0
+
+- id: "craft_solar_panel"
+  name: "Craft Solar Panel"
+  inputs:
+    - item: "solar_cell"
+      count: 4
+    - item: "iron_plate"
+      count: 4
+    - item: "copper_wire"
+      count: 8
+    - item: "circuit_board"
+      count: 1
+  outputs:
+    - item: "solar_panel"
+      count: 1
+  craft_time: 10.0
+
+# =============================================================================
+# 副産物消費レシピ (R1対応)
+# =============================================================================
+
+# --- スラグの消費先 ---
+- id: "slag_to_gravel"
+  name: "Process Slag"
+  inputs:
+    - item: "slag"
+      count: 4
+  outputs:
+    - item: "gravel"
+      count: 1
+  craft_time: 2.0
+
+# --- 石粉の消費先 ---
+- id: "stone_dust_to_brick"
+  name: "Compress Stone Dust"
+  inputs:
+    - item: "stone_dust"
+      count: 4
+  outputs:
+    - item: "brick"
+      count: 1
+  craft_time: 3.0
+
+# --- 石炭粉の活用（より効率的な燃料） ---
+- id: "compress_coal_dust"
+  name: "Compress Coal Dust"
+  inputs:
+    - item: "coal_dust"
+      count: 9
+  outputs:
+    - item: "coal"
+      count: 8
   craft_time: 2.0

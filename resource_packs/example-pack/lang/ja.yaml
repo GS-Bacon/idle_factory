@@ -13,20 +13,349 @@ ui:
     sort: 整理
     trash: ゴミ箱
 
+# =============================================================================
 # アイテム名
+# =============================================================================
 items:
-  raw_ore: 原石
+  # --- 鉱石 ---
+  iron_ore: 鉄鉱石
+  copper_ore: 銅鉱石
+  gold_ore: 金鉱石
+  tin_ore: 錫鉱石
+  nickel_ore: ニッケル鉱石
+  coal_ore: 石炭鉱石
+  sulfur_ore: 硫黄鉱石
+  uranium_ore: ウラン鉱石
+
+  # --- 副産物 ---
+  stone_dust: 石粉
+  slag: スラグ
+
+  # --- 追加インゴット ---
+  invar_ingot: インバーインゴット
+
+  # --- 追加粉末 ---
+  tin_dust: 錫粉
+
+  # --- 追加ギア ---
+  bronze_gear: 青銅歯車
+
+  # --- 追加部品 ---
+  iron_mechanical_component: 鉄機械部品
+
+  # --- 追加ツール ---
+  bronze_pickaxe: 青銅のツルハシ
+
+  # --- 木材 ---
+  log: 原木
+  wood_plank: 木材
+  stick: 棒
+
+  # --- 石材 ---
+  stone: 石
+  cobblestone: 丸石
+  gravel: 砂利
+  sand: 砂
+  clay: 粘土
+
+  # --- その他素材 ---
+  coal: 石炭
+  rubber_sap: 生ゴム
+  raw_quartz: 生クォーツ
+
+  # --- インゴット ---
   iron_ingot: 鉄インゴット
   copper_ingot: 銅インゴット
+  gold_ingot: 金インゴット
+  tin_ingot: 錫インゴット
+  nickel_ingot: ニッケルインゴット
+  steel_ingot: 鋼鉄インゴット
+  bronze_ingot: 青銅インゴット
 
+  # --- 板材 ---
+  iron_plate: 鉄板
+  copper_plate: 銅板
+  gold_plate: 金板
+  steel_plate: 鋼鉄板
+  bronze_plate: 青銅板
+
+  # --- 粉末 ---
+  iron_dust: 鉄粉
+  copper_dust: 銅粉
+  gold_dust: 金粉
+  coal_dust: 石炭粉
+  sulfur: 硫黄
+
+  # --- ワイヤー ---
+  copper_wire: 銅線
+  iron_wire: 鉄線
+  gold_wire: 金線
+
+  # --- ロッド ---
+  iron_rod: 鉄棒
+  steel_rod: 鋼鉄棒
+  copper_rod: 銅棒
+
+  # --- ギア ---
+  iron_gear: 鉄歯車
+  copper_gear: 銅歯車
+  steel_gear: 鋼鉄歯車
+
+  # --- パイプ ---
+  iron_pipe: 鉄パイプ
+  copper_pipe: 銅パイプ
+  steel_pipe: 鋼鉄パイプ
+
+  # --- その他加工品 ---
+  rubber: ゴム
+  plastic: プラスチック
+  glass: ガラス
+  brick: レンガ
+  concrete: コンクリート
+
+  # --- 中間部品 ---
+  circuit_board: 回路基板
+  advanced_circuit: 高度回路
+  processor: プロセッサ
+  electric_motor: 電動モーター
+  piston: ピストン
+  battery: バッテリー
+  solar_cell: 太陽電池
+  heat_exchanger: 熱交換器
+  filter: フィルター
+  bearing: ベアリング
+
+  # --- 液体 ---
+  water_bucket: 水バケツ
+  crude_oil_bucket: 原油バケツ
+  fuel_bucket: 燃料バケツ
+  lubricant_bucket: 潤滑油バケツ
+  sulfuric_acid_bucket: 硫酸バケツ
+  lava_bucket: 溶岩バケツ
+
+  # --- 気体 ---
+  oxygen_canister: 酸素ボンベ
+  hydrogen_canister: 水素ボンベ
+  nitrogen_canister: 窒素ボンベ
+  natural_gas_canister: 天然ガスボンベ
+  steam_canister: 蒸気ボンベ
+
+  # --- 食料 ---
+  wheat: 小麦
+  flour: 小麦粉
+  bread: パン
+  vegetables: 野菜
+  raw_meat: 生肉
+  cooked_meat: 調理済み肉
+  apple: リンゴ
+  golden_apple: 金のリンゴ
+
+  # --- ツール ---
+  wooden_pickaxe: 木のツルハシ
+  stone_pickaxe: 石のツルハシ
+  iron_pickaxe: 鉄のツルハシ
+  steel_pickaxe: 鋼鉄のツルハシ
+  wooden_axe: 木の斧
+  stone_axe: 石の斧
+  iron_axe: 鉄の斧
+  wooden_shovel: 木のシャベル
+  iron_shovel: 鉄のシャベル
+  hammer: ハンマー
+  wrench: レンチ
+  wire_cutter: ワイヤーカッター
+
+  # --- 防具 ---
+  leather_helmet: 革ヘルメット
+  leather_chestplate: 革チェストプレート
+  leather_leggings: 革レギンス
+  leather_boots: 革ブーツ
+  iron_helmet: 鉄ヘルメット
+  iron_chestplate: 鉄チェストプレート
+  iron_leggings: 鉄レギンス
+  iron_boots: 鉄ブーツ
+  steel_helmet: 鋼鉄ヘルメット
+  steel_chestplate: 鋼鉄チェストプレート
+  steel_leggings: 鋼鉄レギンス
+  steel_boots: 鋼鉄ブーツ
+
+# =============================================================================
 # 機械名
+# =============================================================================
 machines:
   conveyor: コンベアベルト
   miner: 採掘機
   assembler: 組立機
+  furnace: かまど
+  crusher: 粉砕機
+  press: プレス機
+  mixer: ミキサー
+  centrifuge: 遠心分離機
+  chemical_reactor: 化学反応炉
+  pump: ポンプ
+  tank: 液体タンク
+  generator: 発電機
+  solar_panel: ソーラーパネル
+
+# =============================================================================
+# レシピ名
+# =============================================================================
+recipes:
+  # --- 精錬 ---
+  smelt_iron_ore: 鉄鉱石の精錬
+  smelt_copper_ore: 銅鉱石の精錬
+  smelt_gold_ore: 金鉱石の精錬
+  smelt_tin_ore: 錫鉱石の精錬
+  smelt_nickel_ore: ニッケル鉱石の精錬
+  smelt_iron_dust: 鉄粉の精錬
+  smelt_copper_dust: 銅粉の精錬
+  smelt_gold_dust: 金粉の精錬
+  smelt_sand_to_glass: ガラス精錬
+  smelt_clay_to_brick: レンガ精錬
+  cook_raw_meat: 肉を焼く
+
+  # --- 粉砕 ---
+  crush_iron_ore: 鉄鉱石の粉砕
+  crush_copper_ore: 銅鉱石の粉砕
+  crush_gold_ore: 金鉱石の粉砕
+  crush_coal: 石炭の粉砕
+  crush_stone: 石の粉砕
+  crush_gravel: 砂利の粉砕
+  crush_cobblestone: 丸石の粉砕
+
+  # --- プレス ---
+  press_iron_plate: 鉄板プレス
+  press_copper_plate: 銅板プレス
+  press_gold_plate: 金板プレス
+  press_steel_plate: 鋼鉄板プレス
+  press_bronze_plate: 青銅板プレス
+
+  # --- 伸線 ---
+  draw_copper_wire: 銅線の製造
+  draw_iron_wire: 鉄線の製造
+  draw_gold_wire: 金線の製造
+
+  # --- 棒加工 ---
+  craft_iron_rod: 鉄棒の製造
+  craft_steel_rod: 鋼鉄棒の製造
+  craft_copper_rod: 銅棒の製造
+
+  # --- ギア ---
+  craft_iron_gear: 鉄歯車の製造
+  craft_copper_gear: 銅歯車の製造
+  craft_steel_gear: 鋼鉄歯車の製造
+
+  # --- パイプ ---
+  craft_iron_pipe: 鉄パイプの製造
+  craft_copper_pipe: 銅パイプの製造
+  craft_steel_pipe: 鋼鉄パイプの製造
+
+  # --- 木材加工 ---
+  craft_wood_plank: 木材の製造
+  craft_stick: 棒の製造
+
+  # --- 合金 ---
+  alloy_steel: 鋼鉄の合金
+  alloy_bronze: 青銅の合金
+
+  # --- ゴム・プラスチック ---
+  process_rubber: ゴムの加工
+
+  # --- 電子部品 ---
+  craft_circuit_board: 回路基板の製造
+  craft_advanced_circuit: 高度回路の製造
+  craft_processor: プロセッサの製造
+
+  # --- 機械部品 ---
+  craft_electric_motor: 電動モーターの製造
+  craft_piston: ピストンの製造
+  craft_battery: バッテリーの製造
+  craft_solar_cell: 太陽電池の製造
+  craft_bearing: ベアリングの製造
+  craft_heat_exchanger: 熱交換器の製造
+  craft_filter: フィルターの製造
+
+  # --- 食料加工 ---
+  grind_wheat_to_flour: 小麦粉の製造
+  bake_bread: パンを焼く
+
+  # --- ツール ---
+  craft_wooden_pickaxe: 木のツルハシの製造
+  craft_stone_pickaxe: 石のツルハシの製造
+  craft_iron_pickaxe: 鉄のツルハシの製造
+  craft_steel_pickaxe: 鋼鉄のツルハシの製造
+  craft_wooden_axe: 木の斧の製造
+  craft_stone_axe: 石の斧の製造
+  craft_iron_axe: 鉄の斧の製造
+  craft_wooden_shovel: 木のシャベルの製造
+  craft_iron_shovel: 鉄のシャベルの製造
+  craft_hammer: ハンマーの製造
+  craft_wrench: レンチの製造
+  craft_wire_cutter: ワイヤーカッターの製造
+
+  # --- 防具 ---
+  craft_iron_helmet: 鉄ヘルメットの製造
+  craft_iron_chestplate: 鉄チェストプレートの製造
+  craft_iron_leggings: 鉄レギンスの製造
+  craft_iron_boots: 鉄ブーツの製造
+  craft_steel_helmet: 鋼鉄ヘルメットの製造
+  craft_steel_chestplate: 鋼鉄チェストプレートの製造
+  craft_steel_leggings: 鋼鉄レギンスの製造
+  craft_steel_boots: 鋼鉄ブーツの製造
+
+  # --- 機械 ---
+  craft_conveyor: コンベアベルトの製造
+  craft_miner: 採掘機の製造
+  craft_assembler: 組立機の製造
+  craft_furnace: かまどの製造
+  craft_crusher: 粉砕機の製造
+  craft_press: プレス機の製造
+  craft_mixer: ミキサーの製造
+  craft_centrifuge: 遠心分離機の製造
+  craft_pump: ポンプの製造
+  craft_tank: 液体タンクの製造
+  craft_generator: 発電機の製造
+  craft_solar_panel: ソーラーパネルの製造
+
+  # --- 特殊 ---
+  craft_golden_apple: 金のリンゴの製造
+  craft_concrete: コンクリートの製造
 
 # メッセージ
 messages:
   welcome: "{name}さん、ようこそ！"
   item_placed: "{item}を設置しました"
   power_overload: 電力過負荷！
+
+# カテゴリ名
+categories:
+  ore: 鉱石
+  wood: 木材
+  stone: 石材
+  fuel: 燃料
+  raw: 素材
+  crystal: 結晶
+  ingot: インゴット
+  plate: 板材
+  dust: 粉末
+  wire: ワイヤー
+  rod: 棒
+  gear: 歯車
+  pipe: パイプ
+  processed: 加工品
+  component: 部品
+  fluid: 液体
+  gas: 気体
+  food: 食料
+  food_raw: 生の食料
+  food_processed: 加工食品
+  tool: ツール
+  armor: 防具
+  machine: 機械
+
+# レアリティ
+rarity:
+  common: コモン
+  uncommon: アンコモン
+  rare: レア
+  epic: エピック
+  legendary: レジェンダリー

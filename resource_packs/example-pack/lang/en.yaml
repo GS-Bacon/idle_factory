@@ -13,20 +13,339 @@ ui:
     sort: Sort
     trash: Trash
 
+# =============================================================================
 # Item names
+# =============================================================================
 items:
-  raw_ore: Raw Ore
+  # --- Ores ---
+  iron_ore: Iron Ore
+  copper_ore: Copper Ore
+  gold_ore: Gold Ore
+  tin_ore: Tin Ore
+  nickel_ore: Nickel Ore
+  coal_ore: Coal Ore
+  sulfur_ore: Sulfur Ore
+  uranium_ore: Uranium Ore
+
+  # --- Byproducts ---
+  stone_dust: Stone Dust
+  slag: Slag
+
+  # --- Wood ---
+  log: Log
+  wood_plank: Wood Plank
+  stick: Stick
+
+  # --- Stone ---
+  stone: Stone
+  cobblestone: Cobblestone
+  gravel: Gravel
+  sand: Sand
+  clay: Clay
+
+  # --- Other Raw Materials ---
+  coal: Coal
+  rubber_sap: Rubber Sap
+  raw_quartz: Raw Quartz
+
+  # --- Ingots ---
   iron_ingot: Iron Ingot
   copper_ingot: Copper Ingot
+  gold_ingot: Gold Ingot
+  tin_ingot: Tin Ingot
+  nickel_ingot: Nickel Ingot
+  steel_ingot: Steel Ingot
+  bronze_ingot: Bronze Ingot
+  invar_ingot: Invar Ingot
 
+  # --- Plates ---
+  iron_plate: Iron Plate
+  copper_plate: Copper Plate
+  gold_plate: Gold Plate
+  steel_plate: Steel Plate
+  bronze_plate: Bronze Plate
+
+  # --- Dusts ---
+  iron_dust: Iron Dust
+  copper_dust: Copper Dust
+  gold_dust: Gold Dust
+  coal_dust: Coal Dust
+  tin_dust: Tin Dust
+  sulfur: Sulfur
+
+  # --- Wires ---
+  copper_wire: Copper Wire
+  iron_wire: Iron Wire
+  gold_wire: Gold Wire
+
+  # --- Rods ---
+  iron_rod: Iron Rod
+  steel_rod: Steel Rod
+  copper_rod: Copper Rod
+
+  # --- Gears ---
+  iron_gear: Iron Gear
+  copper_gear: Copper Gear
+  steel_gear: Steel Gear
+  bronze_gear: Bronze Gear
+
+  # --- Pipes ---
+  iron_pipe: Iron Pipe
+  copper_pipe: Copper Pipe
+  steel_pipe: Steel Pipe
+
+  # --- Other Processed ---
+  rubber: Rubber
+  plastic: Plastic
+  glass: Glass
+  brick: Brick
+  concrete: Concrete
+
+  # --- Components ---
+  circuit_board: Circuit Board
+  advanced_circuit: Advanced Circuit
+  processor: Processor
+  electric_motor: Electric Motor
+  piston: Piston
+  battery: Battery
+  solar_cell: Solar Cell
+  heat_exchanger: Heat Exchanger
+  filter: Filter
+  bearing: Bearing
+  iron_mechanical_component: Iron Mechanical Component
+
+  # --- Fluids ---
+  water_bucket: Water Bucket
+  crude_oil_bucket: Crude Oil Bucket
+  fuel_bucket: Fuel Bucket
+  lubricant_bucket: Lubricant Bucket
+  sulfuric_acid_bucket: Sulfuric Acid Bucket
+  lava_bucket: Lava Bucket
+
+  # --- Gases ---
+  oxygen_canister: Oxygen Canister
+  hydrogen_canister: Hydrogen Canister
+  nitrogen_canister: Nitrogen Canister
+  natural_gas_canister: Natural Gas Canister
+  steam_canister: Steam Canister
+
+  # --- Food ---
+  wheat: Wheat
+  flour: Flour
+  bread: Bread
+  vegetables: Vegetables
+  raw_meat: Raw Meat
+  cooked_meat: Cooked Meat
+  apple: Apple
+  golden_apple: Golden Apple
+
+  # --- Tools ---
+  wooden_pickaxe: Wooden Pickaxe
+  stone_pickaxe: Stone Pickaxe
+  iron_pickaxe: Iron Pickaxe
+  steel_pickaxe: Steel Pickaxe
+  bronze_pickaxe: Bronze Pickaxe
+  wooden_axe: Wooden Axe
+  stone_axe: Stone Axe
+  iron_axe: Iron Axe
+  wooden_shovel: Wooden Shovel
+  iron_shovel: Iron Shovel
+  hammer: Hammer
+  wrench: Wrench
+  wire_cutter: Wire Cutter
+
+  # --- Armor ---
+  leather_helmet: Leather Helmet
+  leather_chestplate: Leather Chestplate
+  leather_leggings: Leather Leggings
+  leather_boots: Leather Boots
+  iron_helmet: Iron Helmet
+  iron_chestplate: Iron Chestplate
+  iron_leggings: Iron Leggings
+  iron_boots: Iron Boots
+  steel_helmet: Steel Helmet
+  steel_chestplate: Steel Chestplate
+  steel_leggings: Steel Leggings
+  steel_boots: Steel Boots
+
+# =============================================================================
 # Machine names
+# =============================================================================
 machines:
   conveyor: Conveyor Belt
   miner: Miner
   assembler: Assembler
+  furnace: Furnace
+  crusher: Crusher
+  press: Mechanical Press
+  mixer: Mixer
+  centrifuge: Centrifuge
+  chemical_reactor: Chemical Reactor
+  pump: Pump
+  tank: Fluid Tank
+  generator: Generator
+  solar_panel: Solar Panel
+
+# =============================================================================
+# Recipe names
+# =============================================================================
+recipes:
+  # --- Smelting ---
+  smelt_iron_ore: Smelt Iron Ore
+  smelt_copper_ore: Smelt Copper Ore
+  smelt_gold_ore: Smelt Gold Ore
+  smelt_tin_ore: Smelt Tin Ore
+  smelt_nickel_ore: Smelt Nickel Ore
+  smelt_iron_dust: Smelt Iron Dust
+  smelt_copper_dust: Smelt Copper Dust
+  smelt_gold_dust: Smelt Gold Dust
+  smelt_sand_to_glass: Smelt Sand to Glass
+  smelt_clay_to_brick: Smelt Clay to Brick
+  cook_raw_meat: Cook Raw Meat
+
+  # --- Crushing ---
+  crush_iron_ore: Crush Iron Ore
+  crush_copper_ore: Crush Copper Ore
+  crush_gold_ore: Crush Gold Ore
+  crush_coal: Crush Coal
+  crush_stone: Crush Stone
+  crush_gravel: Crush Gravel
+  crush_cobblestone: Crush Cobblestone
+
+  # --- Pressing ---
+  press_iron_plate: Press Iron Plate
+  press_copper_plate: Press Copper Plate
+  press_gold_plate: Press Gold Plate
+  press_steel_plate: Press Steel Plate
+  press_bronze_plate: Press Bronze Plate
+
+  # --- Wire Drawing ---
+  draw_copper_wire: Draw Copper Wire
+  draw_iron_wire: Draw Iron Wire
+  draw_gold_wire: Draw Gold Wire
+
+  # --- Rod Crafting ---
+  craft_iron_rod: Craft Iron Rod
+  craft_steel_rod: Craft Steel Rod
+  craft_copper_rod: Craft Copper Rod
+
+  # --- Gear Crafting ---
+  craft_iron_gear: Craft Iron Gear
+  craft_copper_gear: Craft Copper Gear
+  craft_steel_gear: Craft Steel Gear
+
+  # --- Pipe Crafting ---
+  craft_iron_pipe: Craft Iron Pipe
+  craft_copper_pipe: Craft Copper Pipe
+  craft_steel_pipe: Craft Steel Pipe
+
+  # --- Wood Processing ---
+  craft_wood_plank: Craft Wood Plank
+  craft_stick: Craft Stick
+
+  # --- Alloys ---
+  alloy_steel: Alloy Steel
+  alloy_bronze: Alloy Bronze
+
+  # --- Rubber/Plastic ---
+  process_rubber: Process Rubber
+
+  # --- Electronics ---
+  craft_circuit_board: Craft Circuit Board
+  craft_advanced_circuit: Craft Advanced Circuit
+  craft_processor: Craft Processor
+
+  # --- Machine Components ---
+  craft_electric_motor: Craft Electric Motor
+  craft_piston: Craft Piston
+  craft_battery: Craft Battery
+  craft_solar_cell: Craft Solar Cell
+  craft_bearing: Craft Bearing
+  craft_heat_exchanger: Craft Heat Exchanger
+  craft_filter: Craft Filter
+
+  # --- Food Processing ---
+  grind_wheat_to_flour: Grind Wheat to Flour
+  bake_bread: Bake Bread
+
+  # --- Tools ---
+  craft_wooden_pickaxe: Craft Wooden Pickaxe
+  craft_stone_pickaxe: Craft Stone Pickaxe
+  craft_iron_pickaxe: Craft Iron Pickaxe
+  craft_steel_pickaxe: Craft Steel Pickaxe
+  craft_wooden_axe: Craft Wooden Axe
+  craft_stone_axe: Craft Stone Axe
+  craft_iron_axe: Craft Iron Axe
+  craft_wooden_shovel: Craft Wooden Shovel
+  craft_iron_shovel: Craft Iron Shovel
+  craft_hammer: Craft Hammer
+  craft_wrench: Craft Wrench
+  craft_wire_cutter: Craft Wire Cutter
+
+  # --- Armor ---
+  craft_iron_helmet: Craft Iron Helmet
+  craft_iron_chestplate: Craft Iron Chestplate
+  craft_iron_leggings: Craft Iron Leggings
+  craft_iron_boots: Craft Iron Boots
+  craft_steel_helmet: Craft Steel Helmet
+  craft_steel_chestplate: Craft Steel Chestplate
+  craft_steel_leggings: Craft Steel Leggings
+  craft_steel_boots: Craft Steel Boots
+
+  # --- Machines ---
+  craft_conveyor: Craft Conveyor Belt
+  craft_miner: Craft Mining Drill
+  craft_assembler: Craft Assembler
+  craft_furnace: Craft Furnace
+  craft_crusher: Craft Crusher
+  craft_press: Craft Mechanical Press
+  craft_mixer: Craft Mixer
+  craft_centrifuge: Craft Centrifuge
+  craft_pump: Craft Pump
+  craft_tank: Craft Fluid Tank
+  craft_generator: Craft Generator
+  craft_solar_panel: Craft Solar Panel
+
+  # --- Special ---
+  craft_golden_apple: Craft Golden Apple
+  craft_concrete: Craft Concrete
 
 # Messages
 messages:
   welcome: "Welcome, {name}!"
   item_placed: "{item} placed"
   power_overload: Power Overload!
+
+# Category names
+categories:
+  ore: Ore
+  wood: Wood
+  stone: Stone
+  fuel: Fuel
+  raw: Raw Material
+  crystal: Crystal
+  ingot: Ingot
+  plate: Plate
+  dust: Dust
+  wire: Wire
+  rod: Rod
+  gear: Gear
+  pipe: Pipe
+  processed: Processed
+  component: Component
+  fluid: Fluid
+  gas: Gas
+  food: Food
+  food_raw: Raw Food
+  food_processed: Processed Food
+  tool: Tool
+  armor: Armor
+  machine: Machine
+
+# Rarity
+rarity:
+  common: Common
+  uncommon: Uncommon
+  rare: Rare
+  epic: Epic
+  legendary: Legendary
