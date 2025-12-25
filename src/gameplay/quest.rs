@@ -265,11 +265,9 @@ impl QuestManager {
 
     /// クエスト進捗を取得または作成
     pub fn get_or_create(&mut self, quest_id: &str) -> &mut QuestProgress {
-        if !self.progress.contains_key(quest_id) {
-            self.progress
-                .insert(quest_id.to_string(), QuestProgress::new(quest_id));
-        }
-        self.progress.get_mut(quest_id).unwrap()
+        self.progress
+            .entry(quest_id.to_string())
+            .or_insert_with(|| QuestProgress::new(quest_id))
     }
 
     /// クエストが完了しているかチェック

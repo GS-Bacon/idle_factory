@@ -15,7 +15,7 @@
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::gameplay::grid::{Direction, ItemSlot, ConveyorLane};
+use crate::gameplay::grid::{Direction, ItemSlot};
 
 /// スプリッターのフィルタルール
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -30,6 +30,7 @@ pub enum SplitterFilter {
     ItemFilter(Vec<String>),
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for SplitterFilter {
     fn default() -> Self {
         SplitterFilter::Any

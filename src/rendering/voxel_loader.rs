@@ -56,7 +56,7 @@ pub fn load_vox_assets(mut voxel_assets: ResMut<VoxelAssets>) {
                     }
                 }
                 
-                info!("📦 Loaded .vox model: {} ({} voxels)", id, voxels.len());
+                debug!("📦 Loaded .vox model: {} ({} voxels)", id, voxels.len());
                 voxel_assets.models.insert(id.to_string(), voxels);
             }
             Err(e) => {
@@ -79,7 +79,7 @@ pub fn load_vox_assets(mut voxel_assets: ResMut<VoxelAssets>) {
                     }
                 }
 
-                info!("📦 Generated fallback cube for: {} ({} voxels)", id, voxels.len());
+                debug!("📦 Generated fallback cube for: {} ({} voxels)", id, voxels.len());
                 voxel_assets.models.insert(id.to_string(), voxels);
             }
         }

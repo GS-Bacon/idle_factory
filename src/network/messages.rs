@@ -1,14 +1,16 @@
+//! ネットワークメッセージ定義（将来実装予定）
+//!
+//! マルチプレイヤー通信用のメッセージ型を定義します。
+//! 現在はスタブで、実際の通信には使用されていません。
+
 use bevy::prelude::*;
 use serde::{Serialize, Deserialize};
 use crate::gameplay::grid::{Direction, MachineInstance};
 use std::collections::HashMap;
 
-// A placeholder for all player inputs in a single tick
+/// プレイヤー入力（1ティック分）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlayerInput {
-    // TODO: Define actual inputs, e.g.,
-    // pub keys_pressed: Vec<KeyCode>,
-    // pub mouse_delta: (f32, f32),
     pub forward: bool,
     pub back: bool,
     pub left: bool,

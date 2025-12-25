@@ -254,7 +254,7 @@ mod tests {
         // 全部取り出し
         let taken = chest.take_item("iron_ore", 100);
         assert_eq!(taken, 70);
-        assert!(chest.items.get("iron_ore").is_none());
+        assert!(!chest.items.contains_key("iron_ore"));
     }
 
     #[test]

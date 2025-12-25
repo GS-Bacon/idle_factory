@@ -68,20 +68,20 @@ pub fn tick_assemblers(
     let max_items_on_conveyor = config.max_items_per_conveyor.max(1);
     let item_size = 1.0 / max_items_on_conveyor as f32;
 
-    info!("[Assembler-Debug] tick_assemblers started. dt: {}", dt);
+    debug!("[Assembler-Debug] tick_assemblers started. dt: {}", dt);
 
     let mut ejection_requests = Vec::new();
 
     // --- Part 1: Crafting Logic ---
     for (pos, machine) in grid.machines.iter_mut() {
         if let Machine::Assembler(assembler) = &mut machine.machine_type {
-            info!("[Assembler-Debug] Processing assembler at {:?}. Current progress: {}", pos, assembler.crafting_progress);
+            debug!("[Assembler-Debug] Processing assembler at {:?}. Current progress: {}", pos, assembler.crafting_progress);
 
             // 自動レシピ検索: active_recipeが未設定の場合、入力アイテムから適合するレシピを検索
             if assembler.active_recipe.is_none() && !assembler.input_inventory.is_empty() {
                 if let Some(matched_recipe_id) = find_matching_recipe(&assembler.input_inventory, &recipes) {
                     assembler.active_recipe = Some(matched_recipe_id.clone());
-                    info!("[Assembler-Debug] Auto-selected recipe: {}", matched_recipe_id);
+                    debug!("[Assembler-Debug] Auto-selected recipe: {}", matched_recipe_id);
                 }
             }
 
@@ -99,13 +99,13 @@ pub fn tick_assemblers(
                                 break;
                             }
                         }
-                        info!("[Assembler-Debug] Has inputs: {}. Required: {:?}, In inventory: {:?}", has_inputs, recipe.inputs, assembler.input_inventory);
+                        debug!("[Assembler-Debug] Has inputs: {}. Required: {:?}, In inventory: {:?}", has_inputs, recipe.inputs, assembler.input_inventory);
 
                         if has_inputs {
                             assembler.crafting_progress += dt;
-                            info!("[Assembler-Debug] Progress after dt: {}. Recipe craft_time: {}", assembler.crafting_progress, recipe.craft_time);
+                            debug!("[Assembler-Debug] Progress after dt: {}. Recipe craft_time: {}", assembler.crafting_progress, recipe.craft_time);
                             if assembler.crafting_progress >= recipe.craft_time {
-                                info!("[Assembler-Debug] Crafting finished! Consuming inputs...");
+                                debug!("[Assembler-Debug] Crafting finished! Consuming inputs...");
                                 // Consume inputs
                                 for required in &recipe.inputs {
                                     let mut remaining_to_consume = required.count;
@@ -114,7 +114,7 @@ pub fn tick_assemblers(
                                             let consumed_from_slot = slot.count.min(remaining_to_consume);
                                             slot.count -= consumed_from_slot;
                                             remaining_to_consume -= consumed_from_slot;
-                                            info!("[Assembler-Debug] Consumed {} of {} from slot. Remaining to consume: {}", consumed_from_slot, slot.item_id, remaining_to_consume);
+                                            debug!("[Assembler-Debug] Consumed {} of {} from slot. Remaining to consume: {}", consumed_from_slot, slot.item_id, remaining_to_consume);
                                             slot.count > 0 // Retain if anything left in slot
                                         } else { true }
                                     });
@@ -131,14 +131,14 @@ pub fn tick_assemblers(
                                     });
                                 }
                                 assembler.crafting_progress = 0.0;
-                                info!("Crafted {}! Output inventory: {:?}", recipe.name, assembler.output_inventory);
+                                debug!("Crafted {}! Output inventory: {:?}", recipe.name, assembler.output_inventory);
                             }
                         } else {
                             assembler.crafting_progress = 0.0;
-                            info!("[Assembler-Debug] Not enough inputs. Progress reset.");
+                            debug!("[Assembler-Debug] Not enough inputs. Progress reset.");
                         }
                     } else {
-                        info!("[Assembler-Debug] Output inventory full.");
+                        debug!("[Assembler-Debug] Output inventory full.");
                     }
                 } else {
                      error!("Assembler has unknown recipe: {}", recipe_id);
@@ -150,7 +150,7 @@ pub fn tick_assemblers(
                 let output_direction = machine.orientation.opposite();
                 let target_pos = *pos + output_direction.to_ivec3();
                 ejection_requests.push((*pos, target_pos, output_direction));
-                info!("[Assembler-Debug] Ejection request for item from {:?} to {:?} in direction {:?}", *pos, target_pos, output_direction);
+                debug!("[Assembler-Debug] Ejection request for item from {:?} to {:?} in direction {:?}", *pos, target_pos, output_direction);
             }
         }
     }
@@ -177,18 +177,18 @@ pub fn tick_assemblers(
                             item.from_direction = Some(output_direction);
                             conveyor.inventory.push(ItemSlot { progress: 0.0, ..item });
                             accepted = true;
-                            info!("[Assembler-Debug] Item ejected to conveyor at {:?}.", target_pos);
+                            debug!("[Assembler-Debug] Item ejected to conveyor at {:?}.", target_pos);
                         } else {
-                            info!("[Assembler-Debug] Conveyor at {:?} has no space or conflicting item.", target_pos);
+                            debug!("[Assembler-Debug] Conveyor at {:?} has no space or conflicting item.", target_pos);
                         }
                     } else {
-                        info!("[Assembler-Debug] Conveyor at {:?} is full.", target_pos);
+                        debug!("[Assembler-Debug] Conveyor at {:?} is full.", target_pos);
                     }
                  } else {
-                    info!("[Assembler-Debug] Target at {:?} is not a Conveyor.", target_pos);
+                    debug!("[Assembler-Debug] Target at {:?} is not a Conveyor.", target_pos);
                  }
             } else {
-                info!("[Assembler-Debug] No machine at target position {:?}.", target_pos);
+                debug!("[Assembler-Debug] No machine at target position {:?}.", target_pos);
             }
         }
         
@@ -196,11 +196,11 @@ pub fn tick_assemblers(
             if let Some(machine) = grid.machines.get_mut(&assembler_pos) {
                 if let Machine::Assembler(assembler) = &mut machine.machine_type {
                     assembler.output_inventory.remove(0);
-                    info!("[Assembler-Debug] Item removed from assembler output inventory.");
+                    debug!("[Assembler-Debug] Item removed from assembler output inventory.");
                 }
             }
         } else {
-            info!("[Assembler-Debug] Item not ejected from assembler.");
+            debug!("[Assembler-Debug] Item not ejected from assembler.");
         }
     }
 }
@@ -271,8 +271,10 @@ mod tests {
         });
 
         // Assembler at (0,0,1) facing North (front is (0,0,0), back is (0,0,2))
-        let mut assembler = Assembler::default();
-        assembler.active_recipe = Some("ore_to_ingot".to_string());
+        let assembler = Assembler {
+            active_recipe: Some("ore_to_ingot".to_string()),
+            ..Default::default()
+        };
         grid.machines.insert(assembler_pos, MachineInstance {
             id: "assembler".to_string(),
             orientation: Direction::North, // Assembler faces North

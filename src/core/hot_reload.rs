@@ -33,7 +33,7 @@ fn trigger_reload_on_f5(
     mut reload_events: EventWriter<ReloadDataEvent>,
 ) {
     if keyboard.just_pressed(KeyCode::F5) {
-        info!("F5 pressed - triggering data reload");
+        debug!("F5 pressed - triggering data reload");
         reload_events.send(ReloadDataEvent);
     }
 }
@@ -45,7 +45,7 @@ fn handle_reload_event(
     mut recipe_manager: ResMut<RecipeManager>,
 ) {
     for _ in events.read() {
-        info!("Reloading game data...");
+        debug!("Reloading game data...");
 
         // アイテムレジストリをリロード
         reload_items(&mut item_registry);
@@ -53,7 +53,7 @@ fn handle_reload_event(
         // レシピマネージャをリロード
         reload_recipes(&mut recipe_manager);
 
-        info!("Data reload complete: {} items, {} recipes",
+        debug!("Data reload complete: {} items, {} recipes",
             item_registry.items.len(),
             recipe_manager.recipes.len()
         );
@@ -69,7 +69,7 @@ fn reload_items(registry: &mut ItemRegistry) {
         match serde_yaml::from_str::<Vec<ItemDefinition>>(&content) {
             Ok(defs) => {
                 for def in defs {
-                    info!("Reloaded item: {}", def.id);
+                    debug!("Reloaded item: {}", def.id);
                     registry.register(def.into());
                 }
             }
@@ -89,7 +89,7 @@ fn reload_recipes(manager: &mut RecipeManager) {
 
     let path = "assets/data/recipes/kinetic.yaml";
     match manager.load_from_yaml(path) {
-        Ok(count) => info!("Reloaded {} kinetic recipes", count),
+        Ok(count) => debug!("Reloaded {} kinetic recipes", count),
         Err(e) => {
             warn!("Could not reload kinetic recipes: {}", e);
             add_default_recipes(manager);

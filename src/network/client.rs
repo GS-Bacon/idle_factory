@@ -1,10 +1,15 @@
+//! クライアントネットワーク処理（将来実装予定）
+
 use bevy::prelude::*;
 
-// TODO: Implement client-side prediction and reconciliation logic
+/// クライアント側ネットワークシステム（スタブ）
+///
+/// 将来実装予定:
+/// - サーバーへの接続
+/// - プレイヤー入力の送信
+/// - サーバー状態更新の受信
+/// - 予測状態との照合・補正
+#[allow(dead_code)]
 pub fn client_network_system(_commands: Commands) {
-    // This system would handle:
-    // - Connecting to the server
-    // - Sending player inputs
-    // - Receiving server state updates
-    // - Applying updates and reconciling predicted state
+    // 未実装
 }

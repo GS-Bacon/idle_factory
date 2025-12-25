@@ -65,8 +65,8 @@ mod tests {
 
     #[test]
     fn test_constants() {
-        assert!(constants::MIN_HEIGHT < constants::SEA_LEVEL);
-        assert!(constants::SEA_LEVEL < constants::MAX_HEIGHT);
+        const _: () = assert!(constants::MIN_HEIGHT < constants::SEA_LEVEL);
+        const _: () = assert!(constants::SEA_LEVEL < constants::MAX_HEIGHT);
         assert_eq!(constants::BEDROCK_LEVEL, constants::MIN_HEIGHT);
     }
 }

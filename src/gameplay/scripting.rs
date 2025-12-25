@@ -105,7 +105,10 @@ impl Default for ScriptEngine {
 impl ScriptEngine {
     /// スクリプトを実行（サンドボックス内）
     pub fn execute(&self, code: &str, context: &ScriptContext) -> LuaResult<ScriptResult> {
-        let lua = self.lua.lock().unwrap();
+        let lua = self.lua.lock().unwrap_or_else(|poisoned| {
+            warn!("Lua mutex was poisoned, recovering");
+            poisoned.into_inner()
+        });
 
         // コンテキストをLuaグローバルに設定
         self.setup_context(&lua, context)?;

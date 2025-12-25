@@ -52,7 +52,7 @@ fn toggle_debug(
 ) {
     if input.just_pressed(KeyCode::F3) {
         settings.is_enabled = !settings.is_enabled;
-        info!("Debug Mode: {}", settings.is_enabled);
+        debug!("Debug Mode: {}", settings.is_enabled);
 
         // UIの表示切り替え
         if let Ok(mut node) = fps_query.get_single_mut() {

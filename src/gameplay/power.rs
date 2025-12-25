@@ -163,7 +163,7 @@ pub fn update_power_graph_system(
         if let (Some(id1), Some(id2)) = (node_ids.first(), node_ids.get(1)) {
             graph.adjacencies.entry(*id1).or_default().insert(*id2);
             graph.adjacencies.entry(*id2).or_default().insert(*id1);
-            info!("Dummy: Connected node {} and {}", id1, id2);
+            debug!("Dummy: Connected node {} and {}", id1, id2);
             *has_changed = true;
         }
     }
@@ -346,7 +346,7 @@ mod tests {
 
         // Check that groups were formed
         let power_groups = app.world().resource::<PowerNetworkGroups>();
-        assert!(power_groups.groups.len() >= 1, "At least one group should exist");
+        assert!(!power_groups.groups.is_empty(), "At least one group should exist");
 
         // Group ID should be set after systems run
         if let Some(group_id) = power_node_source.group_id {

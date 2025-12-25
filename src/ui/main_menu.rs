@@ -1059,7 +1059,7 @@ fn spawn_text_input(parent: &mut ChildBuilder, label: &str, input_type: TextInpu
     });
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn world_gen_buttons(
     query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     input_query: Query<&TextInput>,

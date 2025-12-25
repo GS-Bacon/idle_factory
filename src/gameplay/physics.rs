@@ -340,14 +340,15 @@ fn move_and_resolve_collisions(
         }
 
         // スニーク時の端判定
-        if physics.is_sneaking && physics.is_on_ground {
-            if !has_ground_support(&pos, collider, &chunks, &block_registry) {
-                // 端に来たら戻す
-                pos.x = original_pos.x;
-                pos.z = original_pos.z;
-                vel.x = 0.0;
-                vel.z = 0.0;
-            }
+        if physics.is_sneaking
+            && physics.is_on_ground
+            && !has_ground_support(&pos, collider, &chunks, &block_registry)
+        {
+            // 端に来たら戻す
+            pos.x = original_pos.x;
+            pos.z = original_pos.z;
+            vel.x = 0.0;
+            vel.z = 0.0;
         }
 
         transform.translation = pos;

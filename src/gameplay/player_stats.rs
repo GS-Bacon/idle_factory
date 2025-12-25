@@ -380,8 +380,10 @@ mod tests {
 
     #[test]
     fn test_health_heal() {
-        let mut health = PlayerHealth::default();
-        health.current = 5.0;
+        let mut health = PlayerHealth {
+            current: 5.0,
+            ..Default::default()
+        };
 
         health.heal(3.0);
         assert_eq!(health.current, 8.0);
@@ -406,8 +408,10 @@ mod tests {
 
     #[test]
     fn test_experience_spend() {
-        let mut xp = PlayerExperience::default();
-        xp.current = 100; // 直接設定（add_xpだとレベルアップで消費される）
+        let mut xp = PlayerExperience {
+            current: 100, // 直接設定（add_xpだとレベルアップで消費される）
+            ..Default::default()
+        };
 
         assert!(xp.spend_xp(50));
         assert_eq!(xp.current, 50);
@@ -421,11 +425,11 @@ mod tests {
         let mut health = PlayerHealth::default();
 
         // 最初のダメージは通る
-        assert!(health.take_damage(3.0, 0.0) == false);
+        assert!(!health.take_damage(3.0, 0.0));
         assert_eq!(health.current, 7.0);
 
         // 無敵中はダメージを受けない
-        assert!(health.take_damage(3.0, 0.1) == false);
+        assert!(!health.take_damage(3.0, 0.1));
         assert_eq!(health.current, 7.0);
 
         // 無敵が切れた後

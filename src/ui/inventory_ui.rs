@@ -1229,7 +1229,9 @@ fn handle_slot_interaction(
                 }
             } else {
                 // ドロップ
-                let dragged_item_id = dragged.item_id.clone().unwrap();
+                let Some(dragged_item_id) = dragged.item_id.clone() else {
+                    return;
+                };
                 let dragged_count = dragged.count;
 
                 // 対象スロットに配置
@@ -1334,7 +1336,10 @@ fn handle_drag_drop_release(
                    cursor_pos.y >= min_y && cursor_pos.y <= max_y {
                     found_slot = true;
                     info!("[DRAG RELEASE] Found slot under cursor: {:?}", ui_slot.identifier);
-                let dragged_item_id = dragged.item_id.clone().unwrap();
+                let Some(dragged_item_id) = dragged.item_id.clone() else {
+                    warn!("Drag item is None despite is_some() check");
+                    return;
+                };
                 let dragged_count = dragged.count;
 
                 // 対象スロットに配置
@@ -1887,7 +1892,9 @@ fn update_dragged_item_visual(
         if let Some(cursor_pos) = windows.get_single().ok().and_then(|w| w.cursor_position()) {
             if !visual_exists {
                 // ビジュアルを新規作成
-                let item_name = dragged.item_id.as_ref().unwrap();
+                let Some(item_name) = dragged.item_id.as_ref() else {
+                    return;
+                };
                 let text = format!("{} x{}", item_name, dragged.count);
 
                 commands.spawn((

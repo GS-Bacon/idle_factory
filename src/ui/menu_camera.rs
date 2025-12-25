@@ -70,7 +70,7 @@ fn spawn_menu_camera(
         menu_cam,
     ));
 
-    info!("Menu camera spawned");
+    debug!("Menu camera spawned");
 }
 
 /// メニューカメラを削除
@@ -81,7 +81,7 @@ fn despawn_menu_camera(
     for entity in &query {
         commands.entity(entity).despawn_recursive();
     }
-    info!("Menu camera despawned");
+    debug!("Menu camera despawned");
 }
 
 /// カメラを旋回させる

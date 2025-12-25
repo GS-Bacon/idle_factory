@@ -98,7 +98,7 @@ pub fn handle_conveyor_interaction(
                         .any(|item| (item.progress - new_progress).abs() < item_size);
 
                     if !has_collision {
-                        info!("🍎 Conveyor Interaction: Added item to {:?} lane at {:?}", target_lane, event.grid_pos);
+                        debug!("🍎 Conveyor Interaction: Added item to {:?} lane at {:?}", target_lane, event.grid_pos);
                         conveyor.inventory.push(ItemSlot {
                             item_id: "raw_ore".to_string(),
                             count: 1,
@@ -110,10 +110,10 @@ pub fn handle_conveyor_interaction(
                         // 次回は反対側のレーン
                         conveyor.next_lane_for_front = target_lane.opposite();
                     } else {
-                        info!("🚫 Conveyor Interaction: Space occupied in {:?} lane.", target_lane);
+                        debug!("🚫 Conveyor Interaction: Space occupied in {:?} lane.", target_lane);
                     }
                 } else {
-                    info!("🚫 Conveyor Interaction: {:?} lane is full.", target_lane);
+                    debug!("🚫 Conveyor Interaction: {:?} lane is full.", target_lane);
                 }
             }
         }
@@ -220,13 +220,12 @@ pub fn tick_conveyors(
                 }
                 Machine::Assembler(target_assembler) => {
                     // Assembler accepts from its front
-                    if target_machine.orientation.opposite() == src_dir {
-                        if assembler::can_accept_item(&item.item_id, &recipes) {
-                            if target_assembler.input_inventory.len() < 10 {
-                                target_assembler.input_inventory.push(ItemSlot { progress: 0.0, ..item });
-                                accepted = true;
-                            }
-                        }
+                    if target_machine.orientation.opposite() == src_dir
+                        && assembler::can_accept_item(&item.item_id, &recipes)
+                        && target_assembler.input_inventory.len() < 10
+                    {
+                        target_assembler.input_inventory.push(ItemSlot { progress: 0.0, ..item });
+                        accepted = true;
                     }
                 }
                 Machine::Miner(_) => {

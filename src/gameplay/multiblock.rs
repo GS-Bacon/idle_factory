@@ -245,8 +245,12 @@ pub fn validate_structures(
             &grid,
         ) {
             if result.is_valid {
+                let Some(pattern_id) = result.pattern_id.clone() else {
+                    warn!("Multiblock result is_valid but pattern_id is None at {:?}", event.pos);
+                    continue;
+                };
                 let info = MultiblockInfo {
-                    pattern_id: result.pattern_id.clone().unwrap(),
+                    pattern_id: pattern_id.clone(),
                     master_pos: event.pos,
                     slave_positions: result.slave_positions.clone(),
                     formed_at: time.elapsed_secs_f64(),
@@ -256,7 +260,7 @@ pub fn validate_structures(
 
                 formed_events.send(MultiblockFormedEvent {
                     master_pos: event.pos,
-                    pattern_id: result.pattern_id.unwrap(),
+                    pattern_id,
                     slave_positions: result.slave_positions,
                 });
 

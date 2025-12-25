@@ -2,9 +2,9 @@
 
 ## core
 
-type:3d-voxel-factory|mode:survival(future-hp/enemy),creative(default-pure-build)
+type:3d-voxel-factory|mode:creative-sandbox(no-hp,no-enemy,no-hunger,no-fall-damage,no-death)
 stack:rust-stable,bevy0.15,lua5.4(mlua),yaml(serde)|arch:ecs-first,data-driven,deterministic
-chunk:32³|mesh:greedy|lod:4lvl|sim:20tps-fixed
+chunk:32³|mesh:greedy|lod:4lvl|sim:20tps-fixed|terrain:voxel-destructible
 
 ## code
 
@@ -62,5 +62,21 @@ branch:feature→master|commit:ja,descriptive|ci:test-all,clippy0,fmt
 
 ## vision
 
-goal:space-station-complete,blueprint,creative/survival,mod-ecosystem
-philosophy:data-driven,player-empower,emergent-complexity,no-artificial-limit
+goal:space-station-complete,blueprint,mod-ecosystem
+philosophy:data-driven,player-empower,emergent-complexity,no-artificial-limit,stress-free
+
+## player
+
+equipment:efficiency-focus(jetpack,tools,teleporter)|no-combat
+movement:walk,jetpack(early),hypertube(mid),train(mid),teleporter(late)
+resource:infinite-via-miner|no-pollution
+
+## progression
+
+roadmap:manual-define(tier1→space-station)|post-roadmap:exponential-quantity
+delivery:platform-12x12,48port(16-initial)
+goal-pattern:A(quantity-increase),B(complexity-manual-define)
+
+## map
+
+minimap:yes|fullmap-2d:yes

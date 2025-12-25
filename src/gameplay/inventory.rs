@@ -294,7 +294,7 @@ impl EquipmentSlots {
     }
 
     pub fn get_mut(&mut self, slot_type: EquipmentSlotType) -> &mut InventorySlot {
-        self.slots.get_mut(&slot_type).unwrap()
+        self.slots.get_mut(&slot_type).expect("Equipment slot should always exist")
     }
 }
 

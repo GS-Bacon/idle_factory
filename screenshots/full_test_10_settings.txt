@@ -1,5 +1,5 @@
 # UI Dump
-Generated: 2025-12-25 11:27:15
+Generated: 2025-12-25 13:09:45
 AppState: MainMenu
 InventoryState: Closed
 

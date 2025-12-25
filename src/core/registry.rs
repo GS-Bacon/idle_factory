@@ -97,7 +97,7 @@ fn load_blocks(mut registry: ResMut<BlockRegistry>) {
                     texture: def.texture,
                     collision_box: col,
                 });
-                info!("Loaded block: {}", def.id);
+                debug!("Loaded block: {}", def.id);
             }
         } else {
             error!("Failed to parse YAML: {}", path);

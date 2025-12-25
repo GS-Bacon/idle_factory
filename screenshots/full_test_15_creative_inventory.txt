@@ -1,5 +1,5 @@
 # UI Dump
-Generated: 2025-12-25 11:27:26
+Generated: 2025-12-25 13:09:56
 AppState: InGame
 InventoryState: PlayerInventory
 
@@ -19,61 +19,61 @@ InventoryState: PlayerInventory
   - (unnamed) [w:180px h:20px]
     - (unnamed) [w:100% h:100%]
   - (unnamed) [w:auto h:auto] text="10 / 10"
-- (unnamed) [w:100% h:100%]
-  - (unnamed) [w:auto h:auto] text=""
-  - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-- (unnamed) [w:100% h:100%]
-  - (unnamed) [w:auto h:auto] text=""
-  - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-- (unnamed) [w:154px h:154px]
-  - (unnamed) [w:150px h:150px]
-    - (unnamed) [w:8px h:8px]
-  - (unnamed) [w:auto h:auto] text="N"
 - (unnamed) [w:200px h:auto]
   - (unnamed) [w:auto h:auto] text="Quest"
   - (unnamed) [w:auto h:auto]
     - (unnamed) [w:auto h:auto] text="No active quest"
   - (unnamed) [w:auto h:auto] text="[J] Quest List"
+- (unnamed) [w:154px h:154px]
+  - (unnamed) [w:150px h:150px]
+    - (unnamed) [w:8px h:8px]
+  - (unnamed) [w:auto h:auto] text="N"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
 - (unnamed) [w:50% h:70%]
   - (unnamed) [w:100% h:auto]
     - (unnamed) [w:auto h:auto] text="Quest List"
@@ -234,6 +234,8 @@ InventoryState: PlayerInventory
             - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Brick"
             - (unnamed) [w:56px h:56px]
+              - (unnamed) [w:auto h:auto] text="Bronze Axe"
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bronze Gear"
             - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bronze Ingot"
@@ -294,6 +296,8 @@ InventoryState: PlayerInventory
             - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Electric Motor"
             - (unnamed) [w:56px h:56px]
+              - (unnamed) [w:auto h:auto] text="Enriched Uranium"
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Filter"
             - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Flour"
@@ -309,10 +313,6 @@ InventoryState: PlayerInventory
               - (unnamed) [w:auto h:auto] text="Gold Dust"
             - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Gold Ingot"
-            - (unnamed) [w:56px h:56px]
-              - (unnamed) [w:auto h:auto] text="Gold Ore"
-            - (unnamed) [w:56px h:56px]
-              - (unnamed) [w:auto h:auto] text="Gold Plate"
       - (unnamed) [w:auto h:auto]
         - (unnamed) [w:auto h:auto]
           - (unnamed) [w:56px h:56px]

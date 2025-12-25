@@ -673,6 +673,7 @@ fn process_app_state_changes(
 }
 
 /// UIダンプ処理
+#[allow(clippy::type_complexity)]
 fn process_ui_dump(
     mut dump_events: EventReader<DumpUiEvent>,
     mut state: ResMut<E2ETestState>,
@@ -737,6 +738,7 @@ fn process_ui_dump(
 }
 
 /// UIノードを再帰的にダンプ
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn dump_ui_node(
     dump: &mut String,
     depth: usize,
@@ -1015,6 +1017,7 @@ fn update_typing_animation(
 }
 
 /// UI要素キャッシュ更新
+#[allow(clippy::type_complexity)]
 fn update_ui_element_cache(
     time: Res<Time>,
     mut cache: ResMut<UiElementCache>,
@@ -1049,11 +1052,11 @@ fn update_ui_element_cache(
 /// セレクターに一致する要素を検索
 fn find_element<'a>(cache: &'a UiElementCache, selector: &ElementSelector) -> Option<&'a CachedUiElement> {
     let matches: Vec<_> = cache.elements.iter().filter(|e| {
-        let name_match = selector.name.as_ref().map_or(true, |n| {
-            e.name.as_ref().map_or(false, |en| en.contains(n))
+        let name_match = selector.name.as_ref().is_none_or(|n| {
+            e.name.as_ref().is_some_and(|en| en.contains(n))
         });
-        let text_match = selector.text.as_ref().map_or(true, |t| {
-            e.text.as_ref().map_or(false, |et| et.contains(t))
+        let text_match = selector.text.as_ref().is_none_or(|t| {
+            e.text.as_ref().is_some_and(|et| et.contains(t))
         });
         name_match && text_match
     }).collect();
@@ -1144,6 +1147,7 @@ fn run_test_scenarios(
 }
 
 /// シナリオステップ進行
+#[allow(clippy::too_many_arguments)]
 fn advance_scenario_step(
     time: Res<Time>,
     mut state: ResMut<E2ETestState>,

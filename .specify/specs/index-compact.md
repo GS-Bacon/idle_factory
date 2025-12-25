@@ -8,7 +8,7 @@ chunk:32^3|greedy-mesh|lod:4lvl|world:inf-xy,y±256
 
 ### core-mechanics
 
-player:hp10,no-hunger,die:fall/lava,respawn:anchor,inv:40slot,stack:999
+player:no-hp,no-hunger,no-fall-damage,inv:40slot,stack:999,respawn:instant
 conveyor:speed-tiers,roundrobin-split,zipper-merge,clog-detect
 pipe:flow-tiers,no-mix,drain-valve,leak→machine-short
 tank:10k-mb,multiblock-scale,hot-tank-required
@@ -21,7 +21,7 @@ enchant:auto/manual(xp-gacha),tool-speed/durability/range/luck
 
 ### ui-hud
 
-hud:minimap,hotbar10,hp|screen:fullmap,quest-list,task-tree
+hud:minimap,hotbar10|screen:fullmap,quest-list,task-tree
 response:<0.1s|undo-required|info-hierarchy
 
 ## best-practices

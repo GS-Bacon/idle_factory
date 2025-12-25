@@ -46,13 +46,13 @@ pub fn generate_terrain(generators: &NoiseGenerators, chunk_pos: IVec3) -> Vec<S
 
     // ブロックを生成
     for local_y in 0..CHUNK_SIZE {
-        for local_z in 0..CHUNK_SIZE {
-            for local_x in 0..CHUNK_SIZE {
+        for (local_z, cache_row) in height_cache.iter().enumerate() {
+            for (local_x, (terrain_height, biome_entry)) in cache_row.iter().enumerate() {
                 let world_x = world_x_offset + local_x as i32;
                 let world_y = world_y_offset + local_y as i32;
                 let world_z = world_z_offset + local_z as i32;
 
-                let (terrain_height, ref biome_entry) = height_cache[local_x][local_z];
+                let terrain_height = *terrain_height;
 
                 // ブロックを決定
                 let block_id = determine_block(

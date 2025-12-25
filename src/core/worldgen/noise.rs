@@ -123,13 +123,13 @@ mod tests {
         for x in -100..100 {
             for z in -100..100 {
                 let temp = gen.get_temperature(x as f64, z as f64);
-                assert!(temp >= 0.0 && temp <= 1.0, "Temperature out of range: {}", temp);
+                assert!((0.0..=1.0).contains(&temp), "Temperature out of range: {}", temp);
 
                 let humid = gen.get_humidity(x as f64, z as f64);
-                assert!(humid >= 0.0 && humid <= 1.0, "Humidity out of range: {}", humid);
+                assert!((0.0..=1.0).contains(&humid), "Humidity out of range: {}", humid);
 
                 let cont = gen.get_continentalness(x as f64, z as f64);
-                assert!(cont >= 0.0 && cont <= 1.0, "Continentalness out of range: {}", cont);
+                assert!((0.0..=1.0).contains(&cont), "Continentalness out of range: {}", cont);
             }
         }
     }

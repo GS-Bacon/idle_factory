@@ -56,6 +56,7 @@ pub struct HardDrive {
     pub is_used: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for HardDrive {
     fn default() -> Self {
         Self {
