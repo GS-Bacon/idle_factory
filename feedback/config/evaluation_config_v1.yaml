@@ -1,0 +1,95 @@
+# AI評価システム設定 v1
+# 生成日時: 2025-12-25
+
+# 基準時間（秒）
+# 各目標の達成に期待される時間
+base_times:
+  open_inventory: 15.0
+  place_first_block: 10.0
+  place_first_machine: 60.0
+  craft_first_item: 45.0
+  complete_tutorial: 300.0
+  reach_tier2: 900.0
+  explore_all_tabs: 120.0
+  setup_production_line: 180.0
+
+# 検出閾値
+thresholds:
+  # 詰まり判定（秒）- この時間アクションがないと「詰まり」と判定
+  stuck_threshold_secs: 4.0
+  # 混乱判定（秒）- この時間停止すると「混乱」と判定
+  confusion_threshold_secs: 5.0
+  # イライラ判定（回）- この回数キー連打するとイライラと判定
+  rage_key_threshold: 10
+
+# ペルソナ別パラメータ
+persona_params:
+  newbie:
+    time_multiplier: 2.0    # 初心者は2倍の時間を許容
+    min_severity: 0.2       # 軽微な問題も報告
+  casual:
+    time_multiplier: 1.5
+    min_severity: 0.3
+  gamer:
+    time_multiplier: 1.0
+    min_severity: 0.4
+  optimizer:
+    time_multiplier: 0.8    # 効率厨は早く達成すべき
+    min_severity: 0.5
+  critic:
+    time_multiplier: 1.2
+    min_severity: 0.1       # 細かい問題も全て報告
+  speedrunner:
+    time_multiplier: 0.5    # スピードランナーは半分の時間
+    min_severity: 0.6
+  builder:
+    time_multiplier: 1.5    # 建築は時間がかかる
+    min_severity: 0.4
+  explorer:
+    time_multiplier: 1.3
+    min_severity: 0.3
+
+# コアコンセプト違反キーワード
+# これらのキーワードを含む提案は自動却下
+core_concept_violations:
+  - time_limit
+  - death
+  - enemy
+  - combat
+  - hunger
+  - penalty
+  - rush
+  - stress
+  - damage
+  - attack
+  - fail_state
+
+# トークン最適化設定
+token_optimization:
+  # レポート上限トークン数
+  max_report_tokens: 2000
+  # スクリーンショットをテキスト要約に変換
+  compress_screenshots: true
+  # 差分のみ分析
+  incremental_analysis: true
+  # ペルソナメモリをキャッシュ
+  cache_persona_memory: true
+  # 目標定義をキャッシュ
+  cache_goal_definitions: true
+  # 最小問題重要度（これ以下はスキップ）
+  min_issue_severity: 0.3
+  # 類似問題をまとめて報告
+  batch_similar_issues: true
+
+# 効率目標
+efficiency_targets:
+  # 1評価サイクルの目標時間（分）
+  cycle_time_minutes: 10
+  # 1改善あたりの目標トークン数
+  tokens_per_improvement: 5000
+  # 目標自動化率（%）
+  automation_rate: 70
+  # 目標検出精度（%）
+  precision_target: 85
+  # 目標再現率（%）
+  recall_target: 70

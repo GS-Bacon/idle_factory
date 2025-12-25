@@ -1,0 +1,8 @@
+# YOLO Mode Execution Log
+# /yolo 実行履歴
+
+# Format:
+# [TIMESTAMP] [STATUS] サイクル数 | 解決数 | 残存数 | 評価変化
+
+# --- 履歴 ---
+

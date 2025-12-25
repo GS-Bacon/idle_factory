@@ -221,3 +221,156 @@ DISPLAY=:10 f3d --camera-azimuth-angle=45 --output screenshots/{name}.png assets
 | **Superhot** | 3色のみ、極限ミニマリズム | 参考 |
 | **TABS** | ウォブリー物理、ポップな色使い | キャラクター参考 |
 | **Crossy Road** | ボクセル、極小テクスチャ | 小物参考 |
+
+---
+
+## 自動品質改善モード（--training）
+
+`--training` オプションで自動品質改善ループを有効化。
+
+### 概要
+
+```
+生成 → 評価 → 改善提案 → 再生成 → ... → 閾値達成 → エクスポート
+```
+
+スコアが閾値（デフォルト7.5）に達するまで自動でイテレーション。
+
+### 使用方法
+
+```bash
+# トレーニングモードで生成
+/generate-model axe --training
+
+# 課題を指定して実行
+/generate-model tool_wrench --training --challenge
+```
+
+### 評価基準（スタイル準拠重視）
+
+| 基準 | 重み | 内容 |
+|------|------|------|
+| ratios | 25% | 比率準拠（ハンドル60-70%等） |
+| primitives | 20% | 許可プリミティブのみ |
+| materials | 15% | MATERIALSプリセットのみ |
+| triangle_budget | 15% | ポリゴン予算内 |
+| connectivity | 10% | パーツ接続 |
+| origin | 10% | 原点位置 |
+| edge_darkening | 5% | エッジ暗化 |
+
+### イテレーション制御
+
+- **最大イテレーション**: 5回
+- **成功閾値**: 7.5（課題により変動）
+- **早期終了**: スコア9.0以上
+- **停滞検出**: 3回連続で改善0.5未満
+
+### 出力例
+
+```
+=== Training Mode: axe ===
+Challenge: Axe (difficulty: 2)
+
+Iteration 1: Score 6.2/10
+  - ratios: 5.0 (handle too short)
+  - primitives: 10.0
+  - materials: 8.0 (custom wood color)
+
+Generating improvement feedback...
+
+Iteration 2: Score 7.8/10
+  - ratios: 8.0 (improved)
+  - primitives: 10.0
+  - materials: 10.0 (fixed)
+
+SUCCESS: Score 7.8 >= threshold 7.5
+Exported: assets/models/items/axe.gltf
+
+Score History:
+█▓
+6.2 → 7.8 (+1.6)
+```
+
+### 視覚確認ループ（重要）
+
+**数値評価だけでは不十分**。生成後は必ず視覚的に確認する。
+
+```
+生成 → スクリーンショット取得 → 視覚確認 → 問題あれば修正 → 再生成
+```
+
+#### 視覚確認の実行手順
+
+1. **スクリーンショット取得**
+   ```
+   mcp__blender__get_viewport_screenshot()
+   ```
+
+2. **視覚的チェック項目**
+   - [ ] パーツが浮いていないか（物理的に接続されているか）
+   - [ ] 向きが正しいか（刃は前方/上方を向いているか）
+   - [ ] 全体のシルエットが「それらしい」か
+   - [ ] 比率が自然か（頭でっかち、細すぎ等でないか）
+
+3. **問題発見時**
+   - 具体的な修正を特定（例: "blade のZ位置を0.003下げる"）
+   - コードを修正して再生成
+   - 再度スクリーンショットで確認
+
+#### パーツ配向ガイド
+
+| パーツタイプ | 期待する主軸 | 向き |
+|-------------|-------------|------|
+| handle | Z軸（縦） | 底から上に伸びる |
+| blade（斧） | X軸（横） | 前方を向く |
+| blade（ピッケル） | X軸（横） | 前方を向く |
+| head（ハンマー） | Y軸（横） | 左右に広がる |
+| shaft | Z軸（縦） | 上下に伸びる |
+
+#### 接続確認
+
+全パーツのバウンディングボックスが0.003以上重なっていることを確認:
+```python
+def check_connectivity():
+    mesh_objects = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    for i, obj1 in enumerate(mesh_objects):
+        connected = False
+        for j, obj2 in enumerate(mesh_objects):
+            if i != j and bboxes_overlap(obj1, obj2, tolerance=0.003):
+                connected = True
+                break
+        if not connected:
+            print(f"WARNING: {obj1.name} is floating!")
+```
+
+### 課題定義ファイル
+
+課題は `tools/model_training/challenges.yaml` で定義:
+
+```yaml
+- id: tool_axe
+  name: "Axe"
+  category: tool
+  difficulty: 2
+  constraints:
+    primitives: [octagon, chamfered_cube, trapezoid]
+    materials: [wood, iron]
+    triangle_budget: [80, 200]
+  ratios:
+    handle_ratio: {min: 0.60, max: 0.70}
+    head_width_ratio: {min: 4.0, max: 6.0}
+  success_threshold: 7.5
+```
+
+### 学習データベース
+
+成功/失敗パターンは `tools/model_training_data/learning.json` に蓄積。
+過去の成功パターンを参照して生成品質を向上。
+
+### 関連ファイル
+
+- `tools/model_training/rubric.py` - 評価ルーブリック
+- `tools/model_training/evaluator.py` - 評価エンジン
+- `tools/model_training/feedback_generator.py` - 改善提案生成
+- `tools/model_training/iteration_controller.py` - ループ制御
+- `tools/model_training/learning_db.py` - 学習データベース

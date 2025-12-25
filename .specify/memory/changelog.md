@@ -2,6 +2,34 @@
 
 ## 2025-12-25
 
+fix-issues-skill:/fix-issues
+- .claude/commands/fix-issues.md:Issue自動解決スキル
+- issues.md未着手タスクを優先度順に自動解決
+- コマンド:なし(次1件),all,#N,critical,mid,status,add
+- 対応:ドキュメント,Clippy,unwrap,clone,テスト,CI,分割
+- 完了時:issues.md更新,changelog記録,テスト実行
+
+critical-review-skill:/review
+- .claude/commands/review.md:辛口レビュー生成スキル
+- 評価カテゴリ:UI/UX,gameplay,code,performance,compare
+- 競合比較:Factorio,Satisfactory,Minecraft,Shapez
+- 優先度:致命的/重大/推奨の3段階
+- feedback/reviews/:trends.md,action_items.md
+- 定期実行推奨:機能追加後,週次,リリース前
+
+ai-feedback-loop:full-impl
+- src/core/feedback.rs:1400行,6phase(goal/persona/collector/analyzer/executor/meta)
+- PlayGoal,GoalCondition,GoalResult,StuckPoint:達成判定と詰まり検出
+- Persona8種(newbie/casual/gamer/optimizer/critic/speedrunner/builder/explorer)
+- PersonaMemory:累積学習,experience3軸
+- PlaySession,PlayStats,GameEvent:データ収集
+- EvaluationReport,ImprovementItem,SpecChangeProposal:評価レポート
+- TokenOptimization,MetaEvaluationState:効率追跡
+- /evaluate skill:.claude/commands/evaluate.md
+- prompts:.specify/specs/ai-feedback-loop-prompts.md
+- feedback/:config/,sessions/,reports/,pending/,auto-implemented/,meta/,trends.md,summary.md
+- test:4unit,177total-pass
+
 editor-e2e:playwright-setup,editor.spec.ts(15tests),e2e-skill-update|run:`npm run e2e`(editor),`cargo run --e2e-test`(game)
 
 worldgen:biome6(plain/desert/ocean/forest/mountain/wetland),block14(grass/sand/ore...),ore-dist(coal0-128,iron-16-72,copper-16-112,gold-64-32),miner-auto-detect|test:22new,175total

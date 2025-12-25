@@ -1,0 +1,54 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-12-25T00:00:00Z",
+  "successful_patterns": {
+    "tool_handle_ratios": {
+      "description": "ツールハンドルの効果的な構成",
+      "pattern": {
+        "base": "octagonal_prism",
+        "grip_rings": 3,
+        "grip_spacing": 0.018,
+        "cap_ratio": 1.25
+      },
+      "success_count": 2,
+      "example_models": ["pickaxe", "hammer"]
+    },
+    "machine_corner_detail": {
+      "description": "機械の角ボルト装飾パターン",
+      "pattern": {
+        "bolt_count": 4,
+        "offset_ratio": 0.4,
+        "size": 0.04
+      },
+      "success_count": 3,
+      "example_models": ["furnace", "crusher"]
+    }
+  },
+  "common_failures": {
+    "cylinder_usage": {
+      "description": "octagonal_prismの代わりにcylinderを使用",
+      "frequency": 0,
+      "fix": "Replace bpy.ops.mesh.primitive_cylinder_add with create_octagonal_prism()",
+      "affected_criteria": ["primitives"]
+    },
+    "missing_edge_darkening": {
+      "description": "エッジ暗化の適用忘れ",
+      "frequency": 0,
+      "fix": "Add apply_edge_darkening(result, 0.85) after joining",
+      "affected_criteria": ["edge_darkening"]
+    },
+    "wrong_origin": {
+      "description": "原点位置の設定ミス",
+      "frequency": 0,
+      "fix": "Use finalize_model(obj, category) before export",
+      "affected_criteria": ["origin"]
+    }
+  },
+  "challenge_history": {},
+  "statistics": {
+    "total_attempts": 0,
+    "successful_attempts": 0,
+    "average_iterations": 0.0,
+    "most_failed_criterion": null
+  }
+}

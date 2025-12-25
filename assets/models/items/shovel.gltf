@@ -15,13 +15,13 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"Axe"
+			"name":"Shovel"
 		}
 	],
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"wood.005",
+			"name":"wood.004",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
 					0.550000011920929,
@@ -35,7 +35,7 @@
 		},
 		{
 			"doubleSided":true,
-			"name":"grip.003",
+			"name":"grip.002",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
 					0.4399999976158142,
@@ -49,7 +49,7 @@
 		},
 		{
 			"doubleSided":true,
-			"name":"iron.006",
+			"name":"iron.005",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
 					0.28999999165534973,
@@ -63,7 +63,7 @@
 	],
 	"meshes":[
 		{
-			"name":"Handle.007",
+			"name":"Handle.006",
 			"primitives":[
 				{
 					"attributes":{
@@ -109,13 +109,13 @@
 			"count":96,
 			"max":[
 				0.012749537825584412,
-				0.043000005185604095,
-				0.030043277889490128
+				0.047999996691942215,
+				0.012749537825584412
 			],
 			"min":[
 				-0.012749537825584412,
-				-0.10000000149011612,
-				0.004544202238321304
+				-0.12000000476837158,
+				-0.012749537825584412
 			],
 			"type":"VEC3"
 		},
@@ -144,13 +144,13 @@
 			"count":144,
 			"max":[
 				0.012416941113770008,
-				-0.04054999724030495,
-				0.02971068024635315
+				-0.0568000003695488,
+				0.012416941113770008
 			],
 			"min":[
 				-0.012416941113770008,
-				-0.08055000007152557,
-				0.004876798950135708
+				-0.09679999947547913,
+				-0.012416941113770008
 			],
 			"type":"VEC3"
 		},
@@ -169,36 +169,36 @@
 		{
 			"bufferView":8,
 			"componentType":5123,
-			"count":120,
+			"count":144,
 			"normalized":true,
 			"type":"VEC4"
 		},
 		{
 			"bufferView":9,
 			"componentType":5126,
-			"count":120,
+			"count":144,
 			"max":[
-				0.029999999329447746,
-				0.10000000149011612,
-				0.03170625865459442
+				0.02879999950528145,
+				0.12000000476837158,
+				0.014412520453333855
 			],
 			"min":[
-				-0.029999999329447746,
-				0.030000001192092896,
-				-0.03170625865459442
+				-0.02879999950528145,
+				0.044999998062849045,
+				-0.014412520453333855
 			],
 			"type":"VEC3"
 		},
 		{
 			"bufferView":10,
 			"componentType":5126,
-			"count":120,
+			"count":144,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":11,
 			"componentType":5123,
-			"count":204,
+			"count":252,
 			"type":"SCALAR"
 		}
 	],
@@ -253,33 +253,33 @@
 		},
 		{
 			"buffer":0,
-			"byteLength":960,
+			"byteLength":1152,
 			"byteOffset":8520,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":1440,
-			"byteOffset":9480,
+			"byteLength":1728,
+			"byteOffset":9672,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":1440,
-			"byteOffset":10920,
+			"byteLength":1728,
+			"byteOffset":11400,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":408,
-			"byteOffset":12360,
+			"byteLength":504,
+			"byteOffset":13128,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":12768,
-			"uri":"axe.bin"
+			"byteLength":13632,
+			"uri":"shovel.bin"
 		}
 	]
 }

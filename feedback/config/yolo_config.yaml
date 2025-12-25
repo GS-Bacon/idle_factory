@@ -1,0 +1,78 @@
+# YOLO Mode Configuration
+# /yolo スキルの設定
+
+# ループ制御
+loop:
+  max_cycles: 10           # 最大サイクル数
+  stagnation_limit: 3      # 改善なし連続回数で停止
+
+# フェーズ設定
+phases:
+  review:
+    enabled: true
+    timeout_minutes: 10
+    categories:
+      - ui
+      - gameplay
+      - code
+
+  fix_issues:
+    enabled: true
+    priority_filter:
+      - critical
+      - high
+      - mid
+    max_items_per_cycle: 5
+
+  test:
+    enabled: true
+    cargo_test: true
+    cargo_clippy: true
+    timeout_minutes: 5
+
+  e2e:
+    enabled: true
+    timeout_seconds: 120
+    display: ":10"
+
+# 改善判定の重み
+improvement_weights:
+  issues_resolved: 2.0      # 問題解決数
+  clippy_warnings: 1.5      # Clippy警告減少
+  test_pass: 1.0            # テスト増加
+  e2e_tabs: 2.0             # E2Eタブ成功増加
+  review_rating: 3.0        # レビュー評価上昇
+
+# 安全機構
+safety:
+  # 自動実行しない変更タイプ
+  skip_change_types:
+    - architecture
+    - breaking_api
+    - security
+    - database_migration
+
+  # 各サイクル前にgit stash
+  auto_stash: true
+
+  # テスト失敗時の挙動
+  on_test_failure: "retry_once"  # retry_once, skip, abort
+
+# Git設定
+git:
+  auto_commit: false        # 自動コミットしない
+  auto_push: false          # 自動プッシュしない
+  commit_message_prefix: "chore(yolo):"
+
+# ログ設定
+logging:
+  level: "info"             # debug, info, warn, error
+  save_session: true        # セッション詳細を保存
+  session_dir: "feedback/sessions"
+
+# 通知（将来用）
+notification:
+  enabled: false
+  on_complete: true
+  on_error: true
+  method: "none"            # none, slack, discord
