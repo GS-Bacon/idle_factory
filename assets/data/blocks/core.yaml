@@ -1,3 +1,13 @@
+# ===========================================
+# 地形ブロック
+# ===========================================
+
+- id: grass
+  name: Grass Block
+  is_solid: true
+  texture: "none"
+  collision: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+
 - id: dirt
   name: Dirt Block
   is_solid: true
@@ -8,12 +18,23 @@
   is_solid: true
   texture: "none"
 
+- id: bedrock
+  name: Bedrock
+  is_solid: true
+  texture: "none"
+  collision: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+  # 破壊不可（将来的にフラグ追加予定）
+
 - id: air
   name: Air
   is_solid: false
   texture: "none"
-  # Airは当たり判定なし（ロジックで無視するが、念のため0サイズにしておく）
+  # Airは当たり判定なし
   collision: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# ===========================================
+# 機械ブロック
+# ===========================================
 
 - id: conveyor
   name: Conveyor Belt

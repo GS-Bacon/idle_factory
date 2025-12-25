@@ -1,62 +1,40 @@
 //! ワールド生成システム
 //!
-//! Minecraft風のバイオーム・地形生成を提供
-//! - 複数ノイズによる自然な地形
-//! - バイオームシステム（温度・湿度・大陸性）
-//! - 洞窟生成
-//! - 鉱石分布
+//! パーリンノイズを使用した手続き型地形生成。
+//! Normal（通常地形）とFlat（フラット）の2種類をサポート。
 
-pub mod noise;
-pub mod biome;
-pub mod terrain;
-pub mod caves;
-pub mod ores;
+mod config;
+mod generator;
+mod layers;
+mod noise;
+
+pub use config::*;
+pub use generator::{create_generator, ChunkGenerator, FlatGenerator, NormalGenerator};
+pub use layers::BlockLayerResolver;
 
 use bevy::prelude::*;
-
-use self::biome::BiomeRegistry;
-use self::noise::NoiseGenerators;
-use self::ores::OreRegistry;
 
 /// ワールド生成プラグイン
 pub struct WorldGenPlugin;
 
 impl Plugin for WorldGenPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<BiomeRegistry>()
-            .init_resource::<OreRegistry>()
-            .add_systems(Startup, (
-                biome::load_biomes,
-                ores::load_ores,
-            ));
+        app.init_resource::<WorldGenConfig>()
+            .add_systems(Startup, initialize_worldgen);
     }
 }
 
-/// ワールド生成の定数
-pub mod constants {
-    /// 海面の高さ (Y座標)
-    pub const SEA_LEVEL: i32 = 64;
-
-    /// ワールドの最低高さ
-    pub const MIN_HEIGHT: i32 = -256;
-
-    /// ワールドの最高高さ
-    pub const MAX_HEIGHT: i32 = 256;
-
-    /// 岩盤の高さ
-    pub const BEDROCK_LEVEL: i32 = -256;
-
-    /// 深層岩が始まる高さ
-    pub const DEEPSLATE_LEVEL: i32 = 0;
-
-    /// チャンクサイズ
-    pub const CHUNK_SIZE: usize = 32;
-}
-
-/// チャンクのブロックを生成する（メインエントリポイント）
-pub fn generate_chunk_blocks(chunk_pos: IVec3, seed: u32) -> Vec<String> {
-    let generators = NoiseGenerators::new(seed);
-    terrain::generate_terrain(&generators, chunk_pos)
+/// セーブパラメータからワールド生成を初期化
+fn initialize_worldgen(
+    mut worldgen_config: ResMut<WorldGenConfig>,
+    world_params: Res<crate::core::save_system::WorldGenerationParams>,
+) {
+    worldgen_config.seed = world_params.seed;
+    worldgen_config.world_type = world_params.world_type;
+    info!(
+        "World generation initialized: seed={}, type={:?}",
+        worldgen_config.seed, worldgen_config.world_type
+    );
 }
 
 #[cfg(test)]
@@ -64,9 +42,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_constants() {
-        const _: () = assert!(constants::MIN_HEIGHT < constants::SEA_LEVEL);
-        const _: () = assert!(constants::SEA_LEVEL < constants::MAX_HEIGHT);
-        assert_eq!(constants::BEDROCK_LEVEL, constants::MIN_HEIGHT);
+    fn test_exports() {
+        // 公開されている型がアクセス可能か確認
+        let _config = WorldGenConfig::default();
+        let _world_type = WorldType::Normal;
+        let _gen = create_generator(WorldType::Flat);
     }
 }

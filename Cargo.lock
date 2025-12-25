@@ -3685,6 +3685,7 @@ dependencies = [
 name = "infinite_voxel_factory"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "bevy",
  "chrono",
  "dot_vox",

@@ -1,113 +1,49 @@
-//! ノイズ生成器
+//! ノイズ生成ユーティリティ
 //!
-//! 地形生成用の複数レイヤーノイズを提供
+//! パーリンノイズを使用した地形高さの計算
 
-use noise::{NoiseFn, Perlin};
+use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
 
-/// 複数のノイズ生成器をまとめた構造体
-pub struct NoiseGenerators {
-    // バイオーム決定用
-    /// 温度ノイズ (スケール: 0.002)
-    pub temperature: Perlin,
-    /// 湿度ノイズ (スケール: 0.003)
-    pub humidity: Perlin,
-    /// 大陸性ノイズ (スケール: 0.001)
-    pub continental: Perlin,
+use super::config::{NoiseParams, WorldGenConfig};
 
-    // 地形高さ用
-    /// 大規模地形ノイズ (スケール: 0.005)
-    pub terrain_large: Perlin,
-    /// 中規模地形ノイズ (スケール: 0.02)
-    pub terrain_medium: Perlin,
-    /// 詳細ノイズ (スケール: 0.08)
-    pub terrain_detail: Perlin,
-
-    // 洞窟用
-    /// チーズ洞窟ノイズ
-    pub cave_cheese: Perlin,
-    /// スパゲッティ洞窟ノイズ
-    pub cave_spaghetti: Perlin,
-    /// ヌードル洞窟ノイズ
-    pub cave_noodle: Perlin,
+/// 地形ノイズ生成器
+pub struct TerrainNoise {
+    fbm: Fbm<Perlin>,
 }
 
-impl NoiseGenerators {
-    /// 新しいノイズ生成器を作成
-    pub fn new(seed: u32) -> Self {
-        Self {
-            // バイオーム用（異なるシードオフセットで独立したノイズを生成）
-            temperature: Perlin::new(seed),
-            humidity: Perlin::new(seed.wrapping_add(1000)),
-            continental: Perlin::new(seed.wrapping_add(2000)),
+impl TerrainNoise {
+    /// 新しい地形ノイズ生成器を作成
+    pub fn new(seed: u64, params: &NoiseParams) -> Self {
+        let fbm = Fbm::<Perlin>::new(seed as u32)
+            .set_octaves(params.octaves as usize)
+            .set_frequency(params.frequency)
+            .set_persistence(params.persistence)
+            .set_lacunarity(params.lacunarity);
 
-            // 地形用
-            terrain_large: Perlin::new(seed.wrapping_add(3000)),
-            terrain_medium: Perlin::new(seed.wrapping_add(4000)),
-            terrain_detail: Perlin::new(seed.wrapping_add(5000)),
-
-            // 洞窟用
-            cave_cheese: Perlin::new(seed.wrapping_add(6000)),
-            cave_spaghetti: Perlin::new(seed.wrapping_add(7000)),
-            cave_noodle: Perlin::new(seed.wrapping_add(8000)),
-        }
+        Self { fbm }
     }
 
-    /// 温度を取得 (0.0 - 1.0)
-    pub fn get_temperature(&self, x: f64, z: f64) -> f64 {
-        let scale = 0.002;
-        (self.temperature.get([x * scale, z * scale]) + 1.0) / 2.0
-    }
+    /// 指定座標の地形高さを取得
+    ///
+    /// # Arguments
+    /// * `x` - ワールドX座標
+    /// * `z` - ワールドZ座標
+    /// * `config` - ワールド生成設定
+    ///
+    /// # Returns
+    /// 地形の表面Y座標
+    pub fn get_height(&self, x: i32, z: i32, config: &WorldGenConfig) -> i32 {
+        // ノイズ値は[-1, 1]の範囲
+        let noise_val = self.fbm.get([x as f64, z as f64]);
 
-    /// 湿度を取得 (0.0 - 1.0)
-    pub fn get_humidity(&self, x: f64, z: f64) -> f64 {
-        let scale = 0.003;
-        (self.humidity.get([x * scale, z * scale]) + 1.0) / 2.0
-    }
+        // [0, 1]に正規化
+        let normalized = (noise_val + 1.0) / 2.0;
 
-    /// 大陸性を取得 (0.0 - 1.0)
-    /// 0.0 = 海洋, 1.0 = 大陸内部
-    pub fn get_continentalness(&self, x: f64, z: f64) -> f64 {
-        let scale = 0.001;
-        (self.continental.get([x * scale, z * scale]) + 1.0) / 2.0
-    }
+        // 高さに変換
+        let height_range = config.terrain.height_variation as f64 * 2.0;
+        let height = config.terrain.base_height as f64 + (normalized - 0.5) * height_range;
 
-    /// 地形高さのノイズ値を取得 (-1.0 - 1.0)
-    /// 複数オクターブを合成
-    pub fn get_terrain_height(&self, x: f64, z: f64) -> f64 {
-        // 大規模地形 (大陸・山脈スケール)
-        let large = self.terrain_large.get([x * 0.005, z * 0.005]) * 0.5;
-
-        // 中規模地形 (丘・谷スケール)
-        let medium = self.terrain_medium.get([x * 0.02, z * 0.02]) * 0.35;
-
-        // 詳細地形 (小さな凹凸)
-        let detail = self.terrain_detail.get([x * 0.08, z * 0.08]) * 0.15;
-
-        large + medium + detail
-    }
-
-    /// 3D洞窟ノイズを取得 (cheese caves)
-    pub fn get_cave_cheese(&self, x: f64, y: f64, z: f64) -> f64 {
-        let scale = 0.03;
-        self.cave_cheese.get([x * scale, y * scale, z * scale])
-    }
-
-    /// 3D洞窟ノイズを取得 (spaghetti caves)
-    pub fn get_cave_spaghetti(&self, x: f64, y: f64, z: f64) -> f64 {
-        let scale = 0.02;
-        // 2つのノイズを組み合わせてトンネル状にする
-        let noise1 = self.cave_spaghetti.get([x * scale, y * scale, z * scale]);
-        let noise2 = self.cave_spaghetti.get([x * scale + 100.0, y * scale + 100.0, z * scale + 100.0]);
-        // 両方が0に近いときに洞窟を形成
-        1.0 - (noise1 * noise1 + noise2 * noise2).sqrt()
-    }
-
-    /// 3D洞窟ノイズを取得 (noodle caves - 細い通路)
-    pub fn get_cave_noodle(&self, x: f64, y: f64, z: f64) -> f64 {
-        let scale = 0.015;
-        let noise1 = self.cave_noodle.get([x * scale, y * scale, z * scale]);
-        let noise2 = self.cave_noodle.get([x * scale + 50.0, y * scale + 50.0, z * scale + 50.0]);
-        1.0 - (noise1 * noise1 + noise2 * noise2).sqrt()
+        height as i32
     }
 }
 
@@ -116,49 +52,62 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_noise_range() {
-        let gen = NoiseGenerators::new(12345);
+    fn test_same_seed_same_result() {
+        let params = NoiseParams::default();
+        let config = WorldGenConfig::default();
+
+        let noise1 = TerrainNoise::new(12345, &params);
+        let noise2 = TerrainNoise::new(12345, &params);
+
+        assert_eq!(
+            noise1.get_height(0, 0, &config),
+            noise2.get_height(0, 0, &config)
+        );
+        assert_eq!(
+            noise1.get_height(100, 200, &config),
+            noise2.get_height(100, 200, &config)
+        );
+    }
+
+    #[test]
+    fn test_different_seed_different_result() {
+        let params = NoiseParams::default();
+        let config = WorldGenConfig::default();
+
+        let noise1 = TerrainNoise::new(12345, &params);
+        let noise2 = TerrainNoise::new(54321, &params);
+
+        // 異なるシードでは異なる結果になる可能性が高い
+        // 少なくともいくつかの座標で異なる結果になるはず
+        let different_count = (0..10)
+            .filter(|&i| noise1.get_height(i, i, &config) != noise2.get_height(i, i, &config))
+            .count();
+        assert!(different_count > 0, "Different seeds should produce different terrain");
+    }
+
+    #[test]
+    fn test_height_within_bounds() {
+        let params = NoiseParams::default();
+        let config = WorldGenConfig::default();
+        let noise = TerrainNoise::new(12345, &params);
 
         // 複数の座標でテスト
-        for x in -100..100 {
-            for z in -100..100 {
-                let temp = gen.get_temperature(x as f64, z as f64);
-                assert!((0.0..=1.0).contains(&temp), "Temperature out of range: {}", temp);
+        for x in -100..=100 {
+            for z in -100..=100 {
+                let height = noise.get_height(x, z, &config);
+                let min_expected = config.terrain.base_height - config.terrain.height_variation;
+                let max_expected = config.terrain.base_height + config.terrain.height_variation;
 
-                let humid = gen.get_humidity(x as f64, z as f64);
-                assert!((0.0..=1.0).contains(&humid), "Humidity out of range: {}", humid);
-
-                let cont = gen.get_continentalness(x as f64, z as f64);
-                assert!((0.0..=1.0).contains(&cont), "Continentalness out of range: {}", cont);
+                assert!(
+                    height >= min_expected && height <= max_expected,
+                    "Height {} at ({}, {}) out of bounds [{}, {}]",
+                    height,
+                    x,
+                    z,
+                    min_expected,
+                    max_expected
+                );
             }
         }
-    }
-
-    #[test]
-    fn test_noise_determinism() {
-        let gen1 = NoiseGenerators::new(12345);
-        let gen2 = NoiseGenerators::new(12345);
-
-        // 同じシードで同じ値になる
-        assert_eq!(
-            gen1.get_temperature(100.0, 200.0),
-            gen2.get_temperature(100.0, 200.0)
-        );
-        assert_eq!(
-            gen1.get_terrain_height(100.0, 200.0),
-            gen2.get_terrain_height(100.0, 200.0)
-        );
-    }
-
-    #[test]
-    fn test_different_seeds_produce_different_noise() {
-        let gen1 = NoiseGenerators::new(12345);
-        let gen2 = NoiseGenerators::new(54321);
-
-        // 異なるシードで異なる値になる（高確率で）
-        assert_ne!(
-            gen1.get_temperature(100.0, 200.0),
-            gen2.get_temperature(100.0, 200.0)
-        );
     }
 }

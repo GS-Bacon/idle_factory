@@ -53,10 +53,40 @@ pub struct BlockVisual {
     pub is_transparent: bool,
 }
 
-// ★修正: VoxModelを指定するように変更
+/// ブロックIDからビジュアル情報を取得
 pub fn get_block_visual(id: &str) -> BlockVisual {
     match id {
-        // === 機械ブロック ===
+        // ===========================================
+        // 地形ブロック
+        // ===========================================
+        "grass" => BlockVisual {
+            color: [0.3, 0.6, 0.2, 1.0], // 緑
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "dirt" => BlockVisual {
+            color: [0.4, 0.25, 0.1, 1.0], // 茶色
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "stone" => BlockVisual {
+            color: [0.5, 0.5, 0.5, 1.0], // 灰色
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "bedrock" => BlockVisual {
+            color: [0.15, 0.15, 0.15, 1.0], // 濃い灰色
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "air" => BlockVisual {
+            color: [0.0, 0.0, 0.0, 0.0],
+            mesh_type: MeshType::Cube,
+            is_transparent: true,
+        },
+        // ===========================================
+        // 機械ブロック
+        // ===========================================
         "conveyor" => BlockVisual {
             color: [0.2, 0.2, 0.2, 1.0],
             mesh_type: MeshType::VoxModel("conveyor".to_string()),
@@ -67,114 +97,9 @@ pub fn get_block_visual(id: &str) -> BlockVisual {
             mesh_type: MeshType::VoxModel("miner".to_string()),
             is_transparent: true,
         },
-
-        // === 基本地形ブロック ===
-        "dirt" => BlockVisual {
-            color: [0.4, 0.25, 0.1, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "grass" => BlockVisual {
-            color: [0.3, 0.6, 0.2, 1.0],  // 緑
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "stone" => BlockVisual {
-            color: [0.5, 0.5, 0.5, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "sand" => BlockVisual {
-            color: [0.9, 0.85, 0.6, 1.0],  // 砂色
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "sandstone" => BlockVisual {
-            color: [0.85, 0.75, 0.5, 1.0],  // 砂岩色
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "gravel" => BlockVisual {
-            color: [0.55, 0.5, 0.45, 1.0],  // 砂利色
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "deepslate" => BlockVisual {
-            color: [0.25, 0.25, 0.3, 1.0],  // 深層岩（暗いグレー）
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "bedrock" => BlockVisual {
-            color: [0.15, 0.15, 0.15, 1.0],  // 岩盤（ほぼ黒）
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-
-        // === 鉱石ブロック ===
-        "coal_ore" => BlockVisual {
-            color: [0.3, 0.3, 0.3, 1.0],  // 石炭（黒っぽい）
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "iron_ore" => BlockVisual {
-            color: [0.6, 0.5, 0.45, 1.0],  // 鉄（ベージュがかったグレー）
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "copper_ore" => BlockVisual {
-            color: [0.7, 0.45, 0.3, 1.0],  // 銅（オレンジがかった茶色）
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "gold_ore" => BlockVisual {
-            color: [0.9, 0.75, 0.3, 1.0],  // 金（黄色）
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        // 深層鉱石
-        "deepslate_coal_ore" => BlockVisual {
-            color: [0.2, 0.2, 0.25, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "deepslate_iron_ore" => BlockVisual {
-            color: [0.45, 0.4, 0.4, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "deepslate_copper_ore" => BlockVisual {
-            color: [0.55, 0.35, 0.28, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "deepslate_gold_ore" => BlockVisual {
-            color: [0.7, 0.6, 0.25, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-
-        // === 液体・特殊ブロック ===
-        "water" => BlockVisual {
-            color: [0.2, 0.4, 0.8, 0.6],  // 半透明の青
-            mesh_type: MeshType::Cube,
-            is_transparent: true,
-        },
-        "lava" => BlockVisual {
-            color: [0.9, 0.3, 0.1, 0.9],  // オレンジ
-            mesh_type: MeshType::Cube,
-            is_transparent: true,
-        },
-
-        // === 空気 ===
-        "air" => BlockVisual {
-            color: [0.0, 0.0, 0.0, 0.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: true,
-        },
-
-        // === フォールバック ===
+        // 未知のブロック（デバッグ用マゼンタ）
         _ => BlockVisual {
-            color: [1.0, 0.0, 1.0, 1.0],  // マゼンタ（未定義ブロック）
+            color: [1.0, 0.0, 1.0, 1.0],
             mesh_type: MeshType::Cube,
             is_transparent: false,
         },
