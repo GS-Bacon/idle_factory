@@ -3,6 +3,8 @@ use crate::core::input::KeyBindings;
 use crate::gameplay::inventory::PlayerInventory;
 use crate::gameplay::commands::GameMode;
 use crate::gameplay::held_item::PlayerCamera;
+use crate::gameplay::physics::{PlayerCollider, PlayerPhysics};
+use crate::gameplay::player_stats::{FallTracker, PlayerHealth, PlayerExperience};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
@@ -31,6 +33,12 @@ pub fn spawn_player(
         Player { yaw: 0.0, pitch: 0.0, is_flying: false, velocity: Vec3::ZERO },
         Transform::from_xyz(0.0, 5.0, 0.0),
         Visibility::default(),
+        // 物理コンポーネント（サバイバルモード用）
+        PlayerPhysics::default(),
+        PlayerCollider::default(),
+        FallTracker::default(),
+        PlayerHealth::default(),
+        PlayerExperience::default(),
     ))
     .with_children(|parent| {
         // カメラ (FPS視点)
@@ -43,7 +51,7 @@ pub fn spawn_player(
             },
             // ★重要追加: アンチエイリアス有効化
             Msaa::Sample4,
-            Transform::from_xyz(0.0, 1.8, 0.0), // 目の高さ
+            Transform::from_xyz(0.0, 1.5, 0.0), // 目の高さ (PlayerCollider.eye_height)
             PlayerCamera, // マーカーコンポーネント
         ));
     });
@@ -93,6 +101,8 @@ pub fn look_player(
     }
 }
 
+/// クリエイティブモード専用の移動処理
+/// サバイバルモードはPhysicsPluginが処理する
 pub fn move_player(
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -101,16 +111,20 @@ pub fn move_player(
     keybinds: Res<KeyBindings>,
     game_mode: Res<GameMode>,
 ) {
+    // サバイバルモードはPhysicsPluginが処理
+    if *game_mode == GameMode::Survival {
+        return;
+    }
+
     if let Ok((mut transform, mut player)) = query.get_single_mut() {
         let mut move_dir = Vec3::ZERO;
 
         // 自分の向き(Yaw)を基準に進む
-        // ※pitch(上下)は移動方向には影響させないため、Y回転成分だけ取り出す
         let (yaw, _, _) = transform.rotation.to_euler(EulerRot::YXZ);
         let yaw_rot = Quat::from_rotation_y(yaw);
 
-        let forward = yaw_rot * Vec3::NEG_Z; // 前 (-Z)
-        let right = yaw_rot * Vec3::X;       // 右 (+X)
+        let forward = yaw_rot * Vec3::NEG_Z;
+        let right = yaw_rot * Vec3::X;
 
         // キーバインド判定
         if keyboard.pressed(keybinds.forward) { move_dir += forward; }
@@ -118,38 +132,25 @@ pub fn move_player(
         if keyboard.pressed(keybinds.right) { move_dir += right; }
         if keyboard.pressed(keybinds.left) { move_dir -= right; }
 
-        // クリエイティブモード：飛行切り替え
-        if *game_mode == GameMode::Creative {
-            // スペースキー2回押しで飛行モード切り替え（簡易実装：常に飛行可能）
-            player.is_flying = true;
+        // クリエイティブモード：常に飛行可能
+        player.is_flying = true;
 
-            if player.is_flying {
-                // 飛行中：Space/Shiftで上下移動
-                if keyboard.pressed(keybinds.jump) { move_dir.y += 1.0; }
-                if keyboard.pressed(keybinds.descend) { move_dir.y -= 1.0; }
-            }
-        } else {
-            // サバイバルモード：通常の上下移動（元の挙動）
-            if keyboard.pressed(keybinds.jump) { move_dir.y += 1.0; }
-            if keyboard.pressed(keybinds.descend) { move_dir.y -= 1.0; }
-        }
+        // 飛行中：Space/Shiftで上下移動
+        if keyboard.pressed(keybinds.jump) { move_dir.y += 1.0; }
+        if keyboard.pressed(keybinds.descend) { move_dir.y -= 1.0; }
 
         if move_dir.length_squared() > 0.0 {
             move_dir = move_dir.normalize();
         }
 
-        // ダッシュ判定（クリエイティブモードでは更に高速）
+        // ダッシュ判定（クリエイティブ飛行は2倍速）
         let base_speed = if keyboard.pressed(keybinds.sprint) {
             config.run_speed
         } else {
             config.walk_speed
         };
 
-        let speed = if *game_mode == GameMode::Creative && player.is_flying {
-            base_speed * 2.0 // クリエイティブ飛行は2倍速
-        } else {
-            base_speed
-        };
+        let speed = base_speed * 2.0;
 
         transform.translation += move_dir * speed * time.delta_secs();
     }

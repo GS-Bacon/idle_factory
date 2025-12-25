@@ -34,3 +34,24 @@
   is_solid: true
   texture: "none"
   collision: [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+
+- id: water
+  name: Water
+  is_solid: false
+  is_liquid: true
+  texture: "water"
+  collision: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+- id: lava
+  name: Lava
+  is_solid: false
+  is_liquid: true
+  texture: "lava"
+  collision: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+- id: ladder
+  name: Ladder
+  is_solid: false
+  is_climbable: true
+  texture: "ladder"
+  collision: [0.0, 0.0, 0.0, 0.1875, 1.0, 1.0]

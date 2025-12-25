@@ -20,6 +20,7 @@ pub mod weather;
 pub mod fluid;
 pub mod heat;
 pub mod vibration;
+pub mod physics;
 
 use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;
@@ -47,6 +48,7 @@ impl Plugin for GameplayPlugin {
             .add_plugins(fluid::FluidPlugin)
             .add_plugins(heat::HeatPlugin)
             .add_plugins(vibration::VibrationPlugin)
+            .add_plugins(physics::PhysicsPlugin)
             .init_resource::<SimulationGrid>()
             .init_resource::<building::BuildTool>()
             .init_resource::<building::HologramState>()

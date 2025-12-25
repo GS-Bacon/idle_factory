@@ -10,6 +10,10 @@ pub struct BlockDefinition {
     pub id: String,
     pub name: String,
     pub is_solid: bool,
+    #[serde(default)]
+    pub is_liquid: bool,
+    #[serde(default)]
+    pub is_climbable: bool,
     #[serde(default = "default_texture")]
     pub texture: String,
     pub collision: Option<Vec<f32>>,
@@ -23,6 +27,8 @@ fn default_texture() -> String {
 pub struct BlockProperty {
     pub name: String,
     pub is_solid: bool,
+    pub is_liquid: bool,
+    pub is_climbable: bool,
     pub texture: String,
     pub collision_box: [f32; 6],
 }
@@ -86,6 +92,8 @@ fn load_blocks(mut registry: ResMut<BlockRegistry>) {
                 registry.map.insert(def.id.clone(), BlockProperty {
                     name: def.name,
                     is_solid: def.is_solid,
+                    is_liquid: def.is_liquid,
+                    is_climbable: def.is_climbable,
                     texture: def.texture,
                     collision_box: col,
                 });
