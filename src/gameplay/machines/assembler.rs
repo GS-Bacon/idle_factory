@@ -116,7 +116,7 @@ pub fn tick_assemblers(
                                         item_id: produced.item.clone(),
                                         count: produced.count,
                                         progress: 0.0,
-                                        unique_id: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,
+                                        unique_id: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(0),
                                         from_direction: None,
                                         lane: Default::default(),
                                     });
