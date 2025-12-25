@@ -1,0 +1,27 @@
+# Test items for CI/E2E testing
+- id: test_iron_ore
+  name: Test Iron Ore
+  stack_size: 64
+  category: raw
+
+- id: test_iron_ingot
+  name: Test Iron Ingot
+  stack_size: 64
+  category: material
+
+- id: test_iron_plate
+  name: Test Iron Plate
+  stack_size: 64
+  category: material
+
+- id: test_conveyor
+  name: Test Conveyor
+  stack_size: 64
+  category: logistics
+  placeable: true
+
+- id: test_miner
+  name: Test Miner
+  stack_size: 1
+  category: machine
+  placeable: true
