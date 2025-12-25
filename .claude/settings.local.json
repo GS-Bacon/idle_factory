@@ -152,7 +152,9 @@
       "Bash(tee:*)",
       "Bash(DISPLAY=:10 timeout 90 cargo run:*)",
       "Bash(DISPLAY=:10 timeout 45 cargo run:*)",
-      "Bash(DISPLAY=:10 timeout 50 cargo run:*)"
+      "Bash(DISPLAY=:10 timeout 50 cargo run:*)",
+      "Bash(gh auth status:*)",
+      "Bash(git config:*)"
     ]
   }
 }

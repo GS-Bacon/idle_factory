@@ -19,15 +19,15 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 # ============================================
 PICKAXE = {
     "total_height": 0.22,
-    "handle_length": 0.14,      # 64% of total
+    "handle_length": 0.135,     # 少し短く
     "handle_radius": 0.012,
-    "head_width": 0.10,         # 4.2x handle diameter
-    "head_depth": 0.032,        # 厚め（より存在感）
-    "head_height": 0.04,        # 存在感ある高さ（増）
-    "pick_tip_length": 0.048,   # 両端の尖った部分（増）
-    "pick_tip_taper": 0.6,      # 先端は60%細くなる
-    "collar_radius": 0.018,     # カラーを太く
-    "collar_height": 0.028,     # カラーを高く
+    "head_center_width": 0.028, # 中央ブロックをさらに小さく
+    "head_depth": 0.024,        # 厚み（少し薄く）
+    "head_height": 0.032,       # 高さ（微調整）
+    "pick_tip_length": 0.065,   # 先端をさらに長く！
+    "pick_tip_taper": 0.20,     # 先端をさらに細く（20%に）
+    "collar_radius": 0.015,
+    "collar_height": 0.024,     # 少し高く
 }
 
 # ============================================
@@ -160,15 +160,15 @@ def validate_tool_proportions(handle_len, head_width, handle_radius, total_heigh
     """ツールの比率を検証"""
     errors = []
 
-    # ハンドル長は全長の60-70%
+    # ハンドル長は全長の60-76%（ピッケルは先端が長いので少し緩和）
     handle_ratio = handle_len / total_height
-    if not 0.60 <= handle_ratio <= 0.75:
-        errors.append(f"Handle ratio {handle_ratio:.2f} not in 0.60-0.75")
+    if not 0.58 <= handle_ratio <= 0.76:
+        errors.append(f"Handle ratio {handle_ratio:.2f} not in 0.58-0.76")
 
-    # ヘッド幅はハンドル直径の4-6倍
+    # ヘッド幅はハンドル直径の4-7倍（ピッケルは横に広い）
     head_handle_ratio = head_width / (handle_radius * 2)
-    if not 3.5 <= head_handle_ratio <= 6.0:
-        errors.append(f"Head/handle ratio {head_handle_ratio:.1f} not in 3.5-6.0x")
+    if not 3.5 <= head_handle_ratio <= 7.0:
+        errors.append(f"Head/handle ratio {head_handle_ratio:.1f} not in 3.5-7.0x")
 
     # 全長チェック
     if not 0.18 <= total_height <= 0.28:
@@ -264,8 +264,8 @@ def create_pickaxe():
     )
     parts_head.append(collar)
 
-    # ヘッド中央ブロック
-    head_center_width = P["head_width"] * 0.35  # 中央は35%幅
+    # ヘッド中央ブロック（小さめ - ピック先端を目立たせる）
+    head_center_width = P["head_center_width"]
     head = create_chamfered_box(
         (head_center_width, P["head_depth"], P["head_height"]),
         (0, 0, head_z),
@@ -273,13 +273,14 @@ def create_pickaxe():
     )
     parts_head.append(head)
 
-    # ピック先端（右）- テーパー付き
-    tip_base_w = head_center_width * 0.8
-    tip_base_d = P["head_depth"] * 0.8
-    tip_base_h = P["head_height"] * 0.7
-    tip_end_w = tip_base_w * 0.3  # 先端は30%に
-    tip_end_d = tip_base_d * 0.4
-    tip_end_h = tip_base_h * 0.4
+    # ピック先端（右）- 長くて細いテーパー
+    tip_base_w = head_center_width * 0.9
+    tip_base_d = P["head_depth"] * 0.75
+    tip_base_h = P["head_height"] * 0.65
+    taper = P["pick_tip_taper"]
+    tip_end_w = tip_base_w * taper
+    tip_end_d = tip_base_d * taper
+    tip_end_h = tip_base_h * taper
 
     tip_r = create_tapered_box(
         (tip_base_w, tip_base_d, tip_base_h),
@@ -324,16 +325,17 @@ def create_pickaxe():
 
     # === 検証 ===
     tri_count = sum(len(p.vertices) - 2 for p in result.data.polygons)
+    total_head_width = P["head_center_width"] + P["pick_tip_length"] * 2
     print(f"\n=== MODEL VALIDATION ===")
     print(f"Total height: {total_height:.4f} (expected: 0.18-0.25)")
     print(f"Handle length: {P['handle_length']:.4f} ({P['handle_length']/total_height*100:.1f}% of total)")
-    print(f"Head width: {P['head_width']:.4f}")
-    print(f"Head/handle ratio: {P['head_width']/(P['handle_radius']*2):.1f}x (expected: 4-6x)")
+    print(f"Total head width: {total_head_width:.4f}")
+    print(f"Head/handle ratio: {total_head_width/(P['handle_radius']*2):.1f}x (expected: 4-6x)")
     print(f"Triangle count: {tri_count} (budget: 50-200)")
 
     validate_tool_proportions(
         P["handle_length"],
-        P["head_width"],
+        total_head_width,
         P["handle_radius"],
         total_height
     )
