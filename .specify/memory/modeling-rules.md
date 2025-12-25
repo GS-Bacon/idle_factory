@@ -33,15 +33,15 @@ pos:block-boundary(±0.5)|meta:extras-json
 
 ## done-models
 
-item:pickaxe,hammer
+item:pickaxe,hammer,axe,wrench,shovel
 machine:furnace,conveyor,crusher,press,pump,tank,miner,assembler,mixer,centrifuge,generator,chemical_reactor,solar_panel,coal_gen,fuel_gen,nuclear,color_router,signal_tx/rx,creature_feeder/breed/transport,train_engine,cargo_wagon
 structure:train_station,creature_pen
 
 ## todo
 
-priority1:axe,wrench,shovel
-priority2:pipe-straight/L/T/cross
-priority3:chest,shaft,gearbox
+priority1:pipe-straight/L/T/cross
+priority2:chest,shaft,gearbox
+priority3:wire,cable,circuit_board
 
 ## workflow
 

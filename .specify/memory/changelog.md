@@ -2,6 +2,14 @@
 
 ## 2025-12-25
 
+tool-models:axe,wrench,shovel
+- assets/models/item/{axe,wrench,shovel}.gltf
+- axe:80tris,横向き刃+背,wood+iron+steel
+- wrench:160tris,open-end+box-end,iron+steel
+- shovel:68tris,台形ブレード,wood+iron+steel
+- modeling-rules.md:done-models更新,todo更新
+- 全モデル予算内(50-200tris)
+
 fix-issues-skill:/fix-issues
 - .claude/commands/fix-issues.md:Issue自動解決スキル
 - issues.md未着手タスクを優先度順に自動解決
