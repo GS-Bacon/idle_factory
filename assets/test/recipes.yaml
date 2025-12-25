@@ -1,0 +1,22 @@
+# Test recipes for CI/E2E testing
+- id: test_smelt_iron
+  name: Smelt Iron
+  machine: furnace
+  inputs:
+    - item: test_iron_ore
+      amount: 1
+  outputs:
+    - item: test_iron_ingot
+      amount: 1
+  duration: 2.0
+
+- id: test_craft_plate
+  name: Craft Iron Plate
+  machine: assembler
+  inputs:
+    - item: test_iron_ingot
+      amount: 2
+  outputs:
+    - item: test_iron_plate
+      amount: 1
+  duration: 1.0

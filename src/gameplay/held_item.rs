@@ -67,7 +67,7 @@ fn update_held_item(
 fn spawn_held_item(
     commands: &mut Commands,
     camera_query: &Query<Entity, With<PlayerCamera>>,
-    _voxel_assets: &Res<VoxelAssets>,
+    voxel_assets: &Res<VoxelAssets>,
     item_id: &str,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -77,18 +77,83 @@ fn spawn_held_item(
         return;
     };
 
-    // 簡易実装: 全てのアイテムを小さいキューブで表示
-    // TODO: VoxelAssetsからボクセルデータを読み込んで表示
-    let mesh_handle = meshes.add(Cuboid::new(0.2, 0.2, 0.2));
+    // VoxelAssetsからモデルを検索
+    // item_idそのまま、またはitem_idから "_item" 等を除去して検索
+    let model_key = item_id.trim_end_matches("_item");
 
-    // マテリアル作成（アイテムごとに色を変えることも可能）
+    if let Some(voxels) = voxel_assets.models.get(model_key).or_else(|| voxel_assets.models.get(item_id)) {
+        // ボクセルデータがある場合: ボクセルごとにキューブを配置
+        spawn_voxel_model(commands, camera_entity, item_id, voxels, meshes, materials);
+    } else {
+        // フォールバック: 汎用キューブ
+        spawn_fallback_cube(commands, camera_entity, item_id, meshes, materials);
+    }
+}
+
+/// VoxelAssetsのボクセルデータからモデルを生成
+fn spawn_voxel_model(
+    commands: &mut Commands,
+    camera_entity: Entity,
+    item_id: &str,
+    voxels: &[crate::rendering::voxel_loader::VoxelData],
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+) {
+    // ボクセルモデルのスケール (手持ち用に縮小)
+    const VOXEL_SCALE: f32 = 0.015;
+
+    // モデルの中心を計算
+    let center = if voxels.is_empty() {
+        Vec3::ZERO
+    } else {
+        let sum: Vec3 = voxels.iter().map(|v| v.pos).sum();
+        sum / voxels.len() as f32
+    };
+
+    // 小さなキューブメッシュ (共有)
+    let cube_mesh = meshes.add(Cuboid::new(VOXEL_SCALE, VOXEL_SCALE, VOXEL_SCALE));
+
+    // カメラの子としてアイテムを配置
+    commands.entity(camera_entity).with_children(|parent| {
+        parent.spawn((
+            HeldItem {
+                item_id: item_id.to_string(),
+            },
+            Transform::from_xyz(0.3, -0.2, -0.4)
+                .with_rotation(Quat::from_rotation_y(std::f32::consts::PI / 6.0)),
+            Visibility::default(),
+        )).with_children(|model_parent| {
+            // 各ボクセルをキューブとして配置
+            for voxel in voxels {
+                let material = materials.add(StandardMaterial {
+                    base_color: Color::srgba(voxel.color[0], voxel.color[1], voxel.color[2], voxel.color[3]),
+                    ..default()
+                });
+
+                model_parent.spawn((
+                    Mesh3d(cube_mesh.clone()),
+                    MeshMaterial3d(material),
+                    Transform::from_translation((voxel.pos - center) * VOXEL_SCALE),
+                ));
+            }
+        });
+    });
+}
+
+/// フォールバック: 汎用キューブ表示
+fn spawn_fallback_cube(
+    commands: &mut Commands,
+    camera_entity: Entity,
+    item_id: &str,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+) {
+    let mesh_handle = meshes.add(Cuboid::new(0.2, 0.2, 0.2));
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.8, 0.8, 0.8),
         ..default()
     });
 
-    // カメラの子としてアイテムを配置
-    // 位置: カメラの右下（First-person view）
     commands.entity(camera_entity).with_children(|parent| {
         parent.spawn((
             HeldItem {
@@ -96,7 +161,7 @@ fn spawn_held_item(
             },
             Mesh3d(mesh_handle),
             MeshMaterial3d(material),
-            Transform::from_xyz(0.3, -0.2, -0.4) // 右下前方
+            Transform::from_xyz(0.3, -0.2, -0.4)
                 .with_rotation(Quat::from_rotation_y(std::f32::consts::PI / 6.0)),
         ));
     });
