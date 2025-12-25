@@ -1,6 +1,27 @@
 # Steam特別モード＆エディタ仕様
 
 **ステータス**: 決定済み（実装待ち）
+**最終更新**: 2025-12-25（ゲーム仕様との整合性更新）
+
+---
+
+## 0. 現在のゲーム状態との整合性
+
+### AppState（実装済み）
+```
+MainMenu → ProfileSelect → ProfileSettings → SaveSelect → WorldGeneration → InGame → PauseMenu
+```
+
+### ゲームモード（実装済み）
+| モード | 説明 |
+|--------|------|
+| Survival | サバイバル要素あり（HP、空腹は将来実装） |
+| Creative | 純粋な工場建設モード（現在のメイン） |
+
+### プロファイルシステム（実装済み）
+- `ProfileList`: プロファイル一覧管理
+- `ProfileInfo`: id, name, description
+- デフォルト: vanilla
 
 ---
 
@@ -192,6 +213,31 @@ profiles/{target}/data/
 |-------|------|------|
 | 通常モード | MODユーザー/プレイヤー | Items, Recipes, Quests, Multiblock, Biome, Sounds |
 | 開発者モード | 開発者のみ | 上記 + **Steam**, **Build** |
+
+### ゲーム内からエディタへのアクセス
+
+**ProfileSettings画面から案内:**
+```
+┌───────────────────────────────────────────────────────────┐
+│ Profile Settings                                          │
+├───────────────────────────────────────────────────────────┤
+│ Active: vanilla ✓                                         │
+│                                                           │
+│ ┌───────────────────────────────────────────────────────┐ │
+│ │ Profile Management                                    │ │
+│ │                                                       │ │
+│ │ • Create new profiles in the Factory Data Architect  │ │
+│ │ • Edit items, recipes, and quests for each profile   │ │
+│ │ • Download MODs from Steam Workshop (coming soon)    │ │
+│ └───────────────────────────────────────────────────────┘ │
+│                                                           │
+│                              [Back]                       │
+└───────────────────────────────────────────────────────────┘
+```
+
+**将来対応:**
+- [Open Editor] ボタンでFactory Data Architectを起動
+- プロファイル作成/削除もゲーム内で可能に
 
 ### 切り離し方式
 

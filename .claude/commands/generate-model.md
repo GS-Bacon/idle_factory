@@ -7,204 +7,150 @@ $ARGUMENTS
 
 ## 引数の解析
 
-引数から以下を抽出:
-- **モデル名**: 必須（例: "pickaxe", "hammer", "conveyor"）
+- **モデル名**: 必須（例: "pickaxe", "hammer"）
 - **カテゴリ**: item/machine/structure（デフォルト: item）
-- **色指定**: オプション（例: "赤", "青", "緑", "#FF5500", "copper"）
-
-**色変換テーブル**:
-```python
-COLOR_MAP = {
-    # 日本語
-    "赤": (0.8, 0.1, 0.1), "青": (0.1, 0.3, 0.8), "緑": (0.1, 0.6, 0.1),
-    "黄": (0.9, 0.8, 0.1), "紫": (0.6, 0.1, 0.6), "オレンジ": (0.9, 0.4, 0.1),
-    "白": (0.9, 0.9, 0.9), "黒": (0.1, 0.1, 0.1), "灰色": (0.5, 0.5, 0.5),
-    "茶色": (0.4, 0.2, 0.1), "ピンク": (0.9, 0.5, 0.6), "水色": (0.4, 0.7, 0.9),
-    "金": (0.83, 0.69, 0.22), "銀": (0.75, 0.75, 0.75),
-    # 英語
-    "red": (0.8, 0.1, 0.1), "blue": (0.1, 0.3, 0.8), "green": (0.1, 0.6, 0.1),
-    "yellow": (0.9, 0.8, 0.1), "purple": (0.6, 0.1, 0.6), "orange": (0.9, 0.4, 0.1),
-    "white": (0.9, 0.9, 0.9), "black": (0.1, 0.1, 0.1), "gray": (0.5, 0.5, 0.5),
-    "brown": (0.4, 0.2, 0.1), "pink": (0.9, 0.5, 0.6), "cyan": (0.4, 0.7, 0.9),
-    "gold": (0.83, 0.69, 0.22), "silver": (0.75, 0.75, 0.75),
-    # プリセット
-    "iron": (0.29, 0.29, 0.29), "copper": (0.72, 0.45, 0.20),
-    "brass": (0.79, 0.64, 0.15), "dark_steel": (0.18, 0.18, 0.18),
-    "wood": (0.55, 0.41, 0.08), "stone": (0.41, 0.41, 0.41),
-}
-```
-
----
-
-## Minecraft/Unturnedスタイルガイド
-
-> 出典: [Blockbench Minecraft Style Guide](https://www.blockbench.net/wiki/guides/minecraft-style-guide/)
-
-### 基本原則
-
-| 原則 | 説明 |
-|------|------|
-| **シンプルさ最優先** | 形状はモデルで、ディテールはテクスチャで表現 |
-| **要素数最小化** | 認識性を保ちながら可能な限り少ないキューブで構成 |
-| **認識性 > 正確さ** | 小さいオブジェクトはスケール正確さより認識しやすさ優先 |
-| **単一要素で表現** | 球や円柱は1つのキューブで表現（樽、丸太、カボチャ等） |
-
-### スケールと寸法
-
-```
-1ブロック = 16×16×16ピクセル = 1m³
-1ピクセル = 6.25cm
-
-ゲーム内換算:
-- 1.0 unit = 1ブロック = 1m
-- 0.0625 unit = 1ピクセル
-- ツール全長 0.2-0.25 = 約3-4ピクセル高
-```
-
-### 禁止事項
-
-| NG | 理由 | 代替案 |
-|----|------|--------|
-| **階段状カーブ** | Minecraft美学に反する | 回転で斜めを表現 |
-| **連続回転カーブ** | 曲線を作るための連続回転はNG | 単一キューブ |
-| **Mixels** | 1px未満の要素や拡大要素の混在 | 統一スケール |
-| **頂点操作** | 複雑なメッシュ編集 | プリミティブ組合せ |
-| **過剰ディテール** | 多すぎる小要素 | 透明ピクセルで表現 |
-
-### シェーディングルール
-
-```
-光源: 上と前から
-明るさ階層: 上面 > 前面 > 側面 > 背面 > 底面
-
-避けるべきシェーディング:
-- Banding: ピクセルが一列に並ぶ
-- Pillow Shading: 中心が明るく外側が暗い同心円状
-- Pancake Shading: 単純に片側明/片側暗
-```
-
-### Unturned追加ルール
-
-```
-スケール: Blender 1 unit = 1m → Unity Scale Factor 1.5
-テクスチャ: 256×256（または数ピクセルの単色パレット）
-最小コライダー: 0.2×0.2×0.2
-複雑度削減: Decimateで簡略化
-```
+- **色指定**: オプション（赤/blue/copper/#FF5500等）
 
 ---
 
 ## 実行手順
 
-### 1. リファレンス読み込み
-`.specify/memory/modeling-compact.md` を読む
+### 1. スクリプト作成
 
-### 2. スクリプト作成
+`tools/blender_scripts/{name}.py` に以下の構造で作成:
 
-**パーツ接続の鉄則**:
 ```python
-# ❌ 浮いたパーツ
-head_z = 0.17
-handle_top = 0.15  # 隙間あり
+import bpy
+from mathutils import Vector
+from math import pi, cos, sin
+import os
 
-# ✅ 相対位置で接続
-head_z = 0.17
-handle_top = head_z + 0.01  # 貫通接続
-handle_length = handle_top - handle_bottom
-```
+# === 関数定義（必須：MCPでは各実行が独立するため） ===
+def clear_scene():
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete()
 
-**テンプレート**:
-```python
-exec(open("tools/blender_scripts/_base.py").read())
+def create_octagonal_prism(radius, height, location, name):
+    verts = []
+    for i in range(8):
+        angle = i * pi / 4 + pi / 8
+        verts.append((cos(angle) * radius, sin(angle) * radius, -height / 2))
+        verts.append((cos(angle) * radius, sin(angle) * radius, height / 2))
+    faces = []
+    for i in range(8):
+        j = (i + 1) % 8
+        faces.append((i * 2, j * 2, j * 2 + 1, i * 2 + 1))
+    faces.append(tuple(i * 2 for i in range(8)))
+    faces.append(tuple(i * 2 + 1 for i in reversed(range(8))))
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = Vector(location)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+def create_chamfered_cube(size, chamfer, location, name):
+    sx, sy, sz = [s / 2 for s in size]
+    c = chamfer if chamfer else min(size) * 0.1
+    verts = [
+        (-sx + c, -sy, -sz), (sx - c, -sy, -sz), (sx, -sy + c, -sz), (sx, sy - c, -sz),
+        (sx - c, sy, -sz), (-sx + c, sy, -sz), (-sx, sy - c, -sz), (-sx, -sy + c, -sz),
+        (-sx + c, -sy, sz), (sx - c, -sy, sz), (sx, -sy + c, sz), (sx, sy - c, sz),
+        (sx - c, sy, sz), (-sx + c, sy, sz), (-sx, sy - c, sz), (-sx, -sy + c, sz),
+    ]
+    faces = [
+        (0, 1, 2, 3, 4, 5, 6, 7), (15, 14, 13, 12, 11, 10, 9, 8),
+        (0, 8, 9, 1), (1, 9, 10, 2), (2, 10, 11, 3), (3, 11, 12, 4),
+        (4, 12, 13, 5), (5, 13, 14, 6), (6, 14, 15, 7), (7, 15, 8, 0),
+    ]
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = Vector(location)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+def create_mat(name, color, metallic=0.0, roughness=0.8):
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    for node in mat.node_tree.nodes:
+        if node.type == 'BSDF_PRINCIPLED':
+            node.inputs["Base Color"].default_value = (*color, 1)
+            node.inputs["Metallic"].default_value = metallic
+            node.inputs["Roughness"].default_value = roughness
+            break
+    return mat
+
+def apply_mat(obj, mat):
+    obj.data.materials.append(mat) if not obj.data.materials else obj.data.materials.__setitem__(0, mat)
+
+# === シーンクリア ===
 clear_scene()
+
+# === モデル生成 ===
 parts = []
+# ... パーツ作成 ...
 
-# === 色指定（オプション） ===
-MAIN_COLOR = (0.8, 0.1, 0.1)  # 赤色。プリセット使用時は apply_preset_material()
+# === 結合 ===
+bpy.ops.object.select_all(action='DESELECT')
+for obj in parts:
+    obj.select_set(True)
+bpy.context.view_layer.objects.active = parts[0]
+bpy.ops.object.join()
+result = bpy.context.active_object
+result.name = "ModelName"
 
-# === Minecraft/Unturnedスタイル設計 ===
-# 1. 最小キューブ数で形状を表現
-# 2. 球/円柱は単一キューブで代用
-# 3. 斜めは回転で表現（階段状NG）
-# 4. 詳細はテクスチャに任せる
-
-# === パーツ生成 ===
-# 基準パーツの位置決め
-main_z = 0.17
-
-# 接続パーツは相対位置で計算
-sub_top = main_z + overlap
-sub_length = sub_top - sub_bottom
-sub_center = sub_bottom + sub_length / 2
-
-main = create_chamfered_cube(size, location=(0, 0, main_z), name="Main")
-sub = create_octagonal_prism(radius, sub_length, location=(0, 0, sub_center), name="Sub")
-parts.extend([main, sub])
-
-# === 結合・マテリアル ===
-result = join_all_meshes(parts, "ModelName")
-
-# マテリアル適用
-mat = bpy.data.materials.new("Mat")
-mat.use_nodes = True
-bsdf = mat.node_tree.nodes.get("Principled BSDF")
-if bsdf:
-    bsdf.inputs["Base Color"].default_value = (*MAIN_COLOR, 1)
-    bsdf.inputs["Roughness"].default_value = 0.8  # マット仕上げ
-result.data.materials.append(mat)
-
-# === 仕上げ ===
-bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-result.location = (0, 0, 0)
-export_gltf("assets/models/items/name.gltf")
+# === エクスポート ===
+output_dir = "/home/bacon/github/idle_factory/assets/models/items"
+os.makedirs(output_dir, exist_ok=True)
+bpy.ops.export_scene.gltf(
+    filepath=os.path.join(output_dir, "name.gltf"),
+    export_format='GLTF_SEPARATE',
+    use_selection=True,
+    export_materials='EXPORT',
+    export_yup=True,
+)
+print("Exported!")
 ```
 
-### 3. 生成実行
+### 2. 生成実行（2つの方法）
+
+**方法A: Blender MCP経由**（推奨）
+- `mcp__blender__execute_blender_code` でスクリプト全体を1回で実行
+- 注意: 関数定義を毎回含める必要あり
+
+**方法B: バックグラウンドBlender**
 ```bash
 DISPLAY=:10 blender --background --python tools/blender_scripts/{name}.py
 ```
 
-### 4. スクリーンショット検証
+### 3. 検証
 ```bash
-DISPLAY=:10 f3d --camera-azimuth-angle=45 --camera-elevation-angle=30 --output screenshots/{name}_angle.png assets/models/{cat}s/{name}.gltf &
-DISPLAY=:10 f3d --camera-azimuth-angle=0 --camera-elevation-angle=0 --output screenshots/{name}_front.png assets/models/{cat}s/{name}.gltf &
-DISPLAY=:10 f3d --camera-azimuth-angle=90 --camera-elevation-angle=0 --output screenshots/{name}_side.png assets/models/{cat}s/{name}.gltf &
-wait
+# f3dでプレビュー
+DISPLAY=:10 f3d --camera-azimuth-angle=45 --output screenshots/{name}.png assets/models/items/{name}.gltf
 ```
-
-**チェックリスト**:
-- [ ] パーツ間に隙間なし
-- [ ] キューブ数は最小限か
-- [ ] 階段状カーブがないか
-- [ ] シルエットで認識可能か
 
 ---
 
 ## カテゴリ別仕様
 
-| カテゴリ | サイズ | 三角形 | 原点 | キューブ目安 |
-|---------|--------|--------|------|-------------|
-| item | 0.2-0.3 | 50-300 | center | 3-8個 |
-| machine | 0.9-1.0 | 200-800 | bottom_center | 10-25個 |
-| structure | 1.0+ | 300-1500 | bottom_center | 15-40個 |
+| カテゴリ | サイズ | 三角形 | 原点 |
+|---------|--------|--------|------|
+| item | 0.2-0.3 | 50-300 | center |
+| machine | 0.9-1.0 | 200-800 | bottom |
+| structure | 1.0+ | 300-1500 | bottom |
 
-## マテリアル
+## マテリアルプリセット
 
-| プリセット | HEX | 用途 |
-|-----------|-----|------|
-| iron | #4A4A4A | 鉄製パーツ |
-| copper | #B87333 | 配線、熱交換 |
-| brass | #C9A227 | ギア、装飾 |
-| dark_steel | #2D2D2D | 重機、産業 |
-| wood | #8B6914 | ハンドル、支柱 |
-| stone | #696969 | 基礎、炉 |
+| 名前 | RGB | 用途 |
+|------|-----|------|
+| iron | (0.29, 0.29, 0.29) | 鉄 |
+| copper | (0.72, 0.45, 0.20) | 銅 |
+| wood | (0.55, 0.41, 0.08) | 木 |
+| dark_steel | (0.18, 0.18, 0.18) | 鋼 |
 
 ## 出力先
 - glTF: `assets/models/{category}s/{name}.gltf`
 - スクリプト: `tools/blender_scripts/{name}.py`
-
-## 使用例
-- `/generate-model 赤いピッケル` → 赤色のピッケル
-- `/generate-model blue sword` → 青い剣
-- `/generate-model copper conveyor` → 銅色コンベア
-- `/generate-model #FF5500 ハンマー` → オレンジ色ハンマー

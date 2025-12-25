@@ -6,6 +6,93 @@
 
 ## 2025-12-25
 
+### Minecraft風バイオーム・地形生成システム実装
+
+**新規モジュール:** `src/core/worldgen/`
+
+| ファイル | 内容 |
+|----------|------|
+| mod.rs | WorldGenPlugin、定数定義 |
+| noise.rs | 複数レイヤーノイズ生成器 |
+| biome.rs | バイオームレジストリ、定義 |
+| terrain.rs | 地形生成ロジック |
+| caves.rs | 洞窟生成（cheese/spaghetti/noodle） |
+| ores.rs | 鉱石分布システム |
+
+**バイオーム（6種）:**
+- 平原（デフォルト、建設向け）
+- 砂漠（高温・低湿度）
+- 海洋（低大陸性）
+- 森林（高湿度）
+- 山岳（低温・高大陸性）
+- 湿地（中温・高湿度）
+
+**追加ブロック（14種）:**
+- 地形: grass, sand, sandstone, gravel, deepslate, bedrock
+- 鉱石: coal_ore, iron_ore, copper_ore, gold_ore
+- 深層鉱石: deepslate_*_ore（4種）
+
+**鉱石分布:**
+- 石炭: Y 0〜128、均一分布
+- 鉄: Y -16〜72、ピーク Y=16
+- 銅: Y -16〜112、ピーク Y=48
+- 金: Y -64〜32、ピーク Y=-16
+
+**Miner連携:**
+- 鉱石ブロック自動検出
+- 対応アイテム採掘（iron_ore → raw_iron等）
+
+**テスト:** 22件追加（全175件成功）
+
+---
+
+## 2025-12-25
+
+### 仕様と実装の問題点調査・issues.md更新
+
+**調査内容:**
+- `steam-editor-mode.md` の仕様と実装コードの照合
+- 仕様間の矛盾・曖昧性の特定
+
+**発見した問題:**
+
+| 分類 | 件数 | 主な問題 |
+|------|------|---------|
+| 仕様と実装の乖離 | 9件 | 実績・統計システム未実装、開発者モード未実装、ディレクトリ構造不完全 |
+| 仕様の矛盾・曖昧性 | 4件 | GameMode矛盾、Luaサンドボックス不明、マルチプレイ未定義 |
+
+**更新ファイル:**
+- `.specify/memory/issues.md` - 13件の課題を追加
+
+**対応優先順位（推奨）:**
+1. プロファイルディレクトリ構造を仕様通りに整備
+2. 実績・統計システムの基本実装
+3. active_profile.yaml の起動時読み込み
+4. エディタの Steam/Build タブ実装
+
+---
+
+### エディタ仕様をゲーム仕様に整合
+
+**変更ファイル:**
+- `.specify/specs/steam-editor-mode.md` - 現在のゲーム状態セクション追加
+- `.specify/specs/index-compact.md` - エディタモードセクション更新
+- `.specify/memory/constitution.md` - GameMode, MenuFlow セクション追加
+
+**追加内容:**
+1. **AppState**: 実装済みの画面遷移フローを文書化
+2. **GameMode**: Survival/Creativeの説明追加
+3. **ProfileSystem**: プロファイル管理の説明追加
+4. **Menu Flow**: MainMenu→ProfileSelect→SaveSelect→InGame等のフロー図
+5. **Editor連携**: ProfileSettings画面からエディタへの誘導UI仕様
+
+**背景:**
+- ゲーム側ではProfileSelect, ProfileSettings, PauseMenu等が既に実装済み
+- エディタ仕様が古く、現在のゲーム状態と乖離していた
+- constitution.mdにも最新の実装状態を反映
+
+---
+
 ### 高優先度機能システム実装（ゲーム調査結果より）
 
 **概要**

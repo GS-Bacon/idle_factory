@@ -5,15 +5,21 @@ This constitution defines the foundational principles, coding standards, and arc
 
 ## Core Principles
 
-### 1. Pure Factory Building Focus
-- **No Survival Elements**: The game has no HP, hunger, or enemies
+### 1. Game Modes (実装済み)
+| Mode | Description |
+|------|-------------|
+| **Survival** | 将来的にHP/空腹/敵を追加予定。現在はCreativeと同等 |
+| **Creative** | 純粋な工場建設モード。デフォルト |
+
+- **Current Focus**: Creative mode for pure factory building
 - **Automation First**: All features must support the core goal of building automated production chains
-- **Peaceful Construction**: Players focus solely on engineering and optimization
+- **Peaceful Construction**: In Creative mode, players focus solely on engineering and optimization
 
 ### 2. Data-Driven Architecture
 - **YAML-Based Configuration**: All game content (blocks, recipes, items) must be defined in external YAML files
 - **Hot Reload Support**: Content changes should be reflected without rebuilding the game
 - **Modding-Ready**: Architecture must support easy extension and modification by users
+- **Profile System**: Multiple profiles (vanilla, custom mods) with save isolation
 
 ### 3. Technology Stack
 - **Language**: Rust (stable)
@@ -94,6 +100,23 @@ src/
 - **UI Isolation**: UI never directly modifies gameplay state (use events)
 
 ## User Experience Principles
+
+### Menu Flow (実装済み)
+```
+MainMenu → ProfileSelect → ProfileSettings → SaveSelect → WorldGeneration → InGame → PauseMenu
+                ↓                                              ↑
+            Settings (ESC)                              ESC (toggle)
+```
+
+| State | Description |
+|-------|-------------|
+| MainMenu | Play/Settings/Quit |
+| ProfileSelect | プロファイル選択 (vanilla等) |
+| ProfileSettings | プロファイル管理の案内 |
+| SaveSelect | 8スロットからワールド選択 |
+| WorldGeneration | 新規ワールド作成 (名前/シード/モード) |
+| InGame | ゲームプレイ中 |
+| PauseMenu | Resume/Settings/Save&Quit/MainMenu |
 
 ### Controls
 - **Keyboard First**: Primary controls via WASD + hotkeys
