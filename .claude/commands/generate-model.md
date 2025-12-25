@@ -12,12 +12,6 @@ $ARGUMENTS
 - **カテゴリ**: item/machine/structure（デフォルト: item）
 - **色指定**: オプション（例: "赤", "青", "緑", "#FF5500", "copper"）
 
-**色指定の形式**:
-- 日本語色名: 赤, 青, 緑, 黄, 紫, オレンジ, 白, 黒, 灰色, 茶色, ピンク, 水色, 金, 銀
-- 英語色名: red, blue, green, yellow, purple, orange, white, black, gray, brown, pink, cyan, gold, silver
-- HEXコード: #RRGGBB（例: #FF5500）
-- プリセット名: iron, copper, brass, dark_steel, wood, stone
-
 **色変換テーブル**:
 ```python
 COLOR_MAP = {
@@ -33,72 +27,90 @@ COLOR_MAP = {
     "white": (0.9, 0.9, 0.9), "black": (0.1, 0.1, 0.1), "gray": (0.5, 0.5, 0.5),
     "brown": (0.4, 0.2, 0.1), "pink": (0.9, 0.5, 0.6), "cyan": (0.4, 0.7, 0.9),
     "gold": (0.83, 0.69, 0.22), "silver": (0.75, 0.75, 0.75),
-    # プリセット（既存）
+    # プリセット
     "iron": (0.29, 0.29, 0.29), "copper": (0.72, 0.45, 0.20),
     "brass": (0.79, 0.64, 0.15), "dark_steel": (0.18, 0.18, 0.18),
     "wood": (0.55, 0.41, 0.08), "stone": (0.41, 0.41, 0.41),
 }
 ```
 
-**使用例**:
-- `/generate-model 赤いピッケル` → ピッケルを赤色で生成
-- `/generate-model 青い剣` → 剣を青色で生成
-- `/generate-model copper conveyor` → コンベアを銅色で生成
-- `/generate-model #FF5500 ハンマー` → ハンマーをオレンジ色で生成
+---
+
+## Minecraft/Unturnedスタイルガイド
+
+> 出典: [Blockbench Minecraft Style Guide](https://www.blockbench.net/wiki/guides/minecraft-style-guide/)
+
+### 基本原則
+
+| 原則 | 説明 |
+|------|------|
+| **シンプルさ最優先** | 形状はモデルで、ディテールはテクスチャで表現 |
+| **要素数最小化** | 認識性を保ちながら可能な限り少ないキューブで構成 |
+| **認識性 > 正確さ** | 小さいオブジェクトはスケール正確さより認識しやすさ優先 |
+| **単一要素で表現** | 球や円柱は1つのキューブで表現（樽、丸太、カボチャ等） |
+
+### スケールと寸法
+
+```
+1ブロック = 16×16×16ピクセル = 1m³
+1ピクセル = 6.25cm
+
+ゲーム内換算:
+- 1.0 unit = 1ブロック = 1m
+- 0.0625 unit = 1ピクセル
+- ツール全長 0.2-0.25 = 約3-4ピクセル高
+```
+
+### 禁止事項
+
+| NG | 理由 | 代替案 |
+|----|------|--------|
+| **階段状カーブ** | Minecraft美学に反する | 回転で斜めを表現 |
+| **連続回転カーブ** | 曲線を作るための連続回転はNG | 単一キューブ |
+| **Mixels** | 1px未満の要素や拡大要素の混在 | 統一スケール |
+| **頂点操作** | 複雑なメッシュ編集 | プリミティブ組合せ |
+| **過剰ディテール** | 多すぎる小要素 | 透明ピクセルで表現 |
+
+### シェーディングルール
+
+```
+光源: 上と前から
+明るさ階層: 上面 > 前面 > 側面 > 背面 > 底面
+
+避けるべきシェーディング:
+- Banding: ピクセルが一列に並ぶ
+- Pillow Shading: 中心が明るく外側が暗い同心円状
+- Pancake Shading: 単純に片側明/片側暗
+```
+
+### Unturned追加ルール
+
+```
+スケール: Blender 1 unit = 1m → Unity Scale Factor 1.5
+テクスチャ: 256×256（または数ピクセルの単色パレット）
+最小コライダー: 0.2×0.2×0.2
+複雑度削減: Decimateで簡略化
+```
+
+---
 
 ## 実行手順
 
-### 1. リファレンス読み込み（必須・最初に実行）
+### 1. リファレンス読み込み
 `.specify/memory/modeling-compact.md` を読む
 
 ### 2. スクリプト作成
 
-**パーツ接続の鉄則**（最重要）:
+**パーツ接続の鉄則**:
 ```python
-# ❌ 間違い: パーツを独立した位置に配置
+# ❌ 浮いたパーツ
 head_z = 0.17
-handle_top = 0.15  # 隙間ができる！
+handle_top = 0.15  # 隙間あり
 
-# ✅ 正解: 基準パーツから相対位置で計算
+# ✅ 相対位置で接続
 head_z = 0.17
-handle_top = head_z + 0.01  # ヘッド中心を超える（貫通）
+handle_top = head_z + 0.01  # 貫通接続
 handle_length = handle_top - handle_bottom
-```
-
-**色指定がある場合**:
-```python
-# 色変換関数（スクリプト冒頭に追加）
-def parse_color(color_spec):
-    """色指定を(R, G, B)タプルに変換"""
-    COLOR_MAP = {
-        # 日本語
-        "赤": (0.8, 0.1, 0.1), "青": (0.1, 0.3, 0.8), "緑": (0.1, 0.6, 0.1),
-        "黄": (0.9, 0.8, 0.1), "紫": (0.6, 0.1, 0.6), "オレンジ": (0.9, 0.4, 0.1),
-        "白": (0.9, 0.9, 0.9), "黒": (0.1, 0.1, 0.1), "灰色": (0.5, 0.5, 0.5),
-        "茶色": (0.4, 0.2, 0.1), "ピンク": (0.9, 0.5, 0.6), "水色": (0.4, 0.7, 0.9),
-        "金": (0.83, 0.69, 0.22), "銀": (0.75, 0.75, 0.75),
-        # 英語
-        "red": (0.8, 0.1, 0.1), "blue": (0.1, 0.3, 0.8), "green": (0.1, 0.6, 0.1),
-        "yellow": (0.9, 0.8, 0.1), "purple": (0.6, 0.1, 0.6), "orange": (0.9, 0.4, 0.1),
-        "white": (0.9, 0.9, 0.9), "black": (0.1, 0.1, 0.1), "gray": (0.5, 0.5, 0.5),
-        "brown": (0.4, 0.2, 0.1), "pink": (0.9, 0.5, 0.6), "cyan": (0.4, 0.7, 0.9),
-        "gold": (0.83, 0.69, 0.22), "silver": (0.75, 0.75, 0.75),
-        # プリセット
-        "iron": (0.29, 0.29, 0.29), "copper": (0.72, 0.45, 0.20),
-        "brass": (0.79, 0.64, 0.15), "dark_steel": (0.18, 0.18, 0.18),
-        "wood": (0.55, 0.41, 0.08), "stone": (0.41, 0.41, 0.41),
-    }
-    if color_spec in COLOR_MAP:
-        return COLOR_MAP[color_spec]
-    if color_spec.startswith("#") and len(color_spec) == 7:
-        r = int(color_spec[1:3], 16) / 255
-        g = int(color_spec[3:5], 16) / 255
-        b = int(color_spec[5:7], 16) / 255
-        return (r, g, b)
-    return (0.5, 0.5, 0.5)  # デフォルトグレー
-
-# 色を適用
-MAIN_COLOR = parse_color("指定された色")  # 例: "赤", "blue", "#FF5500"
 ```
 
 **テンプレート**:
@@ -107,32 +119,41 @@ exec(open("tools/blender_scripts/_base.py").read())
 clear_scene()
 parts = []
 
-# 色指定（オプション）
-MAIN_COLOR = (0.8, 0.1, 0.1)  # 例: 赤色。指定がなければironなどのプリセットを使用
+# === 色指定（オプション） ===
+MAIN_COLOR = (0.8, 0.1, 0.1)  # 赤色。プリセット使用時は apply_preset_material()
 
-# 1. 基準となるパーツの位置を決める
+# === Minecraft/Unturnedスタイル設計 ===
+# 1. 最小キューブ数で形状を表現
+# 2. 球/円柱は単一キューブで代用
+# 3. 斜めは回転で表現（階段状NG）
+# 4. 詳細はテクスチャに任せる
+
+# === パーツ生成 ===
+# 基準パーツの位置決め
 main_z = 0.17
 
-# 2. 他パーツは基準から相対的に計算（貫通/重なりで接続）
-sub_top = main_z + overlap  # 基準を超える = 貫通
+# 接続パーツは相対位置で計算
+sub_top = main_z + overlap
 sub_length = sub_top - sub_bottom
 sub_center = sub_bottom + sub_length / 2
 
-# 3. パーツ生成
 main = create_chamfered_cube(size, location=(0, 0, main_z), name="Main")
 sub = create_octagonal_prism(radius, sub_length, location=(0, 0, sub_center), name="Sub")
 parts.extend([main, sub])
 
-# 4. 結合・マテリアル・エクスポート
+# === 結合・マテリアル ===
 result = join_all_meshes(parts, "ModelName")
-# マテリアル適用（Blender 4.0対応）- 色指定対応版
+
+# マテリアル適用
 mat = bpy.data.materials.new("Mat")
 mat.use_nodes = True
 bsdf = mat.node_tree.nodes.get("Principled BSDF")
 if bsdf:
-    bsdf.inputs["Base Color"].default_value = (*MAIN_COLOR, 1)  # RGBAで指定
+    bsdf.inputs["Base Color"].default_value = (*MAIN_COLOR, 1)
+    bsdf.inputs["Roughness"].default_value = 0.8  # マット仕上げ
 result.data.materials.append(mat)
 
+# === 仕上げ ===
 bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 result.location = (0, 0, 0)
 export_gltf("assets/models/items/name.gltf")
@@ -143,9 +164,7 @@ export_gltf("assets/models/items/name.gltf")
 DISPLAY=:10 blender --background --python tools/blender_scripts/{name}.py
 ```
 
-### 4. スクリーンショット検証（必須・一括実行）
-
-**3方向から同時に撮影**:
+### 4. スクリーンショット検証
 ```bash
 DISPLAY=:10 f3d --camera-azimuth-angle=45 --camera-elevation-angle=30 --output screenshots/{name}_angle.png assets/models/{cat}s/{name}.gltf &
 DISPLAY=:10 f3d --camera-azimuth-angle=0 --camera-elevation-angle=0 --output screenshots/{name}_front.png assets/models/{cat}s/{name}.gltf &
@@ -153,33 +172,39 @@ DISPLAY=:10 f3d --camera-azimuth-angle=90 --camera-elevation-angle=0 --output sc
 wait
 ```
 
-**確認ポイント**:
-- [ ] パーツ間に隙間がないか（浮いていないか）
-- [ ] 全パーツが接続されているか
-- [ ] 形状が意図通りか
+**チェックリスト**:
+- [ ] パーツ間に隙間なし
+- [ ] キューブ数は最小限か
+- [ ] 階段状カーブがないか
+- [ ] シルエットで認識可能か
 
-### 5. 問題があれば修正
+---
 
-接続問題の修正パターン:
-```python
-# パーツAとBが離れている場合
-# → Bの位置をAから相対的に計算し直す
+## カテゴリ別仕様
 
-# 例: ヘッドとハンドルが離れている
-# 修正前: handle_length = 0.15 (固定値)
-# 修正後: handle_top = head_z + 0.01; handle_length = handle_top - handle_bottom
-```
-
-## 寸法ガイド
-
-| カテゴリ | サイズ | 三角形 | 原点 |
-|---------|--------|--------|------|
-| item | 0.2-0.3 | 50-300 | center |
-| machine | 0.9-1.0 | 200-800 | bottom_center |
+| カテゴリ | サイズ | 三角形 | 原点 | キューブ目安 |
+|---------|--------|--------|------|-------------|
+| item | 0.2-0.3 | 50-300 | center | 3-8個 |
+| machine | 0.9-1.0 | 200-800 | bottom_center | 10-25個 |
+| structure | 1.0+ | 300-1500 | bottom_center | 15-40個 |
 
 ## マテリアル
-`iron`(#4A4A4A), `copper`(#B87333), `brass`(#C9A227), `dark_steel`(#2D2D2D), `wood`(#8B6914), `stone`(#696969)
+
+| プリセット | HEX | 用途 |
+|-----------|-----|------|
+| iron | #4A4A4A | 鉄製パーツ |
+| copper | #B87333 | 配線、熱交換 |
+| brass | #C9A227 | ギア、装飾 |
+| dark_steel | #2D2D2D | 重機、産業 |
+| wood | #8B6914 | ハンドル、支柱 |
+| stone | #696969 | 基礎、炉 |
 
 ## 出力先
 - glTF: `assets/models/{category}s/{name}.gltf`
 - スクリプト: `tools/blender_scripts/{name}.py`
+
+## 使用例
+- `/generate-model 赤いピッケル` → 赤色のピッケル
+- `/generate-model blue sword` → 青い剣
+- `/generate-model copper conveyor` → 銅色コンベア
+- `/generate-model #FF5500 ハンマー` → オレンジ色ハンマー
