@@ -6,7 +6,6 @@ pub mod optimization;
 pub mod modding;
 pub mod save_system;
 pub mod hot_reload;
-pub mod encryption;
 pub mod accessibility;
 pub mod sound;
 pub mod e2e_test;
