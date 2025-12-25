@@ -8,6 +8,8 @@ use bevy::prelude::*;
 use bevy::tasks::{block_on, poll_once, AsyncComputeTaskPool, Task};
 use std::collections::HashMap;
 
+use super::worldgen::{create_generator, WorldGenConfig};
+
 /// 最適化プラグイン
 pub struct OptimizationPlugin;
 
@@ -78,58 +80,28 @@ pub fn queue_chunk_generation(queue: &mut ChunkLoadQueue, position: IVec3) {
 }
 
 /// 非同期チャンク生成タスクを開始
-fn start_chunk_task(position: IVec3) -> Task<ChunkData> {
+fn start_chunk_task(position: IVec3, config: WorldGenConfig) -> Task<ChunkData> {
     let thread_pool = AsyncComputeTaskPool::get();
 
     thread_pool.spawn(async move {
-        // チャンク生成ロジック（テレイン生成など）
-        let blocks = generate_chunk_blocks(position);
+        // 新しいワールド生成システムを使用
+        let generator = create_generator(config.world_type);
+        let blocks = generator.generate(position, &config);
 
         ChunkData { position, blocks }
     })
-}
-
-/// チャンクブロックを生成（単純なテレイン）
-fn generate_chunk_blocks(chunk_pos: IVec3) -> Vec<String> {
-    const CHUNK_SIZE: usize = 32;
-    let size = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
-    let mut blocks = vec!["air".to_string(); size];
-
-    // ワールド座標に変換
-    let world_y_offset = chunk_pos.y * CHUNK_SIZE as i32;
-
-    for y in 0..CHUNK_SIZE {
-        for z in 0..CHUNK_SIZE {
-            for x in 0..CHUNK_SIZE {
-                let world_y = world_y_offset + y as i32;
-
-                // 単純な高さベースのテレイン
-                let block_id = if world_y < 0 {
-                    "stone"
-                } else if world_y == 0 {
-                    "dirt"
-                } else {
-                    "air"
-                };
-
-                let idx = (y * CHUNK_SIZE * CHUNK_SIZE) + (z * CHUNK_SIZE) + x;
-                blocks[idx] = block_id.to_string();
-            }
-        }
-    }
-
-    blocks
 }
 
 /// 非同期タスクの完了を処理
 fn process_chunk_tasks(
     mut queue: ResMut<ChunkLoadQueue>,
     mut commands: Commands,
+    config: Res<WorldGenConfig>,
 ) {
     // ペンディングキューからタスクを開始
     let pending: Vec<IVec3> = queue.pending.drain(..).collect();
     for position in pending {
-        let task = start_chunk_task(position);
+        let task = start_chunk_task(position, config.clone());
         queue.tasks.insert(position, task);
     }
 
@@ -222,22 +194,23 @@ fn unload_distant_chunks(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::worldgen::WorldType;
+    use crate::rendering::chunk::CHUNK_SIZE;
 
     #[test]
-    fn test_generate_chunk_blocks() {
-        // 地下チャンク
-        let blocks = generate_chunk_blocks(IVec3::new(0, -1, 0));
-        assert!(blocks.iter().all(|b| b == "stone"));
+    fn test_worldgen_integration() {
+        // ワールド生成システムとの統合テスト
+        let config = WorldGenConfig {
+            seed: 12345,
+            world_type: WorldType::Normal,
+            ..Default::default()
+        };
 
-        // 地表チャンク
-        let blocks = generate_chunk_blocks(IVec3::new(0, 0, 0));
-        // Y=0はdirt、それ以外はair
-        let dirt_count = blocks.iter().filter(|b| *b == "dirt").count();
-        assert_eq!(dirt_count, 32 * 32); // 1層分
+        let generator = create_generator(config.world_type);
+        let blocks = generator.generate(IVec3::new(0, 2, 0), &config);
 
-        // 空中チャンク
-        let blocks = generate_chunk_blocks(IVec3::new(0, 1, 0));
-        assert!(blocks.iter().all(|b| b == "air"));
+        // 正しいサイズのブロック配列が生成される
+        assert_eq!(blocks.len(), CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
     }
 
     #[test]

@@ -5,10 +5,12 @@
 //! - JSON形式での永続化
 
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+
+use crate::core::worldgen::WorldType;
 
 /// セーブシステムプラグイン
 pub struct SaveSystemPlugin;
@@ -35,16 +37,29 @@ pub struct SaveMetadata {
     pub play_time: f64,
     /// 最終プレイ日時
     pub last_played_date: DateTime<Utc>,
+    /// ワールドタイプ
+    #[serde(default)]
+    pub world_type: WorldType,
 }
 
 impl SaveMetadata {
     pub fn new(slot_index: usize, world_name: &str, seed: u64) -> Self {
+        Self::with_world_type(slot_index, world_name, seed, WorldType::Normal)
+    }
+
+    pub fn with_world_type(
+        slot_index: usize,
+        world_name: &str,
+        seed: u64,
+        world_type: WorldType,
+    ) -> Self {
         Self {
             file_name: format!("slot_{}", slot_index),
             world_name: world_name.to_string(),
             seed,
             play_time: 0.0,
             last_played_date: Utc::now(),
+            world_type,
         }
     }
 
@@ -105,6 +120,7 @@ pub struct WorldGenerationParams {
     pub seed: u64,
     pub slot_index: Option<usize>,
     pub is_new_world: bool,
+    pub world_type: WorldType,
 }
 
 /// セーブディレクトリのパス

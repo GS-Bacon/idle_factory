@@ -53,9 +53,40 @@ pub struct BlockVisual {
     pub is_transparent: bool,
 }
 
-// ★修正: VoxModelを指定するように変更
+/// ブロックIDからビジュアル情報を取得
 pub fn get_block_visual(id: &str) -> BlockVisual {
     match id {
+        // ===========================================
+        // 地形ブロック
+        // ===========================================
+        "grass" => BlockVisual {
+            color: [0.3, 0.6, 0.2, 1.0], // 緑
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "dirt" => BlockVisual {
+            color: [0.4, 0.25, 0.1, 1.0], // 茶色
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "stone" => BlockVisual {
+            color: [0.5, 0.5, 0.5, 1.0], // 灰色
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "bedrock" => BlockVisual {
+            color: [0.15, 0.15, 0.15, 1.0], // 濃い灰色
+            mesh_type: MeshType::Cube,
+            is_transparent: false,
+        },
+        "air" => BlockVisual {
+            color: [0.0, 0.0, 0.0, 0.0],
+            mesh_type: MeshType::Cube,
+            is_transparent: true,
+        },
+        // ===========================================
+        // 機械ブロック
+        // ===========================================
         "conveyor" => BlockVisual {
             color: [0.2, 0.2, 0.2, 1.0],
             mesh_type: MeshType::VoxModel("conveyor".to_string()),
@@ -66,21 +97,7 @@ pub fn get_block_visual(id: &str) -> BlockVisual {
             mesh_type: MeshType::VoxModel("miner".to_string()),
             is_transparent: true,
         },
-        "dirt" => BlockVisual {
-            color: [0.4, 0.25, 0.1, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "stone" => BlockVisual {
-            color: [0.5, 0.5, 0.5, 1.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: false,
-        },
-        "air" => BlockVisual {
-            color: [0.0, 0.0, 0.0, 0.0],
-            mesh_type: MeshType::Cube,
-            is_transparent: true,
-        },
+        // 未知のブロック（デバッグ用マゼンタ）
         _ => BlockVisual {
             color: [1.0, 0.0, 1.0, 1.0],
             mesh_type: MeshType::Cube,

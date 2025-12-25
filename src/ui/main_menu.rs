@@ -12,6 +12,7 @@ use crate::core::save_system::{
     PlayTimeTracker, WorldSaveData, SavedPlayerData, SavedInventorySlot,
     save_world_data, load_world_data,
 };
+use crate::core::worldgen::WorldType;
 use crate::gameplay::inventory::PlayerInventory;
 use crate::gameplay::player::Player;
 use crate::gameplay::commands::GameMode;
@@ -25,6 +26,7 @@ impl Plugin for MainMenuPlugin {
         app.init_state::<AppState>()
             .init_resource::<ProfileList>()
             .init_resource::<SelectedGameMode>()
+            .init_resource::<SelectedWorldType>()
             // メインメニュー
             .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
             .add_systems(OnExit(AppState::MainMenu), despawn_with::<MainMenuUi>)
@@ -117,6 +119,8 @@ pub enum MenuButtonAction {
     SaveAndQuit,
     // ゲームモード選択
     SelectGameMode(GameMode),
+    // ワールドタイプ選択
+    SelectWorldType(WorldType),
 }
 
 /// テキスト入力フィールド
@@ -153,9 +157,23 @@ impl Default for SelectedGameMode {
     }
 }
 
+/// 選択中のワールドタイプ（ワールド作成時）
+#[derive(Resource)]
+pub struct SelectedWorldType(pub WorldType);
+
+impl Default for SelectedWorldType {
+    fn default() -> Self {
+        Self(WorldType::Normal)
+    }
+}
+
 /// ゲームモードボタンのマーカー
 #[derive(Component)]
 pub struct GameModeButtonMarker(pub GameMode);
+
+/// ワールドタイプボタンのマーカー
+#[derive(Component)]
+pub struct WorldTypeButtonMarker(pub WorldType);
 
 /// 利用可能なプロファイル一覧
 #[derive(Resource)]
@@ -838,6 +856,7 @@ fn save_select_buttons(
                     world_params.seed = meta.seed;
                     world_params.slot_index = Some(*index);
                     world_params.is_new_world = false;
+                    world_params.world_type = meta.world_type;
                     next_state.set(AppState::InGame);
                 } else {
                     // 新規作成画面へ
@@ -858,9 +877,11 @@ fn spawn_world_generation(
     mut commands: Commands,
     selected: Res<SelectedSlotIndex>,
     selected_game_mode: Res<SelectedGameMode>,
+    selected_world_type: Res<SelectedWorldType>,
 ) {
     let slot_index = selected.0.unwrap_or(0);
     let current_mode = selected_game_mode.0;
+    let current_world_type = selected_world_type.0;
 
     commands.spawn((
         Node {
@@ -930,6 +951,36 @@ fn spawn_world_generation(
                 });
             });
 
+            // ワールドタイプ選択
+            panel.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(5.0),
+                    ..default()
+                },
+            )).with_children(|container| {
+                // ラベル
+                container.spawn((
+                    Text::new("World Type"),
+                    TextFont { font_size: 14.0, ..default() },
+                    TextColor(TEXT_SECONDARY),
+                ));
+
+                // ワールドタイプボタン行
+                container.spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(10.0),
+                        ..default()
+                    },
+                )).with_children(|row| {
+                    spawn_world_type_button(row, "Normal", WorldType::Normal, current_world_type == WorldType::Normal);
+                    spawn_world_type_button(row, "Flat", WorldType::Flat, current_world_type == WorldType::Flat);
+                });
+            });
+
             // ボタン行
             panel.spawn((
                 Node {
@@ -984,6 +1035,43 @@ fn spawn_game_mode_button(parent: &mut ChildBuilder, label: &str, mode: GameMode
     });
 }
 
+/// ワールドタイプ選択ボタンを生成
+fn spawn_world_type_button(parent: &mut ChildBuilder, label: &str, world_type: WorldType, is_selected: bool) {
+    let bg_color = if is_selected {
+        Color::srgb(0.3, 0.4, 0.5) // 選択中: 青みがかった色
+    } else {
+        NORMAL_BUTTON
+    };
+    let border_color = if is_selected {
+        Color::srgb(0.5, 0.7, 0.9)
+    } else {
+        Color::srgb(0.3, 0.3, 0.35)
+    };
+
+    parent.spawn((
+        Button,
+        Node {
+            width: Val::Percent(50.0),
+            height: Val::Px(40.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border: UiRect::all(Val::Px(2.0)),
+            ..default()
+        },
+        BackgroundColor(bg_color),
+        BorderColor(border_color),
+        BorderRadius::all(Val::Px(6.0)),
+        MenuButtonAction::SelectWorldType(world_type),
+        WorldTypeButtonMarker(world_type),
+    )).with_children(|btn| {
+        btn.spawn((
+            Text::new(label),
+            TextFont { font_size: 16.0, ..default() },
+            TextColor(TEXT_PRIMARY),
+        ));
+    });
+}
+
 fn spawn_text_input(parent: &mut ChildBuilder, label: &str, input_type: TextInputType, default_value: &str) {
     parent.spawn((
         Node {
@@ -1029,7 +1117,7 @@ fn spawn_text_input(parent: &mut ChildBuilder, label: &str, input_type: TextInpu
     });
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn world_gen_buttons(
     query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
     input_query: Query<&TextInput>,
@@ -1038,8 +1126,10 @@ fn world_gen_buttons(
     mut world_params: ResMut<WorldGenerationParams>,
     mut slot_data: ResMut<SaveSlotData>,
     mut selected_game_mode: ResMut<SelectedGameMode>,
+    mut selected_world_type: ResMut<SelectedWorldType>,
     mut game_mode: ResMut<GameMode>,
-    mut game_mode_buttons: Query<(&GameModeButtonMarker, &mut BackgroundColor, &mut BorderColor)>,
+    mut game_mode_buttons: Query<(&GameModeButtonMarker, &mut BackgroundColor, &mut BorderColor), Without<WorldTypeButtonMarker>>,
+    mut world_type_buttons: Query<(&WorldTypeButtonMarker, &mut BackgroundColor, &mut BorderColor), Without<GameModeButtonMarker>>,
 ) {
     for (interaction, action) in &query {
         if *interaction != Interaction::Pressed { continue; }
@@ -1053,6 +1143,19 @@ fn world_gen_buttons(
                     if marker.0 == *mode {
                         *bg = BackgroundColor(Color::srgb(0.3, 0.5, 0.3));
                         *border = BorderColor(Color::srgb(0.5, 0.8, 0.5));
+                    } else {
+                        *bg = BackgroundColor(NORMAL_BUTTON);
+                        *border = BorderColor(Color::srgb(0.3, 0.3, 0.35));
+                    }
+                }
+            }
+            MenuButtonAction::SelectWorldType(world_type) => {
+                selected_world_type.0 = *world_type;
+                // ボタンの見た目を更新
+                for (marker, mut bg, mut border) in &mut world_type_buttons {
+                    if marker.0 == *world_type {
+                        *bg = BackgroundColor(Color::srgb(0.3, 0.4, 0.5));
+                        *border = BorderColor(Color::srgb(0.5, 0.7, 0.9));
                     } else {
                         *bg = BackgroundColor(NORMAL_BUTTON);
                         *border = BorderColor(Color::srgb(0.3, 0.3, 0.35));
@@ -1082,8 +1185,13 @@ fn world_gen_buttons(
 
                 let slot_index = selected.0.unwrap_or(0);
 
-                // メタデータを作成・保存
-                let meta = SaveMetadata::new(slot_index, &world_name, seed);
+                // メタデータを作成・保存（ワールドタイプを含む）
+                let meta = SaveMetadata::with_world_type(
+                    slot_index,
+                    &world_name,
+                    seed,
+                    selected_world_type.0,
+                );
                 if let Err(e) = save_metadata(&meta, slot_index) {
                     warn!("Failed to save metadata: {}", e);
                 }
@@ -1092,11 +1200,12 @@ fn world_gen_buttons(
                 // ゲームモードを設定
                 *game_mode = selected_game_mode.0;
 
-                // パラメータを設定
+                // パラメータを設定（ワールドタイプを含む）
                 world_params.world_name = world_name;
                 world_params.seed = seed;
                 world_params.slot_index = Some(slot_index);
                 world_params.is_new_world = true;
+                world_params.world_type = selected_world_type.0;
 
                 next_state.set(AppState::InGame);
             }

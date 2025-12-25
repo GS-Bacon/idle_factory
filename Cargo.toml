@@ -29,3 +29,5 @@ mlua = { version = "0.10", features = ["lua54", "vendored", "send", "serialize"]
 aes-gcm = "0.10"
 rand = "0.8"
 base64 = "0.22"
+# ワールド生成（パーリンノイズ）
+noise = "0.9"
