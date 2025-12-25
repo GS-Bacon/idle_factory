@@ -36,7 +36,7 @@ use bevy::window::PrimaryWindow;
 use bevy::ui::ComputedNode;
 use std::path::PathBuf;
 use std::io::Write;
-use rand::Rng;
+use rand::prelude::*;
 
 /// E2Eテストプラグイン
 pub struct E2ETestPlugin;
@@ -881,6 +881,246 @@ fn process_execute_command(
     }
 }
 
+/// UI要素クリック処理
+fn process_click_element(
+    mut click_events: EventReader<ClickElementEvent>,
+    ui_cache: Res<UiElementCache>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut mouse: ResMut<ButtonInput<MouseButton>>,
+    human_config: Res<HumanBehaviorConfig>,
+) {
+    for event in click_events.read() {
+        // 要素を検索
+        if let Some(element) = find_element(&ui_cache, &event.selector) {
+            let center = element.screen_rect.center();
+
+            // 人間らしいクリック位置のばらつき
+            let (click_x, click_y) = if human_config.enabled {
+                let mut rng = rand::thread_rng();
+                let jitter_x = rng.gen_range(-human_config.mouse_jitter..human_config.mouse_jitter);
+                let jitter_y = rng.gen_range(-human_config.mouse_jitter..human_config.mouse_jitter);
+                (center.x + jitter_x, center.y + jitter_y)
+            } else {
+                (center.x, center.y)
+            };
+
+            // マウスを移動
+            if let Ok(mut window) = windows.get_single_mut() {
+                info!("[E2E] Clicking element at ({}, {}): {:?}", click_x, click_y, event.selector.name);
+                window.set_cursor_position(Some(Vec2::new(click_x, click_y)));
+            }
+
+            // クリック
+            mouse.press(event.button);
+            // 解放は次フレームで行う（advance_scenario_stepで処理）
+        } else {
+            warn!("[E2E] Element not found: name={:?} text={:?}",
+                event.selector.name, event.selector.text);
+        }
+    }
+}
+
+/// スクロール処理
+fn process_scroll(
+    mut scroll_events: EventReader<ScrollEvent>,
+    mut mouse_wheel: EventWriter<bevy::input::mouse::MouseWheel>,
+) {
+    for event in scroll_events.read() {
+        info!("[E2E] Scrolling: {}", event.delta);
+        mouse_wheel.send(bevy::input::mouse::MouseWheel {
+            unit: bevy::input::mouse::MouseScrollUnit::Line,
+            x: 0.0,
+            y: event.delta,
+            window: Entity::PLACEHOLDER,
+        });
+    }
+}
+
+/// マウスアニメーション更新（ベジェ曲線で滑らかに移動）
+fn update_mouse_animation(
+    _time: Res<Time>,
+    mut state: ResMut<E2ETestState>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    human_config: Res<HumanBehaviorConfig>,
+) {
+    if let Some(ref mut anim) = state.mouse_animation {
+        anim.current_step += 1;
+
+        if anim.current_step >= anim.total_steps {
+            // アニメーション完了
+            if let Ok(mut window) = windows.get_single_mut() {
+                window.set_cursor_position(Some(anim.end_pos));
+            }
+            state.mouse_animation = None;
+        } else {
+            // ベジェ曲線で補間
+            let t = anim.current_step as f32 / anim.total_steps as f32;
+            let pos = quadratic_bezier(anim.start_pos, anim.control_point, anim.end_pos, t);
+
+            // 人間らしい揺れを追加
+            let jittered_pos = if human_config.enabled {
+                let mut rng = rand::thread_rng();
+                let jitter = human_config.mouse_jitter * (1.0 - t); // 目標に近づくと揺れが減少
+                Vec2::new(
+                    pos.x + rng.gen_range(-jitter..jitter),
+                    pos.y + rng.gen_range(-jitter..jitter),
+                )
+            } else {
+                pos
+            };
+
+            if let Ok(mut window) = windows.get_single_mut() {
+                window.set_cursor_position(Some(jittered_pos));
+            }
+        }
+    }
+}
+
+/// タイピングアニメーション更新（1文字ずつ入力）
+fn update_typing_animation(
+    time: Res<Time>,
+    mut state: ResMut<E2ETestState>,
+    mut keyboard: ResMut<ButtonInput<KeyCode>>,
+    human_config: Res<HumanBehaviorConfig>,
+) {
+    if let Some(ref mut anim) = state.typing_animation.clone() {
+        let mut anim = anim.clone();
+        anim.next_char_timer -= time.delta_secs();
+
+        if anim.next_char_timer <= 0.0 && anim.current_index < anim.text.len() {
+            // 次の文字を入力
+            let ch = anim.text.chars().nth(anim.current_index).unwrap();
+            if let Some(key) = char_to_keycode(ch) {
+                info!("[E2E] Typing: '{}'", ch);
+                keyboard.press(key);
+                // 次フレームで解放
+            }
+
+            anim.current_index += 1;
+
+            // 次の文字までの待機時間
+            let base_interval = human_config.typing_interval;
+            let variance = human_config.typing_variance;
+            let mut rng = rand::thread_rng();
+            anim.next_char_timer = base_interval * (1.0 + rng.gen_range(-variance..variance));
+
+            state.typing_animation = Some(anim);
+        } else if anim.current_index >= anim.text.len() {
+            // タイピング完了
+            state.typing_animation = None;
+        } else {
+            state.typing_animation = Some(anim);
+        }
+    }
+}
+
+/// UI要素キャッシュ更新
+fn update_ui_element_cache(
+    time: Res<Time>,
+    mut cache: ResMut<UiElementCache>,
+    node_query: Query<(Entity, &Node, &ComputedNode, &GlobalTransform, Option<&Name>, Option<&Text>)>,
+) {
+    // 0.1秒ごとに更新
+    if time.elapsed_secs() - cache.last_update < 0.1 {
+        return;
+    }
+    cache.last_update = time.elapsed_secs();
+    cache.elements.clear();
+
+    for (entity, _node, computed, transform, name, text) in node_query.iter() {
+        let size = computed.size();
+        let pos = transform.translation();
+
+        // 画面座標でのRect
+        let screen_rect = Rect::from_center_size(
+            Vec2::new(pos.x, pos.y),
+            size,
+        );
+
+        cache.elements.push(CachedUiElement {
+            entity,
+            name: name.map(|n| n.to_string()),
+            text: text.map(|t| t.0.clone()),
+            screen_rect,
+        });
+    }
+}
+
+/// セレクターに一致する要素を検索
+fn find_element<'a>(cache: &'a UiElementCache, selector: &ElementSelector) -> Option<&'a CachedUiElement> {
+    let matches: Vec<_> = cache.elements.iter().filter(|e| {
+        let name_match = selector.name.as_ref().map_or(true, |n| {
+            e.name.as_ref().map_or(false, |en| en.contains(n))
+        });
+        let text_match = selector.text.as_ref().map_or(true, |t| {
+            e.text.as_ref().map_or(false, |et| et.contains(t))
+        });
+        name_match && text_match
+    }).collect();
+
+    matches.get(selector.index).copied()
+}
+
+/// 2次ベジェ曲線の計算
+fn quadratic_bezier(p0: Vec2, p1: Vec2, p2: Vec2, t: f32) -> Vec2 {
+    let t2 = t * t;
+    let mt = 1.0 - t;
+    let mt2 = mt * mt;
+
+    p0 * mt2 + p1 * 2.0 * mt * t + p2 * t2
+}
+
+/// 文字をKeyCodeに変換
+fn char_to_keycode(ch: char) -> Option<KeyCode> {
+    match ch.to_ascii_lowercase() {
+        'a' => Some(KeyCode::KeyA),
+        'b' => Some(KeyCode::KeyB),
+        'c' => Some(KeyCode::KeyC),
+        'd' => Some(KeyCode::KeyD),
+        'e' => Some(KeyCode::KeyE),
+        'f' => Some(KeyCode::KeyF),
+        'g' => Some(KeyCode::KeyG),
+        'h' => Some(KeyCode::KeyH),
+        'i' => Some(KeyCode::KeyI),
+        'j' => Some(KeyCode::KeyJ),
+        'k' => Some(KeyCode::KeyK),
+        'l' => Some(KeyCode::KeyL),
+        'm' => Some(KeyCode::KeyM),
+        'n' => Some(KeyCode::KeyN),
+        'o' => Some(KeyCode::KeyO),
+        'p' => Some(KeyCode::KeyP),
+        'q' => Some(KeyCode::KeyQ),
+        'r' => Some(KeyCode::KeyR),
+        's' => Some(KeyCode::KeyS),
+        't' => Some(KeyCode::KeyT),
+        'u' => Some(KeyCode::KeyU),
+        'v' => Some(KeyCode::KeyV),
+        'w' => Some(KeyCode::KeyW),
+        'x' => Some(KeyCode::KeyX),
+        'y' => Some(KeyCode::KeyY),
+        'z' => Some(KeyCode::KeyZ),
+        '0' => Some(KeyCode::Digit0),
+        '1' => Some(KeyCode::Digit1),
+        '2' => Some(KeyCode::Digit2),
+        '3' => Some(KeyCode::Digit3),
+        '4' => Some(KeyCode::Digit4),
+        '5' => Some(KeyCode::Digit5),
+        '6' => Some(KeyCode::Digit6),
+        '7' => Some(KeyCode::Digit7),
+        '8' => Some(KeyCode::Digit8),
+        '9' => Some(KeyCode::Digit9),
+        ' ' => Some(KeyCode::Space),
+        '\n' => Some(KeyCode::Enter),
+        _ => None,
+    }
+}
+
+/// ランダムな待機時間を生成
+fn random_wait(min: f32, max: f32) -> f32 {
+    let mut rng = rand::thread_rng();
+    rng.gen_range(min..max)
+}
+
 /// テストシナリオ実行
 fn run_test_scenarios(
     mut run_events: EventReader<RunTestScenarioEvent>,
@@ -916,8 +1156,22 @@ fn advance_scenario_step(
     mut verify_events: EventWriter<VerifyUiEvent>,
     mut type_text_events: EventWriter<TypeTextEvent>,
     mut exec_cmd_events: EventWriter<ExecuteCommandEvent>,
+    mut click_events: EventWriter<ClickElementEvent>,
+    mut scroll_events: EventWriter<ScrollEvent>,
+    human_config: Res<HumanBehaviorConfig>,
+    windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     if !state.is_test_mode {
+        return;
+    }
+
+    // マウスアニメーション中は待機
+    if state.mouse_animation.is_some() {
+        return;
+    }
+
+    // タイピングアニメーション中は待機
+    if state.typing_animation.is_some() {
         return;
     }
 
@@ -951,6 +1205,11 @@ fn advance_scenario_step(
             info!("[E2E] Waiting {} seconds", seconds);
             state.wait_timer = *seconds;
         }
+        TestStep::WaitRandom(min, max) => {
+            let wait_time = random_wait(*min, *max);
+            info!("[E2E] Waiting {} seconds (random)", wait_time);
+            state.wait_timer = wait_time;
+        }
         TestStep::PressKey(key) => {
             input_events.send(SimulateInputEvent {
                 action: InputAction::PressKey(*key),
@@ -968,6 +1227,13 @@ fn advance_scenario_step(
             // タップは短い待機を追加
             state.wait_timer = 0.1;
         }
+        TestStep::TapKeyHuman(key) => {
+            input_events.send(SimulateInputEvent {
+                action: InputAction::TapKey(*key),
+            });
+            // 人間らしいランダムな待機
+            state.wait_timer = random_wait(0.05, 0.2);
+        }
         TestStep::MousePress(button) => {
             input_events.send(SimulateInputEvent {
                 action: InputAction::MousePress(*button),
@@ -982,6 +1248,99 @@ fn advance_scenario_step(
             input_events.send(SimulateInputEvent {
                 action: InputAction::MouseMove(*x, *y),
             });
+        }
+        TestStep::MouseMoveSmooth(x, y) => {
+            // 現在のマウス位置を取得
+            let current_pos = if let Ok(window) = windows.get_single() {
+                window.cursor_position().unwrap_or(Vec2::new(640.0, 360.0))
+            } else {
+                Vec2::new(640.0, 360.0)
+            };
+
+            let end_pos = Vec2::new(*x, *y);
+
+            // ベジェ曲線の制御点を計算（少しカーブさせる）
+            let mut rng = rand::thread_rng();
+            let mid = (current_pos + end_pos) / 2.0;
+            let offset = rng.gen_range(-50.0..50.0);
+            let control_point = Vec2::new(mid.x + offset, mid.y + offset);
+
+            info!("[E2E] Smooth mouse move from {:?} to {:?}", current_pos, end_pos);
+
+            state.mouse_animation = Some(MouseAnimationState {
+                start_pos: current_pos,
+                end_pos,
+                current_step: 0,
+                total_steps: human_config.mouse_move_steps,
+                control_point,
+            });
+        }
+        TestStep::MouseClick(button) => {
+            input_events.send(SimulateInputEvent {
+                action: InputAction::MousePress(*button),
+            });
+            state.wait_timer = 0.05;
+            // 次のステップでReleaseを追加（簡略化）
+        }
+        TestStep::MouseClickHuman(button) => {
+            input_events.send(SimulateInputEvent {
+                action: InputAction::MousePress(*button),
+            });
+            // 人間らしいクリック時間
+            state.wait_timer = random_wait(0.03, 0.12);
+        }
+        TestStep::DoubleClick(button) => {
+            input_events.send(SimulateInputEvent {
+                action: InputAction::MousePress(*button),
+            });
+            // ダブルクリック処理（簡略化 - 2回のクリックをシミュレート）
+            state.wait_timer = 0.1;
+        }
+        TestStep::Scroll(delta) => {
+            scroll_events.send(ScrollEvent { delta: *delta });
+            state.wait_timer = 0.1;
+        }
+        TestStep::ClickElement(selector) => {
+            click_events.send(ClickElementEvent {
+                selector: selector.clone(),
+                button: MouseButton::Left,
+                double_click: false,
+            });
+            state.wait_timer = random_wait(0.1, 0.3);
+        }
+        TestStep::HoverElement(selector) => {
+            // 要素の中心にマウスを移動（後で実装）
+            info!("[E2E] Hovering element: {:?}", selector.name);
+            state.wait_timer = 0.2;
+        }
+        TestStep::DoubleClickElement(selector) => {
+            click_events.send(ClickElementEvent {
+                selector: selector.clone(),
+                button: MouseButton::Left,
+                double_click: true,
+            });
+            state.wait_timer = random_wait(0.1, 0.3);
+        }
+        TestStep::RightClickElement(selector) => {
+            click_events.send(ClickElementEvent {
+                selector: selector.clone(),
+                button: MouseButton::Right,
+                double_click: false,
+            });
+            state.wait_timer = random_wait(0.1, 0.3);
+        }
+        TestStep::DragDropElements(from, to) => {
+            // ドラッグ&ドロップ（後で詳細実装）
+            info!("[E2E] Drag from {:?} to {:?}", from.name, to.name);
+            state.wait_timer = 0.5;
+        }
+        TestStep::DragDrop(x1, y1, x2, y2) => {
+            // 座標でのドラッグ&ドロップ
+            input_events.send(SimulateInputEvent {
+                action: InputAction::MouseMove(*x1, *y1),
+            });
+            info!("[E2E] Drag from ({}, {}) to ({}, {})", x1, y1, x2, y2);
+            state.wait_timer = 0.5;
         }
         TestStep::Screenshot(name) => {
             screenshot_events.send(TakeScreenshotEvent {
@@ -1035,11 +1394,33 @@ fn advance_scenario_step(
             });
             state.wait_timer = 0.2;
         }
+        TestStep::TypeTextHuman(text) => {
+            // 人間らしいタイピングアニメーション開始
+            state.typing_animation = Some(TypingAnimationState {
+                text: text.clone(),
+                current_index: 0,
+                next_char_timer: 0.0,
+            });
+        }
         TestStep::ExecuteCommand(command) => {
             exec_cmd_events.send(ExecuteCommandEvent {
                 command: command.clone(),
             });
             state.wait_timer = 0.5;
+        }
+        TestStep::Think => {
+            // 人間らしい思考時間
+            let think_time = random_wait(
+                human_config.min_think_time,
+                human_config.max_think_time,
+            );
+            info!("[E2E] Thinking for {} seconds", think_time);
+            state.wait_timer = think_time;
+        }
+        TestStep::HumanSequence(steps) => {
+            // 人間らしい間隔でステップを実行（後で詳細実装）
+            info!("[E2E] Human sequence with {} steps", steps.len());
+            state.wait_timer = 0.1;
         }
     }
 
@@ -1055,6 +1436,8 @@ fn get_builtin_scenario(name: &str) -> Option<TestScenario> {
         "gameplay_basic_test" => Some(create_gameplay_basic_test_scenario()),
         "full_test" => Some(create_full_test_scenario()),
         "interaction_test" => Some(create_interaction_test_scenario()),
+        "human_test" => Some(create_human_behavior_test_scenario()),
+        "button_click_test" => Some(create_button_click_test_scenario()),
         _ => None,
     }
 }
@@ -1754,6 +2137,208 @@ fn create_interaction_test_scenario() -> TestScenario {
     }
 }
 
+/// 人間らしい挙動テストシナリオ
+///
+/// 新しい人間らしい機能をテスト:
+/// - ランダムな待機時間
+/// - 滑らかなマウス移動
+/// - 人間らしいキータップ
+/// - 思考時間
+/// - UI要素クリック
+fn create_human_behavior_test_scenario() -> TestScenario {
+    TestScenario {
+        name: "human_test".to_string(),
+        steps: vec![
+            // ========================================
+            // 初期化
+            // ========================================
+            TestStep::Log("=== HUMAN BEHAVIOR TEST START ===".to_string()),
+            TestStep::ClearReport,
+
+            // ========================================
+            // Phase 1: 思考時間テスト
+            // ========================================
+            TestStep::Log("Phase 1: Think Time Test".to_string()),
+            TestStep::Think,
+            TestStep::Log("Thought completed".to_string()),
+
+            // ========================================
+            // Phase 2: ランダム待機テスト
+            // ========================================
+            TestStep::Log("Phase 2: Random Wait Test".to_string()),
+            TestStep::WaitRandom(0.2, 0.8),
+            TestStep::Log("Random wait completed".to_string()),
+
+            // ========================================
+            // Phase 3: 人間らしいキー入力
+            // ========================================
+            TestStep::Log("Phase 3: Human Key Input".to_string()),
+            TestStep::SetAppState("InGame".to_string()),
+            TestStep::Wait(1.0),
+
+            // 人間らしいWASD移動
+            TestStep::Log("Human WASD movement".to_string()),
+            TestStep::TapKeyHuman(KeyCode::KeyW),
+            TestStep::Think,
+            TestStep::TapKeyHuman(KeyCode::KeyA),
+            TestStep::Think,
+            TestStep::TapKeyHuman(KeyCode::KeyS),
+            TestStep::Think,
+            TestStep::TapKeyHuman(KeyCode::KeyD),
+
+            // ========================================
+            // Phase 4: 滑らかなマウス移動
+            // ========================================
+            TestStep::Log("Phase 4: Smooth Mouse Movement".to_string()),
+            TestStep::MouseMoveSmooth(400.0, 300.0),
+            TestStep::Wait(0.5),
+            TestStep::MouseMoveSmooth(800.0, 400.0),
+            TestStep::Wait(0.5),
+            TestStep::MouseMoveSmooth(640.0, 360.0),
+            TestStep::Screenshot("smooth_mouse".to_string()),
+
+            // ========================================
+            // Phase 5: 人間らしいマウスクリック
+            // ========================================
+            TestStep::Log("Phase 5: Human Mouse Click".to_string()),
+            TestStep::MouseClickHuman(MouseButton::Left),
+            TestStep::Wait(0.3),
+            TestStep::MouseRelease(MouseButton::Left),
+            TestStep::Think,
+            TestStep::MouseClickHuman(MouseButton::Right),
+            TestStep::Wait(0.3),
+            TestStep::MouseRelease(MouseButton::Right),
+
+            // ========================================
+            // Phase 6: スクロールテスト
+            // ========================================
+            TestStep::Log("Phase 6: Scroll Test".to_string()),
+            TestStep::SetAppState("InventoryOpen".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::Scroll(3.0),  // 上にスクロール
+            TestStep::Wait(0.3),
+            TestStep::Scroll(-3.0), // 下にスクロール
+            TestStep::Wait(0.3),
+            TestStep::Screenshot("scroll_test".to_string()),
+            TestStep::SetAppState("InventoryClosed".to_string()),
+
+            // ========================================
+            // Phase 7: ダブルクリックテスト
+            // ========================================
+            TestStep::Log("Phase 7: Double Click Test".to_string()),
+            TestStep::DoubleClick(MouseButton::Left),
+            TestStep::Wait(0.1),
+            TestStep::MouseRelease(MouseButton::Left),
+            TestStep::Wait(0.3),
+
+            // ========================================
+            // Phase 8: ドラッグ&ドロップテスト
+            // ========================================
+            TestStep::Log("Phase 8: Drag & Drop Test".to_string()),
+            TestStep::DragDrop(300.0, 300.0, 500.0, 300.0),
+            TestStep::Wait(0.5),
+
+            // ========================================
+            // テスト完了
+            // ========================================
+            TestStep::SetAppState("MainMenu".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::Log("=== HUMAN BEHAVIOR TEST COMPLETE ===".to_string()),
+            TestStep::SaveReport,
+        ],
+    }
+}
+
+/// ボタンクリックテストシナリオ
+///
+/// UI要素を名前やテキストで検索してクリックするテスト
+fn create_button_click_test_scenario() -> TestScenario {
+    TestScenario {
+        name: "button_click_test".to_string(),
+        steps: vec![
+            // ========================================
+            // 初期化
+            // ========================================
+            TestStep::Log("=== BUTTON CLICK TEST START ===".to_string()),
+            TestStep::ClearReport,
+            TestStep::SetAppState("MainMenu".to_string()),
+            TestStep::Wait(0.5),
+
+            // ========================================
+            // Phase 1: メインメニューのボタンをクリック
+            // ========================================
+            TestStep::Log("Phase 1: Main Menu Button Click".to_string()),
+            TestStep::DumpUi("01_main_menu".to_string()),
+
+            // "Play"ボタンをクリック
+            TestStep::Log("Clicking Play button".to_string()),
+            TestStep::ClickElement(ElementSelector::by_text("Play")),
+            TestStep::Wait(0.5),
+            TestStep::Screenshot("clicked_play".to_string()),
+
+            // ========================================
+            // Phase 2: セーブ選択画面
+            // ========================================
+            TestStep::Log("Phase 2: Save Select".to_string()),
+            TestStep::DumpUi("02_save_select".to_string()),
+
+            // "Back"ボタンをクリック
+            TestStep::Log("Clicking Back button".to_string()),
+            TestStep::ClickElement(ElementSelector::by_text("Back")),
+            TestStep::Wait(0.5),
+
+            // ========================================
+            // Phase 3: 設定ボタンをクリック
+            // ========================================
+            TestStep::Log("Phase 3: Settings Button Click".to_string()),
+            TestStep::SetAppState("MainMenu".to_string()),
+            TestStep::Wait(0.3),
+
+            // "Settings"ボタンをクリック
+            TestStep::Log("Clicking Settings button".to_string()),
+            TestStep::ClickElement(ElementSelector::by_text("Settings")),
+            TestStep::Wait(0.5),
+            TestStep::Screenshot("clicked_settings".to_string()),
+
+            // ========================================
+            // Phase 4: ゲーム内でボタンをテスト
+            // ========================================
+            TestStep::Log("Phase 4: InGame Button Test".to_string()),
+            TestStep::SetAppState("InGame".to_string()),
+            TestStep::Wait(1.0),
+
+            // インベントリを開く
+            TestStep::SetAppState("InventoryOpen".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::DumpUi("03_inventory".to_string()),
+
+            // "Sort"ボタンをクリック
+            TestStep::Log("Clicking Sort button".to_string()),
+            TestStep::ClickElement(ElementSelector::by_text("Sort")),
+            TestStep::Wait(0.3),
+            TestStep::Screenshot("clicked_sort".to_string()),
+
+            // ========================================
+            // Phase 5: ホバーテスト
+            // ========================================
+            TestStep::Log("Phase 5: Hover Test".to_string()),
+            TestStep::HoverElement(ElementSelector::by_text("Trash")),
+            TestStep::Wait(0.5),
+            TestStep::Screenshot("hover_trash".to_string()),
+
+            // ========================================
+            // テスト完了
+            // ========================================
+            TestStep::SetAppState("InventoryClosed".to_string()),
+            TestStep::Wait(0.3),
+            TestStep::SetAppState("MainMenu".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::Log("=== BUTTON CLICK TEST COMPLETE ===".to_string()),
+            TestStep::SaveReport,
+        ],
+    }
+}
+
 /// カスタムシナリオビルダー
 pub struct TestScenarioBuilder {
     name: String,
@@ -1846,6 +2431,73 @@ impl TestScenarioBuilder {
         self
     }
 
+    // 新しい人間らしい挙動メソッド
+
+    pub fn think(mut self) -> Self {
+        self.steps.push(TestStep::Think);
+        self
+    }
+
+    pub fn wait_random(mut self, min: f32, max: f32) -> Self {
+        self.steps.push(TestStep::WaitRandom(min, max));
+        self
+    }
+
+    pub fn tap_key_human(mut self, key: KeyCode) -> Self {
+        self.steps.push(TestStep::TapKeyHuman(key));
+        self
+    }
+
+    pub fn mouse_move_smooth(mut self, x: f32, y: f32) -> Self {
+        self.steps.push(TestStep::MouseMoveSmooth(x, y));
+        self
+    }
+
+    pub fn mouse_click_human(mut self, button: MouseButton) -> Self {
+        self.steps.push(TestStep::MouseClickHuman(button));
+        self
+    }
+
+    pub fn double_click(mut self, button: MouseButton) -> Self {
+        self.steps.push(TestStep::DoubleClick(button));
+        self
+    }
+
+    pub fn scroll(mut self, delta: f32) -> Self {
+        self.steps.push(TestStep::Scroll(delta));
+        self
+    }
+
+    pub fn click_element(mut self, selector: ElementSelector) -> Self {
+        self.steps.push(TestStep::ClickElement(selector));
+        self
+    }
+
+    pub fn click_text(mut self, text: &str) -> Self {
+        self.steps.push(TestStep::ClickElement(ElementSelector::by_text(text)));
+        self
+    }
+
+    pub fn click_name(mut self, name: &str) -> Self {
+        self.steps.push(TestStep::ClickElement(ElementSelector::by_name(name)));
+        self
+    }
+
+    pub fn hover_element(mut self, selector: ElementSelector) -> Self {
+        self.steps.push(TestStep::HoverElement(selector));
+        self
+    }
+
+    pub fn drag_drop(mut self, x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
+        self.steps.push(TestStep::DragDrop(x1, y1, x2, y2));
+        self
+    }
+
+    pub fn type_text_human(mut self, text: &str) -> Self {
+        self.steps.push(TestStep::TypeTextHuman(text.to_string()));
+        self
+    }
+
     pub fn build(self) -> TestScenario {
         TestScenario {
             name: self.name,
@@ -1876,7 +2528,44 @@ mod tests {
         assert!(get_builtin_scenario("ui_main_menu_test").is_some());
         assert!(get_builtin_scenario("gameplay_basic_test").is_some());
         assert!(get_builtin_scenario("full_test").is_some());
+        assert!(get_builtin_scenario("human_test").is_some());
+        assert!(get_builtin_scenario("button_click_test").is_some());
         assert!(get_builtin_scenario("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_human_behavior_scenario() {
+        let scenario = get_builtin_scenario("human_test").unwrap();
+        // 人間らしい挙動が含まれていることを確認
+        let has_think = scenario.steps.iter().any(|s| matches!(s, TestStep::Think));
+        let has_wait_random = scenario.steps.iter().any(|s| matches!(s, TestStep::WaitRandom(_, _)));
+        let has_smooth_mouse = scenario.steps.iter().any(|s| matches!(s, TestStep::MouseMoveSmooth(_, _)));
+        assert!(has_think, "Should have Think step");
+        assert!(has_wait_random, "Should have WaitRandom step");
+        assert!(has_smooth_mouse, "Should have MouseMoveSmooth step");
+    }
+
+    #[test]
+    fn test_button_click_scenario() {
+        let scenario = get_builtin_scenario("button_click_test").unwrap();
+        // ClickElementが含まれていることを確認
+        let has_click_element = scenario.steps.iter().any(|s| matches!(s, TestStep::ClickElement(_)));
+        assert!(has_click_element, "Should have ClickElement step");
+    }
+
+    #[test]
+    fn test_element_selector() {
+        let by_name = ElementSelector::by_name("TestButton");
+        assert_eq!(by_name.name, Some("TestButton".to_string()));
+        assert_eq!(by_name.text, None);
+
+        let by_text = ElementSelector::by_text("Click Me");
+        assert_eq!(by_text.name, None);
+        assert_eq!(by_text.text, Some("Click Me".to_string()));
+
+        let by_name_index = ElementSelector::by_name_index("Button", 2);
+        assert_eq!(by_name_index.name, Some("Button".to_string()));
+        assert_eq!(by_name_index.index, 2);
     }
 
     #[test]

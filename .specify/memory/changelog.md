@@ -2,6 +2,8 @@
 
 ## 2025-12-25
 
+editor-e2e:playwright-setup,editor.spec.ts(15tests),e2e-skill-update|run:`npm run e2e`(editor),`cargo run --e2e-test`(game)
+
 worldgen:biome6(plain/desert/ocean/forest/mountain/wetland),block14(grass/sand/ore...),ore-dist(coal0-128,iron-16-72,copper-16-112,gold-64-32),miner-auto-detect|test:22new,175total
 
 spec-audit:9impl-gap,4spec-conflict→issues.md|priority:dir-struct,achievement,profile-load

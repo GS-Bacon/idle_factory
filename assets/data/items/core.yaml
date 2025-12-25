@@ -1602,3 +1602,45 @@
     tier: "1"
     tradeable: "true"
     rarity: "uncommon"
+
+# =============================================================================
+# 21. 追加アイテム (Additional Items)
+# =============================================================================
+
+# --- 追加ツール (Tools) - Tier 2 ---
+- id: "bronze_axe"
+  name: "Bronze Axe"
+  description: "Durable bronze axe for woodcutting"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tier: "2"
+    tool_type: "axe"
+    material: "bronze"
+    durability: "300"
+    attack_damage: "5"
+
+- id: "steel_axe"
+  name: "Steel Axe"
+  description: "Heavy-duty steel axe"
+  max_stack: 1
+  properties:
+    category: "tool"
+    tier: "3"
+    tool_type: "axe"
+    material: "steel"
+    durability: "500"
+    attack_damage: "6"
+    rarity: "uncommon"
+
+# --- 核燃料 (Nuclear Materials) - Tier 4 ---
+- id: "enriched_uranium"
+  name: "Enriched Uranium"
+  description: "Processed uranium for nuclear reactors"
+  max_stack: 64
+  properties:
+    category: "fuel"
+    tier: "4"
+    rarity: "legendary"
+    radioactive: "true"
+    burn_time: "100000"

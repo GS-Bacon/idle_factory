@@ -1145,3 +1145,396 @@
     - item: "coal"
       count: 8
   craft_time: 2.0
+
+# =============================================================================
+# スマート物流機械 (Smart Logistics) - Tier 3-4
+# =============================================================================
+# 出典: Satisfactory / Factorio
+# P1: 段階的複雑化 - 基本ベルト→スマート→プログラマブル
+
+- id: "craft_smart_splitter"
+  name: "Craft Smart Splitter"
+  inputs:
+    - item: "iron_plate"
+      count: 4
+    - item: "circuit_board"
+      count: 2
+    - item: "iron_gear"
+      count: 2
+  outputs:
+    - item: "smart_splitter"
+      count: 1
+  craft_time: 6.0
+
+- id: "craft_programmable_splitter"
+  name: "Craft Programmable Splitter"
+  inputs:
+    - item: "smart_splitter"
+      count: 1
+    - item: "advanced_circuit"
+      count: 2
+    - item: "copper_wire"
+      count: 8
+  outputs:
+    - item: "programmable_splitter"
+      count: 1
+  craft_time: 10.0
+
+# =============================================================================
+# 電力制御機器 (Power Control) - Tier 2-3
+# =============================================================================
+# 出典: Satisfactory
+# U4: 状態可視 - 電力状態を明確に表示
+
+- id: "craft_power_switch"
+  name: "Craft Power Switch"
+  inputs:
+    - item: "iron_plate"
+      count: 2
+    - item: "copper_wire"
+      count: 4
+  outputs:
+    - item: "power_switch"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_circuit_breaker"
+  name: "Craft Circuit Breaker"
+  inputs:
+    - item: "iron_plate"
+      count: 4
+    - item: "copper_wire"
+      count: 8
+    - item: "circuit_board"
+      count: 1
+  outputs:
+    - item: "circuit_breaker"
+      count: 1
+  craft_time: 5.0
+
+# =============================================================================
+# 品質モジュール (Quality Modules) - Tier 3-4
+# =============================================================================
+# 出典: Factorio 2.0 Space Age
+# P2: 明確マイルストーン - 品質システムは上級者向け
+
+- id: "craft_quality_module_1"
+  name: "Craft Quality Module T1"
+  inputs:
+    - item: "circuit_board"
+      count: 2
+    - item: "copper_wire"
+      count: 4
+    - item: "iron_plate"
+      count: 2
+  outputs:
+    - item: "quality_module_1"
+      count: 1
+  craft_time: 5.0
+
+- id: "craft_quality_module_2"
+  name: "Craft Quality Module T2"
+  inputs:
+    - item: "quality_module_1"
+      count: 2
+    - item: "advanced_circuit"
+      count: 1
+    - item: "gold_wire"
+      count: 4
+  outputs:
+    - item: "quality_module_2"
+      count: 1
+  craft_time: 8.0
+
+- id: "craft_quality_module_3"
+  name: "Craft Quality Module T3"
+  inputs:
+    - item: "quality_module_2"
+      count: 2
+    - item: "processor"
+      count: 1
+    - item: "gold_plate"
+      count: 2
+  outputs:
+    - item: "quality_module_3"
+      count: 1
+  craft_time: 12.0
+
+# =============================================================================
+# ロジスティクスロボット (Logistics Robots) - Tier 3
+# =============================================================================
+# 出典: Factorio
+# P3: 複数経路 - ベルト以外の輸送手段
+
+- id: "craft_roboport"
+  name: "Craft Roboport"
+  inputs:
+    - item: "steel_plate"
+      count: 8
+    - item: "advanced_circuit"
+      count: 4
+    - item: "iron_gear"
+      count: 8
+    - item: "copper_wire"
+      count: 16
+  outputs:
+    - item: "roboport"
+      count: 1
+  craft_time: 20.0
+
+- id: "craft_logistics_robot"
+  name: "Craft Logistics Robot"
+  inputs:
+    - item: "iron_plate"
+      count: 4
+    - item: "circuit_board"
+      count: 2
+    - item: "electric_motor"
+      count: 1
+  outputs:
+    - item: "logistics_robot"
+      count: 1
+  craft_time: 6.0
+
+- id: "craft_construction_robot"
+  name: "Craft Construction Robot"
+  inputs:
+    - item: "iron_plate"
+      count: 4
+    - item: "circuit_board"
+      count: 2
+    - item: "electric_motor"
+      count: 1
+    - item: "iron_gear"
+      count: 2
+  outputs:
+    - item: "construction_robot"
+      count: 1
+  craft_time: 8.0
+
+# --- ロジスティクスチェスト ---
+- id: "craft_storage_chest"
+  name: "Craft Storage Chest"
+  inputs:
+    - item: "iron_plate"
+      count: 8
+  outputs:
+    - item: "storage_chest"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_provider_chest"
+  name: "Craft Provider Chest"
+  inputs:
+    - item: "storage_chest"
+      count: 1
+    - item: "circuit_board"
+      count: 1
+    - item: "copper_wire"
+      count: 4
+  outputs:
+    - item: "provider_chest"
+      count: 1
+  craft_time: 4.0
+
+- id: "craft_requester_chest"
+  name: "Craft Requester Chest"
+  inputs:
+    - item: "storage_chest"
+      count: 1
+    - item: "advanced_circuit"
+      count: 1
+    - item: "copper_wire"
+      count: 4
+  outputs:
+    - item: "requester_chest"
+      count: 1
+  craft_time: 5.0
+
+- id: "craft_buffer_chest"
+  name: "Craft Buffer Chest"
+  inputs:
+    - item: "storage_chest"
+      count: 1
+    - item: "advanced_circuit"
+      count: 2
+    - item: "copper_wire"
+      count: 8
+  outputs:
+    - item: "buffer_chest"
+      count: 1
+  craft_time: 6.0
+
+# =============================================================================
+# ブループリントシステム (Blueprint System) - Tier 3-4
+# =============================================================================
+# 出典: Satisfactory / Shapez2
+
+- id: "craft_blueprint_designer_mk1"
+  name: "Craft Blueprint Designer Mk1"
+  inputs:
+    - item: "steel_plate"
+      count: 6
+    - item: "circuit_board"
+      count: 4
+    - item: "copper_wire"
+      count: 8
+  outputs:
+    - item: "blueprint_designer_mk1"
+      count: 1
+  craft_time: 10.0
+
+- id: "craft_blueprint_designer_mk2"
+  name: "Craft Blueprint Designer Mk2"
+  inputs:
+    - item: "blueprint_designer_mk1"
+      count: 1
+    - item: "advanced_circuit"
+      count: 4
+    - item: "processor"
+      count: 1
+  outputs:
+    - item: "blueprint_designer_mk2"
+      count: 1
+  craft_time: 15.0
+
+# =============================================================================
+# 報酬システム (Reward System) - Tier 2
+# =============================================================================
+# 出典: Satisfactory AWESOME Sink
+
+- id: "craft_awesome_sink"
+  name: "Craft AWESOME Sink"
+  inputs:
+    - item: "iron_plate"
+      count: 12
+    - item: "iron_gear"
+      count: 4
+    - item: "circuit_board"
+      count: 2
+  outputs:
+    - item: "awesome_sink"
+      count: 1
+  craft_time: 8.0
+
+# =============================================================================
+# Tier 2 追加ツール - 斧 (Axe) のクラフト
+# =============================================================================
+
+- id: "craft_bronze_axe"
+  name: "Craft Bronze Axe"
+  inputs:
+    - item: "bronze_ingot"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "bronze_axe"
+      count: 1
+  craft_time: 3.0
+
+- id: "craft_steel_axe"
+  name: "Craft Steel Axe"
+  inputs:
+    - item: "steel_ingot"
+      count: 3
+    - item: "stick"
+      count: 2
+  outputs:
+    - item: "steel_axe"
+      count: 1
+  craft_time: 4.0
+
+# =============================================================================
+# 追加精錬レシピ - ウラン、硫黄
+# =============================================================================
+
+- id: "process_sulfur_ore"
+  name: "Process Sulfur Ore"
+  inputs:
+    - item: "sulfur_ore"
+      count: 1
+  outputs:
+    - item: "sulfur"
+      count: 2
+  craft_time: 2.0
+
+- id: "enrich_uranium_ore"
+  name: "Enrich Uranium Ore"
+  inputs:
+    - item: "uranium_ore"
+      count: 4
+    - item: "sulfuric_acid_bucket"
+      count: 1
+  outputs:
+    - item: "enriched_uranium"
+      count: 1
+  craft_time: 20.0
+
+# =============================================================================
+# 液体レシピ - 精製・加工
+# =============================================================================
+
+- id: "refine_crude_oil"
+  name: "Refine Crude Oil"
+  inputs:
+    - item: "crude_oil_bucket"
+      count: 2
+  outputs:
+    - item: "fuel_bucket"
+      count: 1
+    - item: "lubricant_bucket"
+      count: 1
+  craft_time: 8.0
+
+- id: "produce_sulfuric_acid"
+  name: "Produce Sulfuric Acid"
+  inputs:
+    - item: "sulfur"
+      count: 2
+    - item: "water_bucket"
+      count: 1
+  outputs:
+    - item: "sulfuric_acid_bucket"
+      count: 1
+  craft_time: 5.0
+
+- id: "electrolyze_water"
+  name: "Electrolyze Water"
+  inputs:
+    - item: "water_bucket"
+      count: 2
+  outputs:
+    - item: "hydrogen_canister"
+      count: 1
+    - item: "oxygen_canister"
+      count: 1
+  craft_time: 10.0
+
+- id: "produce_steam"
+  name: "Produce Steam"
+  inputs:
+    - item: "water_bucket"
+      count: 1
+    - item: "coal"
+      count: 1
+  outputs:
+    - item: "steam_canister"
+      count: 2
+  craft_time: 4.0
+
+# =============================================================================
+# プラスチック加工チェーン
+# =============================================================================
+
+- id: "produce_plastic"
+  name: "Produce Plastic"
+  inputs:
+    - item: "crude_oil_bucket"
+      count: 1
+    - item: "coal"
+      count: 2
+  outputs:
+    - item: "plastic"
+      count: 4
+  craft_time: 6.0

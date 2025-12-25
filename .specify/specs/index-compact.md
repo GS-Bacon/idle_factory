@@ -99,6 +99,24 @@ arch:tauri-external|profile-target|bevy-child-process
 feature:block/recipe-edit,test-play,mod-export
 ux:E1-instant-preview,E2-nondestructive(undo100+),E3-constraint-viz,E4-smart-default,E5-bulk-op,E6-ref-integrity
 
+### tabs
+items:list+edit,icon-preview,subcategory,delete|recipes:react-flow,node-drag,io-connect
+quests:tree-view,dependency-link|multiblock:3d-grid,layer-slice,wrench-preview
+biomes:noise-params,ore-distribution|sounds:category-tree,preview-play
+
+### e2e-coverage
+|tab|status|tests|
+|-|-|-|
+|setup|done|1|
+|items|skip-no-assets|2|
+|recipes|skip-no-assets|1|
+|quests|skip-no-assets|1|
+|multiblock|skip-no-assets|1|
+|biomes|skip-no-assets|1|
+|sounds|skip-no-assets|1|
+|full-nav|done|1|
+|design-pattern|skip-no-assets|4|
+
 ## test
 
 |type|use|tool|
@@ -108,8 +126,16 @@ ux:E1-instant-preview,E2-nondestructive(undo100+),E3-constraint-viz,E4-smart-def
 |fuzz|boundary|cargo-fuzz|
 |property|invariant|proptest|
 |sim|long-stable|accel-exec|
+|e2e-game|full-flow|bevy-e2e(F8/F11)|
+|e2e-editor|ui-flow|playwright|
 
 coverage:core90%+,other70%+
+
+### e2e-test
+
+game:`cargo run -- --e2e-test`|editor:`cd tools/factory-data-architect && npm run e2e`
+output:screenshots/test_report.txt(game),e2e-results.json(editor)
+skill:`/e2e-test`(game),`/e2e-test editor`(editor)
 
 ## gdd-summary
 
