@@ -2,6 +2,7 @@ pub mod accessibility;
 pub mod config;
 pub mod debug;
 pub mod e2e_test;
+pub mod feedback;
 pub mod hot_reload;
 pub mod input;
 pub mod modding;
