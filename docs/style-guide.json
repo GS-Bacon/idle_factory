@@ -1,11 +1,30 @@
 {
   "meta": {
     "name": "Industrial Lowpoly Style Guide",
-    "version": "1.1.0",
-    "description": "Unturned / Create mod風の工業的ローポリスタイル + Bevy技術仕様",
+    "version": "1.2.0",
+    "description": "Minecraft/Unturned + Astroneerハイブリッド工業ローポリスタイル",
     "engine": "Bevy",
     "format": "glTF 2.0",
+    "design_philosophy": {
+      "primary_style": "Minecraft/Unturned + Astroneer hybrid",
+      "textureless": true,
+      "material_color_only": true,
+      "flat_shading": true,
+      "edge_darkening": true
+    },
     "references": [
+      {
+        "name": "Astroneer",
+        "url": "https://blog.astroneer.space/p/the-art-of-astroneer-low-poly/",
+        "description": "テクスチャレス、マテリアルカラーのみ、三角形ファセット",
+        "adopted": ["textureless", "material_color", "production_efficiency"]
+      },
+      {
+        "name": "Unturned",
+        "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=849463182",
+        "description": "極端にシンプルなブロック形状、256x256テクスチャ",
+        "adopted": ["block_shapes", "clear_silhouette"]
+      },
       {
         "name": "Kenney Conveyor Kit",
         "url": "https://kenney.nl/assets/conveyor-kit",
@@ -13,14 +32,33 @@
         "license": "CC0 1.0"
       },
       {
-        "name": "Unturned",
-        "description": "ブロック感のあるローポリスタイルの参考"
-      },
-      {
         "name": "Minecraft Create Mod",
         "description": "工業的メカニズムと視覚的フィードバックの参考"
+      },
+      {
+        "name": "Valheim",
+        "description": "低解像度テクスチャ拡大、N64/PS1風レトロスタイル"
+      },
+      {
+        "name": "A Short Hike",
+        "url": "https://blog.playstation.com/2021/08/05/crafting-a-tiny-open-world-a-look-behind-the-scenes-at-the-creation-of-a-short-hike/",
+        "description": "低解像度レンダリング + フラットシェーディング"
+      },
+      {
+        "name": "Superhot",
+        "description": "3色のみ、極限ミニマリズム、視認性最大化"
+      },
+      {
+        "name": "TABS",
+        "url": "https://landfall.se/totally-accurate-battle-simulator",
+        "description": "ローポリ + 鮮やかな色、コミカルな動き"
+      },
+      {
+        "name": "Crossy Road",
+        "description": "ボクセルアート、極小テクスチャ"
       }
-    ]
+    ],
+    "research_document": ".specify/memory/lowpoly-style-research.md"
   },
 
   "modeling_principles": {
@@ -98,12 +136,20 @@
   },
 
   "polygon_budget": {
+    "comment": "Polycount Wiki準拠: ポリ数は絶対値ではなく、視野距離と目的で決まる",
     "triangles": {
-      "handheld_item": { "recommended": [50, 200], "max": 500 },
+      "handheld_item": { "recommended": [50, 200], "max": 500, "reference": "Crossy Road" },
       "dropped_item": { "recommended": [20, 100], "max": 200 },
-      "single_block_machine": { "recommended": [200, 800], "max": 1500 },
+      "single_block_machine": { "recommended": [200, 800], "max": 1500, "reference": "Astroneer" },
       "multiblock_small": { "recommended": [500, 2000], "max": 4000 },
-      "multiblock_large": { "recommended": [2000, 5000], "max": 10000 }
+      "multiblock_large": { "recommended": [2000, 5000], "max": 10000 },
+      "simple_character": { "recommended": [500, 1000], "max": 3500, "reference": "TABS" },
+      "detailed_character": { "recommended": [2500, 3500], "max": 5000 },
+      "environment_object": { "recommended": [100, 500], "max": 1000 }
+    },
+    "industry_guidelines": {
+      "source": "Polycount Wiki",
+      "note": "頂点数がパフォーマンス上より重要だが、歴史的に三角形数が使われる"
     },
     "lod": {
       "lod0": { "ratio": 1.0, "distance": [0, 50] },
@@ -114,16 +160,22 @@
 
   "materials": {
     "shading": "flat",
+    "auto_smooth_angle": 30,
+    "textureless_approach": {
+      "enabled": true,
+      "description": "Astroneer風: テクスチャ不要、マテリアルカラーのみ",
+      "benefits": ["production_efficiency", "consistent_style", "small_file_size"]
+    },
     "pbr": {
       "supported": ["base_color", "metallic", "roughness", "normal", "emissive", "occlusion"]
     },
     "presets": {
-      "iron": { "base_color": "#4A4A4A", "metallic": 1.0, "roughness": [0.4, 0.6] },
-      "copper": { "base_color": "#B87333", "metallic": 1.0, "roughness": [0.3, 0.5] },
-      "brass": { "base_color": "#C9A227", "metallic": 1.0, "roughness": [0.3, 0.5] },
-      "dark_steel": { "base_color": "#2D2D2D", "metallic": 1.0, "roughness": [0.5, 0.7] },
-      "wood": { "base_color": "#8B6914", "metallic": 0.0, "roughness": [0.7, 0.9] },
-      "stone": { "base_color": "#696969", "metallic": 0.0, "roughness": [0.6, 0.8] }
+      "iron": { "base_color": "#4A4A4A", "metallic": 1.0, "roughness": 0.5, "comment": "鉄製パーツ、フレーム" },
+      "copper": { "base_color": "#B87333", "metallic": 1.0, "roughness": 0.4, "comment": "配線、熱交換器" },
+      "brass": { "base_color": "#C9A227", "metallic": 1.0, "roughness": 0.4, "comment": "ギア、装飾" },
+      "dark_steel": { "base_color": "#2D2D2D", "metallic": 1.0, "roughness": 0.6, "comment": "重機、産業機械" },
+      "wood": { "base_color": "#8B6914", "metallic": 0.0, "roughness": 0.8, "comment": "ハンドル、サポート" },
+      "stone": { "base_color": "#696969", "metallic": 0.0, "roughness": 0.7, "comment": "基礎、炉" }
     },
     "accent_colors": {
       "danger": "#CC3333",
@@ -131,10 +183,19 @@
       "power": "#3366CC",
       "active": "#33CC66"
     },
+    "palette_design": {
+      "description": "Superhot風の限定カラー戦略",
+      "principle": "一貫したパレット + フラットテクスチャ → すべての重要オブジェクトがハイライトされる",
+      "examples": {
+        "superhot": "白/灰/赤の3色のみ",
+        "astroneer": "鮮やかなマテリアルカラー",
+        "crow_country": "ダーク・グリム"
+      }
+    },
     "vertex_color_shading": {
       "enabled": true,
       "edge_darkening": 0.85,
-      "comment": "エッジ付近を暗くして立体感を出す"
+      "comment": "エッジ付近を暗くして立体感を出す（Blender Auto Smooth 30°と併用）"
     }
   },
 

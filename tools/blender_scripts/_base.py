@@ -1311,6 +1311,270 @@ def create_accent_light(size=0.05, location=(0, 0, 0), color_preset="power"):
 
 
 # =============================================================================
+# ビューポート・スクリーンショット設定（MCP用）
+# =============================================================================
+
+def setup_viewport_for_screenshot(target_obj=None, distance=0.5, azimuth=45, elevation=25):
+    """ビューポートをスクリーンショット用に設定
+
+    Args:
+        target_obj: フォーカスするオブジェクト（Noneなら原点）
+        distance: カメラ距離
+        azimuth: 水平角度（度）
+        elevation: 垂直角度（度）
+    """
+    from math import radians, sin, cos
+
+    # ターゲット位置
+    if target_obj:
+        target = target_obj.location.copy()
+        # バウンディングボックスから適切な距離を計算
+        bbox = [target_obj.matrix_world @ Vector(corner) for corner in target_obj.bound_box]
+        size = max(
+            max(v.x for v in bbox) - min(v.x for v in bbox),
+            max(v.y for v in bbox) - min(v.y for v in bbox),
+            max(v.z for v in bbox) - min(v.z for v in bbox)
+        )
+        distance = size * 2.5
+    else:
+        target = Vector((0, 0, 0))
+
+    # 3Dビュー設定
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            for space in area.spaces:
+                if space.type == 'VIEW_3D':
+                    # シェーディングをマテリアルプレビューに
+                    space.shading.type = 'MATERIAL'
+                    space.shading.use_scene_lights = True
+                    space.shading.use_scene_world = False
+                    space.shading.studio_light = 'studio.exr'
+
+                    # ビュー設定
+                    r3d = space.region_3d
+                    r3d.view_perspective = 'PERSP'
+                    r3d.view_location = target
+                    r3d.view_distance = distance
+
+                    # 回転（Quaternionで設定）
+                    from mathutils import Euler, Quaternion
+                    euler = Euler((radians(90 - elevation), 0, radians(azimuth)), 'XYZ')
+                    r3d.view_rotation = euler.to_quaternion()
+
+                    break
+
+
+def add_studio_lighting():
+    """スタジオライティングを追加（3点照明）"""
+    # 既存ライトを削除
+    for obj in list(bpy.data.objects):
+        if obj.type == 'LIGHT':
+            bpy.data.objects.remove(obj)
+
+    lights = []
+
+    # キーライト（メイン）
+    key_data = bpy.data.lights.new("KeyLight", 'AREA')
+    key_data.energy = 50
+    key_data.size = 2
+    key_light = bpy.data.objects.new("KeyLight", key_data)
+    key_light.location = (2, -2, 3)
+    key_light.rotation_euler = (0.8, 0, 0.6)
+    bpy.context.collection.objects.link(key_light)
+    lights.append(key_light)
+
+    # フィルライト（補助）
+    fill_data = bpy.data.lights.new("FillLight", 'AREA')
+    fill_data.energy = 20
+    fill_data.size = 3
+    fill_light = bpy.data.objects.new("FillLight", fill_data)
+    fill_light.location = (-2, -1, 1.5)
+    fill_light.rotation_euler = (1.0, 0, -0.5)
+    bpy.context.collection.objects.link(fill_light)
+    lights.append(fill_light)
+
+    # リムライト（輪郭強調）
+    rim_data = bpy.data.lights.new("RimLight", 'SPOT')
+    rim_data.energy = 100
+    rim_data.spot_size = 0.8
+    rim_light = bpy.data.objects.new("RimLight", rim_data)
+    rim_light.location = (0, 3, 2)
+    rim_light.rotation_euler = (1.2, 0, 3.14)
+    bpy.context.collection.objects.link(rim_light)
+    lights.append(rim_light)
+
+    return lights
+
+
+def setup_scene_for_mcp(target_obj=None):
+    """MCP経由のスクリーンショット用にシーン全体を設定
+
+    Args:
+        target_obj: フォーカスするオブジェクト
+    """
+    # ライティング追加
+    add_studio_lighting()
+
+    # ビューポート設定
+    setup_viewport_for_screenshot(target_obj)
+
+    # ワールド背景を設定（グレー）
+    world = bpy.context.scene.world
+    if world is None:
+        world = bpy.data.worlds.new("World")
+        bpy.context.scene.world = world
+    world.use_nodes = True
+    bg_node = world.node_tree.nodes.get("Background")
+    if bg_node:
+        bg_node.inputs["Color"].default_value = (0.15, 0.15, 0.15, 1)
+        bg_node.inputs["Strength"].default_value = 1.0
+
+    print("Scene configured for MCP screenshot")
+
+
+def quick_preview(obj_name=None):
+    """クイックプレビュー設定（1行で呼び出し可能）
+
+    Usage (in MCP):
+        quick_preview("MyModel")
+    """
+    if obj_name:
+        obj = bpy.data.objects.get(obj_name)
+    else:
+        # アクティブオブジェクトまたは最初のメッシュ
+        obj = bpy.context.active_object
+        if not obj or obj.type != 'MESH':
+            for o in bpy.data.objects:
+                if o.type == 'MESH':
+                    obj = o
+                    break
+
+    setup_scene_for_mcp(obj)
+    return obj
+
+
+def render_preview(obj_name=None, output_path=None, resolution=(800, 600)):
+    """レンダリングベースのプレビュー画像を生成（MCP推奨）
+
+    ビューポートスクリーンショットが暗い場合はこちらを使用。
+    EEVEEでレンダリングして画像ファイルとして保存。
+
+    Args:
+        obj_name: ターゲットオブジェクト名（Noneなら最初のメッシュ）
+        output_path: 出力パス（Noneなら/tmp/blender_preview.png）
+        resolution: 解像度 (width, height)
+
+    Returns:
+        出力ファイルパス
+
+    Usage (in MCP):
+        render_preview("Axe", "/path/to/screenshot.png")
+    """
+    from math import sin, cos
+
+    # ターゲットオブジェクト取得
+    if obj_name:
+        target_obj = bpy.data.objects.get(obj_name)
+    else:
+        target_obj = None
+        for o in bpy.data.objects:
+            if o.type == 'MESH':
+                target_obj = o
+                break
+
+    # カメラを追加/設定
+    cam = bpy.data.objects.get("PreviewCamera")
+    if not cam:
+        cam_data = bpy.data.cameras.new("PreviewCamera")
+        cam = bpy.data.objects.new("PreviewCamera", cam_data)
+        bpy.context.collection.objects.link(cam)
+
+    bpy.context.scene.camera = cam
+
+    # ターゲット位置とカメラ距離を計算
+    if target_obj:
+        target = target_obj.location.copy()
+        bbox = [target_obj.matrix_world @ Vector(corner) for corner in target_obj.bound_box]
+        size = max(
+            max(v.x for v in bbox) - min(v.x for v in bbox),
+            max(v.y for v in bbox) - min(v.y for v in bbox),
+            max(v.z for v in bbox) - min(v.z for v in bbox)
+        )
+        distance = size * 3.0
+    else:
+        target = Vector((0, 0, 0))
+        distance = 1.0
+
+    # カメラ位置（45度斜め上から）
+    azimuth = radians(45)
+    elevation = radians(30)
+    cam.location = (
+        target.x + distance * cos(elevation) * sin(azimuth),
+        target.y - distance * cos(elevation) * cos(azimuth),
+        target.z + distance * sin(elevation)
+    )
+
+    # カメラをターゲットに向ける
+    direction = target - cam.location
+    rot_quat = direction.to_track_quat('-Z', 'Y')
+    cam.rotation_euler = rot_quat.to_euler()
+
+    # ライティング設定
+    for obj in list(bpy.data.objects):
+        if obj.type == 'LIGHT':
+            bpy.data.objects.remove(obj)
+
+    # SUNライト（2つ）
+    key_data = bpy.data.lights.new("KeyLight", 'SUN')
+    key_data.energy = 3.0
+    key_light = bpy.data.objects.new("KeyLight", key_data)
+    key_light.location = (2, -2, 3)
+    key_light.rotation_euler = (0.8, 0, 0.6)
+    bpy.context.collection.objects.link(key_light)
+
+    fill_data = bpy.data.lights.new("FillLight", 'SUN')
+    fill_data.energy = 1.0
+    fill_light = bpy.data.objects.new("FillLight", fill_data)
+    fill_light.location = (-2, -1, 1.5)
+    fill_light.rotation_euler = (1.0, 0, -0.5)
+    bpy.context.collection.objects.link(fill_light)
+
+    # ワールド背景
+    world = bpy.context.scene.world
+    if world is None:
+        world = bpy.data.worlds.new("World")
+        bpy.context.scene.world = world
+    world.use_nodes = True
+    bg_node = world.node_tree.nodes.get("Background")
+    if bg_node:
+        bg_node.inputs["Color"].default_value = (0.2, 0.2, 0.2, 1)
+        bg_node.inputs["Strength"].default_value = 1.0
+
+    # レンダリング設定
+    # Blender 4.2+ では BLENDER_EEVEE_NEXT
+    try:
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    except:
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE'
+    bpy.context.scene.render.resolution_x = resolution[0]
+    bpy.context.scene.render.resolution_y = resolution[1]
+    bpy.context.scene.render.film_transparent = False
+
+    # 出力パス
+    if output_path is None:
+        output_path = "/tmp/blender_preview.png"
+
+    bpy.context.scene.render.filepath = output_path
+    bpy.context.scene.render.image_settings.file_format = 'PNG'
+
+    # レンダリング実行
+    bpy.ops.render.render(write_still=True)
+
+    print(f"Rendered preview: {output_path}")
+    return output_path
+
+
+# =============================================================================
 # 登録完了メッセージ
 # =============================================================================
 
@@ -1324,9 +1588,9 @@ print("  Materials: create_material, apply_preset_material")
 print("  Animation: create_rotation_animation, create_translation_animation")
 print("  Validation: get_scene_info, validate_model, print_validation_report")
 print("  Export: export_gltf, finalize_model")
-print("  === Connection System (NEW) ===")
 print("  Connection: create_pipe_flange, create_connection_port, add_connection_ports")
-print("  === High-Level Parts ===")
 print("  Items: create_tool_handle, create_ingot, create_ore_chunk, create_plate, create_dust_pile")
 print("  Machines: create_machine_frame, create_machine_body, create_tank_body, create_motor_housing")
 print("  Decorative: create_corner_bolts, create_reinforcement_ribs, add_decorative_bolts_circle, create_accent_light")
+print("  === MCP Screenshot ===")
+print("  Screenshot: render_preview (recommended), quick_preview, setup_scene_for_mcp")

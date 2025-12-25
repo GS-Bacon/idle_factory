@@ -13,6 +13,49 @@ $ARGUMENTS
 
 ---
 
+## ★ローポリデザイン原則（重要）★
+
+### 採用スタイル: Minecraft/Unturned + Astroneerハイブリッド
+
+| 要素 | 手法 | 根拠 |
+|------|------|------|
+| **形状** | ブロック感、明確なシルエット | Minecraft/Unturned風 |
+| **カラー** | テクスチャレス、マテリアルカラーのみ | Astroneer風（制作効率UP） |
+| **シェーディング** | フラット + 頂点カラーでエッジ暗化 | 共通原則 |
+| **プリミティブ** | 八角形、面取りキューブ、台形 | 円形禁止 |
+
+### シェーディング設定（必須）
+```python
+# フラットシェーディング + Auto Smooth 30°
+for obj in bpy.data.objects:
+    if obj.type == 'MESH':
+        obj.data.use_auto_smooth = True
+        obj.data.auto_smooth_angle = 0.523599  # 30度
+        bpy.ops.object.shade_flat()
+```
+
+### 頂点カラーによるエッジ暗化（推奨）
+```python
+# エッジ付近を85%暗くして立体感を出す
+def apply_edge_darkening(obj, edge_factor=0.85):
+    """隣接面が少ない頂点を暗くする"""
+    if not obj.data.vertex_colors:
+        obj.data.vertex_colors.new()
+    # 実装は_base.pyのapply_vertex_color_shading参照
+```
+
+### ポリゴン予算（調査結果準拠）
+
+| カテゴリ | 推奨三角形数 | 最大 | 参考 |
+|----------|-------------|------|------|
+| 手持ちアイテム | 50-200 | 500 | Crossy Road: 極小 |
+| 小道具 | 20-100 | 200 | - |
+| 1ブロック機械 | 200-800 | 1500 | Astroneer: テクスチャレス |
+| 大型機械 | 500-2000 | 4000 | - |
+| キャラクター | 500-1000 | 3500 | TABS風 |
+
+---
+
 ## 実行手順
 
 ### 1. スクリプト作成
@@ -144,13 +187,37 @@ DISPLAY=:10 f3d --camera-azimuth-angle=45 --output screenshots/{name}.png assets
 
 ## マテリアルプリセット
 
-| 名前 | RGB | 用途 |
+| 名前 | RGB | Metallic | Roughness | 用途 |
+|------|-----|----------|-----------|------|
+| iron | (0.29, 0.29, 0.29) | 1.0 | 0.5 | 鉄製パーツ |
+| copper | (0.72, 0.45, 0.20) | 1.0 | 0.4 | 配線、熱交換器 |
+| brass | (0.79, 0.64, 0.15) | 1.0 | 0.4 | ギア、装飾 |
+| dark_steel | (0.18, 0.18, 0.18) | 1.0 | 0.6 | 重機、産業機械 |
+| wood | (0.55, 0.41, 0.08) | 0.0 | 0.8 | ハンドル、サポート |
+| stone | (0.41, 0.41, 0.41) | 0.0 | 0.7 | 基礎、炉 |
+
+### アクセントカラー（機能表示用）
+| 名前 | Hex | 用途 |
 |------|-----|------|
-| iron | (0.29, 0.29, 0.29) | 鉄 |
-| copper | (0.72, 0.45, 0.20) | 銅 |
-| wood | (0.55, 0.41, 0.08) | 木 |
-| dark_steel | (0.18, 0.18, 0.18) | 鋼 |
+| danger | #CC3333 | 危険、高温 |
+| warning | #CCAA33 | 警告 |
+| power | #3366CC | 電力 |
+| active | #33CC66 | 稼働中 |
 
 ## 出力先
 - glTF: `assets/models/{category}s/{name}.gltf`
 - スクリプト: `tools/blender_scripts/{name}.py`
+
+## 参考ゲーム（調査済み）
+
+詳細は `.specify/memory/lowpoly-style-research.md` 参照
+
+| ゲーム | 特徴 | 本プロジェクトへの適用 |
+|--------|------|----------------------|
+| **Astroneer** | テクスチャレス、マテリアルカラーのみ | ✅ 採用 |
+| **Unturned** | 極端にシンプルなブロック形状 | ✅ 採用 |
+| **Valheim** | 低解像度テクスチャ拡大（ピクセル境界維持） | 参考 |
+| **A Short Hike** | 低解像度レンダリング + フラットシェーディング | 参考 |
+| **Superhot** | 3色のみ、極限ミニマリズム | 参考 |
+| **TABS** | ウォブリー物理、ポップな色使い | キャラクター参考 |
+| **Crossy Road** | ボクセル、極小テクスチャ | 小物参考 |

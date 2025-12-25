@@ -1,194 +1,129 @@
-# 仕様インデックス（圧縮版）
+# specs (AI compressed)
 
-全レポートの要点を1ファイルに集約。詳細は元ファイル参照。
+## game
 
----
+type:3d-voxel-factory|stack:rust+bevy0.15|data:yaml-hotreload|script:lua5.4-sandbox|mp:lightyear
+goal:space-station|no-survival|automation-only
+chunk:32^3|greedy-mesh|lod:4lvl|world:inf-xy,y±256
 
-## ゲーム仕様
+### core-mechanics
 
-### コアメカニクス
-- **ジャンル**: 3Dボクセル工場建設（Create mod + Factorio風）
-- **目標**: 宇宙ステーション建設用リソース供給
-- **特徴**: サバイバル要素なし、純粋な自動化ゲーム
+player:hp10,no-hunger,die:fall/lava,respawn:anchor,inv:40slot,stack:999
+conveyor:speed-tiers,roundrobin-split,zipper-merge,clog-detect
+pipe:flow-tiers,no-mix,drain-valve,leak→machine-short
+tank:10k-mb,multiblock-scale,hot-tank-required
+shaft:1type,reverse→break,gear-ratio
+power:torque(shaft)+electric(wire),steam→engine/turbine,heat-system
+machine:no-recipe-store,auto-detect,dir-fixed,tier-upgrade,vibration3x3,module5x6
+signal:1-16strength,wire-decay,wireless-device,lua-computer,robot4x4→5x10
+quest:main-seq,sub-parallel,no-skip,priority-change
+enchant:auto/manual(xp-gacha),tool-speed/durability/range/luck
 
-### 技術スタック
-|項目|選択|
-|----|-----|
-|言語|Rust|
-|エンジン|Bevy 0.15|
-|データ|YAML（ホットリロード）|
-|スクリプト|Lua 5.4（サンドボックス）|
-|マルチプレイ|Lightyear推奨|
+### ui-hud
 
-### チャンク/ブロック
-- チャンクサイズ: 32³
-- Greedy Meshing必須
-- LOD: 4段階（Full/Med/Low/Icon）
+hud:minimap,hotbar10,hp|screen:fullmap,quest-list,task-tree
+response:<0.1s|undo-required|info-hierarchy
 
----
+## best-practices
 
-## ベストプラクティス要約
+### multiplayer
+must:server-auth,input-validate,rate-limit|rec:client-predict,delta-compress,reconnect
+lib:lightyear(predict)|renet(simple)
 
-### マルチプレイヤー
-```
-必須: サーバー権威、入力検証、レート制限
-推奨: クライアント予測、差分圧縮、再接続処理
-ライブラリ: Lightyear(予測内蔵) / Renet(シンプル)
-```
+### security
+must:server-auth,all-input-validate,save-encrypt(aes256gcm)|rec:anomaly-detect,audit-log,gradual-ban
+indie:avoid-overkill(no-kernel-ac)
 
-### セキュリティ
-```
-必須: サーバー権威、全入力バリデーション、セーブ暗号化(AES-256-GCM)
-推奨: 統計的異常検知、詳細ログ、段階的BAN
-インディー向け: 過剰対策避ける（カーネルAC不要）
-```
+### ui
+principle:info-hierarchy,all-feedback,undo-required
+factory:zoom-density,flow-dir,alert-system|mc-style:slot-ui,minimal-hud
 
-### UI/HUD
-```
-原則: 情報階層(重要→詳細)、全操作にFB、Undo必須
-工場ゲーム: ズーム連動密度、フロー方向表示、アラートシステム
-Minecraft風: スロットベースUI、最小限HUD
-```
+### sound
+hierarchy:master>music/sfx/voice>sub|repeat-prevent:3+var,pitch±10%
+spatial:distance-atten,limit-n-nearest|a11y:subtitle,visual-indicator
 
-### サウンド
-```
-階層: Master > Music/SFX/Voice > サブカテゴリ
-反復防止: 3+バリエーション、ピッチ±10%
-空間: 距離減衰、近い順N個のみ再生
-アクセシビリティ: 字幕、視覚的音響表示オプション
-```
+### graphics
+target:60fps,drawcall<500|voxel:greedy-mesh,chunk-stream
+mass-obj:instancing|shader:precompile,pipeline-cache
 
-### グラフィック
-```
-目標: 60FPS、描画コール500以下
-ボクセル: Greedy Meshing、チャンクストリーミング
-大量オブジェクト: インスタンシング必須
-シェーダー: プリコンパイル、パイプラインキャッシュ
-```
+### bevy-ecs
+component:small,single-resp,marker-use|system:chain-order,run_if
+query:changed/added,parallel-aware
 
-### Bevy ECS
-```
-コンポーネント: 小さく単一責任、マーカー活用
-システム: .chain()で順序明示、run_if条件
-クエリ: Changed/Added活用、並列実行意識
-```
+### rust
+ownership:min-clone,ref/cow/arc|alloc:with_capacity,pool-reuse
+error:no-unwrap(except-init),result/?
 
-### Rust
-```
-所有権: clone最小化、参照/Cow/Arc活用
-アロケーション: with_capacity、プール再利用
-エラー: unwrap禁止(初期化除く)、Result/?演算子
-```
+### mod-api
+model:factorio-3stage(settings→data→runtime)|sandbox:disable-os/io/load/require
+version:semver,deprecate→remove-path
 
-### MOD API
-```
-モデル: Factorio式3段階(Settings→Data→Runtime)
-サンドボックス: os/io/load/require無効化
-バージョニング: SemVer、非推奨→削除パス明示
-```
+### accessibility
+visual:colorblind-modes,contrast4.5:1+,color+shape
+audio:subtitle,visual-sound|motor:remap-all,hold/toggle
+cognitive:hint,pause,difficulty
 
-### アクセシビリティ
-```
-視覚: 色覚モード、コントラスト4.5:1以上、色+形状
-聴覚: 字幕オプション、視覚的音響表示
-運動: 全キーリマップ、ホールド/トグル切替
-認知: ヒント、ポーズ可、難易度調整
-```
+### localization
+must:string-extern(fluent),30%-expand-margin|rec:rtl-ready,plural-support
 
-### ローカライズ
-```
-必須: 文字列外部化(fluent)、30%拡張余白
-推奨: RTL対応準備、複数形対応
-```
+## antipatterns
 
----
+### critical
+|issue|fix|
+|-|-|
+|client-trust|server-auth|
+|plaintext-save|aes-encrypt|
+|shader-stutter|precompile|
+|same-sound-repeat|variation|
+|no-response-op|0.1s-feedback|
 
-## アンチパターン要約
+### severe
+|issue|fix|
+|-|-|
+|huge-component|split|
+|excess-clone|use-ref|
+|no-ui-test|snapshot|
+|single-bottleneck|multi-path|
 
-### 致命的（即修正）
-|分野|問題|対策|
-|----|-----|-----|
-|ネットワーク|クライアント信頼|サーバー権威|
-|セキュリティ|平文セーブ|AES暗号化|
-|グラフィック|シェーダースタッター|プリコンパイル|
-|サウンド|同一音繰返し|バリエーション|
-|UI|応答なし操作|0.1秒内FB|
+### factory-specific
+|issue|fix|
+|-|-|
+|byproduct-clog|consumer/incinerator|
+|conveyor-jam|branch/parallel|
+|power-unstable|buffer/warning|
+|scale-limit|lod/culling|
 
-### 重大（早期対応）
-|分野|問題|対策|
-|----|-----|-----|
-|ECS|巨大コンポーネント|分割|
-|Rust|過剰clone|参照活用|
-|テスト|UIテストなし|スナップショット|
-|進行|単一ボトルネック|複数経路|
+## editor
 
-### 工場ゲーム特有
-|問題|対策|
-|-----|-----|
-|副産物詰まり|消費先追加/焼却|
-|コンベア渋滞|分岐/並列化|
-|電力不安定|バッファ/警告|
-|スケール限界|LOD/カリング|
+arch:tauri-external|profile-target|bevy-child-process
+feature:block/recipe-edit,test-play,mod-export
+ux:E1-instant-preview,E2-nondestructive(undo100+),E3-constraint-viz,E4-smart-default,E5-bulk-op,E6-ref-integrity
 
----
+## test
 
-## エディタモード
+|type|use|tool|
+|-|-|-|
+|unit|logic|cargo-test|
+|snapshot|ui-regress|insta|
+|fuzz|boundary|cargo-fuzz|
+|property|invariant|proptest|
+|sim|long-stable|accel-exec|
 
-### アーキテクチャ
-```
-┌────────────────────────────────────────────────────┐
-│ Factory Data Architect (Tauri) ← 外部エディタ       │
-│                                                    │
-│  [Items] [Recipes] [Quests]    Target: [vanilla ▼] │
-│                                                    │
-│  ┌──────────────────────────────────────────────┐  │
-│  │         Bevy Game (子プロセス)                │  │
-│  │         profile: vanilla                     │  │
-│  └──────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────┘
-```
+coverage:core90%+,other70%+
 
-### ゲーム内連携
-- **ProfileSettings画面**: エディタへの誘導メッセージ
-- **ProfileSelect画面**: プロファイル選択 → SaveSelect へ
-- 将来: [Open Editor] ボタンでエディタ起動
+## gdd-summary
 
-### 機能
-- ブロック/機械配置（ペイント/塗りつぶし）
-- レシピ/アイテム編集（YAML）
-- テストプレイ（即時切替）
-- MODエクスポート
+platform:12x12,48port(16-initial)|weather:day-night,rain→waterwheel+/outdoor-machine-|
+biome:natural+resource-overlay|enchant:tool/machine|robot:lua,4x4-inv,move/break/place
+multiblock:editor-define,wrench-confirm|quest:seq-main,parallel-sub,no-skip
 
-### UX原則 (E1-E6)
-- E1. 即時プレビュー（自動保存）
-- E2. 非破壊編集（Undo/履歴100+ステップ）
-- E3. 制約視覚化（有効/無効領域）
-- E4. スマートデフォルト
-- E5. 一括操作
-- E6. 参照整合性チェック
+## phase-status
 
----
-
-## テスト戦略
-
-|種類|用途|ツール|
-|----|-----|------|
-|ユニット|ロジック検証|cargo test|
-|スナップショット|UI回帰|insta|
-|ファズ|境界値|cargo-fuzz|
-|プロパティ|不変条件|proptest|
-|シミュレーション|長時間安定|加速実行|
-
-### カバレッジ目標
-- コア(電力/インベントリ): 90%+
-- その他: 70%+
-
----
-
-## 参照
-
-詳細が必要な場合のみ元ファイルを読む:
-- `core-game-mechanics.md` - ゲームメカニクス詳細
-- `game-design-document.md` - GDD全文
-- 各`*-best-practices.md` - 実装例付き詳細
-- 各`*-antipatterns.md` - 詳細な失敗事例
+|phase|status|
+|-|-|
+|1-core|done|
+|2-logistics|done|
+|3-power-multiblock|done|
+|4-script-signal|done|
+|5-optimize-mod|done|
+|menu-save|done|

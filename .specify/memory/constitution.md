@@ -1,358 +1,66 @@
-# Project Constitution: Infinite Voxel Factory
+# constitution (AI compressed)
 
-## Overview
-This constitution defines the foundational principles, coding standards, and architectural guidelines for the Infinite Voxel Factory project—a 3D voxel-based factory simulation game built with Rust and the Bevy game engine.
+## core
 
-## Core Principles
+type:3d-voxel-factory|mode:survival(future-hp/enemy),creative(default-pure-build)
+stack:rust-stable,bevy0.15,lua5.4(mlua),yaml(serde)|arch:ecs-first,data-driven,deterministic
+chunk:32³|mesh:greedy|lod:4lvl|sim:20tps-fixed
 
-### 1. Game Modes (実装済み)
-| Mode | Description |
-|------|-------------|
-| **Survival** | 将来的にHP/空腹/敵を追加予定。現在はCreativeと同等 |
-| **Creative** | 純粋な工場建設モード。デフォルト |
+## code
 
-- **Current Focus**: Creative mode for pure factory building
-- **Automation First**: All features must support the core goal of building automated production chains
-- **Peaceful Construction**: In Creative mode, players focus solely on engineering and optimization
+naming:mod=snake,struct=Pascal,fn=snake,const=SCREAMING|doc:all-public,module-level,complex-inline
+error:no-panic-prod,Result<T,E>,log-info/warn/error,graceful-degrade
 
-### 2. Data-Driven Architecture
-- **YAML-Based Configuration**: All game content (blocks, recipes, items) must be defined in external YAML files
-- **Hot Reload Support**: Content changes should be reflected without rebuilding the game
-- **Modding-Ready**: Architecture must support easy extension and modification by users
-- **Profile System**: Multiple profiles (vanilla, custom mods) with save isolation
+## test
 
-### 3. Technology Stack
-- **Language**: Rust (stable)
-- **Game Engine**: Bevy (latest stable version)
-- **ECS-First**: Leverage Bevy's Entity Component System for all game logic
-- **Deterministic Simulation**: Game logic must be reproducible and deterministic
+coverage:core90%+,other70%+|types:unit,integration,snapshot(insta),fuzz,property(proptest)
+tdd:fail-first,regress-before-fix
 
-## Code Quality Standards
+## arch
 
-### Naming Conventions
-- **Modules**: snake_case (e.g., `gameplay/inventory.rs`)
-- **Structs/Enums**: PascalCase (e.g., `PlayerInventory`, `InventoryUiState`)
-- **Functions**: snake_case (e.g., `spawn_player`, `tick_conveyors`)
-- **Constants**: SCREAMING_SNAKE_CASE (e.g., `CHUNK_SIZE`, `SLOT_SIZE`)
-- **Components**: Clear, descriptive names (e.g., `PowerNode`, `MachineInstance`)
-
-### Documentation
-- **Public API**: All public functions and types must have doc comments (`///`)
-- **Module-Level**: Each module must have a file-level doc comment explaining its purpose
-- **Complex Logic**: Non-obvious algorithms require inline comments explaining the "why"
-- **Examples**: Complex systems should include usage examples in doc comments
-
-### Error Handling
-- **No Panics in Production**: Use `Result<T, E>` for fallible operations
-- **Logging**: Use `info!`, `warn!`, `error!` macros appropriately
-- **Graceful Degradation**: Systems should handle missing data without crashing
-
-## Testing Standards (T1-T4)
-
-### Coverage Requirements
-- **Minimum Coverage**: 70% for core gameplay systems
-- **Critical Systems**: 90%+ coverage for power networks, inventory, crafting
-- **UI Systems**: Visual testing where applicable
-
-### Test Types
-- **Unit Tests**: For isolated logic (inventory operations, recipes, validators)
-- **Integration Tests**: For system interactions (conveyor → assembler → output)
-- **Simulation Tests**: For deterministic gameplay scenarios
-- **Snapshot Tests**: UI regression detection (insta crate)
-- **Fuzz Tests**: Boundary value testing (cargo-fuzz)
-- **Property Tests**: Invariant validation (proptest)
-
-### Test-Driven Development
-- **New Features**: Write failing tests first
-- **Bug Fixes**: Add regression test before fixing
-- **Refactoring**: Maintain passing tests throughout
-
-## Architecture Standards
-
-### ECS Best Practices
-- **Components**: Pure data structures, no logic
-- **Systems**: Single-responsibility functions operating on queries
-- **Resources**: Global state only when necessary
-- **Events**: For cross-system communication
-
-### Performance Requirements (G1-G4)
-- **Target FPS**: 60 FPS minimum
-- **Draw Calls**: 500 or fewer per frame
-- **Chunk Loading**: Async, non-blocking
-- **Item Rendering**: Instanced rendering for 1000+ items
-- **Shader Management**: Precompile at startup (no stutter)
-- **Culling**: Frustum + basic occlusion culling
-- **Memory**: Efficient data structures, avoid clones (RS1-RS2)
-
-### Module Organization
 ```
-src/
-├── core/        # Configuration, registry, input
-├── rendering/   # Voxel rendering, meshing, models
-├── gameplay/    # Game logic, machines, player
-├── ui/          # All UI systems
-└── network/     # Multiplayer (future)
+src/core(config,registry,input)
+   /rendering(voxel,mesh,model)
+   /gameplay(machine,player,power)
+   /ui
+   /network(future)
 ```
+rule:no-circular,core-independent,ui-use-events
 
-### Dependency Rules
-- **No Circular Dependencies**: Modules must form a DAG
-- **Core Independence**: `core/` depends on nothing but Bevy
-- **UI Isolation**: UI never directly modifies gameplay state (use events)
+## perf
 
-## User Experience Principles
+target:60fps,drawcall<500,chunk-async,item-instancing,shader-precompile,frustum-cull
+mem:no-clone-excess,with_capacity,pool-reuse
 
-### Menu Flow (実装済み)
-```
-MainMenu → ProfileSelect → ProfileSettings → SaveSelect → WorldGeneration → InGame → PauseMenu
-                ↓                                              ↑
-            Settings (ESC)                              ESC (toggle)
-```
+## ux
 
-| State | Description |
-|-------|-------------|
-| MainMenu | Play/Settings/Quit |
-| ProfileSelect | プロファイル選択 (vanilla等) |
-| ProfileSettings | プロファイル管理の案内 |
-| SaveSelect | 8スロットからワールド選択 |
-| WorldGeneration | 新規ワールド作成 (名前/シード/モード) |
-| InGame | ゲームプレイ中 |
-| PauseMenu | Resume/Settings/Save&Quit/MainMenu |
+flow:MainMenu→ProfileSelect→ProfileSettings→SaveSelect→WorldGen→InGame↔PauseMenu
+control:kb-first+mouse,full-remap,hold/toggle|ui:mc-slot,minimal-hud,tooltip,<0.1s-response
+a11y:colorblind3,contrast4.5:1+,color+shape,subtitle,visual-sound,key-remap,hold/toggle,hint,pause
+sound:master>music/sfx/voice,3+var,pitch±10%,spatial,distance-atten
+i18n:fluent,30%-margin,rtl-ready,plural
 
-### Controls
-- **Keyboard First**: Primary controls via WASD + hotkeys
-- **Mouse Support**: Camera control + UI interaction
-- **Full Remapping**: All keys must be rebindable
-- **Hold/Toggle**: Option to switch between hold and toggle for actions
+## security
 
-### UI Design
-- **Minecraft-Inspired**: Familiar slot-based inventories
-- **Minimalist HUD**: Show only essential information
-- **Tooltips**: Comprehensive information on hover
-- **Response Time**: All interactions must provide feedback within 0.1 seconds
+mem:rust-guarantee,no-unsafe(except-justified),cargo-audit
+data:yaml-graceful-fail,save-aes256gcm,version-migrate,input-sanitize
+mp-ac:server-auth,rate-limit,audit-log
 
-### Accessibility (A1-A3)
-- **Visual**: Color blind modes (P/D/T types), contrast ratio 4.5:1+, color+shape
-- **Audio**: Subtitles option, visual sound indicators (directional)
-- **Motor**: Full key remapping, hold/toggle switch, sensitivity adjustment
-- **Cognitive**: Optional hints, pause anywhere, difficulty adjustment
+## constraints
 
-### Sound Design (S1-S4)
-- **Mixing Hierarchy**: Master > Music/SFX/Voice with category-specific volume
-- **Variation**: 3+ clips for frequent sounds, pitch ±10% randomization
-- **Spatial Audio**: Distance attenuation, limit simultaneous sources
-- **Feedback**: Audio confirmation for all player actions
+voxel:chunk32³,greedy-mesh,lod,frustum-cull
+power:kinetic(speed+stress),network-bfs,overstress-graceful,deterministic
+mp(future):server-auth,client-predict,input-validate,reconnect,delta-compress,20tps
 
-### Feedback
-- **Visual Indicators**: Clear markers for machine state (active/idle/overstressed)
-- **Audio Feedback**: Distinct sounds for success/failure/warning
-- **Progression**: Clear goals and achievement milestones
+## workflow
 
-## Localization (I1-I2)
+branch:feature→master|commit:ja,descriptive|ci:test-all,clippy0,fmt
 
-- **String Externalization**: All UI strings via fluent/i18n (no hardcoded text)
-- **Layout Flexibility**: 30% text expansion margin for translations
-- **RTL Ready**: Preparation for right-to-left languages
-- **Plural Support**: Proper handling of pluralization rules
+## phase-status
 
-## Technical Constraints
+1-core,2-logistics,3-power-multiblock,4-script-signal,5-optimize-mod,menu-save:done
 
-### Voxel System
-- **Chunk Size**: 32×32×32 blocks
-- **Greedy Meshing**: Required for performance
-- **LOD**: Level-of-detail for distant chunks
-- **Occlusion Culling**: Frustum + basic occlusion
+## vision
 
-### Power System
-- **Kinetic Energy**: Rotation speed + stress mechanics
-- **Network Groups**: BFS-based connected component detection
-- **Overstress Behavior**: Graceful shutdown, no cascading failures
-- **Deterministic**: Same input = same output, every time
-
-### Multiplayer (Future) (N1-N4)
-- **Server Authority**: All critical logic (position, HP, inventory) on server
-- **Client Prediction**: Immediate input application with server reconciliation
-- **Input Validation**: Speed/range/rate limiting on all client inputs
-- **Reconnection**: Session persistence, full state sync on reconnect
-- **Bandwidth**: Delta compression, Interest Management for efficiency
-- **Fixed Timestep**: 20 TPS simulation
-
-## Security & Safety (C1-C3)
-
-### Memory Safety
-- **Rust Guarantees**: Leverage ownership and borrowing
-- **No Unsafe**: Only in critical performance paths, with justification
-- **Dependency Audit**: Regular `cargo audit` checks
-
-### Data Validation
-- **YAML Parsing**: Fail gracefully on malformed data
-- **Save Encryption**: AES-256-GCM for save data (achievement protection)
-- **Version Checking**: Save file migration support
-- **User Input**: Sanitize all external data
-
-### Anti-Cheat (Multiplayer)
-- **Multi-Layer Defense**: Server authority + input validation + anomaly detection
-- **Rate Limiting**: Action frequency limits
-- **Logging**: Detailed audit trail for suspicious activity
-
-## Development Workflow
-
-### Version Control
-- **Branch Strategy**: Feature branches from `master`
-- **Commit Messages**: Japanese, descriptive, with context
-- **PR Requirements**: Tests pass, no compiler warnings
-
-### Continuous Integration
-- **Automated Tests**: All tests run on every commit
-- **Clippy**: No warnings allowed
-- **Format**: `cargo fmt` enforced
-
-### Documentation
-- **API Reference**: Auto-generated from doc comments
-- **Roadmap**: Maintained in `PROJECT_ROADMAP.md`
-- **Work Log**: Updated in `WORK_LOG.md`
-
-## Success Metrics
-
-### Performance
-- **Frame Time**: < 16.67ms (60 FPS)
-- **Build Time**: < 2 minutes (debug)
-- **Test Suite**: < 10 seconds
-
-### Quality
-- **Zero Compiler Warnings**: Clean builds required
-- **Test Coverage**: Trending upward
-- **Documentation**: All public APIs documented
-
-### Player Experience
-- **Intuitive**: New features follow established patterns
-- **Stable**: No crashes or data loss
-- **Fun**: Automation feels rewarding and satisfying
-
----
-
-## Project Phases and Roadmap
-
-### Phase 1: Core Engine and Mod Foundation ✅ COMPLETE
-**Goal:** Establish data-driven architecture and rendering foundation
-
-**Completed Features:**
-- Asset Server with hot-reload support
-- YAML loader for blocks, items, and recipes
-- Dynamic texture atlas generation
-- Chunk system (32×32×32 blocks)
-- Greedy meshing for voxel rendering
-- Custom shader support (.wgsl)
-- Multiplayer foundation (headless server, replication, client prediction)
-
-### Phase 2: Logic and Logistics Simulation ✅ COMPLETE
-**Goal:** Implement functional factory simulation
-
-**Completed Features:**
-- Fixed timestep simulation (20 TPS)
-- Deterministic logic for multiplayer
-- Grid-based machine placement (SimulationGrid)
-- Item entity optimization with instanced rendering
-- Inventory system with stacking
-- Visual item system for conveyor belts
-- Debug overlay (F3) and debug mode
-
-### Phase 3: Power and Multiblock Systems ✅ COMPLETE
-**Goal:** Advanced mechanics and complex structures
-
-**Completed Features:**
-- Power network with stress/speed mechanics
-  - Graph-based network detection (BFS)
-  - Stress calculation and propagation
-  - Overstress detection and handling
-- Multiblock structure validation
-  - Pattern matching with rotation support
-  - Master/Slave component system
-  - Automatic integrity checking
-- GUI framework for machine interaction
-  - Recipe selection UI
-  - Real-time inventory display
-  - Event-driven state management
-
-### Phase 4: Advanced Automation and Scripting ✅ COMPLETE
-**Goal:** Enable player-created logic and automation
-
-**Completed Features:**
-- Lua VM integration (mlua)
-  - Lua 5.4 with vendored build
-  - Sandbox API (os, io, load, require disabled)
-  - ScriptEngine and ScriptRegistry resources
-  - Programmable component for machines
-  - Built-in functions (print, clamp, lerp)
-- Signal system
-  - Wire-based signal transmission (SignalNetwork)
-  - SignalEmitter/SignalReceiver components
-  - Logic gates (AND, OR, NOT, XOR, NAND, NOR)
-  - Numerical processors (Add, Subtract, Multiply, Divide, Compare, Equal)
-  - BFS-based network group detection
-
-**Technical Details:**
-- Thread-safe Lua VM (Arc<Mutex<Lua>>)
-- SignalValue enum for type-safe signal passing
-- 12 new tests (5 scripting + 7 signals)
-
-### Phase 5: Optimization and Distribution ✅ COMPLETE
-**Goal:** Performance optimization and modding support
-
-**Completed Features:**
-- Multithreading
-  - AsyncComputeTaskPool for parallel chunk generation
-  - ChunkLoadQueue for non-blocking terrain generation
-  - Task completion polling with block_on/poll_once
-- LOD (Level of Detail)
-  - ChunkLod component (Full, Medium, Low, Icon)
-  - Distance-based LOD updates
-  - Automatic chunk unloading for memory management
-  - Configurable LOD distances via LodSettings
-- Modding SDK
-  - ModManifest YAML schema with dependencies
-  - ModRegistry for mod management
-  - Automatic mod discovery from `mods/` directory
-  - Dependency resolution and load order
-
-**Technical Details:**
-- 6 new tests (3 optimization + 3 modding)
-
-### Main Menu and Save System ✅ COMPLETE
-**Goal:** Professional game flow with save management
-
-**Completed Features:**
-- Main Menu UI
-  - AppState state machine (MainMenu → SaveSelect → WorldGeneration → InGame)
-  - Flexbox-based UI with button interactions
-  - Keyboard text input for world name/seed
-- Menu Camera
-  - Orbiting background camera
-  - State-based spawn/despawn
-- Save System
-  - SaveMetadata with chrono timestamps
-  - JSON persistence to `saves/` directory
-  - 8 save slots with automatic loading
-
-**Technical Details:**
-- 6 new tests (2 camera + 4 save system)
-- Total: 46 tests passing
-
----
-
-## Future Vision
-
-### Ultimate Goals
-- **Space Station Completion**: Players deliver resources to build a visible orbital station
-- **Blueprint System**: Save and share factory designs
-- **Creative/Survival Modes**: Different gameplay experiences
-- **Community Mods**: Thriving modding ecosystem
-
-### Design Philosophy for New Features
-- **Always Data-Driven**: New content defined in YAML/external files
-- **Player Empowerment**: Tools, not hand-holding
-- **Emergent Complexity**: Simple rules, complex possibilities
-- **No Artificial Limits**: Let players build massive factories
-
----
-
-*This constitution is a living document. Update it as the project evolves, but maintain consistency with established principles.*
+goal:space-station-complete,blueprint,creative/survival,mod-ecosystem
+philosophy:data-driven,player-empower,emergent-complexity,no-artificial-limit
