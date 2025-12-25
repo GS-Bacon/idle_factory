@@ -1,5 +1,17 @@
 # changelog (AI compressed)
 
+## 2025-12-26
+
+issues-cleanup:batch-fix
+- #8:docs/GETTING_STARTED.md作成(環境,操作,Mod作成)
+- #20:held_item.rs→VoxelAssets使用(モデル検索,フォールバック)
+- #10:assets/test/{items,recipes}.yaml(CI用モック)
+- #11,#12:.github/workflows/ci.yml(clippy -D,test,e2e+xvfb)
+- #13:e2e_test.rs→e2e_test/mod.rs(モジュール化)
+- #17:.specify/memory/critical-review-2025-12-25.md削除
+- tests:184pass,Clippy:0件
+- 残:#15 E2E 9/9タブ達成
+
 ## 2025-12-25
 
 tool-models:axe,wrench,shovel
