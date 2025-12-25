@@ -6,6 +6,7 @@ pub mod debug;
 pub mod machine_components;
 pub mod recipe_system;
 pub mod kinetic_machines;
+pub mod splitter;
 
 use bevy::prelude::*;
 use crate::ui::main_menu::AppState;

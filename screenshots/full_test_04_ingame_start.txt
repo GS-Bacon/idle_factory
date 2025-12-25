@@ -1,0 +1,62 @@
+# UI Dump
+Generated: 2025-12-25 10:09:33
+AppState: InGame
+InventoryState: Closed
+
+## UI Tree
+
+- (unnamed) [w:auto h:auto] text="FPS: N/A"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:10px h:2px]
+  - (unnamed) [w:2px h:10px]
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:54px h:54px]
+      - (unnamed) [w:auto h:auto] text=""
+- (unnamed) [w:100% h:100%]
+- (unnamed) [w:200px h:50px]
+  - (unnamed) [w:auto h:auto] text="HP"
+  - (unnamed) [w:180px h:20px]
+    - (unnamed) [w:20% h:100%]
+  - (unnamed) [w:auto h:auto] text="2 / 10"
+- (unnamed) [w:154px h:154px]
+  - (unnamed) [w:150px h:150px]
+    - (unnamed) [w:8px h:8px]
+  - (unnamed) [w:auto h:auto] text="N"
+- (unnamed) [w:200px h:auto]
+  - (unnamed) [w:auto h:auto] text="Quest"
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:auto h:auto] text="No active quest"
+  - (unnamed) [w:auto h:auto] text="[J] Quest List"
+- (unnamed) [w:50% h:70%]
+  - (unnamed) [w:100% h:auto]
+    - (unnamed) [w:auto h:auto] text="Quest List"
+    - (unnamed) [w:auto h:auto] text="[J] Close"
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:auto h:auto] text="Main Quest"
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:auto h:auto] text="Sub Quests"
+
+## Statistics
+- Total nodes: 50
+- Named nodes: 0
+- Text nodes: 22

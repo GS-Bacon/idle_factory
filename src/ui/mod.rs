@@ -11,6 +11,7 @@ pub mod minimap;
 pub mod health_hud;
 pub mod quest_hud;
 pub mod feedback;
+pub mod ui_test_scenarios;
 
 use main_menu::AppState;
 

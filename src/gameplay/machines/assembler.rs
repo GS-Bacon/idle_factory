@@ -127,6 +127,7 @@ pub fn tick_assemblers(
                                         progress: 0.0,
                                         unique_id: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,
                                         from_direction: None,
+                                        lane: Default::default(),
                                     });
                                 }
                                 assembler.crafting_progress = 0.0;
@@ -260,6 +261,7 @@ mod tests {
             progress: 1.0, // Ready to be ejected
             unique_id: 1,
             from_direction: Some(Direction::North), // Item came from North (relative to conveyor)
+            lane: Default::default(),
         });
         grid.machines.insert(input_conv_pos, MachineInstance {
             id: "conveyor".to_string(),

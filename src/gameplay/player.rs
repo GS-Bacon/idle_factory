@@ -28,10 +28,11 @@ pub fn spawn_player(
 
     // プレイヤー本体 (カメラも含む)
     // シンプルにするため、プレイヤー自体が回転し、その視界＝カメラとします
+    // スポーン位置: Y=20（地形の最大高さ+余裕をもって）
     commands.spawn((
         // ★修正: 構造体のフィールド名を明記
         Player { yaw: 0.0, pitch: 0.0, is_flying: false, velocity: Vec3::ZERO },
-        Transform::from_xyz(0.0, 5.0, 0.0),
+        Transform::from_xyz(0.0, 20.0, 0.0),
         Visibility::default(),
         // 物理コンポーネント（サバイバルモード用）
         PlayerPhysics::default(),

@@ -27,6 +27,71 @@ pub struct Shaft {
     pub stress_resistance: f32, // Resistance to breaking under stress
 }
 
+/// 回路遮断機コンポーネント（Satisfactory風）
+/// 電力過負荷時に自動でトリップし、ネットワークを保護する
+#[derive(Component, Debug, Clone)]
+pub struct CircuitBreaker {
+    /// 最大負荷（これを超えるとトリップ）
+    pub max_load: f32,
+    /// 現在トリップしているかどうか
+    pub is_tripped: bool,
+    /// 自動リセットを有効にするか
+    pub auto_reset: bool,
+    /// 自動リセットまでの待機時間（秒）
+    pub reset_delay: f32,
+    /// トリップしてからの経過時間
+    pub time_since_trip: f32,
+}
+
+impl Default for CircuitBreaker {
+    fn default() -> Self {
+        Self {
+            max_load: 500.0,
+            is_tripped: false,
+            auto_reset: false,
+            reset_delay: 5.0,
+            time_since_trip: 0.0,
+        }
+    }
+}
+
+impl CircuitBreaker {
+    pub fn new(max_load: f32) -> Self {
+        Self {
+            max_load,
+            ..Default::default()
+        }
+    }
+
+    /// 手動でリセット
+    pub fn reset(&mut self) {
+        self.is_tripped = false;
+        self.time_since_trip = 0.0;
+    }
+
+    /// トリップさせる
+    pub fn trip(&mut self) {
+        if !self.is_tripped {
+            self.is_tripped = true;
+            self.time_since_trip = 0.0;
+        }
+    }
+}
+
+/// 電力スイッチコンポーネント
+/// 手動で電力の流れを制御
+#[derive(Component, Debug, Clone, Default)]
+pub struct PowerSwitch {
+    /// スイッチがONかどうか
+    pub is_on: bool,
+}
+
+impl PowerSwitch {
+    pub fn toggle(&mut self) {
+        self.is_on = !self.is_on;
+    }
+}
+
 // --- Resources ---
 
 /// Represents the overall power network as a graph
@@ -45,6 +110,7 @@ pub struct PowerNetworkGroups {
     pub next_group_id: u32,
 }
 
+/// 電力ネットワークグループの状態
 #[derive(Debug, Default)]
 pub struct NetworkGroup {
     pub nodes: HashSet<u32>, // All node IDs in this group
@@ -52,6 +118,12 @@ pub struct NetworkGroup {
     pub total_source_capacity: f32,
     pub is_overstressed: bool,
     pub ideal_speed: f32, // Ideal operating speed for this group
+    /// ヒューズ/回路遮断機によるトリップ状態
+    pub is_tripped: bool,
+    /// トリップした時刻（自動復帰用）
+    pub tripped_at: Option<f64>,
+    /// 過負荷履歴（直近5回）
+    pub overload_history: Vec<f64>,
 }
 
 // --- Systems ---

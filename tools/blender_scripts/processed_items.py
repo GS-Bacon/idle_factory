@@ -6,11 +6,16 @@
 import bpy
 from mathutils import Vector
 from math import pi
+import os
 
-# _base.pyの関数を使用（先に_base.pyを実行済み前提）
-# create_pipe, create_chamfered_cube, create_octagon
-# create_material, apply_preset_material
-# finalize_model, export_gltf
+# _base.py をロード
+exec(open("tools/blender_scripts/_base.py").read())
+
+# 出力ディレクトリ
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+OUTPUT_DIR = os.path.join(project_root, "assets", "models", "items")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # =============================================================================
 # パイプ類
@@ -38,7 +43,7 @@ def create_iron_pipe():
     apply_material(pipe, mat)
 
     finalize_model(pipe, category="item")
-    export_gltf("iron_pipe.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "iron_pipe.gltf"), export_animations=False)
     print("✓ iron_pipe created")
 
 def create_copper_pipe():
@@ -61,7 +66,7 @@ def create_copper_pipe():
     apply_material(pipe, mat)
 
     finalize_model(pipe, category="item")
-    export_gltf("copper_pipe.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "copper_pipe.gltf"), export_animations=False)
     print("✓ copper_pipe created")
 
 def create_steel_pipe():
@@ -84,7 +89,7 @@ def create_steel_pipe():
     apply_material(pipe, mat)
 
     finalize_model(pipe, category="item")
-    export_gltf("steel_pipe.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "steel_pipe.gltf"), export_animations=False)
     print("✓ steel_pipe created")
 
 # =============================================================================
@@ -113,7 +118,7 @@ def create_rubber():
     apply_material(rubber, mat)
 
     finalize_model(rubber, category="item")
-    export_gltf("rubber.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "rubber.gltf"), export_animations=False)
     print("✓ rubber created")
 
 def create_plastic():
@@ -138,7 +143,7 @@ def create_plastic():
     apply_material(plastic, mat)
 
     finalize_model(plastic, category="item")
-    export_gltf("plastic.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "plastic.gltf"), export_animations=False)
     print("✓ plastic created")
 
 # =============================================================================
@@ -167,7 +172,7 @@ def create_glass():
     apply_material(glass, mat)
 
     finalize_model(glass, category="item")
-    export_gltf("glass.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "glass.gltf"), export_animations=False)
     print("✓ glass created")
 
 def create_brick():
@@ -192,7 +197,7 @@ def create_brick():
     apply_material(brick, mat)
 
     finalize_model(brick, category="item")
-    export_gltf("brick.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "brick.gltf"), export_animations=False)
     print("✓ brick created")
 
 def create_concrete():
@@ -217,7 +222,7 @@ def create_concrete():
     apply_material(concrete, mat)
 
     finalize_model(concrete, category="item")
-    export_gltf("concrete.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "concrete.gltf"), export_animations=False)
     print("✓ concrete created")
 
 # =============================================================================
@@ -246,7 +251,7 @@ def create_coal():
     apply_material(coal, mat)
 
     finalize_model(coal, category="item")
-    export_gltf("coal.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "coal.gltf"), export_animations=False)
     print("✓ coal created")
 
 def create_stone_dust():
@@ -271,7 +276,7 @@ def create_stone_dust():
     apply_material(dust, mat)
 
     finalize_model(dust, category="item")
-    export_gltf("stone_dust.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "stone_dust.gltf"), export_animations=False)
     print("✓ stone_dust created")
 
 def create_slag():
@@ -296,7 +301,7 @@ def create_slag():
     apply_material(slag, mat)
 
     finalize_model(slag, category="item")
-    export_gltf("slag.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "slag.gltf"), export_animations=False)
     print("✓ slag created")
 
 # =============================================================================
@@ -325,7 +330,7 @@ def create_rubber_sap():
     apply_material(sap, mat)
 
     finalize_model(sap, category="item")
-    export_gltf("rubber_sap.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "rubber_sap.gltf"), export_animations=False)
     print("✓ rubber_sap created")
 
 def create_raw_quartz():
@@ -353,7 +358,7 @@ def create_raw_quartz():
     apply_material(quartz, mat)
 
     finalize_model(quartz, category="item")
-    export_gltf("raw_quartz.gltf", export_animations=False)
+    export_gltf(os.path.join(OUTPUT_DIR, "raw_quartz.gltf"), export_animations=False)
     print("✓ raw_quartz created")
 
 # =============================================================================

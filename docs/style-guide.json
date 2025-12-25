@@ -1,10 +1,46 @@
 {
   "meta": {
     "name": "Industrial Lowpoly Style Guide",
-    "version": "1.0.0",
-    "description": "Create mod風の工業的ローポリスタイル + Bevy技術仕様",
+    "version": "1.1.0",
+    "description": "Unturned / Create mod風の工業的ローポリスタイル + Bevy技術仕様",
     "engine": "Bevy",
-    "format": "glTF 2.0"
+    "format": "glTF 2.0",
+    "references": [
+      {
+        "name": "Kenney Conveyor Kit",
+        "url": "https://kenney.nl/assets/conveyor-kit",
+        "description": "60+モデル、単一テクスチャ、最適化済みローポリ工業アセット",
+        "license": "CC0 1.0"
+      },
+      {
+        "name": "Unturned",
+        "description": "ブロック感のあるローポリスタイルの参考"
+      },
+      {
+        "name": "Minecraft Create Mod",
+        "description": "工業的メカニズムと視覚的フィードバックの参考"
+      }
+    ]
+  },
+
+  "modeling_principles": {
+    "kit_bashing": {
+      "description": "プリミティブの組み合わせでモデリング",
+      "allowed": ["primitive placement", "transform", "join", "boolean"],
+      "forbidden": ["vertex editing", "sculpting", "subdivision surface"],
+      "comment": "頂点移動などの複雑なメッシュ操作は禁止、基本図形の配置のみ"
+    },
+    "hierarchy": {
+      "required": true,
+      "root_object": "Empty",
+      "pivot_position": "bottom_center",
+      "comment": "すべてのパーツをルートEmptyの子要素として相対座標で配置"
+    },
+    "part_reuse": {
+      "enabled": true,
+      "common_parts": ["gear", "shaft", "pipe", "bolt", "piston", "roller"],
+      "comment": "共通パーツを関数化して再利用"
+    }
   },
 
   "geometry": {

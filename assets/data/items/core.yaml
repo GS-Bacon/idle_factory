@@ -1331,3 +1331,274 @@
     tier: "4"
     placeable: "true"
     energy_output: "60"
+
+# =============================================================================
+# 14. スマート物流機械 (Smart Logistics Machines) - Tier 2-4
+# =============================================================================
+# 出典: Satisfactory / Factorio
+# P1: 段階的複雑化 - 基本ベルト→スマート→プログラマブル
+
+# --- スマートスプリッター (Tier 3-4) ---
+- id: "smart_splitter"
+  name: "Smart Splitter"
+  description: "Splits items based on filter rules"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "3"
+    placeable: "true"
+    stress_impact: "1.0"
+    filter_slots: "3"
+
+- id: "programmable_splitter"
+  name: "Programmable Splitter"
+  description: "Advanced splitter with LCD display and custom logic"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "4"
+    placeable: "true"
+    stress_impact: "1.5"
+    filter_slots: "3"
+    programmable: "true"
+    rarity: "uncommon"
+
+# =============================================================================
+# 15. 電力制御機器 (Power Control Equipment) - Tier 2-3
+# =============================================================================
+# 出典: Satisfactory
+# U4: 状態可視 - 電力状態を明確に表示
+
+- id: "power_switch"
+  name: "Power Switch"
+  description: "Manually toggles power flow"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "2"
+    placeable: "true"
+    toggleable: "true"
+
+- id: "circuit_breaker"
+  name: "Circuit Breaker"
+  description: "Automatically trips on power overload"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "3"
+    placeable: "true"
+    max_load: "500"
+    auto_reset: "false"
+
+# =============================================================================
+# 16. 特殊コンポーネント (Special Components) - Tier 3-4
+# =============================================================================
+# 出典: Satisfactory / Factorio
+
+- id: "power_shard"
+  name: "Power Shard"
+  description: "Glowing crystal that enables overclocking"
+  max_stack: 64
+  properties:
+    category: "component"
+    tier: "3"
+    rarity: "rare"
+    overclock_bonus: "50"
+
+- id: "hard_drive"
+  name: "Hard Drive"
+  description: "Contains alternate recipe data - research to unlock"
+  max_stack: 64
+  properties:
+    category: "component"
+    tier: "3"
+    rarity: "rare"
+    researchable: "true"
+
+# =============================================================================
+# 17. 品質モジュール (Quality Modules) - Tier 3-4
+# =============================================================================
+# 出典: Factorio 2.0 Space Age
+# P2: 明確マイルストーン - 品質システムは上級者向け
+
+- id: "quality_module_1"
+  name: "Quality Module T1"
+  description: "Increases chance of higher quality output (green)"
+  max_stack: 64
+  properties:
+    category: "module"
+    tier: "3"
+    quality_bonus: "2.5"
+    speed_penalty: "-5"
+    color: "green"
+
+- id: "quality_module_2"
+  name: "Quality Module T2"
+  description: "Better quality upgrade chance (blue)"
+  max_stack: 64
+  properties:
+    category: "module"
+    tier: "4"
+    quality_bonus: "5.0"
+    speed_penalty: "-10"
+    color: "blue"
+    rarity: "uncommon"
+
+- id: "quality_module_3"
+  name: "Quality Module T3"
+  description: "Best quality upgrade chance (purple)"
+  max_stack: 64
+  properties:
+    category: "module"
+    tier: "4"
+    quality_bonus: "10.0"
+    speed_penalty: "-15"
+    color: "purple"
+    rarity: "rare"
+
+# =============================================================================
+# 18. ロジスティクスロボット (Logistics Robots) - Tier 3
+# =============================================================================
+# 出典: Factorio
+# P3: 複数経路 - ベルト以外の輸送手段
+
+- id: "roboport"
+  name: "Roboport"
+  description: "Charging station and command center for robots"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "3"
+    placeable: "true"
+    logistics_range: "50"
+    construction_range: "110"
+    robot_slots: "7"
+    charging_slots: "4"
+    rarity: "uncommon"
+
+- id: "logistics_robot"
+  name: "Logistics Robot"
+  description: "Small drone for item transport"
+  max_stack: 64
+  properties:
+    category: "robot"
+    tier: "3"
+    speed: "5"
+    cargo_size: "1"
+    battery_capacity: "1500"
+
+- id: "construction_robot"
+  name: "Construction Robot"
+  description: "Drone with tools for building and repair"
+  max_stack: 64
+  properties:
+    category: "robot"
+    tier: "3"
+    speed: "5"
+    cargo_size: "1"
+    battery_capacity: "1500"
+    can_build: "true"
+    can_repair: "true"
+
+# --- ロジスティクスチェスト (Tier 2-3) ---
+- id: "storage_chest"
+  name: "Storage Chest"
+  description: "Passive storage for logistics network"
+  max_stack: 64
+  properties:
+    category: "storage"
+    tier: "2"
+    placeable: "true"
+    slots: "48"
+    logistics_type: "storage"
+
+- id: "provider_chest"
+  name: "Provider Chest"
+  description: "Provides items to logistics network (yellow)"
+  max_stack: 64
+  properties:
+    category: "storage"
+    tier: "3"
+    placeable: "true"
+    slots: "48"
+    logistics_type: "provider"
+    color: "yellow"
+
+- id: "requester_chest"
+  name: "Requester Chest"
+  description: "Requests items from logistics network (blue)"
+  max_stack: 64
+  properties:
+    category: "storage"
+    tier: "3"
+    placeable: "true"
+    slots: "48"
+    logistics_type: "requester"
+    color: "blue"
+    filter_slots: "12"
+
+- id: "buffer_chest"
+  name: "Buffer Chest"
+  description: "Acts as both provider and requester (green)"
+  max_stack: 64
+  properties:
+    category: "storage"
+    tier: "3"
+    placeable: "true"
+    slots: "48"
+    logistics_type: "buffer"
+    color: "green"
+    filter_slots: "12"
+
+# =============================================================================
+# 19. ブループリントシステム (Blueprint System) - Tier 3-4
+# =============================================================================
+# 出典: Satisfactory / Shapez2
+
+- id: "blueprint_designer_mk1"
+  name: "Blueprint Designer Mk1"
+  description: "Captures factory sections up to 32m cube"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "3"
+    placeable: "true"
+    max_size: "32"
+    rarity: "uncommon"
+
+- id: "blueprint_designer_mk2"
+  name: "Blueprint Designer Mk2"
+  description: "Advanced designer with hologram preview"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "4"
+    placeable: "true"
+    max_size: "64"
+    hologram: "true"
+    rarity: "rare"
+
+# =============================================================================
+# 20. 報酬システム (Reward System) - Tier 2
+# =============================================================================
+# 出典: Satisfactory AWESOME Sink
+
+- id: "awesome_sink"
+  name: "AWESOME Sink"
+  description: "Converts excess items into resource points"
+  max_stack: 64
+  properties:
+    category: "machine"
+    tier: "2"
+    placeable: "true"
+    accepts_any: "true"
+
+- id: "coupon"
+  name: "FICSIT Coupon"
+  description: "Currency earned from AWESOME Sink - spend in shop"
+  max_stack: 999
+  properties:
+    category: "currency"
+    tier: "1"
+    tradeable: "true"
+    rarity: "uncommon"

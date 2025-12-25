@@ -21,6 +21,10 @@ pub mod fluid;
 pub mod heat;
 pub mod vibration;
 pub mod physics;
+pub mod logistics;
+pub mod awesome_sink;
+pub mod alternate_recipes;
+pub mod blueprint;
 
 use grid::SimulationGrid;
 use crate::ui::inventory_ui::InventoryUiState;

@@ -1,0 +1,54 @@
+# UI Dump
+Generated: 2025-12-25 10:09:43
+AppState: MainMenu
+InventoryState: Closed
+
+## UI Tree
+
+- (unnamed) [w:auto h:auto] text="FPS: N/A"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:400px h:auto]
+    - (unnamed) [w:auto h:auto] text="Infinite Voxel Factory"
+    - (unnamed) [w:220px h:48px]
+      - (unnamed) [w:auto h:auto] text="Play"
+    - (unnamed) [w:220px h:48px]
+      - (unnamed) [w:auto h:auto] text="Settings"
+    - (unnamed) [w:220px h:48px]
+      - (unnamed) [w:auto h:auto] text="Quit"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:500px h:auto]
+    - (unnamed) [w:auto h:auto] text="Settings"
+    - (unnamed) [w:auto h:auto]
+      - (unnamed) [w:auto h:auto] text="Max FPS"
+      - (unnamed) [w:auto h:auto]
+        - (unnamed) [w:40px h:40px]
+          - (unnamed) [w:auto h:auto] text="-"
+        - (unnamed) [w:80px h:auto] text="60"
+        - (unnamed) [w:40px h:40px]
+          - (unnamed) [w:auto h:auto] text="+"
+      - (unnamed) [w:auto h:auto] text="(30, 60, 120, 144, 240)"
+    - (unnamed) [w:auto h:auto]
+      - (unnamed) [w:auto h:auto] text="Mouse Sensitivity"
+      - (unnamed) [w:auto h:auto]
+        - (unnamed) [w:40px h:40px]
+          - (unnamed) [w:auto h:auto] text="-"
+        - (unnamed) [w:80px h:auto] text="0.0030"
+        - (unnamed) [w:40px h:40px]
+          - (unnamed) [w:auto h:auto] text="+"
+      - (unnamed) [w:auto h:auto] text="(0.001 ~ 0.01)"
+    - (unnamed) [w:100% h:auto]
+      - (unnamed) [w:auto h:auto] text="Enable Highlight"
+      - (unnamed) [w:80px h:40px]
+        - (unnamed) [w:auto h:auto] text="ON"
+    - (unnamed) [w:100% h:auto]
+      - (unnamed) [w:auto h:auto] text="Enable UI Blur"
+      - (unnamed) [w:80px h:40px]
+        - (unnamed) [w:auto h:auto] text="ON"
+    - (unnamed) [w:auto h:auto]
+      - (unnamed) [w:auto h:auto]
+        - (unnamed) [w:auto h:auto] text="Close"
+
+## Statistics
+- Total nodes: 42
+- Named nodes: 0
+- Text nodes: 21

@@ -4,9 +4,9 @@ use std::collections::HashMap;
 /// ゲームモード（サバイバル/クリエイティブ）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Resource)]
 pub enum GameMode {
-    Survival,
     #[default]
-    Creative, // テスト段階ではクリエイティブモードをデフォルトに
+    Survival,
+    Creative,
 }
 
 /// コマンド実行結果
@@ -180,16 +180,16 @@ mod tests {
         app.add_plugins(CommandsPlugin);
         app.update();
 
-        // デフォルトはクリエイティブ（テスト段階）
-        assert_eq!(*app.world().resource::<GameMode>(), GameMode::Creative);
-
-        // サバイバルに変更
-        app.world_mut().insert_resource(GameMode::Survival);
+        // デフォルトはサバイバル
         assert_eq!(*app.world().resource::<GameMode>(), GameMode::Survival);
 
-        // クリエイティブに戻す
+        // クリエイティブに変更
         app.world_mut().insert_resource(GameMode::Creative);
         assert_eq!(*app.world().resource::<GameMode>(), GameMode::Creative);
+
+        // サバイバルに戻す
+        app.world_mut().insert_resource(GameMode::Survival);
+        assert_eq!(*app.world().resource::<GameMode>(), GameMode::Survival);
     }
 
     #[test]

@@ -1,0 +1,22 @@
+# UI Dump
+Generated: 2025-12-25 10:09:26
+AppState: MainMenu
+InventoryState: Closed
+
+## UI Tree
+
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:400px h:auto]
+    - (unnamed) [w:auto h:auto] text="Infinite Voxel Factory"
+    - (unnamed) [w:220px h:48px]
+      - (unnamed) [w:auto h:auto] text="Play"
+    - (unnamed) [w:220px h:48px]
+      - (unnamed) [w:auto h:auto] text="Settings"
+    - (unnamed) [w:220px h:48px]
+      - (unnamed) [w:auto h:auto] text="Quit"
+- (unnamed) [w:auto h:auto] text="FPS: N/A"
+
+## Statistics
+- Total nodes: 10
+- Named nodes: 0
+- Text nodes: 5

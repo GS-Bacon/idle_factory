@@ -38,6 +38,24 @@ impl Direction {
     }
 }
 
+/// コンベアレーン（Factorio風の両側レーンシステム）
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ConveyorLane {
+    #[default]
+    Left,
+    Right,
+}
+
+impl ConveyorLane {
+    /// 反対側のレーンを取得
+    pub fn opposite(&self) -> Self {
+        match self {
+            ConveyorLane::Left => ConveyorLane::Right,
+            ConveyorLane::Right => ConveyorLane::Left,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ItemSlot {
     pub item_id: String,
@@ -45,6 +63,9 @@ pub struct ItemSlot {
     pub progress: f32,
     pub unique_id: u64,
     pub from_direction: Option<Direction>,
+    /// アイテムが配置されているレーン（両側レーンシステム）
+    #[serde(default)]
+    pub lane: ConveyorLane,
 }
 
 

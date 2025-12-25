@@ -15,9 +15,8 @@ from mathutils import Vector, Matrix
 from math import pi, cos, sin
 import os
 
-# _base.pyから必要な関数をインポート（既に実行済みと仮定）
-# create_chamfered_cube, create_octagon, apply_preset_material, create_material
-# finalize_model, export_gltf, set_origin_center, snap_vec, clear_scene
+# _base.py をロード
+exec(open("tools/blender_scripts/_base.py").read())
 
 # =============================================================================
 # 定数
@@ -294,11 +293,12 @@ def export_all_stones(output_dir=""):
 # =============================================================================
 
 if __name__ == "__main__":
-    # 全モデルを生成して表示
-    create_all_stones()
+    # 全アイテムをエクスポート
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    output_dir = os.path.join(project_root, "assets", "models", "items")
+    os.makedirs(output_dir, exist_ok=True)
 
-    # 個別エクスポートする場合は下記を実行
-    # export_all_stones(output_dir="/path/to/output")
+    export_all_stones(output_dir=output_dir)
 
     print("=== Stone Items Generation Complete ===")
-    print("To export individually, run: export_all_stones(output_dir='your_path')")

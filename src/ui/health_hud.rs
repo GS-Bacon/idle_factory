@@ -60,17 +60,18 @@ fn spawn_health_hud(mut commands: Commands) {
         BackgroundColor(Color::srgba(1.0, 0.0, 0.0, 0.0)),
     ));
 
-    // HP HUD（左下に配置）
+    // HP HUD（左下に配置、サイズ拡大）
     commands.spawn((
         HealthHudRoot,
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(10.0),
-            bottom: Val::Px(60.0), // ホットバーの上
-            width: Val::Px(120.0),
-            height: Val::Px(30.0),
+            left: Val::Px(20.0),
+            bottom: Val::Px(90.0), // ホットバーの上
+            width: Val::Px(200.0),
+            height: Val::Px(50.0),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Start,
+            row_gap: Val::Px(4.0),
             ..default()
         },
     )).with_children(|parent| {
@@ -78,24 +79,24 @@ fn spawn_health_hud(mut commands: Commands) {
         parent.spawn((
             Text::new("HP"),
             TextFont {
-                font_size: 12.0,
+                font_size: 18.0,
                 ..default()
             },
-            TextColor(Color::srgba(1.0, 1.0, 1.0, 0.8)),
+            TextColor(Color::srgba(1.0, 1.0, 1.0, 0.9)),
         ));
 
         // HPバーコンテナ
         parent.spawn((
             HealthBarBackground,
             Node {
-                width: Val::Px(100.0),
-                height: Val::Px(12.0),
-                border: UiRect::all(Val::Px(1.0)),
+                width: Val::Px(180.0),
+                height: Val::Px(20.0),
+                border: UiRect::all(Val::Px(2.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
-            BorderColor(Color::srgba(0.5, 0.5, 0.5, 0.8)),
-            BorderRadius::all(Val::Px(2.0)),
+            BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+            BorderColor(Color::srgba(0.6, 0.6, 0.6, 0.9)),
+            BorderRadius::all(Val::Px(4.0)),
         )).with_children(|bar_parent| {
             // HPバー本体
             bar_parent.spawn((
@@ -106,7 +107,7 @@ fn spawn_health_hud(mut commands: Commands) {
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.8, 0.2, 0.2, 1.0)),
-                BorderRadius::all(Val::Px(1.0)),
+                BorderRadius::all(Val::Px(2.0)),
             ));
         });
 
@@ -115,10 +116,10 @@ fn spawn_health_hud(mut commands: Commands) {
             HealthText,
             Text::new("10 / 10"),
             TextFont {
-                font_size: 10.0,
+                font_size: 16.0,
                 ..default()
             },
-            TextColor(Color::srgba(1.0, 1.0, 1.0, 0.6)),
+            TextColor(Color::srgba(1.0, 1.0, 1.0, 0.8)),
         ));
     });
 }

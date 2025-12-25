@@ -18,8 +18,8 @@ from mathutils import Vector
 from math import pi
 import os
 
-# _base.py からインポート（既にロード済みと仮定）
-# 必要な関数: create_octagonal_prism, create_chamfered_cube, apply_preset_material, finalize_model, export_gltf
+# _base.py をロード
+exec(open("tools/blender_scripts/_base.py").read())
 
 # =============================================================================
 # 定数
@@ -158,16 +158,13 @@ def export_all_wood_items(output_dir="./"):
 # =============================================================================
 
 if __name__ == "__main__":
-    # 使用例: 個別エクスポート
-    # export_log("./assets/models/items/")
-    # export_wood_plank("./assets/models/items/")
-    # export_stick("./assets/models/items/")
+    # 全アイテムをエクスポート
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    output_dir = os.path.join(project_root, "assets", "models", "items")
+    os.makedirs(output_dir, exist_ok=True)
 
-    # 使用例: 一括エクスポート
-    # export_all_wood_items("./assets/models/items/")
-
-    # プレビュー用: 1つだけ作成
-    create_log()
+    export_all_wood_items(output_dir)
 
     print("=== Wood Items Script Loaded ===")
     print("Available functions:")

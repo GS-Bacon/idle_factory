@@ -7,44 +7,34 @@
 | ログ | 作業中は出力禁止、終了時に短く報告 |
 | テスト | 実装/変更時はテスト作成、Clippy後にテスト実行 |
 | コミット | 適宜実行、日本語メッセージ、プッシュは指示待ち |
+| **Worktree** | **新機能は必ずWorktreeで作業（下記参照）** |
 | 中断禁止 | 確認を求めず最後まで完了させる |
 | 記録 | 完了/失敗時は`changelog.md`に追記 |
+| **課題** | **未解決の問題は`issues.md`に追記** |
 | パターン | 仕様変更/実装前に`patterns-compact.md`確認 |
 | UI実装 | UI作成/修正時は`ui-design-rules.md`に従う |
-| 動作確認 | 指示時は自動操作でテスト、クラッシュ時はログ解析 |
+| 動作確認 | `/e2e-test`スキルを使用、クラッシュ時はログ解析 |
 | 3Dモデル | 「XXXのモデルを作成」指示でサブエージェント起動 |
 | サブエージェント | モデリング時は複数並列実行、リソース余裕時は積極活用 |
 
-## 3Dモデル生成ルール
+## 3Dモデル生成
 
 「〇〇のモデルを作成して」という指示を受けたら:
+1. `.specify/memory/modeling-rules.md` を参照
+2. サブエージェント起動 (Task tool, subagent_type: general-purpose)
+3. 完了後、結果を報告
 
-1. **サブエージェント起動** (Task tool, subagent_type: general-purpose)
-2. **プロンプト内容**:
-```
-tools/blender_scripts/_base.py を読み込み、以下のモデルのスクリプトを生成せよ。
+## E2Eテスト
 
-【モデル】{ユーザー指定のモデル名}
-【カテゴリ】{machine/item/structure}
+動作確認が必要な場合は `/e2e-test` スキルを使用:
+- `/e2e-test` - フルテスト実行
+- `/e2e-test interaction` - インタラクションテスト
+- `/e2e-test report` - 最新レポート確認
 
-【使用する関数】_base.pyから:
-- プリミティブ: create_octagon, create_octagonal_prism, create_chamfered_cube, create_hexagon, create_trapezoid
-- パーツ: create_gear, create_shaft, create_pipe, create_bolt, create_piston
-- マテリアル: apply_preset_material(obj, "iron"/"copper"/"brass"/"dark_steel"/"wood"/"stone")
-- アニメーション: create_rotation_animation, create_translation_animation
-- 仕上げ: finalize_model, export_gltf
-
-【スクリプト構造】
-exec(open("tools/blender_scripts/_base.py").read())
-# パーツ生成
-# マテリアル適用
-# アニメーション設定（必要時）
-# finalize_model + export_gltf
-
-【出力】tools/blender_scripts/{model_name}.py
-```
-
-3. **サブエージェント完了後**: 結果をユーザーに報告
+結果確認の優先順位:
+1. `screenshots/test_report.txt` - サマリ（最優先）
+2. `screenshots/*_ui_dump_*.txt` - UIダンプ
+3. `screenshots/*.png` - スクリーンショット（問題時のみ）
 
 ## 参照ファイル
 
@@ -53,14 +43,40 @@ exec(open("tools/blender_scripts/_base.py").read())
 | 必須 | `API_REFERENCE.md` | 関数・構造体一覧 |
 | 状況 | `.specify/memory/constitution.md` | プロジェクト原則 |
 | 状況 | `.specify/memory/changelog.md` | 開発履歴 |
+| 状況 | `.specify/memory/issues.md` | 未解決の課題 |
 | 状況 | `.specify/memory/patterns-compact.md` | 52パターン |
 | 状況 | `.specify/memory/ui-design-rules.md` | UIデザインルール |
-| 状況 | `docs/style-guide.json` | 3Dモデルスタイルガイド |
-| 状況 | `tools/blender_scripts/_base.py` | Blender共通モジュール |
+| 3Dモデル | `.specify/memory/modeling-rules.md` | モデリング詳細ルール |
+| 3Dモデル | `docs/style-guide.json` | 3Dモデルスタイルガイド |
+| 3Dモデル | `tools/blender_scripts/_base.py` | Blender共通モジュール |
 | 状況 | `.specify/specs/index-compact.md` | 全仕様集約 |
 | 詳細時 | `.specify/specs/*.md`, `src/**/*.rs` | 個別レポート/ソース |
 
 **原則**: 圧縮版優先、詳細は必要時のみ
+
+## Git Worktree ワークフロー（必須）
+
+新機能実装時は**必ず**以下の手順で作業すること:
+
+```bash
+# 1. Worktree作成（機能名でブランチ作成）
+git worktree add ../idle_factory_worktrees/機能名 -b feature/機能名
+
+# 2. そのディレクトリで作業・コミット
+cd ../idle_factory_worktrees/機能名
+# ... 実装 ...
+git add -A && git commit -m "feat: 機能説明"
+
+# 3. masterにマージ（メインディレクトリで）
+cd /home/bacon/github/idle_factory
+git merge feature/機能名
+
+# 4. Worktree削除
+git worktree remove ../idle_factory_worktrees/機能名
+git branch -d feature/機能名
+```
+
+**禁止事項**: masterブランチで直接新機能を実装しない
 
 ## README.md
 

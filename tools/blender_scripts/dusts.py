@@ -12,9 +12,10 @@ import bpy
 from mathutils import Vector
 from math import pi
 import random
+import os
 
-# _base.pyの関数を使用
-# create_chamfered_cube, create_octagon, create_material, apply_material, finalize_model, export_gltf
+# _base.py をロード
+exec(open("tools/blender_scripts/_base.py").read())
 
 # =============================================================================
 # 粉末の色と材質定義

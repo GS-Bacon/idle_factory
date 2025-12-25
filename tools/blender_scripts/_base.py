@@ -43,13 +43,17 @@ ACCENT_COLORS = {
 # ユーティリティ
 # =============================================================================
 
-def snap(value):
-    """グリッドスナップ"""
+def snap(value, enabled=False):
+    """グリッドスナップ（デフォルト無効）"""
+    if not enabled:
+        return value
     return round(value / GRID_UNIT) * GRID_UNIT
 
-def snap_vec(v):
-    """ベクトルをグリッドスナップ"""
-    return Vector((snap(v.x), snap(v.y), snap(v.z)))
+def snap_vec(v, enabled=False):
+    """ベクトルをグリッドスナップ（デフォルト無効）"""
+    if not enabled:
+        return Vector((v.x, v.y, v.z)) if not isinstance(v, Vector) else v
+    return Vector((snap(v.x, True), snap(v.y, True), snap(v.z, True)))
 
 def clear_scene():
     """シーンをクリア"""
@@ -225,12 +229,13 @@ def create_gear(radius=0.5, thickness=0.1, teeth=8, hole_radius=0.1, location=(0
         objects.append(tooth)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = base
     for obj in objects:
         obj.select_set(True)
     bpy.ops.object.join()
 
-    return base
+    return bpy.context.active_object
 
 def create_shaft(radius=0.1, length=1.0, location=(0, 0, 0), name="Shaft"):
     """シャフト（八角柱）"""
@@ -261,24 +266,26 @@ def create_bolt(size=0.0625, length=0.125, location=(0, 0, 0), name="Bolt"):
     shaft_loc = (location[0], location[1], location[2] - length / 2)
     shaft = create_octagonal_prism(size * 0.4, length, shaft_loc, f"{name}_shaft")
 
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = head
     shaft.select_set(True)
     head.select_set(True)
     bpy.ops.object.join()
 
-    return head
+    return bpy.context.active_object
 
 def create_piston(rod_radius=0.05, rod_length=0.5, head_size=(0.2, 0.2, 0.1), location=(0, 0, 0), name="Piston"):
     """ピストン"""
     rod = create_octagonal_prism(rod_radius, rod_length, location, f"{name}_rod")
     head = create_chamfered_cube(head_size, None, (location[0], location[1], location[2] + rod_length / 2), f"{name}_head")
 
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = rod
     head.select_set(True)
     rod.select_set(True)
     bpy.ops.object.join()
 
-    return rod
+    return bpy.context.active_object
 
 # =============================================================================
 # マテリアル
@@ -455,6 +462,684 @@ def finalize_model(obj, category="machine"):
         set_origin_center(obj)
 
 # =============================================================================
+# ディテール追加関数（Minecraft/Unturned風）
+# =============================================================================
+
+def add_surface_detail(obj, detail_type="bump", count=3, seed=0):
+    """表面にローポリディテールを追加"""
+    import random
+    random.seed(seed)
+
+    # バウンディングボックス取得
+    bbox = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+    min_x = min(v.x for v in bbox)
+    max_x = max(v.x for v in bbox)
+    min_y = min(v.y for v in bbox)
+    max_y = max(v.y for v in bbox)
+    min_z = min(v.z for v in bbox)
+    max_z = max(v.z for v in bbox)
+
+    size_x = max_x - min_x
+    size_y = max_y - min_y
+    size_z = max_z - min_z
+
+    details = []
+
+    for i in range(count):
+        # ランダム位置（表面付近）
+        face = random.choice(['top', 'front', 'side'])
+
+        if face == 'top':
+            x = random.uniform(min_x + size_x * 0.2, max_x - size_x * 0.2)
+            y = random.uniform(min_y + size_y * 0.2, max_y - size_y * 0.2)
+            z = max_z
+        elif face == 'front':
+            x = random.uniform(min_x + size_x * 0.2, max_x - size_x * 0.2)
+            y = max_y
+            z = random.uniform(min_z + size_z * 0.2, max_z - size_z * 0.2)
+        else:
+            x = max_x
+            y = random.uniform(min_y + size_y * 0.2, max_y - size_y * 0.2)
+            z = random.uniform(min_z + size_z * 0.2, max_z - size_z * 0.2)
+
+        detail_size = min(size_x, size_y, size_z) * random.uniform(0.08, 0.15)
+
+        if detail_type == "bump":
+            detail = create_chamfered_cube(
+                size=(detail_size, detail_size, detail_size * 0.5),
+                chamfer=detail_size * 0.1,
+                location=(x, y, z),
+                name=f"detail_{i}"
+            )
+        elif detail_type == "rivet":
+            detail = create_octagonal_prism(
+                radius=detail_size * 0.4,
+                height=detail_size * 0.3,
+                location=(x, y, z),
+                name=f"rivet_{i}"
+            )
+
+        details.append(detail)
+
+    return details
+
+def create_rivet(radius=0.008, height=0.004, location=(0, 0, 0), name="Rivet"):
+    """リベット（工業的ディテール）"""
+    rivet = create_octagonal_prism(radius, height, location, name)
+    return rivet
+
+def create_weld_line(length=0.1, width=0.006, location=(0, 0, 0), rotation=(0, 0, 0), name="Weld"):
+    """溶接線（工業的ディテール）"""
+    weld = create_chamfered_cube(
+        size=(length, width, width * 0.5),
+        chamfer=width * 0.2,
+        location=location,
+        name=name
+    )
+    weld.rotation_euler = rotation
+    return weld
+
+def create_groove(length=0.1, width=0.01, depth=0.005, location=(0, 0, 0), name="Groove"):
+    """溝（ディテール用）"""
+    groove = create_chamfered_cube(
+        size=(length, width, depth),
+        chamfer=depth * 0.2,
+        location=location,
+        name=name
+    )
+    return groove
+
+def create_edge_bevel(obj, segments=1):
+    """エッジにベベルを追加（ローポリ風の面取り）"""
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    mod = obj.modifiers.new("Bevel", 'BEVEL')
+    mod.width = 0.005
+    mod.segments = segments
+    mod.limit_method = 'ANGLE'
+    mod.angle_limit = radians(30)
+    bpy.ops.object.modifier_apply(modifier="Bevel")
+    return obj
+
+# =============================================================================
+# 階層構造ヘルパー（キットバッシング用）
+# =============================================================================
+
+def create_root_empty(name="MachineRoot"):
+    """ルートEmptyを作成（全パーツの親）"""
+    root = bpy.data.objects.new(name, None)
+    root.empty_display_type = 'ARROWS'
+    root.empty_display_size = 0.5
+    bpy.context.collection.objects.link(root)
+    return root
+
+def parent_to_root(objects, root):
+    """複数オブジェクトをルートの子に設定"""
+    for obj in objects:
+        obj.parent = root
+        # 相対位置を維持
+        obj.matrix_parent_inverse = root.matrix_world.inverted()
+
+def join_all_meshes(objects, name="CombinedMesh"):
+    """複数メッシュを1つに結合"""
+    if not objects:
+        return None
+
+    # メッシュオブジェクトのみフィルタ
+    mesh_objects = [obj for obj in objects if obj.type == 'MESH']
+    if not mesh_objects:
+        return None
+
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in mesh_objects:
+        obj.select_set(True)
+
+    bpy.context.view_layer.objects.active = mesh_objects[0]
+    bpy.ops.object.join()
+
+    result = bpy.context.active_object
+    result.name = name
+    return result
+
+# =============================================================================
+# コンベア関連パーツ（Kenney Conveyor Kit風）
+# =============================================================================
+
+def create_roller(radius=0.1, length=0.8, location=(0, 0, 0), name="Roller"):
+    """コンベアローラー（八角柱）"""
+    roller = create_octagonal_prism(radius, length, location, name)
+    roller.rotation_euler.y = pi / 2  # X軸方向に
+    return roller
+
+def create_conveyor_belt_segment(width=0.8, length=0.2, thickness=0.02, location=(0, 0, 0), name="BeltSegment"):
+    """コンベアベルトセグメント"""
+    segment = create_chamfered_cube(
+        size=(width, length, thickness),
+        chamfer=thickness * 0.3,
+        location=location,
+        name=name
+    )
+    return segment
+
+def create_conveyor_frame(width=1.0, length=1.0, height=0.3, location=(0, 0, 0), name="ConveyorFrame"):
+    """コンベアフレーム（サイドレール付き）"""
+    parts = []
+    rail_width = 0.08
+    rail_height = height
+
+    # 左レール
+    left_rail = create_chamfered_cube(
+        size=(rail_width, length, rail_height),
+        location=(location[0] - width/2 + rail_width/2, location[1], location[2] + rail_height/2),
+        name=f"{name}_LeftRail"
+    )
+    parts.append(left_rail)
+
+    # 右レール
+    right_rail = create_chamfered_cube(
+        size=(rail_width, length, rail_height),
+        location=(location[0] + width/2 - rail_width/2, location[1], location[2] + rail_height/2),
+        name=f"{name}_RightRail"
+    )
+    parts.append(right_rail)
+
+    return parts
+
+def create_support_leg(height=0.5, width=0.1, location=(0, 0, 0), name="SupportLeg"):
+    """サポート脚"""
+    leg = create_chamfered_cube(
+        size=(width, width, height),
+        location=(location[0], location[1], location[2] - height/2),
+        name=name
+    )
+    return leg
+
+# =============================================================================
+# Blender MCP連携ヘルパー
+# =============================================================================
+
+def get_scene_info():
+    """シーン情報を取得（MCP経由でのデバッグ用）"""
+    info = {
+        "objects": [],
+        "total_triangles": 0,
+        "materials": []
+    }
+
+    for obj in bpy.context.scene.objects:
+        if obj.type == 'MESH':
+            # 三角形数を計算
+            tri_count = sum(len(poly.vertices) - 2 for poly in obj.data.polygons)
+            info["objects"].append({
+                "name": obj.name,
+                "location": list(obj.location),
+                "triangles": tri_count,
+                "materials": [mat.name for mat in obj.data.materials if mat]
+            })
+            info["total_triangles"] += tri_count
+
+    info["materials"] = list(set(mat.name for mat in bpy.data.materials))
+    return info
+
+def validate_model(obj, category="machine"):
+    """モデルのバリデーション"""
+    issues = []
+
+    if obj.type != 'MESH':
+        issues.append(f"オブジェクト '{obj.name}' はメッシュではありません")
+        return issues
+
+    # 三角形数チェック
+    tri_count = sum(len(poly.vertices) - 2 for poly in obj.data.polygons)
+
+    budgets = {
+        "item": (200, 500),
+        "machine": (800, 1500),
+        "structure": (2000, 4000)
+    }
+
+    if category in budgets:
+        recommended, max_count = budgets[category]
+        if tri_count > max_count:
+            issues.append(f"三角形数 {tri_count} が上限 {max_count} を超えています")
+        elif tri_count > recommended:
+            issues.append(f"三角形数 {tri_count} が推奨値 {recommended} を超えています（上限: {max_count}）")
+
+    # 原点チェック
+    if category == "machine":
+        bbox = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+        min_z = min(v.z for v in bbox)
+        if abs(min_z) > 0.01:
+            issues.append(f"原点が底面中心にありません（最小Z: {min_z:.3f}）")
+
+    # マテリアルチェック
+    if not obj.data.materials:
+        issues.append("マテリアルが設定されていません")
+
+    return issues
+
+def print_validation_report(obj, category="machine"):
+    """バリデーションレポートを出力"""
+    issues = validate_model(obj, category)
+
+    print(f"\n=== Validation Report: {obj.name} ===")
+    if issues:
+        print("Issues found:")
+        for issue in issues:
+            print(f"  ⚠️  {issue}")
+    else:
+        print("✅ All checks passed!")
+
+    # 基本情報
+    if obj.type == 'MESH':
+        tri_count = sum(len(poly.vertices) - 2 for poly in obj.data.polygons)
+        print(f"\nStats:")
+        print(f"  Triangles: {tri_count}")
+        print(f"  Location: {tuple(round(v, 3) for v in obj.location)}")
+        print(f"  Materials: {len(obj.data.materials)}")
+
+    return len(issues) == 0
+
+# =============================================================================
+# 高レベルパーツ（アイテム用）
+# =============================================================================
+
+def create_tool_handle(length=0.15, radius=0.012, material="wood", grip_grooves=3):
+    """ツール用木製ハンドル（グリップ溝付き）
+
+    Args:
+        length: ハンドル長さ (default: 0.15)
+        radius: ハンドル半径 (default: 0.012)
+        material: マテリアルプリセット (default: "wood")
+        grip_grooves: グリップ溝の数 (default: 3)
+
+    Returns:
+        結合されたハンドルオブジェクト
+    """
+    objects = []
+
+    # メインハンドル
+    handle = create_octagonal_prism(radius, length, (0, 0, 0), "Handle")
+    apply_preset_material(handle, material)
+    objects.append(handle)
+
+    # グリップ溝
+    groove_color = tuple(c * 0.8 for c in MATERIALS[material]["color"][:3]) + (1,)
+    groove_mat = create_material("grip_groove", color=groove_color, metallic=0.0, roughness=0.9)
+
+    for i in range(grip_grooves):
+        z_pos = -length * 0.3 + i * 0.02
+        groove = create_octagonal_prism(radius * 1.1, 0.004, (0, 0, z_pos), f"Grip_{i}")
+        apply_material(groove, groove_mat)
+        objects.append(groove)
+
+    # 端のキャップ
+    cap = create_octagonal_prism(radius * 1.15, 0.008, (0, 0, -length/2 + 0.004), "HandleCap")
+    apply_preset_material(cap, material)
+    objects.append(cap)
+
+    # 結合
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.view_layer.objects.active = handle
+    for obj in objects:
+        obj.select_set(True)
+    bpy.ops.object.join()
+
+    return bpy.context.active_object
+
+
+def create_ingot(width=0.08, length=0.12, height=0.03, material="iron"):
+    """インゴット（台形断面の金属塊）
+
+    Args:
+        width: 幅 (default: 0.08)
+        length: 長さ (default: 0.12)
+        height: 高さ (default: 0.03)
+        material: マテリアルプリセット
+
+    Returns:
+        インゴットオブジェクト
+    """
+    # 上面がやや小さい台形断面
+    ingot = create_chamfered_cube(
+        size=(width, length, height),
+        chamfer=height * 0.15,
+        location=(0, 0, 0),
+        name="Ingot"
+    )
+    apply_preset_material(ingot, material)
+    return ingot
+
+
+def create_ore_chunk(size=0.06, material="stone", irregularity=0.3):
+    """鉱石塊（不規則な多面体）
+
+    Args:
+        size: 基本サイズ (default: 0.06)
+        material: マテリアルプリセット
+        irregularity: 不規則さ (0-1)
+
+    Returns:
+        鉱石オブジェクト
+    """
+    import random
+
+    objects = []
+
+    # メインの塊
+    main = create_chamfered_cube(
+        size=(size, size * 0.9, size * 0.8),
+        chamfer=size * 0.1,
+        location=(0, 0, 0),
+        name="OreMain"
+    )
+    objects.append(main)
+
+    # 突起（2-3個）
+    for i in range(2):
+        offset = size * 0.3
+        bump = create_chamfered_cube(
+            size=(size * 0.4, size * 0.35, size * 0.3),
+            chamfer=size * 0.05,
+            location=(
+                (i - 0.5) * offset,
+                (i % 2 - 0.5) * offset * 0.5,
+                size * 0.3
+            ),
+            name=f"OreBump_{i}"
+        )
+        objects.append(bump)
+
+    # 結合
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.view_layer.objects.active = main
+    for obj in objects:
+        obj.select_set(True)
+    bpy.ops.object.join()
+
+    result = bpy.context.active_object
+    apply_preset_material(result, material)
+    return result
+
+
+def create_plate(width=0.1, length=0.1, thickness=0.008, material="iron"):
+    """金属プレート
+
+    Args:
+        width: 幅 (default: 0.1)
+        length: 長さ (default: 0.1)
+        thickness: 厚さ (default: 0.008)
+        material: マテリアルプリセット
+
+    Returns:
+        プレートオブジェクト
+    """
+    plate = create_chamfered_cube(
+        size=(width, length, thickness),
+        chamfer=thickness * 0.2,
+        location=(0, 0, 0),
+        name="Plate"
+    )
+    apply_preset_material(plate, material)
+    return plate
+
+
+def create_dust_pile(radius=0.04, height=0.025, material="stone"):
+    """粉末の山
+
+    Args:
+        radius: 半径 (default: 0.04)
+        height: 高さ (default: 0.025)
+        material: マテリアルプリセット
+
+    Returns:
+        粉末オブジェクト
+    """
+    # 八角形の円錐に近い形
+    objects = []
+
+    # ベース層
+    base = create_octagonal_prism(radius, height * 0.4, (0, 0, height * 0.2), "DustBase")
+    objects.append(base)
+
+    # 中間層
+    mid = create_octagonal_prism(radius * 0.7, height * 0.35, (0, 0, height * 0.5), "DustMid")
+    objects.append(mid)
+
+    # 頂点層
+    top = create_octagonal_prism(radius * 0.3, height * 0.25, (0, 0, height * 0.75), "DustTop")
+    objects.append(top)
+
+    # 結合
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.view_layer.objects.active = base
+    for obj in objects:
+        obj.select_set(True)
+    bpy.ops.object.join()
+
+    result = bpy.context.active_object
+    apply_preset_material(result, material)
+    return result
+
+
+# =============================================================================
+# 高レベルパーツ（機械用）
+# =============================================================================
+
+def create_machine_frame(width=0.9, depth=0.9, height=0.3, material="dark_steel"):
+    """機械用ベースフレーム
+
+    Args:
+        width: 幅 (default: 0.9)
+        depth: 奥行き (default: 0.9)
+        height: 高さ (default: 0.3)
+        material: マテリアルプリセット
+
+    Returns:
+        フレームオブジェクト
+    """
+    frame = create_chamfered_cube(
+        size=(width, depth, height),
+        chamfer=min(width, depth, height) * 0.05,
+        location=(0, 0, height / 2),
+        name="MachineFrame"
+    )
+    apply_preset_material(frame, material)
+    return frame
+
+
+def create_machine_body(width=0.9, depth=0.9, height=0.6, material="iron"):
+    """機械用メインボディ
+
+    Args:
+        width: 幅 (default: 0.9)
+        depth: 奥行き (default: 0.9)
+        height: 高さ (default: 0.6)
+        material: マテリアルプリセット
+
+    Returns:
+        ボディオブジェクト
+    """
+    body = create_chamfered_cube(
+        size=(width, depth, height),
+        chamfer=min(width, depth) * 0.05,
+        location=(0, 0, height / 2),
+        name="MachineBody"
+    )
+    apply_preset_material(body, material)
+    return body
+
+
+def create_corner_bolts(width=0.9, depth=0.9, z_pos=0.3, bolt_size=0.04, material="iron"):
+    """四隅のボルト装飾
+
+    Args:
+        width: 配置幅
+        depth: 配置奥行き
+        z_pos: Z座標
+        bolt_size: ボルトサイズ
+        material: マテリアルプリセット
+
+    Returns:
+        ボルトオブジェクトのリスト
+    """
+    bolts = []
+    offset = 0.4  # 中心からのオフセット比率
+
+    positions = [
+        (-width * offset, -depth * offset, z_pos),
+        (width * offset, -depth * offset, z_pos),
+        (-width * offset, depth * offset, z_pos),
+        (width * offset, depth * offset, z_pos),
+    ]
+
+    for i, pos in enumerate(positions):
+        bolt = create_bolt(bolt_size, bolt_size * 1.5, pos, f"CornerBolt_{i}")
+        apply_preset_material(bolt, material)
+        bolts.append(bolt)
+
+    return bolts
+
+
+def create_tank_body(radius=0.4, height=0.6, material="iron"):
+    """タンク型ボディ（八角柱 + キャップ）
+
+    Args:
+        radius: 半径 (default: 0.4)
+        height: 高さ (default: 0.6)
+        material: マテリアルプリセット
+
+    Returns:
+        タンクパーツのリスト [body, top_cap, bottom_cap]
+    """
+    parts = []
+
+    # メインボディ
+    body = create_octagonal_prism(radius, height, (0, 0, height/2 + 0.05), "TankBody")
+    apply_preset_material(body, material)
+    parts.append(body)
+
+    # 上部キャップ
+    top_cap = create_octagonal_prism(radius * 1.05, 0.08, (0, 0, height + 0.05), "TankTopCap")
+    apply_preset_material(top_cap, "brass")
+    parts.append(top_cap)
+
+    # 下部キャップ
+    bottom_cap = create_octagonal_prism(radius * 1.05, 0.08, (0, 0, 0.04), "TankBottomCap")
+    apply_preset_material(bottom_cap, "brass")
+    parts.append(bottom_cap)
+
+    return parts
+
+
+def create_reinforcement_ribs(width=0.9, depth=0.9, z_pos=0.4, material="dark_steel"):
+    """補強リブ（4辺）
+
+    Args:
+        width: 幅
+        depth: 奥行き
+        z_pos: Z座標
+        material: マテリアルプリセット
+
+    Returns:
+        リブオブジェクトのリスト
+    """
+    ribs = []
+    rib_size = 0.06
+
+    # X軸方向のリブ
+    for x_offset in [-width * 0.45, width * 0.45]:
+        rib = create_chamfered_cube(
+            size=(rib_size, depth, rib_size),
+            chamfer=0.01,
+            location=(x_offset, 0, z_pos),
+            name=f"RibX_{x_offset}"
+        )
+        apply_preset_material(rib, material)
+        ribs.append(rib)
+
+    # Y軸方向のリブ
+    for y_offset in [-depth * 0.45, depth * 0.45]:
+        rib = create_chamfered_cube(
+            size=(width, rib_size, rib_size),
+            chamfer=0.01,
+            location=(0, y_offset, z_pos),
+            name=f"RibY_{y_offset}"
+        )
+        apply_preset_material(rib, material)
+        ribs.append(rib)
+
+    return ribs
+
+
+def create_motor_housing(radius=0.2, height=0.15, location=(0, 0, 0), material="copper"):
+    """モーターハウジング
+
+    Args:
+        radius: 半径 (default: 0.2)
+        height: 高さ (default: 0.15)
+        location: 位置
+        material: マテリアルプリセット
+
+    Returns:
+        モーターオブジェクト
+    """
+    motor = create_octagonal_prism(radius, height, location, "MotorHousing")
+    apply_preset_material(motor, material)
+    return motor
+
+
+# =============================================================================
+# ヘルパー関数
+# =============================================================================
+
+def add_decorative_bolts_circle(radius, z_pos, count=8, bolt_size=0.03, material="brass"):
+    """円形配置のボルト装飾
+
+    Args:
+        radius: 配置半径
+        z_pos: Z座標
+        count: ボルト数 (default: 8)
+        bolt_size: ボルトサイズ
+        material: マテリアルプリセット
+
+    Returns:
+        ボルトオブジェクトのリスト
+    """
+    bolts = []
+    for i in range(count):
+        angle = i * 2 * pi / count + pi / count  # オフセットして配置
+        x = cos(angle) * radius
+        y = sin(angle) * radius
+        bolt = create_bolt(bolt_size, bolt_size * 1.3, (x, y, z_pos), f"CircleBolt_{i}")
+        apply_preset_material(bolt, material)
+        bolts.append(bolt)
+    return bolts
+
+
+def create_accent_light(size=0.05, location=(0, 0, 0), color_preset="power"):
+    """アクセントライト（状態表示など）
+
+    Args:
+        size: サイズ
+        location: 位置
+        color_preset: danger/warning/power/active
+
+    Returns:
+        ライトオブジェクト
+    """
+    light = create_octagonal_prism(size, size * 0.5, location, "AccentLight")
+    mat = create_material(
+        f"accent_{color_preset}",
+        color=ACCENT_COLORS.get(color_preset, ACCENT_COLORS["power"]),
+        metallic=0.1,
+        roughness=0.2
+    )
+    apply_material(light, mat)
+    return light
+
+
+# =============================================================================
 # 登録完了メッセージ
 # =============================================================================
 
@@ -462,6 +1147,13 @@ print("=== Industrial Lowpoly Base Module Loaded ===")
 print("Available functions:")
 print("  Primitives: create_octagon, create_octagonal_prism, create_chamfered_cube, create_hexagon, create_trapezoid")
 print("  Parts: create_gear, create_shaft, create_pipe, create_bolt, create_piston")
+print("  Conveyor: create_roller, create_conveyor_belt_segment, create_conveyor_frame, create_support_leg")
+print("  Hierarchy: create_root_empty, parent_to_root, join_all_meshes")
 print("  Materials: create_material, apply_preset_material")
 print("  Animation: create_rotation_animation, create_translation_animation")
+print("  Validation: get_scene_info, validate_model, print_validation_report")
 print("  Export: export_gltf, finalize_model")
+print("  === NEW High-Level Parts ===")
+print("  Items: create_tool_handle, create_ingot, create_ore_chunk, create_plate, create_dust_pile")
+print("  Machines: create_machine_frame, create_machine_body, create_tank_body, create_motor_housing")
+print("  Decorative: create_corner_bolts, create_reinforcement_ribs, add_decorative_bolts_circle, create_accent_light")

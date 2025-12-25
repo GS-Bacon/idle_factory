@@ -10,9 +10,10 @@
 
 import bpy
 from mathutils import Vector
+import os
 
-# _base.pyの関数を使用
-# create_chamfered_cube, create_material, apply_material, finalize_model, export_gltf
+# _base.py をロード
+exec(open("tools/blender_scripts/_base.py").read())
 
 # =============================================================================
 # 板材の色と材質定義

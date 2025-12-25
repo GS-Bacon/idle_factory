@@ -10,9 +10,17 @@ category: item (dropped_item: 0.4x0.4x0.4)
 import bpy
 from mathutils import Vector
 from math import pi
+import os
+
+# _base.py をロード
+exec(open("tools/blender_scripts/_base.py").read())
 
 # 出力ディレクトリ
-OUTPUT_DIR = "//models/items/armor/"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+OUTPUT_DIR = os.path.join(project_root, "assets", "models", "items", "armor")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_DIR = OUTPUT_DIR + os.sep
 
 # =============================================================================
 # ヘルメット

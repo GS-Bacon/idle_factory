@@ -4,6 +4,204 @@
 
 ---
 
+## 2025-12-25
+
+### 高優先度機能システム実装（ゲーム調査結果より）
+
+**概要**
+Minecraft, Unturned, Satisfactory, Shapez2, Factorio, パルワールドの調査結果を基に、
+9つの高優先度システムを実装。
+
+**調査・企画**
+- 6ゲームの仕様を並列調査
+- 既存パターン（patterns-compact.md）との重複を除外
+- 優先度分類（高: 9件、中: 5件）
+- ロードマップ作成: `.specify/memory/feature-roadmap-from-research.md`
+
+**実装システム一覧**
+
+| システム | 出典 | 実装ファイル |
+|----------|------|-------------|
+| 両側レーンベルト | Factorio | `src/gameplay/grid.rs`, `conveyor.rs` |
+| スマートスプリッター | Satisfactory | `src/gameplay/machines/splitter.rs` |
+| 電力過負荷/ヒューズ | Satisfactory | `src/gameplay/power.rs` |
+| オーバークロック | Satisfactory | `src/gameplay/machines/machine_components.rs` |
+| 品質システム | Factorio 2.0 | `src/gameplay/machines/machine_components.rs` |
+| 代替レシピ/MAM | Satisfactory | `src/gameplay/alternate_recipes.rs` |
+| ロジスティクスロボット | Factorio | `src/gameplay/logistics.rs` |
+| ブループリント設計台 | Satisfactory/Shapez2 | `src/gameplay/blueprint.rs` |
+| AWESOME Sink | Satisfactory | `src/gameplay/awesome_sink.rs` |
+
+**追加アイテム（20件）**
+- スマートスプリッター/プログラマブルスプリッター
+- 回路遮断機/電力スイッチ
+- パワーシャード/ハードドライブ
+- 品質モジュールT1-T3
+- ロボポート/ロジスティクスロボット/建設ロボット
+- Provider/Requester/Storage/Bufferチェスト
+- ブループリント設計台Mk1/Mk2
+- AWESOME Sink/クーポン
+
+**主要機能詳細**
+
+1. **両側レーンベルト** (Factorio風)
+   - `ConveyorLane` enum (Left/Right)
+   - `ItemSlot.lane` フィールド追加
+   - サイドローディング対応（横から合流時に片側レーンに挿入）
+   - 正面合流時は交互振り分け
+
+2. **スマートスプリッター**
+   - フィルタルール: Any, None, Overflow, ItemFilter
+   - 3方向出力（左・中央・右）
+   - プログラマブル版はLua対応準備
+
+3. **電力制御**
+   - `CircuitBreaker`: 過負荷時自動トリップ
+   - `PowerSwitch`: 手動ON/OFF
+   - `NetworkGroup`: is_tripped, overload_history追加
+
+4. **オーバークロック**
+   - クロック速度1%-250%
+   - 非線形電力消費: power × (speed ^ 1.6)
+   - パワーシャード0-3個で上限変動
+
+5. **品質システム**
+   - 5段階品質: Normal → Uncommon → Rare → Epic → Legendary
+   - 品質モジュールT1-T3（ボーナス2.5-10%）
+   - 速度ペナルティとのトレードオフ
+
+6. **ロジスティクスロボット**
+   - Roboport: 充電ステーション
+   - LogisticsRobot/ConstructionRobot
+   - 4種チェスト（Provider/Requester/Storage/Buffer）
+
+7. **代替レシピ**
+   - ハードドライブで研究開始
+   - 3択から1つ選択
+   - MAMResearchリソースで管理
+
+8. **ブループリント**
+   - Mk1: 32m³、Mk2: 64m³+ホログラム
+   - エクスポート/インポート対応
+   - 必要素材自動計算
+
+9. **AWESOME Sink**
+   - アイテム→ポイント変換
+   - 指数的増加でクーポン獲得
+   - クーポンショップ（コスメ/ブースト/特殊アイテム）
+
+**テスト結果**
+- 全155テスト成功
+- 新規モジュール用テスト: 20件追加
+
+---
+
+### 無限ワールド生成システム実装
+
+**概要**
+プレイヤー周囲のチャンクを自動生成する無限ワールドシステムを実装。
+Perlinノイズによる自然な地形生成に対応。
+
+**変更ファイル**
+- `src/core/optimization.rs` - 無限ワールド生成システム追加
+- `src/rendering/mod.rs` - setup_test_chunk削除（新システムに統合）
+- `src/gameplay/player.rs` - スポーン高さ調整（Y=5→Y=20）
+
+**実装機能**
+
+| 機能 | 詳細 |
+|------|------|
+| チャンク自動生成 | プレイヤー移動時に周囲のチャンクを自動生成 |
+| Perlinノイズ地形 | 起伏のある自然な地形を生成 |
+| 非同期生成 | AsyncComputeTaskPoolで非同期処理 |
+| LODシステム | 距離に応じた詳細度切替（既存） |
+| チャンクアンロード | 遠距離チャンクの自動削除（既存） |
+
+**設定値**
+- render_distance: 4チャンク（128ブロック）
+- Y方向: -1〜1の3層（地下、地表、空）
+- 1フレームあたり最大4タスク開始、4チャンクスポーン
+- アンロード距離: 512ブロック
+
+**新規コンポーネント**
+- `WorldChunkManager` - チャンク管理リソース
+- `ChunkCoord` - チャンク座標コンポーネント
+
+**テスト結果**
+- 単体テスト: 5件成功
+- E2Eテスト: 11件成功
+- 地形表示確認済み
+
+---
+
+### 3Dモデリングスキル改善
+
+**概要**
+モデリングスキル（`/generate-model`）のトークン効率と精度を向上。
+
+**新規ファイル**
+- `.specify/memory/modeling-compact.md` - 圧縮版リファレンス
+- `tools/blender_scripts/templates/` - カテゴリ別テンプレート
+- `tools/blender_scripts/model_generator.py` - JSON→スクリプト生成
+- `tools/blender_scripts/model_definitions/*.json` - モデル定義例
+- `tools/blender_autostart_mcp.py` - MCP自動起動スクリプト
+
+**_base.py拡張 - 高レベルパーツ**
+
+| カテゴリ | 関数 |
+|---------|------|
+| アイテム | `create_tool_handle`, `create_ingot`, `create_ore_chunk`, `create_plate`, `create_dust_pile` |
+| 機械 | `create_machine_frame`, `create_machine_body`, `create_tank_body`, `create_motor_housing` |
+| 装飾 | `create_corner_bolts`, `create_reinforcement_ribs`, `add_decorative_bolts_circle`, `create_accent_light` |
+
+**スキル改善**
+- Blender MCP接続確認ステップ追加
+- 高レベルパーツ活用によるトークン削減
+- JSON定義からの自動生成オプション
+
+**課題**: Blender MCPサーバーの完全自動起動は未達成（→ issues.md参照）
+
+---
+
+### サバイバルモード移動システム実装
+
+**概要**
+Minecraft風のプレイヤー移動システムをサバイバルモードに実装。
+クリエイティブモードは既存の飛行ロジックを維持。
+
+**新規ファイル**
+- `src/gameplay/physics.rs` - 物理システム本体（730行）
+
+**実装機能**
+
+| 機能 | 詳細 |
+|------|------|
+| 重力 | 32 m/s²（Minecraft準拠） |
+| ジャンプ | 初速9 m/s、1.25ブロック到達 |
+| 衝突判定 | 軸分離処理（Y→X→Z）、AABB判定 |
+| スニーク | Shift押下で速度1.31 m/s、端から落ちない |
+| 水泳 | 水中で浮遊・泳ぎ移動（Space/Shift） |
+| はしご | 上下移動、落下速度制限 |
+| コヨーテタイム | 0.1秒（端から落ちた直後もジャンプ可能） |
+
+**プレイヤー当たり判定**
+- 幅: 0.5ブロック
+- 高さ: 1.6ブロック
+- 目の高さ: 1.5ブロック
+
+**新規ブロック**
+- `water` - 液体（is_liquid）
+- `lava` - 液体（ダメージ源）
+- `ladder` - 登れるブロック（is_climbable）
+
+**変更ファイル**
+- `src/gameplay/mod.rs` - PhysicsPlugin登録
+- `src/gameplay/player.rs` - サバイバル移動を委譲
+- `src/core/registry.rs` - is_liquid, is_climbable追加
+- `assets/data/blocks/core.yaml` - water, lava, ladder追加
+
+---
+
 ## 2025-12-24
 
 ### 全アイテム3DモデルBlenderスクリプト生成

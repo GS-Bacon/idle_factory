@@ -1,0 +1,24 @@
+# UI Dump
+Generated: 2025-12-25 10:09:39
+AppState: PauseMenu
+InventoryState: Closed
+
+## UI Tree
+
+- (unnamed) [w:auto h:auto] text="FPS: N/A"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:350px h:auto]
+    - (unnamed) [w:auto h:auto] text="Paused"
+    - (unnamed) [w:200px h:48px]
+      - (unnamed) [w:auto h:auto] text="Resume"
+    - (unnamed) [w:200px h:48px]
+      - (unnamed) [w:auto h:auto] text="Settings"
+    - (unnamed) [w:200px h:48px]
+      - (unnamed) [w:auto h:auto] text="Save & Quit"
+    - (unnamed) [w:200px h:48px]
+      - (unnamed) [w:auto h:auto] text="Main Menu"
+
+## Statistics
+- Total nodes: 12
+- Named nodes: 0
+- Text nodes: 6

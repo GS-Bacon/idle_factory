@@ -15,9 +15,8 @@ from mathutils import Vector, Matrix
 from math import pi, cos, sin, radians
 import os
 
-# _base.pyの関数をインポート（既に実行済みと仮定）
-# create_chamfered_cube, create_octagonal_prism, create_gear, create_pipe, create_bolt
-# apply_preset_material, finalize_model, export_gltf
+# _base.py をロード
+exec(open("tools/blender_scripts/_base.py").read())
 
 # =============================================================================
 # 1. Furnace (かまど)
@@ -64,13 +63,16 @@ def create_furnace():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
+    body.select_set(True)
     for obj in [opening] + frame_parts + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(body, "machine")
-    return body
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -120,16 +122,19 @@ def create_conveyor():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = base
+    base.select_set(True)
     for obj in [belt] + rollers + frames + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
     # アニメーション: ベルト移動（Y軸）
     # create_translation_animation(base, axis='Y', distance=0.5, frames=60)
 
-    finalize_model(base, "machine")
-    return base
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -149,12 +154,22 @@ def create_crusher():
     hopper = create_trapezoid(top_width=0.4, bottom_width=0.5, height=0.15, depth=0.4,
                              location=(0, 0, 0.8), name="Crusher_Hopper")
     hopper.rotation_euler.x = pi
+    # 回転を適用
+    bpy.ops.object.select_all(action='DESELECT')
+    hopper.select_set(True)
+    bpy.context.view_layer.objects.active = hopper
+    bpy.ops.object.transform_apply(rotation=True)
     apply_preset_material(hopper, "brass")
 
     # 内部ギア（見える部分）
     gear = create_gear(radius=0.3, thickness=0.1, teeth=8, hole_radius=0.05,
                       location=(0, 0.35, 0.3), name="Crusher_Gear")
     gear.rotation_euler.x = pi / 2
+    # 回転を適用
+    bpy.ops.object.select_all(action='DESELECT')
+    gear.select_set(True)
+    bpy.context.view_layer.objects.active = gear
+    bpy.ops.object.transform_apply(rotation=True)
     apply_preset_material(gear, "copper")
 
     # 補強リブ（4辺）
@@ -179,14 +194,15 @@ def create_crusher():
         apply_preset_material(bolt, "iron")
         bolts.append(bolt)
 
-    # 結合
+    # 結合 - シーン内の全オブジェクトを選択
+    bpy.ops.object.select_all(action='SELECT')
     bpy.context.view_layer.objects.active = body
-    for obj in [hopper, gear] + ribs + bolts:
-        obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
+    result.name = "Crusher"
 
-    finalize_model(body, "machine")
-    return body
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -233,13 +249,16 @@ def create_press():
     apply_preset_material(gear, "brass")
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = base
+    base.select_set(True)
     for obj in pillars + [top_frame, press_head, rod, gear]:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(base, "machine")
-    return base
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -283,13 +302,16 @@ def create_pump():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
+    body.select_set(True)
     for obj in [inlet, outlet, base, rotor] + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(body, "machine")
-    return body
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -347,13 +369,16 @@ def create_tank():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
+    body.select_set(True)
     for obj in [top_cap, bottom_cap] + bands + [port, gauge] + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(body, "machine")
-    return body
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -410,13 +435,16 @@ def create_miner():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
+    body.select_set(True)
     for obj in [drill_base, drill_tip, shaft, motor, gear] + frames + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(body, "machine")
-    return body
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -485,13 +513,16 @@ def create_assembler():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
+    body.select_set(True)
     for obj in [workbench, arm1_base, arm1_link, joint, gripper] + gears + pipes + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(body, "machine")
-    return body
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -559,13 +590,16 @@ def create_mixer():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = tank
+    tank.select_set(True)
     for obj in [lid, motor, shaft] + blades + bands + [inlet, outlet] + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(tank, "machine")
-    return tank
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -633,13 +667,16 @@ def create_centrifuge():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = base
+    base.select_set(True)
     for obj in [drum] + caps + [rotor] + pillars + [motor, shaft, ring] + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(base, "machine")
-    return base
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -713,13 +750,16 @@ def create_generator():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
+    body.select_set(True)
     for obj in [housing, rotor] + blades + [shaft, coil] + fins + terminals + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(body, "machine")
-    return body
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -804,13 +844,16 @@ def create_chemical_reactor():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = tank
+    tank.select_set(True)
     for obj in [dome, cone] + inlet_pipes + [outlet] + coils + [gauge, valve] + bands + [relief] + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(tank, "machine")
-    return tank
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -894,13 +937,16 @@ def create_solar_panel():
         bolts.append(bolt)
 
     # 結合
+    bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = base
+    base.select_set(True)
     for obj in [panel] + grid_lines + frames + [junction_box, wire] + mounts + bolts:
         obj.select_set(True)
     bpy.ops.object.join()
+    result = bpy.context.active_object
 
-    finalize_model(base, "machine")
-    return base
+    finalize_model(result, "machine")
+    return result
 
 
 # =============================================================================
@@ -909,7 +955,10 @@ def create_solar_panel():
 
 def export_all():
     """全モデルをエクスポート"""
-    output_dir = "/path/to/assets/models/items/machines/"  # 適宜変更
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    output_dir = os.path.join(project_root, "assets", "models", "machines")
+    os.makedirs(output_dir, exist_ok=True)
 
     machines = [
         ("furnace", create_furnace),
@@ -947,5 +996,6 @@ print("  create_mixer, create_centrifuge, create_generator")
 print("  create_chemical_reactor, create_solar_panel")
 print("\nRun export_all() to export all models")
 
-# 個別実行例:
-# create_furnace()
+# 自動実行
+if __name__ == "__main__":
+    export_all()

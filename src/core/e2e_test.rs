@@ -48,6 +48,8 @@ impl Plugin for E2ETestPlugin {
             .add_event::<SetAppStateEvent>()
             .add_event::<DumpUiEvent>()
             .add_event::<VerifyUiEvent>()
+            .add_event::<TypeTextEvent>()
+            .add_event::<ExecuteCommandEvent>()
             .add_systems(
                 Update,
                 (
@@ -60,6 +62,7 @@ impl Plugin for E2ETestPlugin {
                     process_app_state_changes,
                     process_ui_dump,
                     process_ui_verification,
+                    process_execute_command,
                     run_test_scenarios,
                     advance_scenario_step,
                 )
@@ -231,6 +234,10 @@ pub enum TestStep {
     SaveReport,
     /// テストレポートクリア
     ClearReport,
+    /// テキスト入力（コマンド入力用）
+    TypeText(String),
+    /// コマンド実行（/を開いてテキスト入力してEnter）
+    ExecuteCommand(String),
 }
 
 /// UI検証条件
@@ -293,6 +300,18 @@ pub struct DumpUiEvent {
 #[derive(Event)]
 pub struct VerifyUiEvent {
     pub verification: UiVerification,
+}
+
+/// テキスト入力イベント
+#[derive(Event)]
+pub struct TypeTextEvent {
+    pub text: String,
+}
+
+/// コマンド実行イベント
+#[derive(Event)]
+pub struct ExecuteCommandEvent {
+    pub command: String,
 }
 
 /// F9キーでスクリーンショット撮影
@@ -419,9 +438,11 @@ fn process_app_state_changes(
     mut state_events: EventReader<SetAppStateEvent>,
     mut next_app_state: ResMut<NextState<crate::ui::main_menu::AppState>>,
     mut next_inventory_state: ResMut<NextState<crate::ui::inventory_ui::InventoryUiState>>,
+    mut next_settings_state: ResMut<NextState<crate::ui::settings_ui::SettingsUiState>>,
 ) {
     use crate::ui::main_menu::AppState;
     use crate::ui::inventory_ui::InventoryUiState;
+    use crate::ui::settings_ui::SettingsUiState;
 
     for event in state_events.read() {
         // AppState を試す
@@ -452,6 +473,19 @@ fn process_app_state_changes(
         if let Some(state) = inventory_state {
             info!("[E2E] Setting inventory state to: {:?}", state);
             next_inventory_state.set(state);
+            continue;
+        }
+
+        // SettingsUiState を試す
+        let settings_state = match event.state_name.as_str() {
+            "Settings" | "SettingsOpen" => Some(SettingsUiState::SettingsOpen),
+            "SettingsClosed" => Some(SettingsUiState::Closed),
+            _ => None,
+        };
+
+        if let Some(state) = settings_state {
+            info!("[E2E] Setting settings state to: {:?}", state);
+            next_settings_state.set(state);
             continue;
         }
 
@@ -655,6 +689,19 @@ fn process_ui_verification(
     }
 }
 
+/// コマンド実行イベント処理
+fn process_execute_command(
+    mut exec_events: EventReader<ExecuteCommandEvent>,
+    mut cmd_events: EventWriter<crate::gameplay::commands::ExecuteCommandEvent>,
+) {
+    for event in exec_events.read() {
+        info!("[E2E] Executing command: {}", event.command);
+        cmd_events.send(crate::gameplay::commands::ExecuteCommandEvent {
+            input: event.command.clone(),
+        });
+    }
+}
+
 /// テストシナリオ実行
 fn run_test_scenarios(
     mut run_events: EventReader<RunTestScenarioEvent>,
@@ -688,6 +735,8 @@ fn advance_scenario_step(
     mut app_state_events: EventWriter<SetAppStateEvent>,
     mut dump_events: EventWriter<DumpUiEvent>,
     mut verify_events: EventWriter<VerifyUiEvent>,
+    mut type_text_events: EventWriter<TypeTextEvent>,
+    mut exec_cmd_events: EventWriter<ExecuteCommandEvent>,
 ) {
     if !state.is_test_mode {
         return;
@@ -800,6 +849,18 @@ fn advance_scenario_step(
         TestStep::ClearReport => {
             report.clear();
             info!("[E2E] Test report cleared");
+        }
+        TestStep::TypeText(text) => {
+            type_text_events.send(TypeTextEvent {
+                text: text.clone(),
+            });
+            state.wait_timer = 0.2;
+        }
+        TestStep::ExecuteCommand(command) => {
+            exec_cmd_events.send(ExecuteCommandEvent {
+                command: command.clone(),
+            });
+            state.wait_timer = 0.5;
         }
     }
 
@@ -1053,6 +1114,99 @@ fn create_full_test_scenario() -> TestScenario {
             TestStep::SetAppState("MainMenu".to_string()),
             TestStep::Wait(0.5),
             TestStep::Screenshot("09_back_to_menu".to_string()),
+
+            // ========================================
+            // Phase 8: Settings画面
+            // ========================================
+            TestStep::Log("Phase 8: Settings Screen".to_string()),
+            TestStep::SetAppState("Settings".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::DumpUi("10_settings".to_string()),
+            TestStep::VerifyElement(UiVerification {
+                name: "Settings_Title".to_string(),
+                component_name: None,
+                text_contains: Some("Settings".to_string()),
+                min_count: Some(1),
+                max_count: None,
+            }),
+            TestStep::Screenshot("10_settings".to_string()),
+            // Settings画面を閉じてからMainMenuに戻る
+            TestStep::SetAppState("SettingsClosed".to_string()),
+            TestStep::Wait(0.3),
+
+            // ========================================
+            // Phase 9: ゲーム内コマンド入力テスト
+            // ========================================
+            TestStep::Log("Phase 9: Command Input Test".to_string()),
+            TestStep::SetAppState("InGame".to_string()),
+            TestStep::Wait(1.0),
+            // クリエイティブモードに切り替え
+            TestStep::Log("Switching to Creative mode via command".to_string()),
+            TestStep::ExecuteCommand("gamemode creative".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::Screenshot("11_creative_mode".to_string()),
+
+            // ========================================
+            // Phase 10: クリエイティブモードでの操作テスト
+            // ========================================
+            TestStep::Log("Phase 10: Creative Mode Operations".to_string()),
+
+            // 歩き回る
+            TestStep::Log("Moving around in creative mode".to_string()),
+            TestStep::PressKey(KeyCode::KeyW),
+            TestStep::Wait(0.5),
+            TestStep::ReleaseKey(KeyCode::KeyW),
+            TestStep::PressKey(KeyCode::KeyA),
+            TestStep::Wait(0.3),
+            TestStep::ReleaseKey(KeyCode::KeyA),
+            TestStep::PressKey(KeyCode::KeyS),
+            TestStep::Wait(0.3),
+            TestStep::ReleaseKey(KeyCode::KeyS),
+            TestStep::PressKey(KeyCode::KeyD),
+            TestStep::Wait(0.3),
+            TestStep::ReleaseKey(KeyCode::KeyD),
+            TestStep::Screenshot("12_creative_walked".to_string()),
+
+            // ジャンプ
+            TestStep::Log("Jumping in creative mode".to_string()),
+            TestStep::TapKey(KeyCode::Space),
+            TestStep::Wait(0.5),
+            TestStep::Screenshot("13_creative_jumped".to_string()),
+
+            // ホットバー切り替え
+            TestStep::Log("Hotbar selection test".to_string()),
+            TestStep::TapKey(KeyCode::Digit1),
+            TestStep::Wait(0.2),
+            TestStep::TapKey(KeyCode::Digit5),
+            TestStep::Wait(0.2),
+            TestStep::TapKey(KeyCode::Digit9),
+            TestStep::Wait(0.2),
+            TestStep::Screenshot("14_hotbar_test".to_string()),
+
+            // クリエイティブモードでインベントリを開く
+            TestStep::Log("Opening creative inventory".to_string()),
+            TestStep::SetAppState("InventoryOpen".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::DumpUi("15_creative_inventory".to_string()),
+            TestStep::Screenshot("15_creative_inventory".to_string()),
+            TestStep::SetAppState("InventoryClosed".to_string()),
+            TestStep::Wait(0.3),
+
+            // ブロック設置テスト（左クリック）
+            TestStep::Log("Block placement test".to_string()),
+            TestStep::MousePress(MouseButton::Left),
+            TestStep::Wait(0.1),
+            TestStep::MouseRelease(MouseButton::Left),
+            TestStep::Wait(0.3),
+            TestStep::Screenshot("16_block_placed".to_string()),
+
+            // ========================================
+            // Phase 11: サバイバルモードに戻す
+            // ========================================
+            TestStep::Log("Phase 11: Switch back to Survival".to_string()),
+            TestStep::ExecuteCommand("gamemode survival".to_string()),
+            TestStep::Wait(0.5),
+            TestStep::Screenshot("17_survival_mode".to_string()),
 
             // ========================================
             // テスト完了・レポート保存
@@ -1552,7 +1706,8 @@ mod tests {
         let screenshot_count = scenario.steps.iter().filter(|s| {
             matches!(s, TestStep::Screenshot(_))
         }).count();
-        // フルテストは9枚のスクリーンショットを撮影
-        assert_eq!(screenshot_count, 9);
+        // フルテストは17枚のスクリーンショットを撮影
+        // (メイン9枚 + Settings1枚 + クリエイティブ操作6枚 + サバイバル復帰1枚)
+        assert_eq!(screenshot_count, 17);
     }
 }

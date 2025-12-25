@@ -316,7 +316,8 @@ fn spawn_player_inventory_ui(
                             Node {
                                 flex_direction: FlexDirection::Column,
                                 row_gap: Val::Px(SLOT_GAP),
-                                align_self: AlignSelf::Start, // 上揃え
+                                align_self: AlignSelf::Center, // 中央揃え（メインインベントリと揃える）
+                                justify_content: JustifyContent::Center,
                                 ..default()
                             },
                         ))
@@ -619,33 +620,67 @@ fn spawn_main_inventory_panel_mc(parent: &mut ChildBuilder, inventory: &PlayerIn
                     }
                 });
 
-            // ホットバー (1x10 = 10スロット、スロット50-59)
+            // ホットバー行 (ホットバー + ゴミ箱)
             parent
                 .spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(5.0),
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.0),
                     margin: UiRect::top(Val::Px(10.0)),
+                    align_items: AlignItems::End,
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Hotbar"),
-                        TextFont { font_size: 16.0, ..default() },
-                        TextColor(Color::WHITE),
-                    ));
-
+                    // ホットバー
                     parent
                         .spawn(Node {
-                            display: Display::Grid,
-                            grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
-                            grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
-                            column_gap: Val::Px(slot_gap),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(5.0),
                             ..default()
                         })
                         .with_children(|parent| {
-                            for i in 50..60 {
-                                spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &inventory.slots[i], slot_size);
-                            }
+                            parent.spawn((
+                                Text::new("Hotbar"),
+                                TextFont { font_size: 16.0, ..default() },
+                                TextColor(Color::WHITE),
+                            ));
+
+                            parent
+                                .spawn(Node {
+                                    display: Display::Grid,
+                                    grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
+                                    grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
+                                    column_gap: Val::Px(slot_gap),
+                                    ..default()
+                                })
+                                .with_children(|parent| {
+                                    for i in 50..60 {
+                                        spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &inventory.slots[i], slot_size);
+                                    }
+                                });
+                        });
+
+                    // ゴミ箱スロット
+                    parent
+                        .spawn((
+                            TrashSlot,
+                            Button,
+                            Node {
+                                width: Val::Px(slot_size),
+                                height: Val::Px(slot_size),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                border: UiRect::all(Val::Px(2.0)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
+                            BorderColor(Color::srgb(0.8, 0.3, 0.3)),
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Text::new("Trash"),
+                                TextFont { font_size: 12.0, ..default() },
+                                TextColor(Color::WHITE),
+                            ));
                         });
                 });
         });

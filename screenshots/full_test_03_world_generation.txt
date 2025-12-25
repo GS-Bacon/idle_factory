@@ -1,0 +1,36 @@
+# UI Dump
+Generated: 2025-12-25 10:09:30
+AppState: WorldGeneration
+InventoryState: Closed
+
+## UI Tree
+
+- (unnamed) [w:auto h:auto] text="FPS: N/A"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:450px h:auto]
+    - (unnamed) [w:auto h:auto] text="New World (Slot 1)"
+    - (unnamed) [w:100% h:auto]
+      - (unnamed) [w:auto h:auto] text="World Name"
+      - (unnamed) [w:100% h:40px]
+        - (unnamed) [w:auto h:auto] text="New World"
+    - (unnamed) [w:100% h:auto]
+      - (unnamed) [w:auto h:auto] text="Seed (optional)"
+      - (unnamed) [w:100% h:40px]
+        - (unnamed) [w:auto h:auto] text=" "
+    - (unnamed) [w:100% h:auto]
+      - (unnamed) [w:auto h:auto] text="Game Mode"
+      - (unnamed) [w:100% h:auto]
+        - (unnamed) [w:50% h:40px]
+          - (unnamed) [w:auto h:auto] text="Survival"
+        - (unnamed) [w:50% h:40px]
+          - (unnamed) [w:auto h:auto] text="Creative"
+    - (unnamed) [w:100% h:auto]
+      - (unnamed) [w:140px h:48px]
+        - (unnamed) [w:auto h:auto] text="Back"
+      - (unnamed) [w:140px h:48px]
+        - (unnamed) [w:auto h:auto] text="Create"
+
+## Statistics
+- Total nodes: 24
+- Named nodes: 0
+- Text nodes: 11

@@ -48,6 +48,7 @@ pub fn tick_miners(
                         progress: 0.0,
                         unique_id: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,
                         from_direction: Some(orientation),
+                        lane: Default::default(),
                     };
 
                     outputs.push((pos, target_pos, new_item));

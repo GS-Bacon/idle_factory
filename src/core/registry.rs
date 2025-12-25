@@ -112,8 +112,8 @@ fn load_recipes(mut registry: ResMut<RecipeRegistry>) {
     if let Ok(content) = fs::read_to_string(path) {
         if let Ok(defs) = serde_yaml::from_str::<Vec<RecipeDefinition>>(&content) {
             for def in defs {
+                info!("Loaded recipe: {}", def.id);
                 registry.map.insert(def.id.clone(), def);
-                info!("Loaded recipe: {}", registry.map.get("ore_to_ingot").unwrap().id);
             }
         } else {
             error!("Failed to parse YAML: {}", path);
