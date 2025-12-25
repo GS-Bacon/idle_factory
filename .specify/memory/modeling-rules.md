@@ -33,7 +33,7 @@ pos:block-boundary(±0.5)|meta:extras-json
 
 ## done-models
 
-item:pickaxe,hammer,axe,wrench,shovel
+item:pickaxe,hammer,axe,wrench,shovel,drill,pal_sphere
 machine:furnace,conveyor,crusher,press,pump,tank,miner,assembler,mixer,centrifuge,generator,chemical_reactor,solar_panel,coal_gen,fuel_gen,nuclear,color_router,signal_tx/rx,creature_feeder/breed/transport,train_engine,cargo_wagon
 structure:train_station,creature_pen
 
