@@ -1,5 +1,5 @@
 # UI Dump
-Generated: 2025-12-25 13:09:56
+Generated: 2025-12-25 15:05:51
 AppState: InGame
 InventoryState: PlayerInventory
 
@@ -13,67 +13,67 @@ InventoryState: PlayerInventory
   - (unnamed) [w:12px h:2px]
   - (unnamed) [w:2px h:12px]
   - (unnamed) [w:2px h:12px]
+- (unnamed) [w:200px h:auto]
+  - (unnamed) [w:auto h:auto] text="Quest"
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:auto h:auto] text="No active quest"
+  - (unnamed) [w:auto h:auto] text="[J] Quest List"
 - (unnamed) [w:100% h:100%]
 - (unnamed) [w:200px h:50px]
   - (unnamed) [w:auto h:auto] text="HP"
   - (unnamed) [w:180px h:20px]
     - (unnamed) [w:100% h:100%]
   - (unnamed) [w:auto h:auto] text="10 / 10"
-- (unnamed) [w:200px h:auto]
-  - (unnamed) [w:auto h:auto] text="Quest"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
   - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:auto h:auto] text="No active quest"
-  - (unnamed) [w:auto h:auto] text="[J] Quest List"
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
 - (unnamed) [w:154px h:154px]
   - (unnamed) [w:150px h:150px]
     - (unnamed) [w:8px h:8px]
   - (unnamed) [w:auto h:auto] text="N"
-- (unnamed) [w:100% h:100%]
-  - (unnamed) [w:auto h:auto] text=""
-  - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-- (unnamed) [w:100% h:100%]
-  - (unnamed) [w:auto h:auto] text=""
-  - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:56px h:56px]
-      - (unnamed) [w:auto h:auto] text=""
 - (unnamed) [w:50% h:70%]
   - (unnamed) [w:100% h:auto]
     - (unnamed) [w:auto h:auto] text="Quest List"

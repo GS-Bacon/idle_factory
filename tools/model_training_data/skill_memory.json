@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
-  "last_updated": "2025-12-25T14:33:00Z",
-  "skill_level": 5,
-  "total_successes": 5,
-  "total_attempts": 5,
+  "last_updated": "2025-12-25T15:05:00Z",
+  "skill_level": 6,
+  "total_successes": 8,
+  "total_attempts": 8,
 
   "principles": [
     {
@@ -174,7 +174,7 @@
 
   "code_patterns": {
     "axe": {
-      "last_success": null,
+      "last_success": "2025-12-25",
       "dimensions": {
         "total_height": 0.22,
         "handle_length": 0.15,
@@ -227,7 +227,7 @@
       "notes": "ヘッドはY軸方向に左右対称に伸びる"
     },
     "wrench": {
-      "last_success": null,
+      "last_success": "2025-12-25",
       "dimensions": {
         "total_height": 0.18,
         "handle_length": 0.10,
@@ -243,7 +243,7 @@
       "notes": "ヘッドにBoolean差分で開口部を作成"
     },
     "shovel": {
-      "last_success": null,
+      "last_success": "2025-12-25",
       "dimensions": {
         "total_height": 0.25,
         "handle_length": 0.17,
