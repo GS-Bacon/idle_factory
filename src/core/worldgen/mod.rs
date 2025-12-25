@@ -3,10 +3,15 @@
 //! パーリンノイズを使用した手続き型地形生成。
 //! Normal（通常地形）とFlat（フラット）の2種類をサポート。
 
+mod biome;
+mod caves;
 mod config;
+mod constants;
 mod generator;
 mod layers;
 mod noise;
+pub mod ores;
+pub mod terrain;
 
 pub use config::*;
 pub use generator::{create_generator, ChunkGenerator, FlatGenerator, NormalGenerator};

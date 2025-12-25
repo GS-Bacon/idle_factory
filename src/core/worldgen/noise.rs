@@ -47,6 +47,59 @@ impl TerrainNoise {
     }
 }
 
+/// 複合ノイズ生成器（地形、洞窟、バイオーム用）
+pub struct NoiseGenerators {
+    terrain: Fbm<Perlin>,
+    temperature: Fbm<Perlin>,
+    humidity: Fbm<Perlin>,
+    continentalness: Fbm<Perlin>,
+    cave_cheese: Fbm<Perlin>,
+    cave_spaghetti: Fbm<Perlin>,
+    cave_noodle: Fbm<Perlin>,
+}
+
+impl NoiseGenerators {
+    pub fn new(seed: u32) -> Self {
+        Self {
+            terrain: Fbm::<Perlin>::new(seed).set_octaves(4).set_frequency(0.01),
+            temperature: Fbm::<Perlin>::new(seed.wrapping_add(1)).set_octaves(2).set_frequency(0.005),
+            humidity: Fbm::<Perlin>::new(seed.wrapping_add(2)).set_octaves(2).set_frequency(0.005),
+            continentalness: Fbm::<Perlin>::new(seed.wrapping_add(3)).set_octaves(3).set_frequency(0.003),
+            cave_cheese: Fbm::<Perlin>::new(seed.wrapping_add(100)).set_octaves(3).set_frequency(0.02),
+            cave_spaghetti: Fbm::<Perlin>::new(seed.wrapping_add(101)).set_octaves(2).set_frequency(0.04),
+            cave_noodle: Fbm::<Perlin>::new(seed.wrapping_add(102)).set_octaves(2).set_frequency(0.06),
+        }
+    }
+
+    pub fn get_terrain_height(&self, x: f64, z: f64) -> f64 {
+        self.terrain.get([x, z])
+    }
+
+    pub fn get_temperature(&self, x: f64, z: f64) -> f64 {
+        (self.temperature.get([x, z]) + 1.0) / 2.0
+    }
+
+    pub fn get_humidity(&self, x: f64, z: f64) -> f64 {
+        (self.humidity.get([x, z]) + 1.0) / 2.0
+    }
+
+    pub fn get_continentalness(&self, x: f64, z: f64) -> f64 {
+        (self.continentalness.get([x, z]) + 1.0) / 2.0
+    }
+
+    pub fn get_cave_cheese(&self, x: f64, y: f64, z: f64) -> f64 {
+        (self.cave_cheese.get([x, y, z]) + 1.0) / 2.0
+    }
+
+    pub fn get_cave_spaghetti(&self, x: f64, y: f64, z: f64) -> f64 {
+        (self.cave_spaghetti.get([x, y, z]) + 1.0) / 2.0
+    }
+
+    pub fn get_cave_noodle(&self, x: f64, y: f64, z: f64) -> f64 {
+        (self.cave_noodle.get([x, y, z]) + 1.0) / 2.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
