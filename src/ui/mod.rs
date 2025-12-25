@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+pub mod styles;
 pub mod hud;
 pub mod machine_ui;
 pub mod inventory_ui;
@@ -19,6 +20,8 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        // Modern UI Style system
+        app.add_plugins(styles::ModernUiStylePlugin);
         // Main menu and camera (must be first for state initialization)
         app.add_plugins(main_menu::MainMenuPlugin);
         app.add_plugins(menu_camera::MenuCameraPlugin);

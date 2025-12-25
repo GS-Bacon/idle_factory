@@ -160,6 +160,116 @@
     "fan_blade": { "shape": "trapezoid", "count": [4, 6, 8] }
   },
 
+  "connection_system": {
+    "description": "パイプ・コンベア等の接続面設計ルール",
+    "faces": {
+      "front": [0, 0, 1],
+      "back": [0, 0, -1],
+      "left": [-1, 0, 0],
+      "right": [1, 0, 0],
+      "top": [0, 1, 0],
+      "bottom": [0, -1, 0]
+    },
+    "flange": {
+      "radius_ratio": [1.2, 1.4],
+      "thickness": [0.02, 0.03],
+      "bolt_count": [4, 6],
+      "bolt_shape": "octagon",
+      "position": "block_boundary"
+    },
+    "types": {
+      "pipe_straight": { "faces": ["front", "back"], "default_radius": 0.15 },
+      "pipe_elbow": { "faces": ["front", "right"], "angle": 90 },
+      "pipe_tee": { "faces": ["front", "back", "right"] },
+      "pipe_cross": { "faces": ["front", "back", "left", "right"] },
+      "conveyor_straight": { "faces": ["front", "back"], "width": 0.8 },
+      "conveyor_curve": { "faces": ["front", "right"], "angle": 90 },
+      "power_cable": { "faces": "variable", "max_connections": 6 }
+    }
+  },
+
+  "implemented_models": {
+    "tools": {
+      "description": "実装済みツール",
+      "items": [
+        { "name": "pickaxe", "file": "pickaxe.gltf", "status": "done" },
+        { "name": "hammer", "file": "hammer.gltf", "status": "done" }
+      ]
+    },
+    "machines": {
+      "description": "実装済み機械（接続面対応済みは★マーク）",
+      "items": [
+        { "name": "furnace", "file": "furnace.gltf", "connections": ["front", "back"], "status": "★done" },
+        { "name": "conveyor", "file": "conveyor.gltf", "connections": ["front", "back"], "status": "★done" },
+        { "name": "crusher", "file": "crusher.gltf", "status": "done" },
+        { "name": "press", "file": "press.gltf", "status": "done" },
+        { "name": "pump", "file": "pump.gltf", "connections": ["left", "top"], "status": "★done" },
+        { "name": "tank", "file": "tank.gltf", "connections": ["right"], "status": "★done" },
+        { "name": "miner", "file": "miner.gltf", "status": "done" },
+        { "name": "assembler", "file": "assembler.gltf", "status": "done" },
+        { "name": "mixer", "file": "mixer.gltf", "connections": ["right", "bottom"], "status": "★done" },
+        { "name": "centrifuge", "file": "centrifuge.gltf", "status": "done" },
+        { "name": "generator", "file": "generator.gltf", "status": "done" },
+        { "name": "chemical_reactor", "file": "chemical_reactor.gltf", "connections": ["top", "right"], "status": "★done" },
+        { "name": "solar_panel", "file": "solar_panel.gltf", "status": "done" },
+        { "name": "coal_generator", "file": "coal_generator.gltf", "status": "done" },
+        { "name": "fuel_generator", "file": "fuel_generator.gltf", "status": "done" },
+        { "name": "nuclear_reactor", "file": "nuclear_reactor.gltf", "status": "done" },
+        { "name": "color_router", "file": "color_router.gltf", "status": "done" },
+        { "name": "signal_transmitter", "file": "signal_transmitter.gltf", "status": "done" },
+        { "name": "signal_receiver", "file": "signal_receiver.gltf", "status": "done" },
+        { "name": "creature_feeder", "file": "creature_feeder.gltf", "status": "done" },
+        { "name": "breeding_station", "file": "breeding_station.gltf", "status": "done" },
+        { "name": "creature_transport", "file": "creature_transport.gltf", "status": "done" },
+        { "name": "train_engine", "file": "train_engine.gltf", "status": "done" },
+        { "name": "cargo_wagon", "file": "cargo_wagon.gltf", "status": "done" }
+      ]
+    },
+    "structures": {
+      "description": "実装済み構造物",
+      "items": [
+        { "name": "train_station", "file": "train_station.gltf", "status": "done" },
+        { "name": "creature_pen", "file": "creature_pen.gltf", "status": "done" }
+      ]
+    }
+  },
+
+  "pending_items": {
+    "priority_1_tools": {
+      "description": "未実装ツール",
+      "items": [
+        { "name": "axe", "triangles": [100, 150], "notes": "片側刃" },
+        { "name": "wrench", "triangles": [80, 100], "notes": "開いた口" },
+        { "name": "shovel", "triangles": [80, 120], "notes": "平らな刃" }
+      ]
+    },
+    "priority_2_pipes": {
+      "description": "パイプ系（接続面必須）",
+      "items": [
+        { "name": "pipe_straight", "triangles": [100, 200], "connections": ["front", "back"] },
+        { "name": "pipe_elbow", "triangles": [150, 250], "connections": ["front", "right"] },
+        { "name": "pipe_tee", "triangles": [200, 300], "connections": ["front", "back", "right"] },
+        { "name": "pipe_cross", "triangles": [250, 350], "connections": ["front", "back", "left", "right"] }
+      ]
+    },
+    "priority_3_storage": {
+      "description": "収納・インフラ",
+      "items": [
+        { "name": "chest", "triangles": [150, 250], "animation": "lid_open" },
+        { "name": "large_chest", "triangles": [200, 350], "notes": "2ブロックサイズ" },
+        { "name": "shaft", "triangles": [100, 200], "connections": ["front", "back"], "animation": "rotate" },
+        { "name": "gearbox", "triangles": [300, 500], "connections": ["front", "back", "left", "right"] }
+      ]
+    },
+    "priority_4_structures": {
+      "description": "未実装構造物",
+      "items": [
+        { "name": "workbench", "triangles": [200, 400] },
+        { "name": "storage_shelf", "triangles": [150, 300] }
+      ]
+    }
+  },
+
   "bones": {
     "max_count": 30,
     "root_required": true,

@@ -1,5 +1,5 @@
 # UI Dump
-Generated: 2025-12-25 10:09:33
+Generated: 2025-12-25 11:27:05
 AppState: InGame
 InventoryState: Closed
 
@@ -7,37 +7,41 @@ InventoryState: Closed
 
 - (unnamed) [w:auto h:auto] text="FPS: N/A"
 - (unnamed) [w:100% h:100%]
-  - (unnamed) [w:10px h:2px]
-  - (unnamed) [w:2px h:10px]
-- (unnamed) [w:100% h:100%]
-  - (unnamed) [w:auto h:auto] text=""
-  - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:4px h:4px]
+  - (unnamed) [w:2px h:2px]
+  - (unnamed) [w:12px h:2px]
+  - (unnamed) [w:12px h:2px]
+  - (unnamed) [w:2px h:12px]
+  - (unnamed) [w:2px h:12px]
 - (unnamed) [w:100% h:100%]
 - (unnamed) [w:200px h:50px]
   - (unnamed) [w:auto h:auto] text="HP"
   - (unnamed) [w:180px h:20px]
-    - (unnamed) [w:20% h:100%]
-  - (unnamed) [w:auto h:auto] text="2 / 10"
+    - (unnamed) [w:80% h:100%]
+  - (unnamed) [w:auto h:auto] text="8 / 10"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
 - (unnamed) [w:154px h:154px]
   - (unnamed) [w:150px h:150px]
     - (unnamed) [w:8px h:8px]
@@ -57,6 +61,6 @@ InventoryState: Closed
     - (unnamed) [w:auto h:auto] text="Sub Quests"
 
 ## Statistics
-- Total nodes: 50
+- Total nodes: 54
 - Named nodes: 0
 - Text nodes: 22

@@ -11,6 +11,7 @@ use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::gameplay::inventory::{PlayerInventory, EquipmentSlots, ItemRegistry, EquipmentSlotType};
 use crate::core::registry::RecipeRegistry;
 use crate::ui::main_menu::AppState;
+use crate::ui::styles::{colors, sizes, fonts};
 
 /// インベントリUIのステート
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -268,11 +269,11 @@ fn spawn_player_inventory_ui(
     game_mode: Res<crate::gameplay::commands::GameMode>,
     config: Res<crate::core::config::GameConfig>,
 ) {
-    const SLOT_SIZE: f32 = 54.0;
-    const SLOT_GAP: f32 = 4.0;
+    let slot_size = sizes::SLOT;
+    let slot_gap = sizes::SLOT_GAP;
 
     // enable_ui_blurが有効な場合、背景を暗くしてぼやけた効果を出す
-    let bg_alpha = if config.enable_ui_blur { 0.95 } else { 0.7 };
+    let bg_alpha = if config.enable_ui_blur { 0.85 } else { 0.75 };
 
     commands
         .spawn((
@@ -287,7 +288,7 @@ fn spawn_player_inventory_ui(
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, bg_alpha)),
         ))
         .with_children(|parent| {
-            // メインコンテナ - CSS Gridで自動整列
+            // メインコンテナ - モダンなGlassmorphism風パネル
             parent
                 .spawn((
                     Node {
@@ -300,13 +301,16 @@ fn spawn_player_inventory_ui(
                         ],
                         // 行: 全て自動サイズ
                         grid_auto_rows: GridTrack::auto(),
-                        padding: UiRect::all(Val::Px(20.0)),
-                        column_gap: Val::Px(20.0),
+                        padding: UiRect::all(Val::Px(sizes::PANEL_PADDING)),
+                        column_gap: Val::Px(sizes::PANEL_GAP),
                         row_gap: Val::Px(10.0),
                         align_items: AlignItems::Start, // グリッドセル内で上揃え
+                        border: UiRect::all(Val::Px(sizes::BORDER_THIN)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                    BackgroundColor(colors::BG_PANEL),
+                    BorderColor(colors::BORDER),
+                    BorderRadius::all(Val::Px(sizes::RADIUS_LG)),
                 ))
                 .with_children(|parent| {
                     // 左側: 装備スロット (縦並び) - CSS Gridで自動整列されるのでmargin不要
@@ -315,14 +319,14 @@ fn spawn_player_inventory_ui(
                             EquipmentPanel,
                             Node {
                                 flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(SLOT_GAP),
+                                row_gap: Val::Px(slot_gap),
                                 align_self: AlignSelf::Center, // 中央揃え（メインインベントリと揃える）
                                 justify_content: JustifyContent::Center,
                                 ..default()
                             },
                         ))
                         .with_children(|parent| {
-                            spawn_equipment_panel_mc(parent, &equipment, SLOT_SIZE, SLOT_GAP);
+                            spawn_equipment_panel_mc(parent, &equipment, slot_size, slot_gap);
                         });
 
                     // 中央: インベントリ OR アイテムカタログ（クリエイティブモード）
@@ -358,7 +362,7 @@ fn spawn_player_inventory_ui(
                                                 Visibility::Hidden, // 初期状態は非表示
                                             ))
                                             .with_children(|parent| {
-                                                spawn_main_inventory_grid_only(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                                                spawn_main_inventory_grid_only(parent, &player_inventory, slot_size, slot_gap);
                                             });
 
                                         // アイテムカタロググリッド（絶対位置、初期状態では表示）
@@ -374,7 +378,7 @@ fn spawn_player_inventory_ui(
                                                 Visibility::Visible, // 初期状態は表示
                                             ))
                                             .with_children(|parent| {
-                                                spawn_creative_item_grid(parent, &item_registry, SLOT_SIZE, SLOT_GAP);
+                                                spawn_creative_item_grid(parent, &item_registry, slot_size, slot_gap);
                                             });
                                     });
 
@@ -394,59 +398,61 @@ fn spawn_player_inventory_ui(
                                                 display: Display::Grid,
                                                 grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
                                                 grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
-                                                column_gap: Val::Px(SLOT_GAP),
+                                                column_gap: Val::Px(slot_gap),
                                                 ..default()
                                             })
                                             .with_children(|parent| {
                                                 for i in 50..60 {
-                                                    spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &player_inventory.slots[i], SLOT_SIZE);
+                                                    spawn_slot_sized(parent, SlotIdentifier::PlayerInventory(i), &player_inventory.slots[i], slot_size);
                                                 }
                                             });
 
-                                        // トグルボタン
+                                        // トグルボタン - モダンなスタイル
                                         parent.spawn((
                                             ViewToggleButton,
                                             Button,
                                             Node {
-                                                width: Val::Px(SLOT_SIZE),
-                                                height: Val::Px(SLOT_SIZE),
+                                                width: Val::Px(slot_size),
+                                                height: Val::Px(slot_size),
                                                 justify_content: JustifyContent::Center,
                                                 align_items: AlignItems::Center,
-                                                border: UiRect::all(Val::Px(2.0)),
+                                                border: UiRect::all(Val::Px(sizes::BORDER_NORMAL)),
                                                 ..default()
                                             },
-                                            BackgroundColor(Color::srgb(0.4, 0.4, 0.5)),
-                                            BorderColor(Color::srgb(0.6, 0.6, 0.6)),
+                                            BackgroundColor(colors::BUTTON_DEFAULT),
+                                            BorderColor(colors::BORDER),
+                                            BorderRadius::all(Val::Px(sizes::RADIUS_SM)),
                                         ))
                                         .with_children(|parent| {
                                             parent.spawn((
                                                 Text::new("⇄"),
-                                                TextFont { font_size: 32.0, ..default() },
-                                                TextColor(Color::WHITE),
+                                                TextFont { font_size: fonts::TITLE_MD, ..default() },
+                                                TextColor(colors::TEXT_PRIMARY),
                                             ));
                                         });
 
-                                        // ゴミ箱スロット
+                                        // ゴミ箱スロット - モダンなスタイル
                                         parent
                                             .spawn((
                                                 TrashSlot,
                                                 Button,
                                                 Node {
-                                                    width: Val::Px(SLOT_SIZE),
-                                                    height: Val::Px(SLOT_SIZE),
+                                                    width: Val::Px(slot_size),
+                                                    height: Val::Px(slot_size),
                                                     justify_content: JustifyContent::Center,
                                                     align_items: AlignItems::Center,
-                                                    border: UiRect::all(Val::Px(2.0)),
+                                                    border: UiRect::all(Val::Px(sizes::BORDER_NORMAL)),
                                                     ..default()
                                                 },
-                                                BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
-                                                BorderColor(Color::srgb(0.8, 0.3, 0.3)),
+                                                BackgroundColor(colors::DANGER),
+                                                BorderColor(Color::srgba(0.95, 0.35, 0.40, 0.8)),
+                                                BorderRadius::all(Val::Px(sizes::RADIUS_SM)),
                                             ))
                                             .with_children(|parent| {
                                                 parent.spawn((
                                                     Text::new("Trash"),
-                                                    TextFont { font_size: 12.0, ..default() },
-                                                    TextColor(Color::WHITE),
+                                                    TextFont { font_size: fonts::CAPTION, ..default() },
+                                                    TextColor(colors::TEXT_PRIMARY),
                                                 ));
                                             });
                                     });
@@ -463,7 +469,7 @@ fn spawn_player_inventory_ui(
                                 },
                             ))
                             .with_children(|parent| {
-                                spawn_main_inventory_panel_mc(parent, &player_inventory, SLOT_SIZE, SLOT_GAP);
+                                spawn_main_inventory_panel_mc(parent, &player_inventory, slot_size, slot_gap);
                             });
                     }
 
@@ -1638,8 +1644,8 @@ fn spawn_hotbar_hud(
     player_inventory: Res<PlayerInventory>,
     item_registry: Res<ItemRegistry>,
 ) {
-    const SLOT_SIZE: f32 = 54.0;
-    const SLOT_GAP: f32 = 4.0;
+    let slot_size = sizes::SLOT;
+    let slot_gap = sizes::SLOT_GAP;
 
     commands
         .spawn((
@@ -1649,13 +1655,13 @@ fn spawn_hotbar_hud(
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::FlexEnd, // 縦方向で下に配置
                 align_items: AlignItems::Center, // 横方向で中央に配置
-                padding: UiRect::bottom(Val::Px(20.0)),
+                padding: UiRect::bottom(Val::Px(24.0)),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
         ))
         .with_children(|parent| {
-            // アイテム名表示（ホットバーの上）
+            // アイテム名表示（ホットバーの上）- モダンなスタイル
             let selected_slot = &player_inventory.slots[player_inventory.selected_hotbar_slot];
             let item_name = if let Some(item_id) = &selected_slot.item_id {
                 item_registry.get(item_id)
@@ -1668,30 +1674,36 @@ fn spawn_hotbar_hud(
             parent.spawn((
                 HotbarItemName,
                 Text::new(item_name),
-                TextFont { font_size: 24.0, ..default() },
-                TextColor(Color::WHITE),
+                TextFont { font_size: fonts::TITLE_SM, ..default() },
+                TextColor(colors::TEXT_PRIMARY),
                 Node {
-                    margin: UiRect::bottom(Val::Px(10.0)),
+                    margin: UiRect::bottom(Val::Px(12.0)),
                     align_self: AlignSelf::Center,
                     ..default()
                 },
             ));
 
-            // ホットバースロット
+            // ホットバーコンテナ - モダンなスタイル
             parent
-                .spawn(Node {
-                    display: Display::Grid,
-                    grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
-                    grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
-                    column_gap: Val::Px(SLOT_GAP),
-                    padding: UiRect::all(Val::Px(8.0)),
-                    align_self: AlignSelf::Center,
-                    ..default()
-                })
+                .spawn((
+                    Node {
+                        display: Display::Grid,
+                        grid_template_columns: RepeatedGridTrack::flex(10, 1.0),
+                        grid_template_rows: RepeatedGridTrack::flex(1, 1.0),
+                        column_gap: Val::Px(slot_gap),
+                        padding: UiRect::all(Val::Px(12.0)),
+                        align_self: AlignSelf::Center,
+                        border: UiRect::all(Val::Px(sizes::BORDER_THIN)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.08, 0.09, 0.12, 0.85)),
+                    BorderColor(colors::BORDER),
+                    BorderRadius::all(Val::Px(sizes::RADIUS_MD)),
+                ))
                 .with_children(|parent| {
                     for i in 50..60 {
                         let is_selected = i == player_inventory.selected_hotbar_slot;
-                        spawn_hotbar_slot(parent, i, &player_inventory.slots[i], SLOT_SIZE, is_selected);
+                        spawn_hotbar_slot(parent, i, &player_inventory.slots[i], slot_size, is_selected);
                     }
                 });
         });
@@ -1699,7 +1711,7 @@ fn spawn_hotbar_hud(
     info!("Hotbar HUD spawned");
 }
 
-/// ホットバー用スロットを生成
+/// ホットバー用スロットを生成 - モダンなスタイル
 fn spawn_hotbar_slot(
     parent: &mut ChildBuilder,
     index: usize,
@@ -1708,11 +1720,14 @@ fn spawn_hotbar_slot(
     is_selected: bool,
 ) {
     let (bg_color, border_color, border_width) = if is_selected {
-        // 選択中のスロット: 明るい背景、白い太い枠
-        (Color::srgba(0.3, 0.3, 0.4, 0.9), Color::WHITE, 3.0)
+        // 選択中のスロット: アクセントカラーで強調
+        (colors::SLOT_SELECTED, colors::BORDER_ACTIVE, sizes::BORDER_THICK)
+    } else if !slot_data.is_empty() {
+        // アイテムありのスロット
+        (colors::SLOT_FILLED, colors::BORDER, sizes::BORDER_NORMAL)
     } else {
-        // 非選択のスロット: 暗い背景、通常の枠
-        (Color::srgba(0.1, 0.1, 0.1, 0.8), Color::srgb(0.5, 0.5, 0.5), 2.0)
+        // 空のスロット
+        (colors::SLOT_DEFAULT, colors::BORDER, sizes::BORDER_THIN)
     };
 
     parent
@@ -1728,6 +1743,7 @@ fn spawn_hotbar_slot(
             },
             BackgroundColor(bg_color),
             BorderColor(border_color),
+            BorderRadius::all(Val::Px(sizes::RADIUS_SM)),
         ))
         .with_children(|parent| {
             // 常にテキストエンティティを生成（空の場合も）
@@ -1739,8 +1755,8 @@ fn spawn_hotbar_slot(
 
             parent.spawn((
                 Text::new(text_content),
-                TextFont { font_size: 11.0, ..default() },
-                TextColor(Color::WHITE),
+                TextFont { font_size: fonts::LABEL, ..default() },
+                TextColor(colors::TEXT_PRIMARY),
             ));
         });
 }

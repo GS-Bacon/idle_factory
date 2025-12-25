@@ -15,7 +15,26 @@
 | UI実装 | UI作成/修正時は`ui-design-rules.md`に従う |
 | 動作確認 | `/e2e-test`スキルを使用、クラッシュ時はログ解析 |
 | 3Dモデル | 「XXXのモデルを作成」指示でサブエージェント起動 |
-| サブエージェント | モデリング時は複数並列実行、リソース余裕時は積極活用 |
+| サブエージェント | **最大3-5個**に制限、過度な並列はトークン浪費 |
+
+## トークン効率化（重要）
+
+**リミット節約のため以下を厳守:**
+
+| ルール | 詳細 |
+|--------|------|
+| タスク分割 | 1セッション=1機能、調査と実装は別セッション |
+| 並列制限 | サブエージェントは同時3-5個まで |
+| 参照最小化 | changelog全体を読まない、最新1週間分のみ |
+| 計画優先 | 大きなタスクは先にspecs/に計画を書く→別セッションで実装 |
+| 探索禁止 | 「全体を調査」より「XXXファイルを確認」と具体的に |
+
+**セッション分割の例:**
+```
+❌ 「6ゲームを調査して9システム実装して」（トークン大量消費）
+✅ セッション1:「Factorioのベルト仕様を調査」→結果をmdに保存
+✅ セッション2:「specs/belt.mdに従って実装」→実装のみ
+```
 
 ## 3Dモデル生成
 
@@ -42,7 +61,7 @@
 |--------|----------|------|
 | 必須 | `API_REFERENCE.md` | 関数・構造体一覧 |
 | 状況 | `.specify/memory/constitution.md` | プロジェクト原則 |
-| 状況 | `.specify/memory/changelog.md` | 開発履歴 |
+| 状況 | `.specify/memory/changelog.md` | 開発履歴（**最新1週間のみ参照**） |
 | 状況 | `.specify/memory/issues.md` | 未解決の課題 |
 | 状況 | `.specify/memory/patterns-compact.md` | 52パターン |
 | 状況 | `.specify/memory/ui-design-rules.md` | UIデザインルール |
@@ -51,8 +70,11 @@
 | 3Dモデル | `tools/blender_scripts/_base.py` | Blender共通モジュール |
 | 状況 | `.specify/specs/index-compact.md` | 全仕様集約 |
 | 詳細時 | `.specify/specs/*.md`, `src/**/*.rs` | 個別レポート/ソース |
+| アーカイブ | `.specify/memory/changelog-archive/` | 古い履歴（読まない） |
 
 **原則**: 圧縮版優先、詳細は必要時のみ
+
+**changelog管理**: 月が変わったら古い履歴を`changelog-archive/YYYY-MM.md`に移動
 
 ## Git Worktree ワークフロー（必須）
 

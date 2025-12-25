@@ -16,6 +16,7 @@ use crate::gameplay::inventory::PlayerInventory;
 use crate::gameplay::player::Player;
 use crate::gameplay::commands::GameMode;
 use crate::ui::settings_ui::SettingsUiState;
+use crate::ui::styles::{colors, sizes, fonts};
 
 /// メインメニュープラグイン
 pub struct MainMenuPlugin;
@@ -183,16 +184,7 @@ pub struct ProfileInfo {
     pub description: String,
 }
 
-// ========================================
-// UIスタイル定数
-// ========================================
-
-const NORMAL_BUTTON: Color = Color::srgb(0.25, 0.25, 0.30);
-const HOVERED_BUTTON: Color = Color::srgb(0.35, 0.35, 0.42);
-const PRESSED_BUTTON: Color = Color::srgb(0.20, 0.20, 0.25);
-const PANEL_BG: Color = Color::srgba(0.12, 0.12, 0.16, 0.95);
-const TEXT_PRIMARY: Color = Color::WHITE;
-const TEXT_SECONDARY: Color = Color::srgb(0.7, 0.7, 0.7);
+// UIスタイル定数は styles.rs からインポート
 
 // ========================================
 // 汎用システム
@@ -208,17 +200,26 @@ fn despawn_with<T: Component>(
     }
 }
 
-/// ボタンのインタラクション処理（色変更）
+/// ボタンのインタラクション処理（モダン：色変更 + ボーダー）
 #[allow(clippy::type_complexity)]
 fn button_interaction_system(
-    mut query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
+    mut query: Query<(&Interaction, &mut BackgroundColor, &mut BorderColor), (Changed<Interaction>, With<Button>)>,
 ) {
-    for (interaction, mut bg_color) in &mut query {
-        *bg_color = match *interaction {
-            Interaction::Pressed => BackgroundColor(PRESSED_BUTTON),
-            Interaction::Hovered => BackgroundColor(HOVERED_BUTTON),
-            Interaction::None => BackgroundColor(NORMAL_BUTTON),
-        };
+    for (interaction, mut bg_color, mut border_color) in &mut query {
+        match *interaction {
+            Interaction::Pressed => {
+                *bg_color = BackgroundColor(colors::BUTTON_PRESSED);
+                *border_color = BorderColor(colors::BORDER_ACTIVE);
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(colors::BUTTON_HOVER);
+                *border_color = BorderColor(colors::BORDER_ACTIVE);
+            }
+            Interaction::None => {
+                *bg_color = BackgroundColor(colors::BUTTON_DEFAULT);
+                *border_color = BorderColor(colors::BORDER);
+            }
+        }
     }
 }
 
@@ -229,7 +230,7 @@ fn button_interaction_system(
 fn spawn_main_menu(mut commands: Commands) {
     commands.insert_resource(SelectedSlotIndex::default());
 
-    // ルートノード
+    // ルートノード - グラデーション背景
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -238,39 +239,68 @@ fn spawn_main_menu(mut commands: Commands) {
             align_items: AlignItems::Center,
             ..default()
         },
-        BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.95)),
-        GlobalZIndex(100), // 最前面に表示
+        BackgroundColor(colors::BG_DARK),
+        GlobalZIndex(100),
         MainMenuUi,
     )).with_children(|parent| {
-        // パネル
+        // モダンなパネル - Glassmorphism風
         parent.spawn((
             Node {
-                width: Val::Px(400.0),
+                width: Val::Px(420.0),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(40.0)),
-                row_gap: Val::Px(20.0),
+                padding: UiRect::all(Val::Px(sizes::PANEL_PADDING + 16.0)),
+                row_gap: Val::Px(sizes::PANEL_GAP),
+                border: UiRect::all(Val::Px(sizes::BORDER_THIN)),
                 ..default()
             },
-            BackgroundColor(PANEL_BG),
-            BorderRadius::all(Val::Px(12.0)),
+            BackgroundColor(colors::BG_PANEL),
+            BorderColor(colors::BORDER),
+            BorderRadius::all(Val::Px(sizes::RADIUS_LG)),
         )).with_children(|panel| {
-            // タイトル
+            // タイトル - より大きく、アクセント付き
             panel.spawn((
                 Text::new("Infinite Voxel Factory"),
-                TextFont { font_size: 36.0, ..default() },
-                TextColor(TEXT_PRIMARY),
-                Node { margin: UiRect::bottom(Val::Px(30.0)), ..default() },
+                TextFont { font_size: fonts::TITLE_LG, ..default() },
+                TextColor(colors::TEXT_PRIMARY),
+                Node { margin: UiRect::bottom(Val::Px(8.0)), ..default() },
             ));
 
-            // Play
-            spawn_button(panel, "Play", MenuButtonAction::Play, 220.0);
+            // サブタイトル
+            panel.spawn((
+                Text::new("Build Your Dream Factory"),
+                TextFont { font_size: fonts::BODY_SM, ..default() },
+                TextColor(colors::TEXT_SECONDARY),
+                Node { margin: UiRect::bottom(Val::Px(24.0)), ..default() },
+            ));
+
+            // セパレータ
+            panel.spawn((
+                Node {
+                    width: Val::Percent(80.0),
+                    height: Val::Px(1.0),
+                    margin: UiRect::vertical(Val::Px(8.0)),
+                    ..default()
+                },
+                BackgroundColor(colors::BORDER),
+            ));
+
+            // Play - プライマリボタン
+            spawn_modern_button(panel, "Play", MenuButtonAction::Play, true);
 
             // Settings
-            spawn_button(panel, "Settings", MenuButtonAction::Settings, 220.0);
+            spawn_modern_button(panel, "Settings", MenuButtonAction::Settings, false);
 
             // Quit
-            spawn_button(panel, "Quit", MenuButtonAction::Quit, 220.0);
+            spawn_modern_button(panel, "Quit", MenuButtonAction::Quit, false);
+
+            // バージョン情報
+            panel.spawn((
+                Text::new("v0.1.0 - Early Development"),
+                TextFont { font_size: fonts::CAPTION, ..default() },
+                TextColor(colors::TEXT_DISABLED),
+                Node { margin: UiRect::top(Val::Px(16.0)), ..default() },
+            ));
         });
     });
 }
@@ -322,14 +352,14 @@ fn spawn_profile_select(
                 row_gap: Val::Px(15.0),
                 ..default()
             },
-            BackgroundColor(PANEL_BG),
+            BackgroundColor(colors::BG_PANEL),
             BorderRadius::all(Val::Px(12.0)),
         )).with_children(|panel| {
             // タイトル
             panel.spawn((
                 Text::new("Select Profile"),
                 TextFont { font_size: 28.0, ..default() },
-                TextColor(TEXT_PRIMARY),
+                TextColor(colors::TEXT_PRIMARY),
                 Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
             ));
 
@@ -391,12 +421,12 @@ fn spawn_profile_slot(parent: &mut ChildBuilder, profile: &ProfileInfo, is_activ
         slot.spawn((
             Text::new(format!("{}{}", profile.name, if is_active { " ✓" } else { "" })),
             TextFont { font_size: 18.0, ..default() },
-            TextColor(TEXT_PRIMARY),
+            TextColor(colors::TEXT_PRIMARY),
         ));
         slot.spawn((
             Text::new(&profile.description),
             TextFont { font_size: 13.0, ..default() },
-            TextColor(TEXT_SECONDARY),
+            TextColor(colors::TEXT_SECONDARY),
         ));
     });
 }
@@ -451,14 +481,14 @@ fn spawn_profile_settings(
                 row_gap: Val::Px(15.0),
                 ..default()
             },
-            BackgroundColor(PANEL_BG),
+            BackgroundColor(colors::BG_PANEL),
             BorderRadius::all(Val::Px(12.0)),
         )).with_children(|panel| {
             // タイトル
             panel.spawn((
                 Text::new("Profile Settings"),
                 TextFont { font_size: 28.0, ..default() },
-                TextColor(TEXT_PRIMARY),
+                TextColor(colors::TEXT_PRIMARY),
                 Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
             ));
 
@@ -466,7 +496,7 @@ fn spawn_profile_settings(
             panel.spawn((
                 Text::new(format!("Active: {}", profile_list.active)),
                 TextFont { font_size: 16.0, ..default() },
-                TextColor(TEXT_SECONDARY),
+                TextColor(colors::TEXT_SECONDARY),
             ));
 
             // プロファイル管理セクション
@@ -485,22 +515,22 @@ fn spawn_profile_settings(
                 section.spawn((
                     Text::new("Profile Management"),
                     TextFont { font_size: 16.0, ..default() },
-                    TextColor(TEXT_PRIMARY),
+                    TextColor(colors::TEXT_PRIMARY),
                 ));
                 section.spawn((
                     Text::new("• Create new profiles in the Factory Data Architect editor"),
                     TextFont { font_size: 13.0, ..default() },
-                    TextColor(TEXT_SECONDARY),
+                    TextColor(colors::TEXT_SECONDARY),
                 ));
                 section.spawn((
                     Text::new("• Edit items, recipes, and quests for each profile"),
                     TextFont { font_size: 13.0, ..default() },
-                    TextColor(TEXT_SECONDARY),
+                    TextColor(colors::TEXT_SECONDARY),
                 ));
                 section.spawn((
                     Text::new("• Download MODs from Steam Workshop (coming soon)"),
                     TextFont { font_size: 13.0, ..default() },
-                    TextColor(TEXT_SECONDARY),
+                    TextColor(colors::TEXT_SECONDARY),
                 ));
             });
 
@@ -550,14 +580,14 @@ fn spawn_pause_menu(mut commands: Commands) {
                 row_gap: Val::Px(15.0),
                 ..default()
             },
-            BackgroundColor(PANEL_BG),
+            BackgroundColor(colors::BG_PANEL),
             BorderRadius::all(Val::Px(12.0)),
         )).with_children(|panel| {
             // タイトル
             panel.spawn((
                 Text::new("Paused"),
                 TextFont { font_size: 32.0, ..default() },
-                TextColor(TEXT_PRIMARY),
+                TextColor(colors::TEXT_PRIMARY),
                 Node { margin: UiRect::bottom(Val::Px(20.0)), ..default() },
             ));
 
@@ -738,14 +768,14 @@ fn spawn_save_select(
                 row_gap: Val::Px(15.0),
                 ..default()
             },
-            BackgroundColor(PANEL_BG),
+            BackgroundColor(colors::BG_PANEL),
             BorderRadius::all(Val::Px(12.0)),
         )).with_children(|panel| {
             // タイトル
             panel.spawn((
                 Text::new("Select World"),
                 TextFont { font_size: 28.0, ..default() },
-                TextColor(TEXT_PRIMARY),
+                TextColor(colors::TEXT_PRIMARY),
                 Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
             ));
 
@@ -796,18 +826,18 @@ fn spawn_save_slot(parent: &mut ChildBuilder, index: usize, meta: Option<&SaveMe
             slot.spawn((
                 Text::new(&m.world_name),
                 TextFont { font_size: 18.0, ..default() },
-                TextColor(TEXT_PRIMARY),
+                TextColor(colors::TEXT_PRIMARY),
             ));
             slot.spawn((
                 Text::new(format!("{} | {}", m.formatted_play_time(), m.formatted_date())),
                 TextFont { font_size: 13.0, ..default() },
-                TextColor(TEXT_SECONDARY),
+                TextColor(colors::TEXT_SECONDARY),
             ));
         } else {
             slot.spawn((
                 Text::new(format!("Slot {} - Empty", index + 1)),
                 TextFont { font_size: 18.0, ..default() },
-                TextColor(TEXT_SECONDARY),
+                TextColor(colors::TEXT_SECONDARY),
             ));
             slot.spawn((
                 Text::new("Click to create new world"),
@@ -883,14 +913,14 @@ fn spawn_world_generation(
                 row_gap: Val::Px(20.0),
                 ..default()
             },
-            BackgroundColor(PANEL_BG),
+            BackgroundColor(colors::BG_PANEL),
             BorderRadius::all(Val::Px(12.0)),
         )).with_children(|panel| {
             // タイトル
             panel.spawn((
                 Text::new(format!("New World (Slot {})", slot_index + 1)),
                 TextFont { font_size: 28.0, ..default() },
-                TextColor(TEXT_PRIMARY),
+                TextColor(colors::TEXT_PRIMARY),
                 Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
             ));
 
@@ -913,7 +943,7 @@ fn spawn_world_generation(
                 container.spawn((
                     Text::new("Game Mode"),
                     TextFont { font_size: 14.0, ..default() },
-                    TextColor(TEXT_SECONDARY),
+                    TextColor(colors::TEXT_SECONDARY),
                 ));
 
                 // ゲームモードボタン行
@@ -952,7 +982,7 @@ fn spawn_game_mode_button(parent: &mut ChildBuilder, label: &str, mode: GameMode
     let bg_color = if is_selected {
         Color::srgb(0.3, 0.5, 0.3) // 選択中: 緑がかった色
     } else {
-        NORMAL_BUTTON
+        colors::BUTTON_DEFAULT
     };
     let border_color = if is_selected {
         Color::srgb(0.5, 0.8, 0.5)
@@ -979,7 +1009,7 @@ fn spawn_game_mode_button(parent: &mut ChildBuilder, label: &str, mode: GameMode
         btn.spawn((
             Text::new(label),
             TextFont { font_size: 16.0, ..default() },
-            TextColor(TEXT_PRIMARY),
+            TextColor(colors::TEXT_PRIMARY),
         ));
     });
 }
@@ -997,7 +1027,7 @@ fn spawn_text_input(parent: &mut ChildBuilder, label: &str, input_type: TextInpu
         container.spawn((
             Text::new(label),
             TextFont { font_size: 14.0, ..Default::default() },
-            TextColor(TEXT_SECONDARY),
+            TextColor(colors::TEXT_SECONDARY),
         ));
 
         // 入力フィールド
@@ -1022,7 +1052,7 @@ fn spawn_text_input(parent: &mut ChildBuilder, label: &str, input_type: TextInpu
             field.spawn((
                 Text::new(if default_value.is_empty() { " " } else { default_value }),
                 TextFont { font_size: 16.0, ..Default::default() },
-                TextColor(TEXT_PRIMARY),
+                TextColor(colors::TEXT_PRIMARY),
                 TextInputDisplay(input_type),
             ));
         });
@@ -1054,7 +1084,7 @@ fn world_gen_buttons(
                         *bg = BackgroundColor(Color::srgb(0.3, 0.5, 0.3));
                         *border = BorderColor(Color::srgb(0.5, 0.8, 0.5));
                     } else {
-                        *bg = BackgroundColor(NORMAL_BUTTON);
+                        *bg = BackgroundColor(colors::BUTTON_DEFAULT);
                         *border = BorderColor(Color::srgb(0.3, 0.3, 0.35));
                     }
                 }
@@ -1180,19 +1210,52 @@ fn spawn_button(parent: &mut ChildBuilder, text: &str, action: MenuButtonAction,
         Button,
         Node {
             width: Val::Px(width),
-            height: Val::Px(48.0),
+            height: Val::Px(sizes::BUTTON_HEIGHT),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            border: UiRect::all(Val::Px(sizes::BORDER_THIN)),
             ..default()
         },
-        BackgroundColor(NORMAL_BUTTON),
-        BorderRadius::all(Val::Px(6.0)),
+        BackgroundColor(colors::BUTTON_DEFAULT),
+        BorderColor(colors::BORDER),
+        BorderRadius::all(Val::Px(sizes::RADIUS_MD)),
         action,
     )).with_children(|btn| {
         btn.spawn((
             Text::new(text),
-            TextFont { font_size: 18.0, ..default() },
-            TextColor(TEXT_PRIMARY),
+            TextFont { font_size: fonts::BODY_MD, ..default() },
+            TextColor(colors::TEXT_PRIMARY),
+        ));
+    });
+}
+
+/// モダンなボタンを生成（プライマリ/セカンダリ対応）
+fn spawn_modern_button(parent: &mut ChildBuilder, text: &str, action: MenuButtonAction, is_primary: bool) {
+    let (bg_color, border_color) = if is_primary {
+        (colors::BUTTON_PRIMARY, colors::ACCENT_PRIMARY)
+    } else {
+        (colors::BUTTON_DEFAULT, colors::BORDER)
+    };
+
+    parent.spawn((
+        Button,
+        Node {
+            width: Val::Px(240.0),
+            height: Val::Px(sizes::BUTTON_HEIGHT),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border: UiRect::all(Val::Px(sizes::BORDER_THIN)),
+            ..default()
+        },
+        BackgroundColor(bg_color),
+        BorderColor(border_color),
+        BorderRadius::all(Val::Px(sizes::RADIUS_MD)),
+        action,
+    )).with_children(|btn| {
+        btn.spawn((
+            Text::new(text),
+            TextFont { font_size: fonts::BODY_LG, ..default() },
+            TextColor(colors::TEXT_PRIMARY),
         ));
     });
 }

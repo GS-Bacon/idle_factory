@@ -1,22 +1,25 @@
 # UI Dump
-Generated: 2025-12-25 10:09:26
+Generated: 2025-12-25 11:26:57
 AppState: MainMenu
 InventoryState: Closed
 
 ## UI Tree
 
 - (unnamed) [w:100% h:100%]
-  - (unnamed) [w:400px h:auto]
+  - (unnamed) [w:420px h:auto]
     - (unnamed) [w:auto h:auto] text="Infinite Voxel Factory"
-    - (unnamed) [w:220px h:48px]
+    - (unnamed) [w:auto h:auto] text="Build Your Dream Factory"
+    - (unnamed) [w:80% h:1px]
+    - (unnamed) [w:240px h:48px]
       - (unnamed) [w:auto h:auto] text="Play"
-    - (unnamed) [w:220px h:48px]
+    - (unnamed) [w:240px h:48px]
       - (unnamed) [w:auto h:auto] text="Settings"
-    - (unnamed) [w:220px h:48px]
+    - (unnamed) [w:240px h:48px]
       - (unnamed) [w:auto h:auto] text="Quit"
+    - (unnamed) [w:auto h:auto] text="v0.1.0 - Early Development"
 - (unnamed) [w:auto h:auto] text="FPS: N/A"
 
 ## Statistics
-- Total nodes: 10
+- Total nodes: 13
 - Named nodes: 0
-- Text nodes: 5
+- Text nodes: 7

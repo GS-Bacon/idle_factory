@@ -923,6 +923,177 @@ def create_dust_pile(radius=0.04, height=0.025, material="stone"):
 
 
 # =============================================================================
+# 接続面（Connection Face）システム
+# =============================================================================
+
+# 接続面の方向定義
+CONNECTION_FACES = {
+    "front":  (0, 0, 1),    # +Z
+    "back":   (0, 0, -1),   # -Z
+    "left":   (-1, 0, 0),   # -X
+    "right":  (1, 0, 0),    # +X
+    "top":    (0, 1, 0),    # +Y (Blender座標系)
+    "bottom": (0, -1, 0),   # -Y
+}
+
+HALF_BLOCK = 0.5  # ブロック境界
+
+
+def create_pipe_flange(pipe_radius, location, facing="front", bolt_count=4, material="brass"):
+    """接続用フランジを生成
+
+    Args:
+        pipe_radius: パイプの半径
+        location: フランジ中心の位置
+        facing: 接続面の向き (front/back/left/right/top/bottom)
+        bolt_count: ボルト数 (4 or 6)
+        material: マテリアルプリセット
+
+    Returns:
+        フランジパーツのリスト [flange, bolts...]
+    """
+    flange_radius = pipe_radius * 1.3
+    flange_thickness = 0.025
+
+    parts = []
+
+    # フランジ本体
+    flange = create_octagonal_prism(flange_radius, flange_thickness, location, "Flange")
+    apply_preset_material(flange, material)
+
+    # 向きに応じて回転
+    if facing in ["front", "back"]:
+        pass  # デフォルトでZ軸方向
+    elif facing in ["left", "right"]:
+        flange.rotation_euler.y = pi / 2
+    elif facing in ["top", "bottom"]:
+        flange.rotation_euler.x = pi / 2
+
+    parts.append(flange)
+
+    # ボルト装飾
+    bolt_radius = flange_radius * 0.7
+    for i in range(bolt_count):
+        angle = i * 2 * pi / bolt_count + pi / bolt_count
+        if facing in ["front", "back"]:
+            bx = location[0] + cos(angle) * bolt_radius
+            by = location[1] + sin(angle) * bolt_radius
+            bz = location[2]
+        elif facing in ["left", "right"]:
+            bx = location[0]
+            by = location[1] + cos(angle) * bolt_radius
+            bz = location[2] + sin(angle) * bolt_radius
+        else:  # top/bottom
+            bx = location[0] + cos(angle) * bolt_radius
+            by = location[1]
+            bz = location[2] + sin(angle) * bolt_radius
+
+        bolt = create_bolt(0.02, 0.03, (bx, by, bz), f"FlangeBolt_{i}")
+        apply_preset_material(bolt, "iron")
+        parts.append(bolt)
+
+    return parts
+
+
+def create_connection_port(port_type="pipe", radius=0.15, location=(0, 0, 0), facing="front", material="brass"):
+    """接続ポート（フランジ付きパイプ端）を生成
+
+    Args:
+        port_type: ポートタイプ ("pipe", "conveyor", "power")
+        radius: ポート半径
+        location: ポート位置（ブロック境界に配置推奨）
+        facing: 接続方向
+        material: マテリアルプリセット
+
+    Returns:
+        ポートパーツのリスト
+    """
+    parts = []
+    pipe_length = 0.1  # 短いパイプセグメント
+
+    # パイプ部分
+    pipe = create_pipe(radius, pipe_length, wall=radius * 0.15, location=location, name="ConnectionPipe")
+    apply_preset_material(pipe, material)
+
+    # 向きに応じて回転・位置調整
+    direction = CONNECTION_FACES.get(facing, (0, 0, 1))
+    if facing in ["front", "back"]:
+        pass
+    elif facing in ["left", "right"]:
+        pipe.rotation_euler.y = pi / 2
+    elif facing in ["top", "bottom"]:
+        pipe.rotation_euler.x = pi / 2
+
+    parts.append(pipe)
+
+    # フランジを追加
+    flange_offset = pipe_length / 2 + 0.0125
+    if facing == "front":
+        flange_loc = (location[0], location[1], location[2] + flange_offset)
+    elif facing == "back":
+        flange_loc = (location[0], location[1], location[2] - flange_offset)
+    elif facing == "right":
+        flange_loc = (location[0] + flange_offset, location[1], location[2])
+    elif facing == "left":
+        flange_loc = (location[0] - flange_offset, location[1], location[2])
+    elif facing == "top":
+        flange_loc = (location[0], location[1] + flange_offset, location[2])
+    else:  # bottom
+        flange_loc = (location[0], location[1] - flange_offset, location[2])
+
+    flange_parts = create_pipe_flange(radius, flange_loc, facing, bolt_count=4, material=material)
+    parts.extend(flange_parts)
+
+    return parts
+
+
+def add_connection_ports(base_parts, port_config, block_center=(0, 0, 0.5)):
+    """機械に接続ポートを追加
+
+    Args:
+        base_parts: ベースとなるパーツリスト
+        port_config: 接続ポート設定のリスト
+            例: [
+                {"facing": "front", "type": "pipe", "radius": 0.1, "z": 0.3},
+                {"facing": "back", "type": "pipe", "radius": 0.1, "z": 0.3},
+            ]
+        block_center: ブロック中心位置
+
+    Returns:
+        全パーツのリスト
+    """
+    all_parts = list(base_parts)
+
+    for config in port_config:
+        facing = config.get("facing", "front")
+        port_type = config.get("type", "pipe")
+        radius = config.get("radius", 0.1)
+        z_offset = config.get("z", 0.4)
+        material = config.get("material", "brass")
+
+        # 接続面位置を計算（ブロック境界）
+        if facing == "front":
+            loc = (block_center[0], block_center[1], HALF_BLOCK)
+            loc = (loc[0], loc[1], z_offset)
+            loc = (loc[0], HALF_BLOCK - 0.05, loc[2])
+        elif facing == "back":
+            loc = (block_center[0], -HALF_BLOCK + 0.05, z_offset)
+        elif facing == "right":
+            loc = (HALF_BLOCK - 0.05, block_center[1], z_offset)
+        elif facing == "left":
+            loc = (-HALF_BLOCK + 0.05, block_center[1], z_offset)
+        elif facing == "top":
+            loc = (block_center[0], block_center[1], 1.0 - 0.05)
+        else:  # bottom
+            loc = (block_center[0], block_center[1], 0.05)
+
+        port_parts = create_connection_port(port_type, radius, loc, facing, material)
+        all_parts.extend(port_parts)
+
+    return all_parts
+
+
+# =============================================================================
 # 高レベルパーツ（機械用）
 # =============================================================================
 
@@ -1153,7 +1324,9 @@ print("  Materials: create_material, apply_preset_material")
 print("  Animation: create_rotation_animation, create_translation_animation")
 print("  Validation: get_scene_info, validate_model, print_validation_report")
 print("  Export: export_gltf, finalize_model")
-print("  === NEW High-Level Parts ===")
+print("  === Connection System (NEW) ===")
+print("  Connection: create_pipe_flange, create_connection_port, add_connection_ports")
+print("  === High-Level Parts ===")
 print("  Items: create_tool_handle, create_ingot, create_ore_chunk, create_plate, create_dust_pile")
 print("  Machines: create_machine_frame, create_machine_body, create_tank_body, create_motor_housing")
 print("  Decorative: create_corner_bolts, create_reinforcement_ribs, add_decorative_bolts_circle, create_accent_light")

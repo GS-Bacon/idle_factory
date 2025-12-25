@@ -1,5 +1,5 @@
 # UI Dump
-Generated: 2025-12-25 10:09:39
+Generated: 2025-12-25 11:27:11
 AppState: PauseMenu
 InventoryState: Closed
 

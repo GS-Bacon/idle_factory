@@ -160,7 +160,10 @@
       "Bash(node --version:*)",
       "Bash(npm --version:*)",
       "Bash(grep:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)"
     ]
   }
 }

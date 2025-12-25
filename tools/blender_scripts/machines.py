@@ -19,16 +19,21 @@ import os
 exec(open("tools/blender_scripts/_base.py").read())
 
 # =============================================================================
-# 1. Furnace (かまど)
+# 1. Furnace (かまど) - 接続面: 前後(±Y)
 # =============================================================================
 
 def create_furnace():
-    """かまど - 正面に開口部のあるキューブ"""
+    """かまど - 正面に開口部のあるキューブ
+    接続面: front(+Y), back(-Y) - アイテム入出力用
+    """
     clear_scene()
+
+    parts = []
 
     # メイン本体（0.9x0.9x0.9）
     body = create_chamfered_cube((0.9, 0.9, 0.9), chamfer=0.05, name="Furnace_Body")
     apply_preset_material(body, "dark_steel")
+    parts.append(body)
 
     # 正面開口部（窓）- 赤く光るアクセント
     opening_size = (0.05, 0.5, 0.3)
@@ -36,37 +41,44 @@ def create_furnace():
                                     location=(0.45, 0, 0.1), name="Furnace_Opening")
     mat = create_material("furnace_fire", color=ACCENT_COLORS["danger"], metallic=0.0, roughness=0.3)
     apply_material(opening, mat)
+    parts.append(opening)
 
     # フレーム（開口部の縁）
     frame_thickness = 0.08
-    frame_parts = []
     # 上下
     for y_offset in [-0.2, 0.2]:
         frame = create_chamfered_cube((0.08, 0.6, 0.05), chamfer=0.01,
                                      location=(0.42, y_offset, 0.1), name=f"Frame_{y_offset}")
         apply_preset_material(frame, "iron")
-        frame_parts.append(frame)
+        parts.append(frame)
     # 左右
     for z_offset in [-0.1, 0.3]:
         frame = create_chamfered_cube((0.08, 0.05, 0.4), chamfer=0.01,
                                      location=(0.42, 0, z_offset), name=f"Frame_{z_offset}")
         apply_preset_material(frame, "iron")
-        frame_parts.append(frame)
+        parts.append(frame)
 
     # ボルト装飾（4隅）
     bolt_positions = [(-0.35, -0.35, 0.35), (0.35, -0.35, 0.35),
                      (-0.35, 0.35, 0.35), (0.35, 0.35, 0.35)]
-    bolts = []
     for pos in bolt_positions:
         bolt = create_bolt(size=0.04, length=0.06, location=pos, name=f"Bolt_{pos}")
         apply_preset_material(bolt, "iron")
-        bolts.append(bolt)
+        parts.append(bolt)
+
+    # 接続ポート（前後）- アイテム入出力
+    # 入力ポート（後面）
+    input_port = create_connection_port("pipe", radius=0.12, location=(0, -0.45, 0.45), facing="back", material="brass")
+    parts.extend(input_port)
+
+    # 出力ポート（前面下部）
+    output_port = create_connection_port("pipe", radius=0.1, location=(0, 0.45, 0.2), facing="front", material="copper")
+    parts.extend(output_port)
 
     # 結合
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
-    body.select_set(True)
-    for obj in [opening] + frame_parts + bolts:
+    for obj in parts:
         obj.select_set(True)
     bpy.ops.object.join()
     result = bpy.context.active_object
@@ -76,62 +88,69 @@ def create_furnace():
 
 
 # =============================================================================
-# 2. Conveyor Belt (コンベアベルト)
+# 2. Conveyor Belt (コンベアベルト) - 接続面: 前後(±Y)
 # =============================================================================
 
 def create_conveyor():
-    """コンベアベルト - 平たい台、ローラー付き"""
+    """コンベアベルト - 平たい台、ローラー付き
+    接続面: front(+Y), back(-Y) - アイテム搬送方向
+    """
     clear_scene()
+
+    parts = []
 
     # ベース台
     base = create_chamfered_cube((0.9, 0.9, 0.15), chamfer=0.03,
                                  location=(0, 0, 0), name="Conveyor_Base")
     apply_preset_material(base, "dark_steel")
+    parts.append(base)
 
     # ベルト面（茶色）
     belt = create_chamfered_cube((0.85, 0.7, 0.05), chamfer=0.01,
                                 location=(0, 0, 0.1), name="Conveyor_Belt")
     apply_preset_material(belt, "wood")
+    parts.append(belt)
 
     # ローラー（両端）
     roller_radius = 0.08
     roller_width = 0.7
-    rollers = []
     for x_offset in [-0.35, 0.35]:
         roller = create_octagonal_prism(roller_radius, roller_width,
                                        location=(x_offset, 0, 0.08), name=f"Roller_{x_offset}")
         roller.rotation_euler.x = pi / 2
         apply_preset_material(roller, "iron")
-        rollers.append(roller)
+        parts.append(roller)
 
-    # サイドフレーム
-    frames = []
-    for y_offset in [-0.4, 0.4]:
+    # サイドフレーム（接続面のフランジ兼用）
+    for y_offset in [-0.45, 0.45]:
         frame = create_chamfered_cube((0.9, 0.08, 0.12), chamfer=0.02,
                                      location=(0, y_offset, 0.06), name=f"Frame_{y_offset}")
         apply_preset_material(frame, "iron")
-        frames.append(frame)
+        parts.append(frame)
+
+    # 接続用フランジ（前後のサイドレール端）
+    # 前面フランジ
+    front_flange = create_pipe_flange(0.35, (0, 0.5, 0.08), facing="front", bolt_count=4, material="brass")
+    parts.extend(front_flange)
+    # 後面フランジ
+    back_flange = create_pipe_flange(0.35, (0, -0.5, 0.08), facing="back", bolt_count=4, material="brass")
+    parts.extend(back_flange)
 
     # ボルト（装飾）
     bolt_positions = [(0.35, 0.35, 0.12), (-0.35, 0.35, 0.12),
                      (0.35, -0.35, 0.12), (-0.35, -0.35, 0.12)]
-    bolts = []
     for pos in bolt_positions:
         bolt = create_bolt(size=0.03, length=0.04, location=pos, name=f"Bolt_{pos}")
         apply_preset_material(bolt, "brass")
-        bolts.append(bolt)
+        parts.append(bolt)
 
     # 結合
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = base
-    base.select_set(True)
-    for obj in [belt] + rollers + frames + bolts:
+    for obj in parts:
         obj.select_set(True)
     bpy.ops.object.join()
     result = bpy.context.active_object
-
-    # アニメーション: ベルト移動（Y軸）
-    # create_translation_animation(base, axis='Y', distance=0.5, frames=60)
 
     finalize_model(result, "machine")
     return result
@@ -262,50 +281,54 @@ def create_press():
 
 
 # =============================================================================
-# 5. Pump (ポンプ)
+# 5. Pump (ポンプ) - 接続面: 左(-X), 上(+Z)
 # =============================================================================
 
 def create_pump():
-    """ポンプ - 八角柱ベース"""
+    """ポンプ - 八角柱ベース
+    接続面: left(-X) 入力, top(+Z) 出力 - 液体/気体輸送
+    """
     clear_scene()
+
+    parts = []
 
     # メイン本体（八角柱）
     body = create_octagonal_prism(radius=0.4, height=0.5, location=(0, 0, 0.25), name="Pump_Body")
     apply_preset_material(body, "copper")
-
-    # 入力パイプ（側面）
-    inlet = create_pipe(radius=0.1, length=0.3, wall=0.02, location=(-0.5, 0, 0.4), name="Pump_Inlet")
-    inlet.rotation_euler.y = pi / 2
-    apply_preset_material(inlet, "brass")
-
-    # 出力パイプ（上部）
-    outlet = create_pipe(radius=0.12, length=0.25, wall=0.02, location=(0, 0, 0.65), name="Pump_Outlet")
-    apply_preset_material(outlet, "brass")
+    parts.append(body)
 
     # ベース台
     base = create_chamfered_cube((0.7, 0.7, 0.1), chamfer=0.03, location=(0, 0, 0), name="Pump_Base")
     apply_preset_material(base, "dark_steel")
+    parts.append(base)
+
+    # 入力接続ポート（左側面）- フランジ付き
+    inlet_port = create_connection_port("pipe", radius=0.1, location=(-0.45, 0, 0.4), facing="left", material="brass")
+    parts.extend(inlet_port)
+
+    # 出力接続ポート（上部）- フランジ付き
+    outlet_port = create_connection_port("pipe", radius=0.12, location=(0, 0, 0.55), facing="top", material="brass")
+    parts.extend(outlet_port)
 
     # 内部ローター（見える）
     rotor = create_gear(radius=0.25, thickness=0.08, teeth=6, hole_radius=0.04,
                        location=(0, 0.35, 0.3), name="Pump_Rotor")
     rotor.rotation_euler.x = pi / 2
     apply_preset_material(rotor, "iron")
+    parts.append(rotor)
 
     # ボルト（補強）
     bolt_positions = [(0.3, 0.3, 0.15), (-0.3, 0.3, 0.15),
                      (0.3, -0.3, 0.15), (-0.3, -0.3, 0.15)]
-    bolts = []
     for pos in bolt_positions:
         bolt = create_bolt(size=0.035, length=0.05, location=pos, name=f"Bolt_{pos}")
         apply_preset_material(bolt, "iron")
-        bolts.append(bolt)
+        parts.append(bolt)
 
     # 結合
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
-    body.select_set(True)
-    for obj in [inlet, outlet, base, rotor] + bolts:
+    for obj in parts:
         obj.select_set(True)
     bpy.ops.object.join()
     result = bpy.context.active_object
@@ -315,43 +338,49 @@ def create_pump():
 
 
 # =============================================================================
-# 6. Tank (タンク)
+# 6. Tank (タンク) - 接続面: 右(+X)
 # =============================================================================
 
 def create_tank():
-    """タンク - 大きな円筒"""
+    """タンク - 大きな円筒
+    接続面: right(+X) - 液体入出力ポート
+    """
     clear_scene()
+
+    parts = []
 
     # メイン本体（八角柱）
     body = create_octagonal_prism(radius=0.4, height=0.8, location=(0, 0, 0.1), name="Tank_Body")
     apply_preset_material(body, "iron")
+    parts.append(body)
 
     # 上部キャップ
     top_cap = create_octagonal_prism(radius=0.42, height=0.08, location=(0, 0, 0.54), name="Tank_TopCap")
     apply_preset_material(top_cap, "brass")
+    parts.append(top_cap)
 
     # 下部キャップ
     bottom_cap = create_octagonal_prism(radius=0.42, height=0.08, location=(0, 0, 0.06), name="Tank_BottomCap")
     apply_preset_material(bottom_cap, "brass")
+    parts.append(bottom_cap)
 
     # 補強バンド（3本）
-    bands = []
     for z_offset in [0.2, 0.35, 0.5]:
         band = create_octagonal_prism(radius=0.43, height=0.04, location=(0, 0, z_offset), name=f"Band_{z_offset}")
         apply_preset_material(band, "dark_steel")
-        bands.append(band)
+        parts.append(band)
 
-    # パイプ接続口（側面）
-    port = create_pipe(radius=0.08, length=0.15, wall=0.015, location=(0.45, 0, 0.3), name="Tank_Port")
-    port.rotation_euler.y = pi / 2
-    apply_preset_material(port, "copper")
+    # 接続ポート（側面）- フランジ付き
+    side_port = create_connection_port("pipe", radius=0.08, location=(0.45, 0, 0.3), facing="right", material="copper")
+    parts.extend(side_port)
 
     # 液面ゲージ（窓）
     gauge_height = 0.5
     gauge = create_chamfered_cube((0.03, 0.15, gauge_height), chamfer=0.005,
-                                 location=(0.41, 0, 0.3), name="Tank_Gauge")
+                                 location=(0.41, 0.25, 0.3), name="Tank_Gauge")
     mat = create_material("gauge_glass", color=(0.3, 0.6, 0.8, 0.7), metallic=0.1, roughness=0.1)
     apply_material(gauge, mat)
+    parts.append(gauge)
 
     # ボルト（上下）
     bolt_positions = []
@@ -362,17 +391,15 @@ def create_tank():
             y = sin(angle) * 0.4
             bolt_positions.append((x, y, z))
 
-    bolts = []
     for pos in bolt_positions:
         bolt = create_bolt(size=0.03, length=0.04, location=pos, name=f"Bolt_{pos}")
         apply_preset_material(bolt, "brass")
-        bolts.append(bolt)
+        parts.append(bolt)
 
     # 結合
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = body
-    body.select_set(True)
-    for obj in [top_cap, bottom_cap] + bands + [port, gauge] + bolts:
+    for obj in parts:
         obj.select_set(True)
     bpy.ops.object.join()
     result = bpy.context.active_object
@@ -526,54 +553,59 @@ def create_assembler():
 
 
 # =============================================================================
-# 9. Mixer (ミキサー)
+# 9. Mixer (ミキサー) - 接続面: 右(+X)入力, 下(-Z)出力
 # =============================================================================
 
 def create_mixer():
-    """ミキサー - タンク型、攪拌羽根"""
+    """ミキサー - タンク型、攪拌羽根
+    接続面: right(+X) 入力, bottom(-Z) 出力
+    """
     clear_scene()
+
+    parts = []
 
     # タンク本体（八角柱）
     tank = create_octagonal_prism(radius=0.4, height=0.6, location=(0, 0, 0.2), name="Mixer_Tank")
     apply_preset_material(tank, "iron")
+    parts.append(tank)
 
     # 上部蓋
     lid = create_octagonal_prism(radius=0.42, height=0.1, location=(0, 0, 0.55), name="Mixer_Lid")
     apply_preset_material(lid, "brass")
+    parts.append(lid)
 
     # モーターハウジング（上部）
     motor = create_octagonal_prism(radius=0.2, height=0.15, location=(0, 0, 0.7), name="Mixer_Motor")
     apply_preset_material(motor, "copper")
+    parts.append(motor)
 
     # シャフト（中央）
     shaft = create_octagonal_prism(radius=0.04, height=0.7, location=(0, 0, 0.3), name="Mixer_Shaft")
     apply_preset_material(shaft, "dark_steel")
+    parts.append(shaft)
 
     # 攪拌羽根（3枚）
-    blades = []
     for i in range(3):
         angle = i * 2 * pi / 3
         blade = create_chamfered_cube((0.3, 0.05, 0.08), chamfer=0.01,
                                      location=(0, 0, 0.25 + i * 0.15), name=f"Blade_{i}")
         blade.rotation_euler.z = angle
         apply_preset_material(blade, "brass")
-        blades.append(blade)
+        parts.append(blade)
 
     # 補強バンド（2本）
-    bands = []
     for z_offset in [0.3, 0.45]:
         band = create_octagonal_prism(radius=0.42, height=0.04, location=(0, 0, z_offset), name=f"Band_{z_offset}")
         apply_preset_material(band, "dark_steel")
-        bands.append(band)
+        parts.append(band)
 
-    # 投入口（側面上部）
-    inlet = create_pipe(radius=0.08, length=0.15, wall=0.015, location=(0.45, 0, 0.5), name="Mixer_Inlet")
-    inlet.rotation_euler.y = pi / 2
-    apply_preset_material(inlet, "copper")
+    # 入力接続ポート（側面上部）- フランジ付き
+    inlet_port = create_connection_port("pipe", radius=0.08, location=(0.45, 0, 0.5), facing="right", material="copper")
+    parts.extend(inlet_port)
 
-    # 排出口（底部）
-    outlet = create_octagonal_prism(radius=0.12, height=0.1, location=(0, 0, 0.05), name="Mixer_Outlet")
-    apply_preset_material(outlet, "brass")
+    # 出力接続ポート（底部）- フランジ付き
+    outlet_port = create_connection_port("pipe", radius=0.1, location=(0, 0, 0.02), facing="bottom", material="brass")
+    parts.extend(outlet_port)
 
     # ボルト（蓋）
     bolt_positions = []
@@ -583,17 +615,15 @@ def create_mixer():
         y = sin(angle) * 0.38
         bolt_positions.append((x, y, 0.6))
 
-    bolts = []
     for pos in bolt_positions:
         bolt = create_bolt(size=0.03, length=0.04, location=pos, name=f"Bolt_{pos}")
         apply_preset_material(bolt, "iron")
-        bolts.append(bolt)
+        parts.append(bolt)
 
     # 結合
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = tank
-    tank.select_set(True)
-    for obj in [lid, motor, shaft] + blades + bands + [inlet, outlet] + bolts:
+    for obj in parts:
         obj.select_set(True)
     bpy.ops.object.join()
     result = bpy.context.active_object
@@ -763,71 +793,70 @@ def create_generator():
 
 
 # =============================================================================
-# 12. Chemical Reactor (化学反応器)
+# 12. Chemical Reactor (化学反応器) - 接続面: 上(+Z)入力×3, 右(+X)出力
 # =============================================================================
 
 def create_chemical_reactor():
-    """化学反応器 - 配管付きタンク"""
+    """化学反応器 - 配管付きタンク
+    接続面: top(+Z) 入力×3, right(+X) 出力
+    """
     clear_scene()
+
+    parts = []
 
     # メインタンク（八角柱）
     tank = create_octagonal_prism(radius=0.38, height=0.65, location=(0, 0, 0.325), name="Reactor_Tank")
     apply_preset_material(tank, "iron")
+    parts.append(tank)
 
     # 反応器上部ドーム
     dome = create_octagonal_prism(radius=0.4, height=0.12, location=(0, 0, 0.71), name="Reactor_Dome")
     apply_preset_material(dome, "brass")
+    parts.append(dome)
 
     # 底部コーン（逆さま）
     cone = create_octagonal_prism(radius=0.3, height=0.1, location=(0, 0, 0.05), name="Reactor_Cone")
     apply_preset_material(cone, "brass")
+    parts.append(cone)
 
-    # 入力パイプ（上部、3本）
-    inlet_pipes = []
+    # 入力接続ポート（上部、3本）- フランジ付き
     for i in range(3):
         angle = i * 2 * pi / 3
-        x = cos(angle) * 0.35
-        y = sin(angle) * 0.35
-        pipe = create_pipe(radius=0.06, length=0.2, wall=0.012, location=(x, y, 0.8), name=f"Inlet_{i}")
-        apply_preset_material(pipe, "copper")
-        inlet_pipes.append(pipe)
+        x = cos(angle) * 0.25
+        y = sin(angle) * 0.25
+        inlet_port = create_connection_port("pipe", radius=0.06, location=(x, y, 0.78), facing="top", material="copper")
+        parts.extend(inlet_port)
 
-    # 出力パイプ（側面中段）
-    outlet = create_pipe(radius=0.1, length=0.25, wall=0.02, location=(0.45, 0, 0.4), name="Reactor_Outlet")
-    outlet.rotation_euler.y = pi / 2
-    apply_preset_material(outlet, "brass")
+    # 出力接続ポート（側面中段）- フランジ付き
+    outlet_port = create_connection_port("pipe", radius=0.1, location=(0.45, 0, 0.4), facing="right", material="brass")
+    parts.extend(outlet_port)
 
     # 冷却ジャケット（外部コイル）
-    coils = []
     for i, z_offset in enumerate([0.2, 0.35, 0.5, 0.65]):
         coil = create_pipe(radius=0.04, length=0.5, wall=0.008, location=(0, 0, z_offset), name=f"Coil_{i}")
         coil.rotation_euler.y = pi / 2
         coil.location.x = 0.42
         apply_preset_material(coil, "copper")
-        coils.append(coil)
+        parts.append(coil)
 
     # 圧力ゲージ（前面）
-    gauge = create_octagonal_prism(radius=0.08, height=0.05, location=(0.42, 0, 0.55), name="Reactor_Gauge")
+    gauge = create_octagonal_prism(radius=0.08, height=0.05, location=(0.42, 0.2, 0.55), name="Reactor_Gauge")
     gauge.rotation_euler.y = pi / 2
     mat = create_material("gauge", color=ACCENT_COLORS["warning"], metallic=0.5, roughness=0.3)
     apply_material(gauge, mat)
-
-    # バルブ（出力パイプ上）
-    valve = create_hexagon(radius=0.08, depth=0.06, location=(0.6, 0, 0.4), name="Reactor_Valve")
-    valve.rotation_euler.y = pi / 2
-    apply_preset_material(valve, "brass")
+    parts.append(gauge)
 
     # 補強バンド（3本）
-    bands = []
     for z_offset in [0.25, 0.45, 0.6]:
         band = create_octagonal_prism(radius=0.41, height=0.04, location=(0, 0, z_offset), name=f"Band_{z_offset}")
         apply_preset_material(band, "dark_steel")
-        bands.append(band)
+        parts.append(band)
 
     # 安全リリーフバルブ（上部）
-    relief = create_octagonal_prism(radius=0.05, height=0.15, location=(0, 0, 0.85), name="Reactor_Relief")
+    relief = create_octagonal_prism(radius=0.05, height=0.15, location=(0, 0, 0.92), name="Reactor_Relief")
     mat_danger = create_material("relief", color=ACCENT_COLORS["danger"], metallic=0.7, roughness=0.4)
     apply_material(relief, mat_danger)
+    parts.append(relief)
 
     # ボルト（上部フランジ）
     bolt_positions = []
@@ -837,17 +866,15 @@ def create_chemical_reactor():
         y = sin(angle) * 0.36
         bolt_positions.append((x, y, 0.67))
 
-    bolts = []
     for pos in bolt_positions:
         bolt = create_bolt(size=0.03, length=0.04, location=pos, name=f"Bolt_{pos}")
         apply_preset_material(bolt, "iron")
-        bolts.append(bolt)
+        parts.append(bolt)
 
     # 結合
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = tank
-    tank.select_set(True)
-    for obj in [dome, cone] + inlet_pipes + [outlet] + coils + [gauge, valve] + bands + [relief] + bolts:
+    for obj in parts:
         obj.select_set(True)
     bpy.ops.object.join()
     result = bpy.context.active_object

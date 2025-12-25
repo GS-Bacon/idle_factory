@@ -1,5 +1,5 @@
 # UI Dump
-Generated: 2025-12-25 10:09:54
+Generated: 2025-12-25 11:27:26
 AppState: InGame
 InventoryState: PlayerInventory
 
@@ -7,59 +7,64 @@ InventoryState: PlayerInventory
 
 - (unnamed) [w:auto h:auto] text="FPS: N/A"
 - (unnamed) [w:100% h:100%]
-  - (unnamed) [w:10px h:2px]
-  - (unnamed) [w:2px h:10px]
+  - (unnamed) [w:4px h:4px]
+  - (unnamed) [w:2px h:2px]
+  - (unnamed) [w:12px h:2px]
+  - (unnamed) [w:12px h:2px]
+  - (unnamed) [w:2px h:12px]
+  - (unnamed) [w:2px h:12px]
 - (unnamed) [w:100% h:100%]
-  - (unnamed) [w:auto h:auto] text=""
-  - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-- (unnamed) [w:100% h:100%]
-  - (unnamed) [w:auto h:auto] text=""
-  - (unnamed) [w:auto h:auto]
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
-    - (unnamed) [w:54px h:54px]
-      - (unnamed) [w:auto h:auto] text=""
 - (unnamed) [w:200px h:50px]
   - (unnamed) [w:auto h:auto] text="HP"
   - (unnamed) [w:180px h:20px]
-    - (unnamed) [w:35.319744% h:100%]
-  - (unnamed) [w:auto h:auto] text="4 / 10"
+    - (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text="10 / 10"
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+- (unnamed) [w:100% h:100%]
+  - (unnamed) [w:auto h:auto] text=""
+  - (unnamed) [w:auto h:auto]
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
+    - (unnamed) [w:56px h:56px]
+      - (unnamed) [w:auto h:auto] text=""
 - (unnamed) [w:154px h:154px]
   - (unnamed) [w:150px h:150px]
     - (unnamed) [w:8px h:8px]
@@ -82,261 +87,260 @@ InventoryState: PlayerInventory
     - (unnamed) [w:auto h:auto]
       - (unnamed) [w:auto h:auto]
         - (unnamed) [w:auto h:auto]
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
             - (unnamed) [w:auto h:auto] text=""
     - (unnamed) [w:auto h:auto]
       - (unnamed) [w:auto h:350px]
         - (unnamed) [w:auto h:auto]
-          - (unnamed) [w:576px h:auto]
+          - (unnamed) [w:596px h:auto]
             - (unnamed) [w:auto h:25px]
             - (unnamed) [w:auto h:auto]
               - (unnamed) [w:auto h:auto] text="Sort"
           - (unnamed) [w:auto h:auto]
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text=""
         - (unnamed) [w:auto h:auto]
           - (unnamed) [w:auto h:30px]
           - (unnamed) [w:auto h:auto]
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Advanced Circuit"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Apple"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Assembler"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="AWESOME Sink"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Battery"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bearing"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Blueprint Designer Mk1"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Blueprint Designer Mk2"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bread"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Brick"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bronze Gear"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bronze Ingot"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bronze Pickaxe"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Bronze Plate"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Buffer Chest"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Centrifuge"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Chemical Reactor"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Circuit Board"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Circuit Breaker"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Clay"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Coal"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Coal Dust"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Coal Ore"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Cobblestone"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Concrete"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Construction Robot"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Conveyor Belt"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Cooked Meat"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Dust"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Gear"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Ingot"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Ore"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Pipe"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Plate"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Rod"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Copper Wire"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="FICSIT Coupon"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Crude Oil Bucket"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Crusher"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Electric Motor"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Filter"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Flour"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Fuel Bucket"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Furnace"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Generator"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Glass"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Gold Dust"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Gold Ingot"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Gold Ore"
-            - (unnamed) [w:54px h:54px]
+            - (unnamed) [w:56px h:56px]
               - (unnamed) [w:auto h:auto] text="Gold Plate"
       - (unnamed) [w:auto h:auto]
         - (unnamed) [w:auto h:auto]
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-          - (unnamed) [w:54px h:54px]
+          - (unnamed) [w:56px h:56px]
             - (unnamed) [w:auto h:auto] text=""
-        - (unnamed) [w:54px h:54px]
+        - (unnamed) [w:56px h:56px]
           - (unnamed) [w:auto h:auto] text="⇄"
-        - (unnamed) [w:54px h:54px]
+        - (unnamed) [w:56px h:56px]
           - (unnamed) [w:auto h:auto] text="Trash"
-- (unnamed) [w:100% h:100%]
 
 ## Statistics
-- Total nodes: 330
+- Total nodes: 334
 - Named nodes: 0
 - Text nodes: 156
