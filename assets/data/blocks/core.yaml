@@ -55,3 +55,78 @@
   is_climbable: true
   texture: "ladder"
   collision: [0.0, 0.0, 0.0, 0.1875, 1.0, 1.0]
+
+# === 地形ブロック ===
+
+- id: grass
+  name: Grass Block
+  is_solid: true
+  texture: "grass"
+
+- id: sand
+  name: Sand
+  is_solid: true
+  texture: "sand"
+
+- id: sandstone
+  name: Sandstone
+  is_solid: true
+  texture: "sandstone"
+
+- id: gravel
+  name: Gravel
+  is_solid: true
+  texture: "gravel"
+
+- id: deepslate
+  name: Deepslate
+  is_solid: true
+  texture: "deepslate"
+
+- id: bedrock
+  name: Bedrock
+  is_solid: true
+  texture: "bedrock"
+
+# === 鉱石ブロック ===
+
+- id: coal_ore
+  name: Coal Ore
+  is_solid: true
+  texture: "coal_ore"
+
+- id: iron_ore
+  name: Iron Ore
+  is_solid: true
+  texture: "iron_ore"
+
+- id: copper_ore
+  name: Copper Ore
+  is_solid: true
+  texture: "copper_ore"
+
+- id: gold_ore
+  name: Gold Ore
+  is_solid: true
+  texture: "gold_ore"
+
+# 深層鉱石
+- id: deepslate_coal_ore
+  name: Deepslate Coal Ore
+  is_solid: true
+  texture: "deepslate_coal_ore"
+
+- id: deepslate_iron_ore
+  name: Deepslate Iron Ore
+  is_solid: true
+  texture: "deepslate_iron_ore"
+
+- id: deepslate_copper_ore
+  name: Deepslate Copper Ore
+  is_solid: true
+  texture: "deepslate_copper_ore"
+
+- id: deepslate_gold_ore
+  name: Deepslate Gold Ore
+  is_solid: true
+  texture: "deepslate_gold_ore"

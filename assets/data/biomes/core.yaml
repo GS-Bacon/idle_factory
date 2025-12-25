@@ -1,0 +1,155 @@
+# バイオーム定義
+# 温度・湿度・大陸性に基づいてバイオームが選択される
+
+# === 平原 (デフォルト・建設向け) ===
+- id: plains
+  name: Plains
+  temperature:
+    min: 0.3
+    max: 0.7
+  humidity:
+    min: 0.3
+    max: 0.6
+  continentalness:
+    min: 0.3
+    max: 1.0
+  terrain:
+    base_height: 64
+    height_variation: 4
+    flatness: 0.8
+  surface_layers:
+    - block: grass
+      depth: 1
+    - block: dirt
+      depth: 3
+    - block: stone
+      depth: -1
+
+# === 砂漠 (高温・低湿度) ===
+- id: desert
+  name: Desert
+  temperature:
+    min: 0.7
+    max: 1.0
+  humidity:
+    min: 0.0
+    max: 0.3
+  continentalness:
+    min: 0.3
+    max: 1.0
+  terrain:
+    base_height: 64
+    height_variation: 8
+    flatness: 0.6
+  surface_layers:
+    - block: sand
+      depth: 4
+    - block: sandstone
+      depth: 8
+    - block: stone
+      depth: -1
+
+# === 海洋 (低大陸性) ===
+- id: ocean
+  name: Ocean
+  temperature:
+    min: 0.0
+    max: 1.0
+  humidity:
+    min: 0.0
+    max: 1.0
+  continentalness:
+    min: 0.0
+    max: 0.3
+  terrain:
+    base_height: 40
+    height_variation: 8
+    flatness: 0.7
+  surface_layers:
+    - block: gravel
+      depth: 2
+    - block: sand
+      depth: 3
+    - block: stone
+      depth: -1
+  fill_to_sea_level: true
+  fill_block: water
+
+# === 森林 (高湿度) ===
+- id: forest
+  name: Forest
+  temperature:
+    min: 0.3
+    max: 0.7
+  humidity:
+    min: 0.6
+    max: 1.0
+  continentalness:
+    min: 0.3
+    max: 1.0
+  terrain:
+    base_height: 68
+    height_variation: 12
+    flatness: 0.5
+  surface_layers:
+    - block: grass
+      depth: 1
+    - block: dirt
+      depth: 4
+    - block: stone
+      depth: -1
+
+# === 山岳 (低温・高大陸性) ===
+- id: mountains
+  name: Mountains
+  temperature:
+    min: 0.0
+    max: 0.4
+  humidity:
+    min: 0.0
+    max: 0.5
+  continentalness:
+    min: 0.7
+    max: 1.0
+  terrain:
+    base_height: 96
+    height_variation: 48
+    flatness: 0.2
+  surface_layers:
+    # 高所は石露出
+    - block: stone
+      depth: 1
+      condition:
+        height_above: 100
+    - block: grass
+      depth: 1
+    - block: dirt
+      depth: 2
+    - block: stone
+      depth: -1
+
+# === 湿地 (中温・高湿度) ===
+- id: swamp
+  name: Swamp
+  temperature:
+    min: 0.4
+    max: 0.7
+  humidity:
+    min: 0.5
+    max: 0.8
+  continentalness:
+    min: 0.3
+    max: 0.6
+  terrain:
+    base_height: 62
+    height_variation: 4
+    flatness: 0.85
+  surface_layers:
+    - block: grass
+      depth: 1
+    - block: dirt
+      depth: 3
+    - block: stone
+      depth: -1
+  fill_to_sea_level: true
+  fill_block: water

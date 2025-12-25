@@ -12,6 +12,7 @@ pub mod sound;
 pub mod e2e_test;
 pub mod resource_pack;
 pub mod profile;
+pub mod worldgen;
 
 use bevy::prelude::*;
 
@@ -32,6 +33,7 @@ impl Plugin for CorePlugin {
             .add_plugins(sound::SoundPlugin)
             .add_plugins(e2e_test::E2ETestPlugin)
             .add_plugins(resource_pack::ResourcePackPlugin)
-            .add_plugins(profile::ProfilePlugin);
+            .add_plugins(profile::ProfilePlugin)
+            .add_plugins(worldgen::WorldGenPlugin);
     }
 }

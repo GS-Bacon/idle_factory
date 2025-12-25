@@ -1,0 +1,61 @@
+# 鉱石分布定義
+# 高さに応じた鉱石の出現確率を制御
+
+# === 石炭鉱石 ===
+# 広い範囲で均一に分布
+- id: coal_ore
+  min_height: 0
+  max_height: 128
+  distribution: uniform
+  vein_size:
+    min: 4
+    max: 16
+  attempts_per_chunk: 20
+  replace_blocks:
+    - stone
+    - deepslate
+
+# === 鉄鉱石 ===
+# Y=16付近にピーク
+- id: iron_ore
+  min_height: -16
+  max_height: 72
+  distribution: triangular
+  peak_height: 16
+  vein_size:
+    min: 4
+    max: 12
+  attempts_per_chunk: 10
+  replace_blocks:
+    - stone
+    - deepslate
+
+# === 銅鉱石 ===
+# Y=48付近にピーク
+- id: copper_ore
+  min_height: -16
+  max_height: 112
+  distribution: triangular
+  peak_height: 48
+  vein_size:
+    min: 4
+    max: 10
+  attempts_per_chunk: 16
+  replace_blocks:
+    - stone
+    - deepslate
+
+# === 金鉱石 ===
+# 深い場所に多い（Y=-16付近がピーク）
+- id: gold_ore
+  min_height: -64
+  max_height: 32
+  distribution: triangular
+  peak_height: -16
+  vein_size:
+    min: 4
+    max: 8
+  attempts_per_chunk: 4
+  replace_blocks:
+    - stone
+    - deepslate
