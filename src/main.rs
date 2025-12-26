@@ -1,6 +1,7 @@
 //! Idle Factory - Milestone 1: Minimal Voxel Game
 //! Goal: Walk, mine blocks, collect in inventory
 
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 use std::collections::HashMap;
@@ -10,14 +11,19 @@ use std::f32::consts::PI;
 const CHUNK_SIZE: usize = 16;
 const BLOCK_SIZE: f32 = 1.0;
 const PLAYER_SPEED: f32 = 5.0;
-const MOUSE_SENSITIVITY: f32 = 0.003;
 const REACH_DISTANCE: f32 = 5.0;
+
+// Camera settings
+const MOUSE_SENSITIVITY: f32 = 0.002; // Direct radians per pixel (typical FPS value)
+const KEY_ROTATION_SPEED: f32 = 2.0; // radians per second for arrow keys
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Idle Factory - Milestone 1".into(),
+                // VSync off for better responsiveness (especially over RDP)
+                present_mode: bevy::window::PresentMode::AutoNoVsync,
                 ..default()
             }),
             ..default()
@@ -28,11 +34,12 @@ fn main() {
         .add_systems(
             Update,
             (
-                cursor_grab,
+                toggle_cursor_lock,
                 player_look,
                 player_move,
                 block_break,
                 update_inventory_ui,
+                update_fps_display,
             ),
         )
         .run();
@@ -45,9 +52,12 @@ struct Player;
 
 #[derive(Component)]
 struct PlayerCamera {
+    /// Pitch (vertical rotation) in radians
     pitch: f32,
+    /// Yaw (horizontal rotation) in radians
     yaw: f32,
 }
+
 
 #[derive(Component)]
 struct Block {
@@ -59,6 +69,9 @@ struct InventoryUI;
 
 #[derive(Component)]
 struct InventoryText;
+
+#[derive(Component)]
+struct FpsText;
 
 // === Resources ===
 
@@ -172,6 +185,8 @@ fn setup_player(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 Camera3d::default(),
+                // Use Reinhard tonemapping (doesn't require tonemapping_luts feature)
+                Tonemapping::Reinhard,
                 PlayerCamera {
                     pitch: 0.0,
                     yaw: 0.0,
@@ -198,7 +213,7 @@ fn setup_ui(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 InventoryText,
-                Text::new("Inventory: Empty"),
+                Text::new("Inventory: Empty\nWASD:Move Mouse:Look"),
                 TextFont {
                     font_size: 20.0,
                     ..default()
@@ -224,86 +239,148 @@ fn setup_ui(mut commands: Commands) {
         },
         BackgroundColor(Color::WHITE),
     ));
+
+    // FPS counter (top right)
+    commands.spawn((
+        FpsText,
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
+            ..default()
+        },
+        Text::new("FPS: --"),
+        TextFont {
+            font_size: 16.0,
+            ..default()
+        },
+        TextColor(Color::srgb(1.0, 1.0, 0.0)),
+    ));
 }
 
 // === Update Systems ===
 
-fn cursor_grab(
-    mut windows: Query<&mut Window>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
+/// Toggle cursor lock with Escape key
+fn toggle_cursor_lock(
     key_input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    mut windows: Query<&mut Window>,
 ) {
     let mut window = windows.single_mut();
 
-    if mouse_button.just_pressed(MouseButton::Left) {
-        window.cursor_options.grab_mode = CursorGrabMode::Locked;
-        window.cursor_options.visible = false;
-    }
-
+    // Escape to unlock cursor
     if key_input.just_pressed(KeyCode::Escape) {
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
     }
+
+    // Click to lock cursor (when not locked)
+    if mouse_button.just_pressed(MouseButton::Left)
+        && window.cursor_options.grab_mode == CursorGrabMode::None
+    {
+        // Use Locked mode - it properly captures relative mouse motion
+        // Confined mode causes issues where mouse hits window edge and spins
+        window.cursor_options.grab_mode = CursorGrabMode::Locked;
+        window.cursor_options.visible = false;
+    }
 }
 
 fn player_look(
-    mut mouse_motion: EventReader<bevy::input::mouse::MouseMotion>,
-    mut camera_query: Query<(&mut Transform, &mut PlayerCamera)>,
-    windows: Query<&Window>,
+    mut player_query: Query<&mut Transform, With<Player>>,
+    mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
+    key_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut windows: Query<&mut Window>,
 ) {
-    let window = windows.single();
-    if window.cursor_options.grab_mode != CursorGrabMode::Locked {
+    let mut window = windows.single_mut();
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+
+    // Get camera component
+    let Ok((mut camera_transform, mut camera)) = camera_query.get_single_mut() else {
         return;
-    }
-
-    let mut delta = Vec2::ZERO;
-    for event in mouse_motion.read() {
-        delta += event.delta;
-    }
-
-    if delta == Vec2::ZERO {
+    };
+    let Ok(mut player_transform) = player_query.get_single_mut() else {
         return;
+    };
+
+    // Pitch limit to prevent gimbal lock (±89 degrees)
+    const PITCH_LIMIT: f32 = 1.54; // ~88 degrees in radians
+
+    // --- Arrow keys for camera control (always works, time-based) ---
+    if key_input.pressed(KeyCode::ArrowLeft) {
+        camera.yaw += KEY_ROTATION_SPEED * time.delta_secs();
+    }
+    if key_input.pressed(KeyCode::ArrowRight) {
+        camera.yaw -= KEY_ROTATION_SPEED * time.delta_secs();
+    }
+    if key_input.pressed(KeyCode::ArrowUp) {
+        camera.pitch += KEY_ROTATION_SPEED * time.delta_secs();
+    }
+    if key_input.pressed(KeyCode::ArrowDown) {
+        camera.pitch -= KEY_ROTATION_SPEED * time.delta_secs();
     }
 
-    for (mut transform, mut camera) in camera_query.iter_mut() {
-        camera.yaw -= delta.x * MOUSE_SENSITIVITY;
-        camera.pitch -= delta.y * MOUSE_SENSITIVITY;
-        camera.pitch = camera.pitch.clamp(-PI / 2.0 + 0.01, PI / 2.0 - 0.01);
+    // --- Mouse motion using cursor position (works with RDP) ---
+    // Every frame: calculate delta from center, then reset to center
+    let center = Vec2::new(window.width() / 2.0, window.height() / 2.0);
 
-        transform.rotation = Quat::from_euler(EulerRot::YXZ, camera.yaw, camera.pitch, 0.0);
+    if cursor_locked {
+        if let Some(current_pos) = window.cursor_position() {
+            // Calculate delta from center (not from last position)
+            let delta = current_pos - center;
+
+            // Apply rotation if cursor moved from center
+            // Use a small threshold to avoid jitter
+            if delta.x.abs() > 1.0 || delta.y.abs() > 1.0 {
+                camera.yaw -= delta.x * MOUSE_SENSITIVITY;
+                camera.pitch -= delta.y * MOUSE_SENSITIVITY;
+            }
+        }
+
+        // Always reset cursor to center (even if position() returned None)
+        window.set_cursor_position(Some(center));
     }
+
+    // Clamp pitch
+    camera.pitch = camera.pitch.clamp(-PITCH_LIMIT, PITCH_LIMIT);
+
+    // --- Apply rotation (YXZ order to prevent roll) ---
+    // Player rotates horizontally (yaw only)
+    player_transform.rotation = Quat::from_rotation_y(camera.yaw);
+
+    // Camera rotates vertically (pitch) relative to player
+    camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
 }
 
 fn player_move(
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Transform, With<Player>>,
-    camera_query: Query<&PlayerCamera>,
 ) {
+    // Always allow movement (RDP compatible)
     let Ok(mut player_transform) = player_query.get_single_mut() else {
-        return;
-    };
-    let Ok(camera) = camera_query.get_single() else {
         return;
     };
 
     let mut direction = Vec3::ZERO;
 
-    // Get forward/right vectors from camera yaw (ignore pitch for movement)
-    let forward = Vec3::new(-camera.yaw.sin(), 0.0, -camera.yaw.cos()).normalize();
-    let right = Vec3::new(forward.z, 0.0, -forward.x);
+    // Get forward/right vectors from player rotation
+    let forward = player_transform.forward().as_vec3();
+    let forward_flat = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
+    let right = player_transform.right().as_vec3();
+    let right_flat = Vec3::new(right.x, 0.0, right.z).normalize_or_zero();
 
     if key_input.pressed(KeyCode::KeyW) {
-        direction += forward;
+        direction += forward_flat;
     }
     if key_input.pressed(KeyCode::KeyS) {
-        direction -= forward;
+        direction -= forward_flat;
     }
     if key_input.pressed(KeyCode::KeyA) {
-        direction -= right;
+        direction -= right_flat;
     }
     if key_input.pressed(KeyCode::KeyD) {
-        direction += right;
+        direction += right_flat;
     }
     if key_input.pressed(KeyCode::Space) {
         direction.y += 1.0;
@@ -321,29 +398,27 @@ fn player_move(
 fn block_break(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
     block_query: Query<(Entity, &Block, &GlobalTransform)>,
     mut chunk_data: ResMut<ChunkData>,
     mut inventory: ResMut<Inventory>,
+    windows: Query<&Window>,
 ) {
+    // Only break blocks when cursor is locked (to distinguish from lock-click)
     let window = windows.single();
-    if window.cursor_options.grab_mode != CursorGrabMode::Locked {
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+
+    if !cursor_locked || !mouse_button.just_pressed(MouseButton::Left) {
         return;
     }
 
-    if !mouse_button.just_pressed(MouseButton::Left) {
-        return;
-    }
-
-    let Ok((camera_transform, camera)) = camera_query.get_single() else {
+    let Ok((camera_transform, _camera)) = camera_query.get_single() else {
         return;
     };
 
-    // Calculate ray from camera
+    // Calculate ray from camera using its actual transform
     let ray_origin = camera_transform.translation();
-    let ray_direction = Quat::from_euler(EulerRot::YXZ, camera.yaw, camera.pitch, 0.0)
-        * Vec3::new(0.0, 0.0, -1.0);
+    let ray_direction = camera_transform.forward().as_vec3();
 
     // Find closest block intersection
     let mut closest_hit: Option<(Entity, IVec3, f32)> = None;
@@ -415,16 +490,27 @@ fn update_inventory_ui(inventory: Res<Inventory>, mut query: Query<&mut Text, Wi
         return;
     };
 
+    let hint = "Click:Lock | Esc:Unlock | WASD:Move | Mouse/Arrow:Look";
+
     if inventory.items.is_empty() {
-        **text = "Inventory: Empty".to_string();
+        **text = format!("Inventory: Empty\n{}", hint);
     } else {
         let items: Vec<String> = inventory
             .items
             .iter()
             .map(|(block_type, count)| format!("{}: {}", block_type.name(), count))
             .collect();
-        **text = format!("Inventory:\n{}", items.join("\n"));
+        **text = format!("Inventory:\n{}\n{}", items.join("\n"), hint);
     }
+}
+
+fn update_fps_display(time: Res<Time>, mut query: Query<&mut Text, With<FpsText>>) {
+    let Ok(mut text) = query.get_single_mut() else {
+        return;
+    };
+
+    let fps = 1.0 / time.delta_secs();
+    **text = format!("FPS: {:.0}", fps);
 }
 
 // === Tests ===
