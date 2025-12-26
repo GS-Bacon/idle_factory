@@ -41,6 +41,7 @@ fn main() {
         ))
         .init_resource::<Inventory>()
         .init_resource::<ChunkData>()
+        .init_resource::<CursorLockState>()
         .add_systems(Startup, (setup_world, setup_player, setup_ui))
         .add_systems(
             Update,
@@ -67,6 +68,15 @@ struct PlayerCamera {
     pitch: f32,
     /// Yaw (horizontal rotation) in radians
     yaw: f32,
+}
+
+/// Tracks cursor lock state and handles mouse input for both local and RDP environments
+#[derive(Resource, Default)]
+struct CursorLockState {
+    was_locked: bool,
+    skip_frames: u8,
+    /// Last mouse position for calculating delta in RDP/absolute mode
+    last_mouse_pos: Option<Vec2>,
 }
 
 
@@ -287,10 +297,11 @@ fn player_look(
     mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
     key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    windows: Query<&Window>,
+    mut windows: Query<&mut Window>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
+    mut cursor_lock_state: ResMut<CursorLockState>,
 ) {
-    let window = windows.single();
+    let mut window = windows.single_mut();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
     // Get camera component
@@ -318,12 +329,59 @@ fn player_look(
         camera.pitch -= KEY_ROTATION_SPEED * time.delta_secs();
     }
 
-    // --- Mouse motion using AccumulatedMouseMotion (Bevy best practice) ---
-    // No smoothing, no delta_time multiplication - raw 1:1 input
-    if cursor_locked {
-        let delta = accumulated_mouse_motion.delta;
-        camera.yaw -= delta.x * MOUSE_SENSITIVITY;
-        camera.pitch -= delta.y * MOUSE_SENSITIVITY;
+    // --- Track cursor lock state changes ---
+    if cursor_locked && !cursor_lock_state.was_locked {
+        // Just became locked - reset state
+        cursor_lock_state.skip_frames = 2;
+        cursor_lock_state.last_mouse_pos = None;
+    }
+    if !cursor_locked {
+        cursor_lock_state.last_mouse_pos = None;
+    }
+    cursor_lock_state.was_locked = cursor_locked;
+
+    // --- Mouse motion ---
+    // Try AccumulatedMouseMotion first (works on local/native)
+    // Fall back to cursor position delta (works on RDP)
+    if cursor_locked && cursor_lock_state.skip_frames == 0 {
+        let raw_delta = accumulated_mouse_motion.delta;
+
+        // Check if AccumulatedMouseMotion gives reasonable values
+        // RDP often reports huge values (>1000) due to absolute coordinates
+        const MAX_REASONABLE_DELTA: f32 = 200.0;
+
+        if raw_delta.x.abs() < MAX_REASONABLE_DELTA && raw_delta.y.abs() < MAX_REASONABLE_DELTA {
+            // Native mode - use raw delta directly
+            camera.yaw -= raw_delta.x * MOUSE_SENSITIVITY;
+            camera.pitch -= raw_delta.y * MOUSE_SENSITIVITY;
+        } else if let Some(cursor_pos) = window.cursor_position() {
+            // RDP/Confined mode - calculate delta from cursor position
+            let center = Vec2::new(window.width() / 2.0, window.height() / 2.0);
+
+            if let Some(last_pos) = cursor_lock_state.last_mouse_pos {
+                let delta = cursor_pos - last_pos;
+                // Only apply if delta is reasonable and non-trivial
+                if delta.length() < MAX_REASONABLE_DELTA && delta.length() > 0.5 {
+                    camera.yaw -= delta.x * MOUSE_SENSITIVITY;
+                    camera.pitch -= delta.y * MOUSE_SENSITIVITY;
+                }
+            }
+
+            // Re-center cursor only when it gets far from center
+            // Reduces overhead from constant set_cursor_position calls
+            let dist_from_center = (cursor_pos - center).length();
+            if dist_from_center > 100.0 {
+                window.set_cursor_position(Some(center));
+                cursor_lock_state.last_mouse_pos = Some(center);
+            } else {
+                cursor_lock_state.last_mouse_pos = Some(cursor_pos);
+            }
+        }
+    }
+
+    // Decrement skip counter
+    if cursor_lock_state.skip_frames > 0 {
+        cursor_lock_state.skip_frames -= 1;
     }
 
     // Clamp pitch
