@@ -50,6 +50,8 @@ fn main() {
                 player_look,
                 player_move,
                 block_break,
+                block_place,
+                select_block_type,
                 update_inventory_ui,
                 update_window_title_fps,
             ),
@@ -97,6 +99,8 @@ struct InventoryText;
 #[derive(Resource, Default)]
 struct Inventory {
     items: HashMap<BlockType, u32>,
+    /// Currently selected block type for placement
+    selected: Option<BlockType>,
 }
 
 #[derive(Resource)]
@@ -493,6 +497,146 @@ fn block_break(
         if let Some(block_type) = chunk_data.blocks.remove(&pos) {
             commands.entity(entity).despawn();
             *inventory.items.entry(block_type).or_insert(0) += 1;
+            // Auto-select the block type if nothing selected
+            if inventory.selected.is_none() {
+                inventory.selected = Some(block_type);
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn block_place(
+    mut commands: Commands,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    block_query: Query<(&Block, &GlobalTransform)>,
+    mut chunk_data: ResMut<ChunkData>,
+    mut inventory: ResMut<Inventory>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    windows: Query<&Window>,
+) {
+    let window = windows.single();
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+
+    if !cursor_locked || !mouse_button.just_pressed(MouseButton::Right) {
+        return;
+    }
+
+    // Check if we have a selected block type with items
+    let Some(selected_type) = inventory.selected else {
+        return;
+    };
+    let Some(&count) = inventory.items.get(&selected_type) else {
+        return;
+    };
+    if count == 0 {
+        return;
+    }
+
+    let Ok(camera_transform) = camera_query.get_single() else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation();
+    let ray_direction = camera_transform.forward().as_vec3();
+
+    // Find closest block intersection with hit normal
+    let mut closest_hit: Option<(IVec3, Vec3, f32)> = None;
+
+    for (block, block_transform) in block_query.iter() {
+        let block_pos = block_transform.translation();
+        let half_size = BLOCK_SIZE / 2.0;
+
+        if let Some((t, normal)) = ray_aabb_intersection_with_normal(
+            ray_origin,
+            ray_direction,
+            block_pos - Vec3::splat(half_size),
+            block_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0
+                && t < REACH_DISTANCE
+                && (closest_hit.is_none() || t < closest_hit.unwrap().2)
+            {
+                closest_hit = Some((block.position, normal, t));
+            }
+        }
+    }
+
+    // Place block on the adjacent face
+    if let Some((hit_pos, normal, _)) = closest_hit {
+        let place_pos = hit_pos + IVec3::new(
+            normal.x.round() as i32,
+            normal.y.round() as i32,
+            normal.z.round() as i32,
+        );
+
+        // Don't place if already occupied
+        if chunk_data.blocks.contains_key(&place_pos) {
+            return;
+        }
+
+        // Consume from inventory
+        if let Some(count) = inventory.items.get_mut(&selected_type) {
+            *count -= 1;
+            if *count == 0 {
+                inventory.items.remove(&selected_type);
+                // Select next available block type
+                inventory.selected = inventory.items.keys().next().copied();
+            }
+        }
+
+        // Add to chunk data
+        chunk_data.blocks.insert(place_pos, selected_type);
+
+        // Spawn block entity
+        let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+        let material = materials.add(StandardMaterial {
+            base_color: selected_type.color(),
+            ..default()
+        });
+
+        commands.spawn((
+            Mesh3d(cube_mesh),
+            MeshMaterial3d(material),
+            Transform::from_translation(Vec3::new(
+                place_pos.x as f32 * BLOCK_SIZE,
+                place_pos.y as f32 * BLOCK_SIZE,
+                place_pos.z as f32 * BLOCK_SIZE,
+            )),
+            Block { position: place_pos },
+        ));
+    }
+}
+
+/// Select block type with number keys (1, 2) or scroll wheel
+fn select_block_type(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut inventory: ResMut<Inventory>,
+) {
+    // Get available block types from inventory
+    let available: Vec<BlockType> = inventory.items.keys().copied().collect();
+    if available.is_empty() {
+        return;
+    }
+
+    // Number keys to select specific types
+    if key_input.just_pressed(KeyCode::Digit1) {
+        if let Some(&block_type) = available.first() {
+            inventory.selected = Some(block_type);
+        }
+    }
+    if key_input.just_pressed(KeyCode::Digit2) {
+        if let Some(&block_type) = available.get(1) {
+            inventory.selected = Some(block_type);
+        }
+    }
+
+    // Ensure selected is valid
+    if let Some(selected) = inventory.selected {
+        if !inventory.items.contains_key(&selected) {
+            inventory.selected = available.first().copied();
         }
     }
 }
@@ -526,6 +670,54 @@ fn ray_aabb_intersection(
     }
 }
 
+/// Ray-AABB intersection that also returns the hit normal
+fn ray_aabb_intersection_with_normal(
+    ray_origin: Vec3,
+    ray_direction: Vec3,
+    box_min: Vec3,
+    box_max: Vec3,
+) -> Option<(f32, Vec3)> {
+    let inv_dir = Vec3::new(
+        1.0 / ray_direction.x,
+        1.0 / ray_direction.y,
+        1.0 / ray_direction.z,
+    );
+
+    let tx1 = (box_min.x - ray_origin.x) * inv_dir.x;
+    let tx2 = (box_max.x - ray_origin.x) * inv_dir.x;
+    let ty1 = (box_min.y - ray_origin.y) * inv_dir.y;
+    let ty2 = (box_max.y - ray_origin.y) * inv_dir.y;
+    let tz1 = (box_min.z - ray_origin.z) * inv_dir.z;
+    let tz2 = (box_max.z - ray_origin.z) * inv_dir.z;
+
+    let tmin_x = tx1.min(tx2);
+    let tmax_x = tx1.max(tx2);
+    let tmin_y = ty1.min(ty2);
+    let tmax_y = ty1.max(ty2);
+    let tmin_z = tz1.min(tz2);
+    let tmax_z = tz1.max(tz2);
+
+    let tmin = tmin_x.max(tmin_y).max(tmin_z);
+    let tmax = tmax_x.min(tmax_y).min(tmax_z);
+
+    if tmax < 0.0 || tmin > tmax {
+        return None;
+    }
+
+    // Determine which face was hit by finding which axis contributed to tmin
+    let normal = if tmin == tmin_x {
+        if ray_direction.x > 0.0 { Vec3::NEG_X } else { Vec3::X }
+    } else if tmin == tmin_y {
+        if ray_direction.y > 0.0 { Vec3::NEG_Y } else { Vec3::Y }
+    } else if ray_direction.z > 0.0 {
+        Vec3::NEG_Z
+    } else {
+        Vec3::Z
+    };
+
+    Some((tmin, normal))
+}
+
 fn update_inventory_ui(inventory: Res<Inventory>, mut query: Query<&mut Text, With<InventoryText>>) {
     if !inventory.is_changed() {
         return;
@@ -535,17 +727,22 @@ fn update_inventory_ui(inventory: Res<Inventory>, mut query: Query<&mut Text, Wi
         return;
     };
 
-    let hint = "Click:Lock | Esc:Unlock | WASD:Move | Mouse/Arrow:Look";
+    let hint = "LClick:Break | RClick:Place | 1-2:Select | WASD:Move";
 
     if inventory.items.is_empty() {
         **text = format!("Inventory: Empty\n{}", hint);
     } else {
+        let selected_name = inventory.selected.map(|b| b.name()).unwrap_or("None");
         let items: Vec<String> = inventory
             .items
             .iter()
-            .map(|(block_type, count)| format!("{}: {}", block_type.name(), count))
+            .enumerate()
+            .map(|(i, (block_type, count))| {
+                let marker = if Some(*block_type) == inventory.selected { ">" } else { " " };
+                format!("{} [{}] {}: {}", marker, i + 1, block_type.name(), count)
+            })
             .collect();
-        **text = format!("Inventory:\n{}\n{}", items.join("\n"), hint);
+        **text = format!("Selected: {}\n{}\n{}", selected_name, items.join("\n"), hint);
     }
 }
 
@@ -616,5 +813,45 @@ mod tests {
             Vec3::new(1.0, 1.0, 1.0),
         );
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_ray_aabb_with_normal_z() {
+        // Ray from -Z hitting front face
+        let result = ray_aabb_intersection_with_normal(
+            Vec3::new(0.0, 0.0, -5.0),
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+        );
+        assert!(result.is_some());
+        let (t, normal) = result.unwrap();
+        assert!(t > 0.0);
+        assert_eq!(normal, Vec3::NEG_Z); // Hit front face, normal points back
+    }
+
+    #[test]
+    fn test_ray_aabb_with_normal_y() {
+        // Ray from above hitting top face
+        let result = ray_aabb_intersection_with_normal(
+            Vec3::new(0.0, 5.0, 0.0),
+            Vec3::new(0.0, -1.0, 0.0),
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+        );
+        assert!(result.is_some());
+        let (_, normal) = result.unwrap();
+        assert_eq!(normal, Vec3::Y); // Hit top face, normal points up
+    }
+
+    #[test]
+    fn test_inventory_selected() {
+        let mut inventory = Inventory::default();
+        assert!(inventory.selected.is_none());
+
+        // Add item and select it
+        inventory.items.insert(BlockType::Stone, 5);
+        inventory.selected = Some(BlockType::Stone);
+        assert_eq!(inventory.selected, Some(BlockType::Stone));
     }
 }

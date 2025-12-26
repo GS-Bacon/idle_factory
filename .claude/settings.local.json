@@ -183,7 +183,22 @@
       "Bash(systemctl --user status:*)",
       "Bash(# Tailscale IPを確認 tailscale ip -4 || ip addr show tailscale0)",
       "Bash(# Sunshineの設定を確認 cat ~/.config/sunshine/sunshine.conf)",
-      "Bash(journalctl:*)"
+      "Bash(journalctl:*)",
+      "Bash(pkg-config:*)",
+      "Bash(libasound2-dev )",
+      "Bash(libudev-dev )",
+      "Bash(libx11-dev )",
+      "Bash(libxcursor-dev )",
+      "Bash(libxrandr-dev )",
+      "Bash(libxi-dev )",
+      "Bash(libxkbcommon-dev )",
+      "Bash(libwayland-dev )",
+      "Bash(clang:*)",
+      "Bash(lld:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "blender"
+  ]
 }
