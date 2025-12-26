@@ -194,7 +194,14 @@
       "Bash(libxkbcommon-dev )",
       "Bash(libwayland-dev )",
       "Bash(clang:*)",
-      "Bash(lld:*)"
+      "Bash(lld:*)",
+      "Bash(ssh:*)",
+      "WebFetch(domain:www.nomachine.com)",
+      "WebFetch(domain:downloads.nomachine.com)",
+      "WebFetch(domain:download.nomachine.com)",
+      "Bash(systemctl is-active:*)",
+      "Bash(# RustDesk設定ディレクトリ確認 ls -la ~/.config/rustdesk/ || echo \"\"Config dir not found\"\" # パスワード設定 sudo rustdesk --password bacon123 2>&1 || true # 設定ファイル確認 echo \"\"=== Config ===\"\" cat ~/.config/rustdesk/RustDesk.toml || cat /root/.config/rustdesk/RustDesk.toml || echo \"\"Config not found\"\" # ネットワーク接続確認 echo \"\"\"\" echo \"\"=== RustDeskネットワーク ===\"\" ss -anp)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")"
     ]
   },
   "enableAllProjectMcpServers": true,

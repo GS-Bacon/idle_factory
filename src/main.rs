@@ -11,10 +11,11 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 
 // === Constants ===
-const CHUNK_SIZE: usize = 16;
+const CHUNK_SIZE: i32 = 16;
 const BLOCK_SIZE: f32 = 1.0;
 const PLAYER_SPEED: f32 = 5.0;
 const REACH_DISTANCE: f32 = 5.0;
+const VIEW_DISTANCE: i32 = 2; // How many chunks to load around player (radius)
 
 // Camera settings
 const MOUSE_SENSITIVITY: f32 = 0.002; // Balanced sensitivity
@@ -40,12 +41,13 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
         ))
         .init_resource::<Inventory>()
-        .init_resource::<ChunkData>()
+        .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
-        .add_systems(Startup, (setup_world, setup_player, setup_ui))
+        .add_systems(Startup, (setup_lighting, setup_player, setup_ui))
         .add_systems(
             Update,
             (
+                chunk_loading,
                 toggle_cursor_lock,
                 player_look,
                 player_move,
@@ -84,7 +86,14 @@ struct CursorLockState {
 
 #[derive(Component)]
 struct Block {
+    /// World position of this block
     position: IVec3,
+}
+
+#[derive(Component)]
+struct ChunkRef {
+    /// Which chunk this entity belongs to
+    coord: IVec2,
 }
 
 #[derive(Component)]
@@ -103,18 +112,20 @@ struct Inventory {
     selected: Option<BlockType>,
 }
 
-#[derive(Resource)]
+/// Single chunk data - blocks stored with local coordinates (0..CHUNK_SIZE)
+#[derive(Clone)]
 struct ChunkData {
     blocks: HashMap<IVec3, BlockType>,
 }
 
-impl Default for ChunkData {
-    fn default() -> Self {
+impl ChunkData {
+    /// Generate a chunk at the given chunk coordinate
+    fn generate(_chunk_coord: IVec2) -> Self {
         let mut blocks = HashMap::new();
-        // Generate a 16x16x16 chunk of blocks
-        // Bottom half is stone, top layer is grass
-        for x in 0..CHUNK_SIZE as i32 {
-            for z in 0..CHUNK_SIZE as i32 {
+        // Generate a 16x16x8 chunk of blocks
+        // Bottom layers are stone, top layer is grass
+        for x in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
                 for y in 0..8 {
                     let block_type = if y == 7 {
                         BlockType::Grass
@@ -126,6 +137,71 @@ impl Default for ChunkData {
             }
         }
         Self { blocks }
+    }
+}
+
+/// World data - manages multiple chunks
+#[derive(Resource, Default)]
+struct WorldData {
+    /// Loaded chunks indexed by chunk coordinate
+    chunks: HashMap<IVec2, ChunkData>,
+    /// Block entities for each chunk (for despawning)
+    chunk_entities: HashMap<IVec2, Vec<Entity>>,
+}
+
+impl WorldData {
+    /// Convert world position to chunk coordinate
+    fn world_to_chunk(world_pos: IVec3) -> IVec2 {
+        IVec2::new(
+            world_pos.x.div_euclid(CHUNK_SIZE),
+            world_pos.z.div_euclid(CHUNK_SIZE),
+        )
+    }
+
+    /// Convert world position to local chunk position
+    fn world_to_local(world_pos: IVec3) -> IVec3 {
+        IVec3::new(
+            world_pos.x.rem_euclid(CHUNK_SIZE),
+            world_pos.y,
+            world_pos.z.rem_euclid(CHUNK_SIZE),
+        )
+    }
+
+    /// Convert chunk coord + local pos to world position
+    fn local_to_world(chunk_coord: IVec2, local_pos: IVec3) -> IVec3 {
+        IVec3::new(
+            chunk_coord.x * CHUNK_SIZE + local_pos.x,
+            local_pos.y,
+            chunk_coord.y * CHUNK_SIZE + local_pos.z,
+        )
+    }
+
+    /// Get block at world position
+    fn get_block(&self, world_pos: IVec3) -> Option<&BlockType> {
+        let chunk_coord = Self::world_to_chunk(world_pos);
+        let local_pos = Self::world_to_local(world_pos);
+        self.chunks.get(&chunk_coord)?.blocks.get(&local_pos)
+    }
+
+    /// Set block at world position
+    fn set_block(&mut self, world_pos: IVec3, block_type: BlockType) {
+        let chunk_coord = Self::world_to_chunk(world_pos);
+        let local_pos = Self::world_to_local(world_pos);
+        if let Some(chunk) = self.chunks.get_mut(&chunk_coord) {
+            chunk.blocks.insert(local_pos, block_type);
+        }
+    }
+
+    /// Remove block at world position, returns the removed block type
+    fn remove_block(&mut self, world_pos: IVec3) -> Option<BlockType> {
+        let chunk_coord = Self::world_to_chunk(world_pos);
+        let local_pos = Self::world_to_local(world_pos);
+        self.chunks.get_mut(&chunk_coord)?.blocks.remove(&local_pos)
+    }
+
+    /// Check if block exists at world position
+    fn has_block(&self, world_pos: IVec3) -> bool {
+        self.get_block(world_pos).is_some()
     }
 }
 
@@ -153,34 +229,8 @@ impl BlockType {
 
 // === Setup Systems ===
 
-fn setup_world(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    chunk_data: Res<ChunkData>,
-) {
-    // Spawn blocks
-    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-
-    for (&pos, &block_type) in chunk_data.blocks.iter() {
-        let material = materials.add(StandardMaterial {
-            base_color: block_type.color(),
-            ..default()
-        });
-
-        commands.spawn((
-            Mesh3d(cube_mesh.clone()),
-            MeshMaterial3d(material),
-            Transform::from_translation(Vec3::new(
-                pos.x as f32 * BLOCK_SIZE,
-                pos.y as f32 * BLOCK_SIZE,
-                pos.z as f32 * BLOCK_SIZE,
-            )),
-            Block { position: pos },
-        ));
-    }
-
-    // Light
+fn setup_lighting(mut commands: Commands) {
+    // Directional light
     commands.spawn((
         DirectionalLight {
             illuminance: 10000.0,
@@ -195,6 +245,96 @@ fn setup_world(
         color: Color::WHITE,
         brightness: 300.0,
     });
+}
+
+/// Load/unload chunks around the player
+fn chunk_loading(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut world_data: ResMut<WorldData>,
+    player_query: Query<&Transform, With<Player>>,
+    chunk_entities_query: Query<(Entity, &ChunkRef)>,
+) {
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    // Get player's chunk coordinate
+    let player_world_pos = IVec3::new(
+        player_transform.translation.x.floor() as i32,
+        0,
+        player_transform.translation.z.floor() as i32,
+    );
+    let player_chunk = WorldData::world_to_chunk(player_world_pos);
+
+    // Calculate which chunks should be loaded
+    let mut chunks_to_load: Vec<IVec2> = Vec::new();
+    for dx in -VIEW_DISTANCE..=VIEW_DISTANCE {
+        for dz in -VIEW_DISTANCE..=VIEW_DISTANCE {
+            let chunk_coord = IVec2::new(player_chunk.x + dx, player_chunk.y + dz);
+            if !world_data.chunks.contains_key(&chunk_coord) {
+                chunks_to_load.push(chunk_coord);
+            }
+        }
+    }
+
+    // Calculate which chunks should be unloaded
+    let mut chunks_to_unload: Vec<IVec2> = Vec::new();
+    for &chunk_coord in world_data.chunks.keys() {
+        let dx = (chunk_coord.x - player_chunk.x).abs();
+        let dz = (chunk_coord.y - player_chunk.y).abs();
+        if dx > VIEW_DISTANCE || dz > VIEW_DISTANCE {
+            chunks_to_unload.push(chunk_coord);
+        }
+    }
+
+    // Unload chunks
+    for chunk_coord in chunks_to_unload {
+        // Despawn all entities in this chunk
+        for (entity, chunk_ref) in chunk_entities_query.iter() {
+            if chunk_ref.coord == chunk_coord {
+                commands.entity(entity).despawn();
+            }
+        }
+        world_data.chunks.remove(&chunk_coord);
+        world_data.chunk_entities.remove(&chunk_coord);
+    }
+
+    // Load chunks (limit to 1 per frame for performance)
+    if let Some(chunk_coord) = chunks_to_load.first() {
+        let chunk_coord = *chunk_coord;
+        let chunk_data = ChunkData::generate(chunk_coord);
+
+        // Spawn blocks for this chunk
+        let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+        let mut entities = Vec::new();
+
+        for (&local_pos, &block_type) in chunk_data.blocks.iter() {
+            let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
+            let material = materials.add(StandardMaterial {
+                base_color: block_type.color(),
+                ..default()
+            });
+
+            let entity = commands.spawn((
+                Mesh3d(cube_mesh.clone()),
+                MeshMaterial3d(material),
+                Transform::from_translation(Vec3::new(
+                    world_pos.x as f32 * BLOCK_SIZE,
+                    world_pos.y as f32 * BLOCK_SIZE,
+                    world_pos.z as f32 * BLOCK_SIZE,
+                )),
+                Block { position: world_pos },
+                ChunkRef { coord: chunk_coord },
+            )).id();
+
+            entities.push(entity);
+        }
+
+        world_data.chunks.insert(chunk_coord, chunk_data);
+        world_data.chunk_entities.insert(chunk_coord, entities);
+    }
 }
 
 fn setup_player(mut commands: Commands) {
@@ -449,7 +589,7 @@ fn block_break(
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
     block_query: Query<(Entity, &Block, &GlobalTransform)>,
-    mut chunk_data: ResMut<ChunkData>,
+    mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     windows: Query<&Window>,
 ) {
@@ -494,7 +634,7 @@ fn block_break(
 
     // Break the closest block
     if let Some((entity, pos, _)) = closest_hit {
-        if let Some(block_type) = chunk_data.blocks.remove(&pos) {
+        if let Some(block_type) = world_data.remove_block(pos) {
             commands.entity(entity).despawn();
             *inventory.items.entry(block_type).or_insert(0) += 1;
             // Auto-select the block type if nothing selected
@@ -511,7 +651,7 @@ fn block_place(
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
     block_query: Query<(&Block, &GlobalTransform)>,
-    mut chunk_data: ResMut<ChunkData>,
+    mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -573,7 +713,7 @@ fn block_place(
         );
 
         // Don't place if already occupied
-        if chunk_data.blocks.contains_key(&place_pos) {
+        if world_data.has_block(place_pos) {
             return;
         }
 
@@ -587,8 +727,11 @@ fn block_place(
             }
         }
 
-        // Add to chunk data
-        chunk_data.blocks.insert(place_pos, selected_type);
+        // Add to world data
+        world_data.set_block(place_pos, selected_type);
+
+        // Get chunk coord for the placed block
+        let chunk_coord = WorldData::world_to_chunk(place_pos);
 
         // Spawn block entity
         let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -606,6 +749,7 @@ fn block_place(
                 place_pos.z as f32 * BLOCK_SIZE,
             )),
             Block { position: place_pos },
+            ChunkRef { coord: chunk_coord },
         ));
     }
 }
@@ -764,15 +908,59 @@ mod tests {
 
     #[test]
     fn test_chunk_generation() {
-        let chunk = ChunkData::default();
+        let chunk = ChunkData::generate(IVec2::ZERO);
         // Check that chunk has blocks
         assert!(!chunk.blocks.is_empty());
 
-        // Check that top layer is grass
+        // Check that top layer is grass (local coordinates)
         assert_eq!(chunk.blocks.get(&IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
 
         // Check that lower layers are stone
         assert_eq!(chunk.blocks.get(&IVec3::new(0, 0, 0)), Some(&BlockType::Stone));
+    }
+
+    #[test]
+    fn test_world_coordinate_conversion() {
+        // Test world to chunk conversion
+        assert_eq!(WorldData::world_to_chunk(IVec3::new(0, 0, 0)), IVec2::new(0, 0));
+        assert_eq!(WorldData::world_to_chunk(IVec3::new(15, 0, 15)), IVec2::new(0, 0));
+        assert_eq!(WorldData::world_to_chunk(IVec3::new(16, 0, 0)), IVec2::new(1, 0));
+        assert_eq!(WorldData::world_to_chunk(IVec3::new(-1, 0, -1)), IVec2::new(-1, -1));
+        assert_eq!(WorldData::world_to_chunk(IVec3::new(-16, 0, -16)), IVec2::new(-1, -1));
+
+        // Test world to local conversion
+        assert_eq!(WorldData::world_to_local(IVec3::new(0, 5, 0)), IVec3::new(0, 5, 0));
+        assert_eq!(WorldData::world_to_local(IVec3::new(17, 3, 18)), IVec3::new(1, 3, 2));
+        assert_eq!(WorldData::world_to_local(IVec3::new(-1, 7, -1)), IVec3::new(15, 7, 15));
+
+        // Test local to world conversion
+        assert_eq!(WorldData::local_to_world(IVec2::new(0, 0), IVec3::new(5, 3, 7)), IVec3::new(5, 3, 7));
+        assert_eq!(WorldData::local_to_world(IVec2::new(1, 2), IVec3::new(5, 3, 7)), IVec3::new(21, 3, 39));
+    }
+
+    #[test]
+    fn test_world_data_block_operations() {
+        let mut world = WorldData::default();
+
+        // Insert a chunk first
+        world.chunks.insert(IVec2::new(0, 0), ChunkData::generate(IVec2::ZERO));
+
+        // Test get_block
+        assert_eq!(world.get_block(IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
+        assert_eq!(world.get_block(IVec3::new(0, 0, 0)), Some(&BlockType::Stone));
+
+        // Test has_block
+        assert!(world.has_block(IVec3::new(0, 0, 0)));
+        assert!(!world.has_block(IVec3::new(0, 10, 0))); // Above terrain
+
+        // Test remove_block
+        let removed = world.remove_block(IVec3::new(0, 7, 0));
+        assert_eq!(removed, Some(BlockType::Grass));
+        assert!(!world.has_block(IVec3::new(0, 7, 0)));
+
+        // Test set_block
+        world.set_block(IVec3::new(0, 10, 0), BlockType::Stone);
+        assert_eq!(world.get_block(IVec3::new(0, 10, 0)), Some(&BlockType::Stone));
     }
 
     #[test]
