@@ -95,14 +95,26 @@ must:string-extern(fluent),30%-expand-margin|rec:rtl-ready,plural-support
 
 ## editor
 
-arch:tauri-external|profile-target|bevy-child-process
-feature:block/recipe-edit,test-play,mod-export
-ux:E1-instant-preview,E2-nondestructive(undo100+),E3-constraint-viz,E4-smart-default,E5-bulk-op,E6-ref-integrity
+arch:tauri-external|notify-rs(hotreload)|ipc-pipe(test-play)
+feature:block/recipe-edit,test-play,mod-export,debug-console,validation
+ux:E1-instant-preview,E2-nondestructive(undo100+),E3-constraint-viz,E4-smart-default,E5-bulk-op,E6-ref-integrity,E7-template,E8-duplicate
 
 ### tabs
-items:list+edit,icon-preview,subcategory,delete|recipes:react-flow,node-drag,io-connect
-quests:tree-view,dependency-link|multiblock:3d-grid,layer-slice,wrench-preview
-biomes:noise-params,ore-distribution|sounds:category-tree,preview-play
+items:list+edit,icon-preview,subcategory,delete,template,duplicate
+recipes:react-flow,node-drag,io-connect,throughput-calc
+machines:io-face-editor,tier-upgrade,module-slot
+quests:tree-view,dependency-link,jump-test
+multiblock:3d-grid,layer-slice,wrench-preview,game-import
+biomes:noise-params,ore-distribution
+scripts:monaco-editor,api-completion,test-run
+sounds:category-tree,preview-play
+localization:key-list,missing-highlight,auto-translate
+
+### validation
+auto:id-dup,ref-integrity,cycle-detect|manual:reachability,power-balance,recipe-chain
+
+### debug
+console:give,complete,unlock,tp,time,weather,power|ui:fps,chunk,power-graph,flow
 
 ### e2e-coverage
 |tab|status|tests|
