@@ -1,48 +1,61 @@
-# 次セッション: ゼロから実装
+# 次セッション: リモート環境テスト
 
-## 方針
+## 前回の作業（2024-12-26 ローカル環境）
 
-既存コードを全削除済み。最小限から作り直す。
+### 実施内容
 
-## やること
+1. **カメラ入力遅延を修正** - 操作性が大幅に改善
+   - `PipelinedRenderingPlugin` 無効化
+   - `PresentMode::AutoNoVsync` に変更
+   - `desired_maximum_frame_latency: 1` に設定
 
-### Milestone 1: 最小限のボクセルゲーム
+2. **FPS表示をウィンドウタイトルに変更**
+   - UIテキスト表示に問題があったため
+   - `FrameTimeDiagnosticsPlugin` を使用
 
-**ゴール**: 歩いて、ブロックを掘って、インベントリに入る
+3. **知見をメモ**
+   - `.specify/memory/bevy-tips.md` に記録
 
-1. `cargo init` でプロジェクト作成
-2. Bevy 0.15 を依存に追加
-3. WASD+マウスで3D移動
-4. ボクセル地形（16³チャンク1個）
-5. クリックでブロック破壊→インベントリ
-6. インベントリUI（最小限）
+### 現在の設定
 
-**完了条件**:
-- cargo test, clippy 通る
-- E2Eで動作確認
+```rust
+// 入力遅延対策
+PipelinedRenderingPlugin 無効
+PresentMode::AutoNoVsync
+desired_maximum_frame_latency: 1
 
----
-
-## 残っているファイル
-
-```
-idle_factory/
-├── CLAUDE.md           # 作業ルール（必読）
-├── README.md           # プロジェクト説明
-├── assets/             # 3Dモデル等
-├── tools/blender_scripts/  # モデリング
-└── .specify/
-    ├── specs/          # 仕様（必要な時だけ見る）
-    └── roadmap.md      # 将来機能
+// マウス設定
+MOUSE_SENSITIVITY: 0.002
+AccumulatedMouseMotion 使用
 ```
 
-**Cargo.toml, src/ は存在しない** → 新規作成から始める
+### 確認済み
 
----
+- カメラの遅延感が解消された（ローカル環境）
+- テスト全件パス
+- clippy警告なし
 
-## 注意事項（CLAUDE.md参照）
+### 未解決
 
-- 仕様を詰めるセッションは挟まない
-- E2Eをサボらない（前回の失敗原因）
-- 「定期レビュー」「TDD」は却下済み
-- AI: 技術検証 / 人間: 体験検証
+- UIテキスト（インベントリ等）が表示されない問題
+  - 黒い四角のみ表示される
+  - Bevy 0.15特有の問題の可能性
+
+## 次にやること
+
+1. リモート環境（Linux）でカメラ操作を確認
+2. UIテキスト表示問題を調査（必要なら）
+
+## ファイル
+
+- `src/main.rs` - メイン
+- `.specify/memory/bevy-tips.md` - 技術知見
+- `run.sh` - Linux用起動スクリプト
+
+## 操作方法
+
+- クリック: カーソルロック
+- Esc: カーソル解除
+- WASD/Space/Shift: 移動
+- マウス: 視点操作
+- 左クリック（ロック中）: ブロック破壊

@@ -2,8 +2,11 @@
 //! Goal: Walk, mine blocks, collect in inventory
 
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
+use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
+use bevy::window::{CursorGrabMode, PresentMode};
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
@@ -14,20 +17,28 @@ const PLAYER_SPEED: f32 = 5.0;
 const REACH_DISTANCE: f32 = 5.0;
 
 // Camera settings
-const MOUSE_SENSITIVITY: f32 = 0.002; // Direct radians per pixel (typical FPS value)
+const MOUSE_SENSITIVITY: f32 = 0.002; // Balanced sensitivity
 const KEY_ROTATION_SPEED: f32 = 2.0; // radians per second for arrow keys
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Idle Factory - Milestone 1".into(),
-                // VSync off for better responsiveness (especially over RDP)
-                present_mode: bevy::window::PresentMode::AutoNoVsync,
-                ..default()
-            }),
-            ..default()
-        }))
+        // Disable pipelined rendering to reduce input lag (1 frame delay reduction)
+        // Trade-off: ~10-30% lower framerate, but much better input responsiveness
+        .add_plugins((
+            DefaultPlugins
+                .build()
+                .disable::<PipelinedRenderingPlugin>()
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Idle Factory".into(),
+                        present_mode: PresentMode::AutoNoVsync,
+                        desired_maximum_frame_latency: std::num::NonZeroU32::new(1),
+                        ..default()
+                    }),
+                    ..default()
+                }),
+            FrameTimeDiagnosticsPlugin,
+        ))
         .init_resource::<Inventory>()
         .init_resource::<ChunkData>()
         .add_systems(Startup, (setup_world, setup_player, setup_ui))
@@ -39,7 +50,7 @@ fn main() {
                 player_move,
                 block_break,
                 update_inventory_ui,
-                update_fps_display,
+                update_window_title_fps,
             ),
         )
         .run();
@@ -70,8 +81,6 @@ struct InventoryUI;
 #[derive(Component)]
 struct InventoryText;
 
-#[derive(Component)]
-struct FpsText;
 
 // === Resources ===
 
@@ -185,6 +194,10 @@ fn setup_player(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 Camera3d::default(),
+                Projection::Perspective(PerspectiveProjection {
+                    fov: 90.0_f32.to_radians(), // Wider FOV for better responsiveness feel
+                    ..default()
+                }),
                 // Use Reinhard tonemapping (doesn't require tonemapping_luts feature)
                 Tonemapping::Reinhard,
                 PlayerCamera {
@@ -240,22 +253,6 @@ fn setup_ui(mut commands: Commands) {
         BackgroundColor(Color::WHITE),
     ));
 
-    // FPS counter (top right)
-    commands.spawn((
-        FpsText,
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
-            ..default()
-        },
-        Text::new("FPS: --"),
-        TextFont {
-            font_size: 16.0,
-            ..default()
-        },
-        TextColor(Color::srgb(1.0, 1.0, 0.0)),
-    ));
 }
 
 // === Update Systems ===
@@ -290,9 +287,10 @@ fn player_look(
     mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
     key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut windows: Query<&mut Window>,
+    windows: Query<&Window>,
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
 ) {
-    let mut window = windows.single_mut();
+    let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
     // Get camera component
@@ -320,25 +318,12 @@ fn player_look(
         camera.pitch -= KEY_ROTATION_SPEED * time.delta_secs();
     }
 
-    // --- Mouse motion using cursor position (works with RDP) ---
-    // Every frame: calculate delta from center, then reset to center
-    let center = Vec2::new(window.width() / 2.0, window.height() / 2.0);
-
+    // --- Mouse motion using AccumulatedMouseMotion (Bevy best practice) ---
+    // No smoothing, no delta_time multiplication - raw 1:1 input
     if cursor_locked {
-        if let Some(current_pos) = window.cursor_position() {
-            // Calculate delta from center (not from last position)
-            let delta = current_pos - center;
-
-            // Apply rotation if cursor moved from center
-            // Use a small threshold to avoid jitter
-            if delta.x.abs() > 1.0 || delta.y.abs() > 1.0 {
-                camera.yaw -= delta.x * MOUSE_SENSITIVITY;
-                camera.pitch -= delta.y * MOUSE_SENSITIVITY;
-            }
-        }
-
-        // Always reset cursor to center (even if position() returned None)
-        window.set_cursor_position(Some(center));
+        let delta = accumulated_mouse_motion.delta;
+        camera.yaw -= delta.x * MOUSE_SENSITIVITY;
+        camera.pitch -= delta.y * MOUSE_SENSITIVITY;
     }
 
     // Clamp pitch
@@ -356,31 +341,33 @@ fn player_move(
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Transform, With<Player>>,
+    camera_query: Query<&PlayerCamera>,
 ) {
-    // Always allow movement (RDP compatible)
     let Ok(mut player_transform) = player_query.get_single_mut() else {
+        return;
+    };
+    let Ok(camera) = camera_query.get_single() else {
         return;
     };
 
     let mut direction = Vec3::ZERO;
 
-    // Get forward/right vectors from player rotation
-    let forward = player_transform.forward().as_vec3();
-    let forward_flat = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
-    let right = player_transform.right().as_vec3();
-    let right_flat = Vec3::new(right.x, 0.0, right.z).normalize_or_zero();
+    // Calculate forward/right from yaw (more stable than transform.forward())
+    let (sin_yaw, cos_yaw) = camera.yaw.sin_cos();
+    let forward = Vec3::new(-sin_yaw, 0.0, -cos_yaw);
+    let right = Vec3::new(cos_yaw, 0.0, -sin_yaw);
 
     if key_input.pressed(KeyCode::KeyW) {
-        direction += forward_flat;
+        direction += forward;
     }
     if key_input.pressed(KeyCode::KeyS) {
-        direction -= forward_flat;
+        direction -= forward;
     }
     if key_input.pressed(KeyCode::KeyA) {
-        direction -= right_flat;
+        direction -= right;
     }
     if key_input.pressed(KeyCode::KeyD) {
-        direction += right_flat;
+        direction += right;
     }
     if key_input.pressed(KeyCode::Space) {
         direction.y += 1.0;
@@ -389,7 +376,7 @@ fn player_move(
         direction.y -= 1.0;
     }
 
-    if direction != Vec3::ZERO {
+    if direction.length_squared() > 0.0 {
         direction = direction.normalize();
         player_transform.translation += direction * PLAYER_SPEED * time.delta_secs();
     }
@@ -504,13 +491,14 @@ fn update_inventory_ui(inventory: Res<Inventory>, mut query: Query<&mut Text, Wi
     }
 }
 
-fn update_fps_display(time: Res<Time>, mut query: Query<&mut Text, With<FpsText>>) {
-    let Ok(mut text) = query.get_single_mut() else {
-        return;
-    };
-
-    let fps = 1.0 / time.delta_secs();
-    **text = format!("FPS: {:.0}", fps);
+fn update_window_title_fps(diagnostics: Res<DiagnosticsStore>, mut windows: Query<&mut Window>) {
+    if let Some(fps) = diagnostics.get(&bevy::diagnostic::FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(value) = fps.smoothed() {
+            if let Ok(mut window) = windows.get_single_mut() {
+                window.title = format!("Idle Factory - FPS: {:.0}", value);
+            }
+        }
+    }
 }
 
 // === Tests ===
