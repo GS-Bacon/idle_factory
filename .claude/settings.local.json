@@ -178,7 +178,12 @@
       "Bash(DISPLAY=:12 scrot:*)",
       "Bash(who:*)",
       "Bash(killall:*)",
-      "Bash(DISPLAY=:12 /home/bacon/github/idle_factory/test_camera.sh:*)"
+      "Bash(DISPLAY=:12 /home/bacon/github/idle_factory/test_camera.sh:*)",
+      "Bash(# Sunshineのインストール状況を確認 which sunshine || flatpak list)",
+      "Bash(systemctl --user status:*)",
+      "Bash(# Tailscale IPを確認 tailscale ip -4 || ip addr show tailscale0)",
+      "Bash(# Sunshineの設定を確認 cat ~/.config/sunshine/sunshine.conf)",
+      "Bash(journalctl:*)"
     ]
   }
 }

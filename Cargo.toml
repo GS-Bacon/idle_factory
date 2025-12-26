@@ -16,6 +16,7 @@ bevy = { version = "0.15", default-features = false, features = [
     "bevy_dev_tools",
     "multi_threaded",
     "x11",
+    "default_font",
 ] }
 
 # Enable optimizations for dependencies in dev mode for faster runtime
