@@ -9,13 +9,13 @@ chunk:32^3|greedy-mesh|lod:4lvl|world:inf-xy,y±256
 ### core-mechanics
 
 player:no-hp,no-hunger,no-fall-damage,inv:40slot,stack:999,respawn:instant
-conveyor:speed-tiers,roundrobin-split,zipper-merge,clog-detect
-pipe:flow-tiers,no-mix,drain-valve,leak→machine-short
-tank:10k-mb,multiblock-scale,hot-tank-required
-shaft:1type,reverse→break,gear-ratio
-power:torque(shaft)+electric(wire),steam→engine/turbine,heat-system
-machine:no-recipe-store,auto-detect,dir-fixed,tier-upgrade,vibration3x3,module5x6
-signal:1-16strength,wire-decay,wireless-device,lua-computer,robot4x4→5x10
+conveyor:speed-tiers(4),roundrobin-split,zipper-merge,clog-detect,dual-lane,side-load,underground
+pipe:flow-tiers(3),no-mix,drain-valve,pump-lift10
+tank:10k-mb/block,multiblock(3-16),valve-io
+power:electric-only,wire-conduit,no-loss,overload→slowdown
+machine:no-recipe-store,auto-detect,dir-fixed,tier-upgrade,module1-6slot
+signal:1-16strength,wire-decay(1/block),16color,wireless-16ch,lua-computer
+robot:lua-control,inv4→10slot,move/dig/place,battery
 quest:main-seq,sub-parallel,no-skip,priority-change
 enchant:auto/manual(xp-gacha),tool-speed/durability/range/luck
 
@@ -140,7 +140,7 @@ skill:`/e2e-test`(game),`/e2e-test editor`(editor)
 ## gdd-summary
 
 platform:12x12,48port(16-initial)|weather:day-night,rain→waterwheel+/outdoor-machine-|
-biome:natural+resource-overlay|enchant:tool/machine|robot:lua,4x4-inv,move/break/place
+biome:natural+resource-overlay|enchant:tool/machine(xp-quest)|robot:lua,inv4→10,battery
 multiblock:editor-define,wrench-confirm|quest:seq-main,parallel-sub,no-skip
 
 ## phase-status
