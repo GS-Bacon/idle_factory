@@ -308,6 +308,8 @@ enum BlockType {
     IronOre,
     Coal,
     IronIngot,
+    MinerBlock,
+    ConveyorBlock,
 }
 
 impl BlockType {
@@ -318,6 +320,8 @@ impl BlockType {
             BlockType::IronOre => Color::srgb(0.6, 0.5, 0.4),
             BlockType::Coal => Color::srgb(0.15, 0.15, 0.15),
             BlockType::IronIngot => Color::srgb(0.8, 0.8, 0.85),
+            BlockType::MinerBlock => Color::srgb(0.8, 0.6, 0.2),
+            BlockType::ConveyorBlock => Color::srgb(0.3, 0.3, 0.35),
         }
     }
 
@@ -328,7 +332,14 @@ impl BlockType {
             BlockType::IronOre => "Iron Ore",
             BlockType::Coal => "Coal",
             BlockType::IronIngot => "Iron Ingot",
+            BlockType::MinerBlock => "Miner",
+            BlockType::ConveyorBlock => "Conveyor",
         }
+    }
+
+    /// Returns true if this block type is a machine (not a regular block)
+    fn is_machine(&self) -> bool {
+        matches!(self, BlockType::MinerBlock | BlockType::ConveyorBlock)
     }
 }
 
@@ -552,10 +563,12 @@ fn setup_initial_items(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut inventory: ResMut<Inventory>,
 ) {
-    // Give player initial items (iron ore x5, coal x5)
+    // Give player initial items
     inventory.items.insert(BlockType::IronOre, 5);
     inventory.items.insert(BlockType::Coal, 5);
-    inventory.selected = Some(BlockType::IronOre);
+    inventory.items.insert(BlockType::MinerBlock, 3);
+    inventory.items.insert(BlockType::ConveyorBlock, 10);
+    inventory.selected = Some(BlockType::MinerBlock);
 
     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
 
@@ -904,7 +917,7 @@ fn block_break(
 fn block_place(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
-    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
     block_query: Query<(&Block, &GlobalTransform)>,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
@@ -930,7 +943,7 @@ fn block_place(
         return;
     }
 
-    let Ok(camera_transform) = camera_query.get_single() else {
+    let Ok((camera_transform, player_camera)) = camera_query.get_single() else {
         return;
     };
 
@@ -982,30 +995,97 @@ fn block_place(
             }
         }
 
-        // Add to world data
-        world_data.set_block(place_pos, selected_type);
+        // Add to world data (only for non-machine blocks)
+        if !selected_type.is_machine() {
+            world_data.set_block(place_pos, selected_type);
+        }
 
         // Get chunk coord for the placed block
         let chunk_coord = WorldData::world_to_chunk(place_pos);
 
-        // Spawn block entity
-        let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-        let material = materials.add(StandardMaterial {
-            base_color: selected_type.color(),
-            ..default()
-        });
+        // Calculate direction from player yaw for conveyors
+        let facing_direction = yaw_to_direction(player_camera.yaw);
 
-        commands.spawn((
-            Mesh3d(cube_mesh),
-            MeshMaterial3d(material),
-            Transform::from_translation(Vec3::new(
-                place_pos.x as f32 * BLOCK_SIZE,
-                place_pos.y as f32 * BLOCK_SIZE,
-                place_pos.z as f32 * BLOCK_SIZE,
-            )),
-            Block { position: place_pos },
-            ChunkRef { coord: chunk_coord },
-        ));
+        // Spawn entity based on block type
+        match selected_type {
+            BlockType::MinerBlock => {
+                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: selected_type.color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(cube_mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE,
+                        place_pos.y as f32 * BLOCK_SIZE,
+                        place_pos.z as f32 * BLOCK_SIZE,
+                    )),
+                    Miner {
+                        position: place_pos,
+                        ..default()
+                    },
+                ));
+            }
+            BlockType::ConveyorBlock => {
+                let conveyor_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE * 0.3, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: selected_type.color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(conveyor_mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE,
+                        place_pos.y as f32 * BLOCK_SIZE - 0.35,
+                        place_pos.z as f32 * BLOCK_SIZE,
+                    )).with_rotation(facing_direction.to_rotation()),
+                    Conveyor {
+                        position: place_pos,
+                        direction: facing_direction,
+                        item: None,
+                        progress: 0.0,
+                    },
+                ));
+            }
+            _ => {
+                // Regular block
+                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: selected_type.color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(cube_mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE,
+                        place_pos.y as f32 * BLOCK_SIZE,
+                        place_pos.z as f32 * BLOCK_SIZE,
+                    )),
+                    Block { position: place_pos },
+                    ChunkRef { coord: chunk_coord },
+                ));
+            }
+        }
+    }
+}
+
+/// Convert player yaw to cardinal direction
+fn yaw_to_direction(yaw: f32) -> Direction {
+    // Normalize yaw to 0..2PI
+    let yaw = yaw.rem_euclid(std::f32::consts::TAU);
+    // Split into 4 quadrants (45 degree offset for centered regions)
+    if !(PI / 4.0..7.0 * PI / 4.0).contains(&yaw) {
+        Direction::North
+    } else if yaw < 3.0 * PI / 4.0 {
+        Direction::West
+    } else if yaw < 5.0 * PI / 4.0 {
+        Direction::South
+    } else {
+        Direction::East
     }
 }
 
