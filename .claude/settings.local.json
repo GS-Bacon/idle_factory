@@ -168,7 +168,17 @@
       "Bash(npx playwright install:*)",
       "Bash(DISPLAY=:10 npm run e2e:*)",
       "Bash(1)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(DISPLAY=:10 xdpyinfo:*)",
+      "Bash(DISPLAY=:10 wmctrl:*)",
+      "Bash(DISPLAY=:10 xdotool:*)",
+      "Bash(DISPLAY=:10 scrot:*)",
+      "Bash(tailscale ip:*)",
+      "Bash(ip addr:*)",
+      "Bash(DISPLAY=:12 scrot:*)",
+      "Bash(who:*)",
+      "Bash(killall:*)",
+      "Bash(DISPLAY=:12 /home/bacon/github/idle_factory/test_camera.sh:*)"
     ]
   }
 }
