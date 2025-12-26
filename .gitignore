@@ -53,3 +53,10 @@ coverage/
 # Tauri/Node tools
 tools/*/node_modules/
 tools/*/src-tauri/target/
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
