@@ -374,3 +374,97 @@ def check_connectivity():
 - `tools/model_training/feedback_generator.py` - 改善提案生成
 - `tools/model_training/iteration_controller.py` - ループ制御
 - `tools/model_training/learning_db.py` - 学習データベース
+- `tools/model_training/human_feedback.py` - 人間フィードバック記録
+
+---
+
+## 人間フィードバックモード（--feedback）
+
+生成後に人間の評価を記録し、将来の生成に活用する。
+
+### ワークフロー
+
+```
+1. モデル生成
+2. スクリーンショット撮影 + glTFエクスポート
+3. 人間に評価を依頼（5段階 x 5項目）
+4. フィードバックを記録
+5. 必要なら修正して再生成
+```
+
+### 必須：生成後の出力
+
+モデル生成後は**必ず**以下を実行：
+
+```python
+# 1. スクリーンショット撮影（Cycles推奨）
+bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.cycles.samples = 128
+bpy.context.scene.render.filepath = f"/home/bacon/github/idle_factory/screenshots/{model_name}.png"
+bpy.ops.render.render(write_still=True)
+
+# 2. glTFエクスポート
+bpy.ops.export_scene.gltf(
+    filepath=f"/home/bacon/github/idle_factory/assets/models/{category}s/{model_name}.gltf",
+    export_format='GLTF_SEPARATE',
+    use_selection=True,
+    export_materials='EXPORT',
+    export_yup=True,
+)
+```
+
+### 評価項目（1-5）
+
+| 項目 | 説明 |
+|------|------|
+| shape | 形状：そのモデルらしさ、シルエット |
+| style | スタイル：ローポリ感、ゲームに合うか |
+| detail | ディテール：パーツのバランス |
+| color | 色/マテリアル：色味、金属感 |
+| overall | 総合：ゲームで使いたいか |
+
+### フィードバック記録
+
+```python
+from tools.model_training.human_feedback import get_feedback_db, ModelGeneration
+
+db = get_feedback_db()
+
+# 生成を記録
+gen = ModelGeneration(
+    model_name="pipe_straight",
+    category="machine",
+    parameters={"pipe_r": 0.12, "bolt_position": "inner"},
+    screenshot_path="screenshots/pipe_straight.png",
+    export_path="assets/models/machines/pipe_straight.gltf",
+)
+gen_id = db.record_generation(gen)
+
+# 人間評価を追加
+db.add_feedback(gen_id, {
+    "shape": 4,
+    "style": 5,
+    "detail": 4,
+    "color": 4,
+    "overall": 4,
+    "comments": "ボルトは内側に統一",
+    "issues": ["bolt_position"],
+    "fixes_applied": ["両方内側に変更"],
+})
+```
+
+### 過去の学習を活用
+
+```python
+# ガイダンス取得
+guidance = db.get_guidance_for_model("pipe_elbow", "machine")
+print(guidance["successful_patterns"])  # 成功パターン
+print(guidance["issues_to_avoid"])  # 避けるべき問題
+
+# レポート生成
+print(db.generate_report())
+```
+
+### データ保存先
+
+- `tools/model_training_data/human_feedback.json`
