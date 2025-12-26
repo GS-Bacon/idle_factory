@@ -78,7 +78,7 @@ fn test_block_mining_adds_to_inventory() {
     }
 
     // Verify block was removed
-    assert!(chunk.blocks.get(&block_pos).is_none());
+    assert!(!chunk.blocks.contains_key(&block_pos));
 
     // Verify inventory was updated
     assert_eq!(inventory.items.get(&BlockType::Grass), Some(&1));
@@ -167,6 +167,5 @@ fn test_bevy_app_builds() {
     // without any runtime errors
     let _app = App::new().add_plugins(MinimalPlugins);
 
-    // If we get here, Bevy initialization works
-    assert!(true);
+    // If we get here without panic, Bevy initialization works
 }
