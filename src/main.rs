@@ -58,6 +58,9 @@ fn main() {
                 furnace_interact,
                 furnace_ui_input,
                 furnace_smelting,
+                miner_mining,
+                miner_output,
+                conveyor_transfer,
                 update_inventory_ui,
                 update_furnace_ui,
                 update_window_title_fps,
@@ -131,6 +134,69 @@ struct FurnaceUIText;
 /// Currently interacting furnace entity
 #[derive(Resource, Default)]
 struct InteractingFurnace(Option<Entity>);
+
+/// Miner component - automatically mines blocks below
+#[derive(Component)]
+struct Miner {
+    /// World position of this miner
+    position: IVec3,
+    /// Mining progress (0.0-1.0)
+    progress: f32,
+    /// Buffer of mined items (block type, count)
+    buffer: Option<(BlockType, u32)>,
+}
+
+impl Default for Miner {
+    fn default() -> Self {
+        Self {
+            position: IVec3::ZERO,
+            progress: 0.0,
+            buffer: None,
+        }
+    }
+}
+
+/// Direction for conveyor belts
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Direction {
+    North, // -Z
+    South, // +Z
+    East,  // +X
+    West,  // -X
+}
+
+impl Direction {
+    fn to_ivec3(self) -> IVec3 {
+        match self {
+            Direction::North => IVec3::new(0, 0, -1),
+            Direction::South => IVec3::new(0, 0, 1),
+            Direction::East => IVec3::new(1, 0, 0),
+            Direction::West => IVec3::new(-1, 0, 0),
+        }
+    }
+
+    fn to_rotation(self) -> Quat {
+        match self {
+            Direction::North => Quat::from_rotation_y(0.0),
+            Direction::South => Quat::from_rotation_y(PI),
+            Direction::East => Quat::from_rotation_y(-PI / 2.0),
+            Direction::West => Quat::from_rotation_y(PI / 2.0),
+        }
+    }
+}
+
+/// Conveyor belt component - moves items in a direction
+#[derive(Component)]
+struct Conveyor {
+    /// World position of this conveyor
+    position: IVec3,
+    /// Direction items move
+    direction: Direction,
+    /// Item currently on this conveyor (block type)
+    item: Option<BlockType>,
+    /// Transfer progress (0.0-1.0)
+    progress: f32,
+}
 
 
 // === Resources ===
@@ -491,21 +557,108 @@ fn setup_initial_items(
     inventory.items.insert(BlockType::Coal, 5);
     inventory.selected = Some(BlockType::IronOre);
 
+    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+
     // Spawn a furnace near player spawn point (8, 8, 18)
     let furnace_pos = IVec3::new(10, 8, 18);
-    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-    let material = materials.add(StandardMaterial {
+    let furnace_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.4, 0.3, 0.3), // Dark reddish-brown for furnace
         ..default()
     });
 
     commands.spawn((
-        Mesh3d(cube_mesh),
-        MeshMaterial3d(material),
+        Mesh3d(cube_mesh.clone()),
+        MeshMaterial3d(furnace_material),
         Transform::from_translation(Vec3::new(
             furnace_pos.x as f32 * BLOCK_SIZE,
             furnace_pos.y as f32 * BLOCK_SIZE,
             furnace_pos.z as f32 * BLOCK_SIZE,
+        )),
+        Furnace::default(),
+    ));
+
+    // === Demo: Miner + Conveyor chain ===
+    // Layout (top view, Y=8):
+    //   [Miner] -> [Conv] -> [Conv] -> [Furnace]
+    //   x=5        x=6       x=7       x=8
+    //   z=15       z=15      z=15      z=15
+
+    // Spawn Miner at (5, 8, 15) - sits on top of grass, mines stone below
+    let miner_pos = IVec3::new(5, 8, 15);
+    let miner_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.8, 0.6, 0.2), // Orange for miner
+        ..default()
+    });
+    commands.spawn((
+        Mesh3d(cube_mesh.clone()),
+        MeshMaterial3d(miner_material),
+        Transform::from_translation(Vec3::new(
+            miner_pos.x as f32 * BLOCK_SIZE,
+            miner_pos.y as f32 * BLOCK_SIZE,
+            miner_pos.z as f32 * BLOCK_SIZE,
+        )),
+        Miner {
+            position: miner_pos,
+            ..default()
+        },
+    ));
+
+    // Spawn conveyor belt chain (flat boxes)
+    let conveyor_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE * 0.3, BLOCK_SIZE));
+    let conveyor_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.3, 0.3, 0.35), // Dark gray for conveyor
+        ..default()
+    });
+
+    // Conveyor 1: next to miner, heading East
+    let conv1_pos = IVec3::new(6, 8, 15);
+    commands.spawn((
+        Mesh3d(conveyor_mesh.clone()),
+        MeshMaterial3d(conveyor_material.clone()),
+        Transform::from_translation(Vec3::new(
+            conv1_pos.x as f32 * BLOCK_SIZE,
+            conv1_pos.y as f32 * BLOCK_SIZE - 0.35, // Slightly lower
+            conv1_pos.z as f32 * BLOCK_SIZE,
+        )).with_rotation(Direction::East.to_rotation()),
+        Conveyor {
+            position: conv1_pos,
+            direction: Direction::East,
+            item: None,
+            progress: 0.0,
+        },
+    ));
+
+    // Conveyor 2: continuing East
+    let conv2_pos = IVec3::new(7, 8, 15);
+    commands.spawn((
+        Mesh3d(conveyor_mesh.clone()),
+        MeshMaterial3d(conveyor_material.clone()),
+        Transform::from_translation(Vec3::new(
+            conv2_pos.x as f32 * BLOCK_SIZE,
+            conv2_pos.y as f32 * BLOCK_SIZE - 0.35,
+            conv2_pos.z as f32 * BLOCK_SIZE,
+        )).with_rotation(Direction::East.to_rotation()),
+        Conveyor {
+            position: conv2_pos,
+            direction: Direction::East,
+            item: None,
+            progress: 0.0,
+        },
+    ));
+
+    // Spawn a second furnace at end of conveyor chain
+    let furnace2_pos = IVec3::new(8, 8, 15);
+    let furnace2_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.4, 0.3, 0.3),
+        ..default()
+    });
+    commands.spawn((
+        Mesh3d(cube_mesh.clone()),
+        MeshMaterial3d(furnace2_material),
+        Transform::from_translation(Vec3::new(
+            furnace2_pos.x as f32 * BLOCK_SIZE,
+            furnace2_pos.y as f32 * BLOCK_SIZE,
+            furnace2_pos.z as f32 * BLOCK_SIZE,
         )),
         Furnace::default(),
     ));
@@ -1125,6 +1278,230 @@ fn furnace_smelting(
         } else {
             // Reset progress if missing fuel or input
             furnace.progress = 0.0;
+        }
+    }
+}
+
+// === Miner & Conveyor Systems ===
+
+const MINE_TIME: f32 = 5.0; // seconds to mine one block
+const CONVEYOR_SPEED: f32 = 1.0; // seconds to transfer item
+
+/// Mining logic - automatically mine blocks below the miner
+fn miner_mining(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut miner_query: Query<&mut Miner>,
+    mut world_data: ResMut<WorldData>,
+    block_query: Query<(Entity, &Block)>,
+) {
+    for mut miner in miner_query.iter_mut() {
+        // Skip if buffer is full
+        if let Some((_, count)) = miner.buffer {
+            if count >= 64 {
+                continue;
+            }
+        }
+
+        // Find block below miner
+        let below_pos = miner.position + IVec3::new(0, -1, 0);
+        let Some(&block_type) = world_data.get_block(below_pos) else {
+            miner.progress = 0.0;
+            continue;
+        };
+
+        // Mine progress
+        miner.progress += time.delta_secs() / MINE_TIME;
+
+        if miner.progress >= 1.0 {
+            miner.progress = 0.0;
+
+            // Remove block from world
+            world_data.remove_block(below_pos);
+
+            // Despawn block entity
+            for (entity, block) in block_query.iter() {
+                if block.position == below_pos {
+                    commands.entity(entity).despawn();
+                    break;
+                }
+            }
+
+            // Add to buffer
+            if let Some((buf_type, ref mut count)) = miner.buffer {
+                if buf_type == block_type {
+                    *count += 1;
+                }
+            } else {
+                miner.buffer = Some((block_type, 1));
+            }
+        }
+    }
+}
+
+/// Output from miner to adjacent conveyor
+fn miner_output(
+    mut miner_query: Query<&mut Miner>,
+    mut conveyor_query: Query<&mut Conveyor>,
+) {
+    for mut miner in miner_query.iter_mut() {
+        let Some((block_type, count)) = miner.buffer else {
+            continue;
+        };
+        if count == 0 {
+            continue;
+        }
+
+        // Check for adjacent conveyor (on top of miner, or beside it)
+        let adjacent_positions = [
+            miner.position + IVec3::new(0, 1, 0),  // above
+            miner.position + IVec3::new(1, 0, 0),  // east
+            miner.position + IVec3::new(-1, 0, 0), // west
+            miner.position + IVec3::new(0, 0, 1),  // south
+            miner.position + IVec3::new(0, 0, -1), // north
+        ];
+
+        for mut conveyor in conveyor_query.iter_mut() {
+            if adjacent_positions.contains(&conveyor.position) && conveyor.item.is_none() {
+                // Transfer item to conveyor
+                conveyor.item = Some(block_type);
+                if let Some((_, ref mut buf_count)) = miner.buffer {
+                    *buf_count -= 1;
+                    if *buf_count == 0 {
+                        miner.buffer = None;
+                    }
+                }
+                break;
+            }
+        }
+    }
+}
+
+/// Conveyor transfer logic - move items along conveyor chain
+fn conveyor_transfer(
+    time: Res<Time>,
+    mut conveyor_query: Query<(Entity, &mut Conveyor)>,
+    mut furnace_query: Query<(&Transform, &mut Furnace)>,
+) {
+    // Collect conveyor states first to avoid borrow issues
+    let conveyor_states: Vec<(Entity, IVec3, Direction, Option<BlockType>, f32)> = conveyor_query
+        .iter()
+        .map(|(e, c)| (e, c.position, c.direction, c.item, c.progress))
+        .collect();
+
+    // Build a map of conveyor positions for lookup
+    let conveyor_positions: HashMap<IVec3, Entity> = conveyor_states
+        .iter()
+        .map(|(e, pos, _, _, _)| (*pos, *e))
+        .collect();
+
+    // Collect transfer actions
+    struct TransferAction {
+        source: Entity,
+        target: TransferTarget,
+        item: BlockType,
+    }
+    enum TransferTarget {
+        Conveyor(Entity),
+        Furnace(IVec3),
+    }
+
+    let mut actions: Vec<TransferAction> = Vec::new();
+
+    for (entity, pos, direction, item, progress) in conveyor_states.iter() {
+        let Some(block_type) = item else {
+            continue;
+        };
+
+        // Only transfer when progress is complete
+        if *progress < 1.0 {
+            continue;
+        }
+
+        let next_pos = *pos + direction.to_ivec3();
+
+        // Check if next position has a conveyor
+        if let Some(&next_entity) = conveyor_positions.get(&next_pos) {
+            // Check if next conveyor is empty
+            if let Some((_, _, _, next_item, _)) = conveyor_states.iter().find(|(e, _, _, _, _)| *e == next_entity) {
+                if next_item.is_none() {
+                    actions.push(TransferAction {
+                        source: *entity,
+                        target: TransferTarget::Conveyor(next_entity),
+                        item: *block_type,
+                    });
+                }
+            }
+        } else {
+            // Check if next position has a furnace
+            for (furnace_transform, furnace) in furnace_query.iter() {
+                let furnace_pos = IVec3::new(
+                    furnace_transform.translation.x.round() as i32,
+                    furnace_transform.translation.y.round() as i32,
+                    furnace_transform.translation.z.round() as i32,
+                );
+                if furnace_pos == next_pos {
+                    // Check if furnace can accept this item
+                    let can_accept = match block_type {
+                        BlockType::Coal => furnace.fuel < 64,
+                        BlockType::IronOre => furnace.input < 64,
+                        _ => false,
+                    };
+                    if can_accept {
+                        actions.push(TransferAction {
+                            source: *entity,
+                            target: TransferTarget::Furnace(furnace_pos),
+                            item: *block_type,
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    // Apply transfers
+    for action in actions {
+        // Clear source conveyor
+        if let Ok((_, mut source_conv)) = conveyor_query.get_mut(action.source) {
+            source_conv.item = None;
+            source_conv.progress = 0.0;
+        }
+
+        match action.target {
+            TransferTarget::Conveyor(target_entity) => {
+                if let Ok((_, mut target_conv)) = conveyor_query.get_mut(target_entity) {
+                    target_conv.item = Some(action.item);
+                    target_conv.progress = 0.0;
+                }
+            }
+            TransferTarget::Furnace(furnace_pos) => {
+                for (furnace_transform, mut furnace) in furnace_query.iter_mut() {
+                    let pos = IVec3::new(
+                        furnace_transform.translation.x.round() as i32,
+                        furnace_transform.translation.y.round() as i32,
+                        furnace_transform.translation.z.round() as i32,
+                    );
+                    if pos == furnace_pos {
+                        match action.item {
+                            BlockType::Coal => furnace.fuel += 1,
+                            BlockType::IronOre => furnace.input += 1,
+                            _ => {}
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Update progress for conveyors with items
+    for (_, mut conveyor) in conveyor_query.iter_mut() {
+        if conveyor.item.is_some() && conveyor.progress < 1.0 {
+            conveyor.progress += time.delta_secs() / CONVEYOR_SPEED;
+            if conveyor.progress > 1.0 {
+                conveyor.progress = 1.0;
+            }
         }
     }
 }
