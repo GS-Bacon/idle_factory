@@ -44,10 +44,12 @@ fn main() {
         .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
         .init_resource::<InteractingFurnace>()
-        .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items))
+        .init_resource::<CurrentQuest>()
+        .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
             (
+                // Core gameplay systems
                 chunk_loading,
                 toggle_cursor_lock,
                 player_look,
@@ -58,11 +60,23 @@ fn main() {
                 furnace_interact,
                 furnace_ui_input,
                 furnace_smelting,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                // Machine systems
                 miner_mining,
                 miner_output,
                 conveyor_transfer,
+                delivery_platform_receive,
+                quest_progress_check,
+                quest_claim_rewards,
+                // UI update systems
                 update_inventory_ui,
                 update_furnace_ui,
+                update_delivery_ui,
+                update_quest_ui,
                 update_window_title_fps,
             ),
         )
@@ -197,6 +211,53 @@ struct Conveyor {
     /// Transfer progress (0.0-1.0)
     progress: f32,
 }
+
+/// Delivery platform - accepts items for delivery quests
+#[derive(Component, Default)]
+struct DeliveryPlatform {
+    /// Total items delivered (by type)
+    delivered: HashMap<BlockType, u32>,
+}
+
+/// Marker for delivery platform UI
+#[derive(Component)]
+struct DeliveryUI;
+
+/// Marker for delivery UI text
+#[derive(Component)]
+struct DeliveryUIText;
+
+/// Quest definition
+#[derive(Clone, Debug)]
+struct QuestDef {
+    /// Quest description
+    description: &'static str,
+    /// Required item type
+    required_item: BlockType,
+    /// Required amount
+    required_amount: u32,
+    /// Rewards: (BlockType, amount)
+    rewards: Vec<(BlockType, u32)>,
+}
+
+/// Current quest state
+#[derive(Resource, Default)]
+struct CurrentQuest {
+    /// Index of current quest (0-based)
+    index: usize,
+    /// Whether the quest is completed
+    completed: bool,
+    /// Whether rewards were claimed
+    rewards_claimed: bool,
+}
+
+/// Marker for quest UI
+#[derive(Component)]
+struct QuestUI;
+
+/// Marker for quest UI text
+#[derive(Component)]
+struct QuestUIText;
 
 
 // === Resources ===
@@ -547,6 +608,61 @@ fn setup_ui(mut commands: Commands) {
             parent.spawn((
                 FurnaceUIText,
                 Text::new("=== Furnace ===\nFuel: 0 Coal\nInput: 0 Iron Ore\nOutput: 0 Iron Ingot\n\n[1] Add Coal | [2] Add Iron Ore\n[3] Take Iron Ingot | [E] Close"),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+
+    // Delivery platform UI (top right corner)
+    commands
+        .spawn((
+            DeliveryUI,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                right: Val::Px(10.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.1, 0.3, 0.1, 0.8)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                DeliveryUIText,
+                Text::new("=== Deliveries ===\nNo items delivered"),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+
+    // Quest UI (top center)
+    commands
+        .spawn((
+            QuestUI,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                left: Val::Percent(50.0),
+                margin: UiRect {
+                    left: Val::Px(-150.0),
+                    ..default()
+                },
+                padding: UiRect::all(Val::Px(10.0)),
+                width: Val::Px(300.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.3, 0.2, 0.1, 0.9)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                QuestUIText,
+                Text::new("=== Quest ===\nDeliver 3 Iron Ingots\nProgress: 0/3"),
                 TextFont {
                     font_size: 18.0,
                     ..default()
@@ -1628,6 +1744,268 @@ fn update_window_title_fps(diagnostics: Res<DiagnosticsStore>, mut windows: Quer
                 window.title = format!("Idle Factory - FPS: {:.0}", value);
             }
         }
+    }
+}
+
+// === Delivery Platform Systems ===
+
+const PLATFORM_SIZE: i32 = 12;
+
+/// Setup delivery platform near spawn point
+fn setup_delivery_platform(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Platform position: 12x12 area starting at (20, 8, 10)
+    let platform_origin = IVec3::new(20, 8, 10);
+
+    // Create platform mesh (flat plate)
+    let platform_mesh = meshes.add(Cuboid::new(
+        PLATFORM_SIZE as f32 * BLOCK_SIZE,
+        BLOCK_SIZE * 0.2,
+        PLATFORM_SIZE as f32 * BLOCK_SIZE,
+    ));
+
+    let platform_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.2, 0.5, 0.3), // Green-ish for delivery area
+        ..default()
+    });
+
+    // Spawn platform entity
+    commands.spawn((
+        Mesh3d(platform_mesh),
+        MeshMaterial3d(platform_material),
+        Transform::from_translation(Vec3::new(
+            platform_origin.x as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0) - 0.5,
+            platform_origin.y as f32 * BLOCK_SIZE - 0.4,
+            platform_origin.z as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0) - 0.5,
+        )),
+        DeliveryPlatform::default(),
+    ));
+
+    // Spawn delivery port markers (visual indicators at edges)
+    let port_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.8, BLOCK_SIZE * 0.1, BLOCK_SIZE * 0.8));
+    let port_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.8, 0.8, 0.2), // Yellow for ports
+        emissive: bevy::color::LinearRgba::new(0.3, 0.3, 0.1, 1.0),
+        ..default()
+    });
+
+    // Create 16 ports along edges (4 per side)
+    let port_positions = [
+        // North edge (z = 10)
+        IVec3::new(22, 8, 10), IVec3::new(25, 8, 10), IVec3::new(28, 8, 10), IVec3::new(31, 8, 10),
+        // South edge (z = 21)
+        IVec3::new(22, 8, 21), IVec3::new(25, 8, 21), IVec3::new(28, 8, 21), IVec3::new(31, 8, 21),
+        // West edge (x = 20)
+        IVec3::new(20, 8, 12), IVec3::new(20, 8, 15), IVec3::new(20, 8, 18), IVec3::new(20, 8, 21),
+        // East edge (x = 31)
+        IVec3::new(31, 8, 12), IVec3::new(31, 8, 15), IVec3::new(31, 8, 18), IVec3::new(31, 8, 21),
+    ];
+
+    for port_pos in port_positions {
+        commands.spawn((
+            Mesh3d(port_mesh.clone()),
+            MeshMaterial3d(port_material.clone()),
+            Transform::from_translation(Vec3::new(
+                port_pos.x as f32 * BLOCK_SIZE,
+                port_pos.y as f32 * BLOCK_SIZE - 0.35,
+                port_pos.z as f32 * BLOCK_SIZE,
+            )),
+        ));
+    }
+}
+
+/// Receive items from conveyors onto delivery platform
+fn delivery_platform_receive(
+    mut platform_query: Query<(&Transform, &mut DeliveryPlatform)>,
+    mut conveyor_query: Query<&mut Conveyor>,
+) {
+    let Ok((platform_transform, mut platform)) = platform_query.get_single_mut() else {
+        return;
+    };
+
+    // Calculate platform bounds
+    let platform_center = platform_transform.translation;
+    let half_size = (PLATFORM_SIZE as f32 * BLOCK_SIZE) / 2.0;
+    let platform_min_x = (platform_center.x - half_size).floor() as i32;
+    let platform_max_x = (platform_center.x + half_size).floor() as i32;
+    let platform_min_z = (platform_center.z - half_size).floor() as i32;
+    let platform_max_z = (platform_center.z + half_size).floor() as i32;
+
+    // Check conveyors pointing into platform
+    for mut conveyor in conveyor_query.iter_mut() {
+        if conveyor.item.is_none() || conveyor.progress < 1.0 {
+            continue;
+        }
+
+        let next_pos = conveyor.position + conveyor.direction.to_ivec3();
+
+        // Check if next position is inside platform area
+        if next_pos.x >= platform_min_x
+            && next_pos.x <= platform_max_x
+            && next_pos.z >= platform_min_z
+            && next_pos.z <= platform_max_z
+        {
+            // Accept the item
+            if let Some(block_type) = conveyor.item.take() {
+                *platform.delivered.entry(block_type).or_insert(0) += 1;
+                conveyor.progress = 0.0;
+            }
+        }
+    }
+}
+
+/// Update delivery UI text
+fn update_delivery_ui(
+    platform_query: Query<&DeliveryPlatform>,
+    mut text_query: Query<&mut Text, With<DeliveryUIText>>,
+) {
+    let Ok(platform) = platform_query.get_single() else {
+        return;
+    };
+
+    let Ok(mut text) = text_query.get_single_mut() else {
+        return;
+    };
+
+    if platform.delivered.is_empty() {
+        **text = "=== Deliveries ===\nNo items delivered".to_string();
+    } else {
+        let items: Vec<String> = platform
+            .delivered
+            .iter()
+            .map(|(block_type, count)| format!("{}: {}", block_type.name(), count))
+            .collect();
+        **text = format!("=== Deliveries ===\n{}", items.join("\n"));
+    }
+}
+
+// === Quest Systems ===
+
+/// Quest definitions
+fn get_quests() -> Vec<QuestDef> {
+    vec![
+        QuestDef {
+            description: "Deliver 3 Iron Ingots",
+            required_item: BlockType::IronIngot,
+            required_amount: 3,
+            rewards: vec![
+                (BlockType::MinerBlock, 2),
+                (BlockType::ConveyorBlock, 20),
+            ],
+        },
+        QuestDef {
+            description: "Deliver 100 Iron Ingots",
+            required_item: BlockType::IronIngot,
+            required_amount: 100,
+            rewards: vec![
+                (BlockType::MinerBlock, 2),
+                (BlockType::ConveyorBlock, 40),
+            ],
+        },
+    ]
+}
+
+/// Check quest progress
+fn quest_progress_check(
+    platform_query: Query<&DeliveryPlatform>,
+    mut current_quest: ResMut<CurrentQuest>,
+) {
+    if current_quest.completed {
+        return;
+    }
+
+    let Ok(platform) = platform_query.get_single() else {
+        return;
+    };
+
+    let quests = get_quests();
+    let Some(quest) = quests.get(current_quest.index) else {
+        return;
+    };
+
+    let delivered = platform.delivered.get(&quest.required_item).copied().unwrap_or(0);
+    if delivered >= quest.required_amount {
+        current_quest.completed = true;
+    }
+}
+
+/// Claim quest rewards with Q key
+fn quest_claim_rewards(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut current_quest: ResMut<CurrentQuest>,
+    mut inventory: ResMut<Inventory>,
+) {
+    if !current_quest.completed || current_quest.rewards_claimed {
+        return;
+    }
+
+    if !key_input.just_pressed(KeyCode::KeyQ) {
+        return;
+    }
+
+    let quests = get_quests();
+    let Some(quest) = quests.get(current_quest.index) else {
+        return;
+    };
+
+    // Add rewards to inventory
+    for (block_type, amount) in &quest.rewards {
+        *inventory.items.entry(*block_type).or_insert(0) += amount;
+    }
+
+    current_quest.rewards_claimed = true;
+
+    // Move to next quest
+    if current_quest.index + 1 < quests.len() {
+        current_quest.index += 1;
+        current_quest.completed = false;
+        current_quest.rewards_claimed = false;
+    }
+}
+
+/// Update quest UI
+fn update_quest_ui(
+    current_quest: Res<CurrentQuest>,
+    platform_query: Query<&DeliveryPlatform>,
+    mut text_query: Query<&mut Text, With<QuestUIText>>,
+) {
+    let Ok(mut text) = text_query.get_single_mut() else {
+        return;
+    };
+
+    let quests = get_quests();
+
+    if current_quest.index >= quests.len() {
+        **text = "=== Quest ===\nAll quests completed!".to_string();
+        return;
+    }
+
+    let quest = &quests[current_quest.index];
+    let delivered = platform_query
+        .get_single()
+        .map(|p| p.delivered.get(&quest.required_item).copied().unwrap_or(0))
+        .unwrap_or(0);
+
+    if current_quest.completed && !current_quest.rewards_claimed {
+        let rewards: Vec<String> = quest.rewards
+            .iter()
+            .map(|(bt, amt)| format!("{} x{}", bt.name(), amt))
+            .collect();
+        **text = format!(
+            "=== Quest Complete! ===\n{}\n\nRewards:\n{}\n\n[Q] Claim Rewards",
+            quest.description,
+            rewards.join("\n")
+        );
+    } else {
+        **text = format!(
+            "=== Quest ===\n{}\nProgress: {}/{}",
+            quest.description,
+            delivered.min(quest.required_amount),
+            quest.required_amount
+        );
     }
 }
 
