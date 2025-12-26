@@ -5,6 +5,7 @@ resolver = "2"
 # 開発用ビルド設定 (cargo run)
 [profile.dev]
 opt-level = 1 # 自分のコードは少しだけ最適化
+split-debuginfo = "packed" # デバッグ情報を分割してメモリ削減
 
 # 依存関係（Bevyなど）はガチガチに最適化する
 # これにより、初回ビルドは遅いが、2回目以降は再ビルドが走らず高速になる
