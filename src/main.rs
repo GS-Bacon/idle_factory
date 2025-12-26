@@ -43,7 +43,8 @@ fn main() {
         .init_resource::<Inventory>()
         .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
-        .add_systems(Startup, (setup_lighting, setup_player, setup_ui))
+        .init_resource::<InteractingFurnace>()
+        .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items))
         .add_systems(
             Update,
             (
@@ -54,7 +55,11 @@ fn main() {
                 block_break,
                 block_place,
                 select_block_type,
+                furnace_interact,
+                furnace_ui_input,
+                furnace_smelting,
                 update_inventory_ui,
+                update_furnace_ui,
                 update_window_title_fps,
             ),
         )
@@ -101,6 +106,31 @@ struct InventoryUI;
 
 #[derive(Component)]
 struct InventoryText;
+
+/// Furnace component for smelting
+#[derive(Component, Default)]
+struct Furnace {
+    /// Fuel slot (coal)
+    fuel: u32,
+    /// Input slot (iron ore)
+    input: u32,
+    /// Output slot (iron ingot)
+    output: u32,
+    /// Smelting progress (0.0-1.0)
+    progress: f32,
+}
+
+/// Marker for furnace UI
+#[derive(Component)]
+struct FurnaceUI;
+
+/// Marker for furnace UI text
+#[derive(Component)]
+struct FurnaceUIText;
+
+/// Currently interacting furnace entity
+#[derive(Resource, Default)]
+struct InteractingFurnace(Option<Entity>);
 
 
 // === Resources ===
@@ -209,6 +239,9 @@ impl WorldData {
 enum BlockType {
     Stone,
     Grass,
+    IronOre,
+    Coal,
+    IronIngot,
 }
 
 impl BlockType {
@@ -216,6 +249,9 @@ impl BlockType {
         match self {
             BlockType::Stone => Color::srgb(0.5, 0.5, 0.5),
             BlockType::Grass => Color::srgb(0.2, 0.8, 0.2),
+            BlockType::IronOre => Color::srgb(0.6, 0.5, 0.4),
+            BlockType::Coal => Color::srgb(0.15, 0.15, 0.15),
+            BlockType::IronIngot => Color::srgb(0.8, 0.8, 0.85),
         }
     }
 
@@ -223,6 +259,9 @@ impl BlockType {
         match self {
             BlockType::Stone => "Stone",
             BlockType::Grass => "Grass",
+            BlockType::IronOre => "Iron Ore",
+            BlockType::Coal => "Coal",
+            BlockType::IronIngot => "Iron Ingot",
         }
     }
 }
@@ -407,6 +446,69 @@ fn setup_ui(mut commands: Commands) {
         BackgroundColor(Color::WHITE),
     ));
 
+    // Furnace UI panel (hidden by default)
+    commands
+        .spawn((
+            FurnaceUI,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(30.0),
+                left: Val::Percent(50.0),
+                padding: UiRect::all(Val::Px(15.0)),
+                margin: UiRect {
+                    left: Val::Px(-150.0),
+                    ..default()
+                },
+                width: Val::Px(300.0),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.95)),
+            Visibility::Hidden,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                FurnaceUIText,
+                Text::new("=== Furnace ===\nFuel: 0 Coal\nInput: 0 Iron Ore\nOutput: 0 Iron Ingot\n\n[1] Add Coal | [2] Add Iron Ore\n[3] Take Iron Ingot | [E] Close"),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
+
+/// Setup initial items on ground and furnace
+fn setup_initial_items(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut inventory: ResMut<Inventory>,
+) {
+    // Give player initial items (iron ore x5, coal x5)
+    inventory.items.insert(BlockType::IronOre, 5);
+    inventory.items.insert(BlockType::Coal, 5);
+    inventory.selected = Some(BlockType::IronOre);
+
+    // Spawn a furnace near player spawn point (8, 8, 18)
+    let furnace_pos = IVec3::new(10, 8, 18);
+    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.4, 0.3, 0.3), // Dark reddish-brown for furnace
+        ..default()
+    });
+
+    commands.spawn((
+        Mesh3d(cube_mesh),
+        MeshMaterial3d(material),
+        Transform::from_translation(Vec3::new(
+            furnace_pos.x as f32 * BLOCK_SIZE,
+            furnace_pos.y as f32 * BLOCK_SIZE,
+            furnace_pos.z as f32 * BLOCK_SIZE,
+        )),
+        Furnace::default(),
+    ));
 }
 
 // === Update Systems ===
@@ -871,7 +973,7 @@ fn update_inventory_ui(inventory: Res<Inventory>, mut query: Query<&mut Text, Wi
         return;
     };
 
-    let hint = "LClick:Break | RClick:Place | 1-2:Select | WASD:Move";
+    let hint = "LClick:Break | RClick:Place | 1-4:Select | E:Furnace";
 
     if inventory.items.is_empty() {
         **text = format!("Inventory: Empty\n{}", hint);
@@ -888,6 +990,178 @@ fn update_inventory_ui(inventory: Res<Inventory>, mut query: Query<&mut Text, Wi
             .collect();
         **text = format!("Selected: {}\n{}\n{}", selected_name, items.join("\n"), hint);
     }
+}
+
+/// Interact with furnace when looking at it and pressing E
+fn furnace_interact(
+    key_input: Res<ButtonInput<KeyCode>>,
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    furnace_query: Query<(Entity, &Transform), With<Furnace>>,
+    mut interacting: ResMut<InteractingFurnace>,
+    mut furnace_ui_query: Query<&mut Visibility, With<FurnaceUI>>,
+    windows: Query<&Window>,
+) {
+    // E key to toggle furnace UI
+    if !key_input.just_pressed(KeyCode::KeyE) {
+        return;
+    }
+
+    // If already interacting, close the UI
+    if interacting.0.is_some() {
+        interacting.0 = None;
+        if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
+            *vis = Visibility::Hidden;
+        }
+        return;
+    }
+
+    let window = windows.single();
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    if !cursor_locked {
+        return;
+    }
+
+    let Ok(camera_transform) = camera_query.get_single() else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation();
+    let ray_direction = camera_transform.forward().as_vec3();
+
+    // Find closest furnace intersection
+    let mut closest_furnace: Option<(Entity, f32)> = None;
+    let half_size = BLOCK_SIZE / 2.0;
+
+    for (entity, furnace_transform) in furnace_query.iter() {
+        let furnace_pos = furnace_transform.translation;
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            furnace_pos - Vec3::splat(half_size),
+            furnace_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0 && t < REACH_DISTANCE && (closest_furnace.is_none() || t < closest_furnace.unwrap().1) {
+                closest_furnace = Some((entity, t));
+            }
+        }
+    }
+
+    // Open furnace UI
+    if let Some((entity, _)) = closest_furnace {
+        interacting.0 = Some(entity);
+        if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
+            *vis = Visibility::Visible;
+        }
+    }
+}
+
+/// Handle input when furnace UI is open
+fn furnace_ui_input(
+    key_input: Res<ButtonInput<KeyCode>>,
+    interacting: Res<InteractingFurnace>,
+    mut furnace_query: Query<&mut Furnace>,
+    mut inventory: ResMut<Inventory>,
+) {
+    let Some(furnace_entity) = interacting.0 else {
+        return;
+    };
+
+    let Ok(mut furnace) = furnace_query.get_mut(furnace_entity) else {
+        return;
+    };
+
+    // [1] Add coal to furnace
+    if key_input.just_pressed(KeyCode::Digit1) {
+        if let Some(count) = inventory.items.get_mut(&BlockType::Coal) {
+            if *count > 0 {
+                *count -= 1;
+                furnace.fuel += 1;
+                if *count == 0 {
+                    inventory.items.remove(&BlockType::Coal);
+                }
+            }
+        }
+    }
+
+    // [2] Add iron ore to furnace
+    if key_input.just_pressed(KeyCode::Digit2) {
+        if let Some(count) = inventory.items.get_mut(&BlockType::IronOre) {
+            if *count > 0 {
+                *count -= 1;
+                furnace.input += 1;
+                if *count == 0 {
+                    inventory.items.remove(&BlockType::IronOre);
+                }
+            }
+        }
+    }
+
+    // [3] Take iron ingot from furnace
+    if key_input.just_pressed(KeyCode::Digit3) && furnace.output > 0 {
+        furnace.output -= 1;
+        *inventory.items.entry(BlockType::IronIngot).or_insert(0) += 1;
+    }
+}
+
+/// Smelting logic - convert iron ore + coal to iron ingot
+const SMELT_TIME: f32 = 3.0; // seconds to smelt one item
+
+fn furnace_smelting(
+    time: Res<Time>,
+    mut furnace_query: Query<&mut Furnace>,
+) {
+    for mut furnace in furnace_query.iter_mut() {
+        // Need both fuel and input to smelt
+        if furnace.fuel > 0 && furnace.input > 0 {
+            furnace.progress += time.delta_secs() / SMELT_TIME;
+
+            // When progress reaches 1.0, complete smelting
+            if furnace.progress >= 1.0 {
+                furnace.progress = 0.0;
+                furnace.fuel -= 1;
+                furnace.input -= 1;
+                furnace.output += 1;
+            }
+        } else {
+            // Reset progress if missing fuel or input
+            furnace.progress = 0.0;
+        }
+    }
+}
+
+/// Update furnace UI text
+fn update_furnace_ui(
+    interacting: Res<InteractingFurnace>,
+    furnace_query: Query<&Furnace>,
+    mut text_query: Query<&mut Text, With<FurnaceUIText>>,
+) {
+    let Some(furnace_entity) = interacting.0 else {
+        return;
+    };
+
+    let Ok(furnace) = furnace_query.get(furnace_entity) else {
+        return;
+    };
+
+    let Ok(mut text) = text_query.get_single_mut() else {
+        return;
+    };
+
+    let progress_bar = if furnace.fuel > 0 && furnace.input > 0 {
+        let filled = (furnace.progress * 10.0) as usize;
+        let empty = 10 - filled;
+        format!("[{}{}] {:.0}%", "=".repeat(filled), " ".repeat(empty), furnace.progress * 100.0)
+    } else {
+        "[          ] 0%".to_string()
+    };
+
+    **text = format!(
+        "=== Furnace ===\n\nFuel: {} Coal\nInput: {} Iron Ore\nOutput: {} Iron Ingot\n\nProgress: {}\n\n[1] Add Coal | [2] Add Iron Ore\n[3] Take Iron Ingot | [E] Close",
+        furnace.fuel,
+        furnace.input,
+        furnace.output,
+        progress_bar
+    );
 }
 
 fn update_window_title_fps(diagnostics: Res<DiagnosticsStore>, mut windows: Query<&mut Window>) {
