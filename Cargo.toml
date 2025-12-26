@@ -1,0 +1,22 @@
+[package]
+name = "idle_factory"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.15", default-features = false, features = [
+    "bevy_asset",
+    "bevy_winit",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_render",
+    "bevy_ui",
+    "bevy_text",
+    "bevy_gizmos",
+    "multi_threaded",
+    "x11",
+] }
+
+# Enable optimizations for dependencies in dev mode for faster runtime
+[profile.dev.package."*"]
+opt-level = 3
