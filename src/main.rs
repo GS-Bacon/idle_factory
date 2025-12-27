@@ -156,7 +156,7 @@ struct CursorLockState {
 
 /// Font resource for UI text
 #[derive(Resource)]
-struct GameFont(Handle<Font>);
+struct GameFont(#[allow(dead_code)] Handle<Font>);
 
 impl FromWorld for GameFont {
     fn from_world(world: &mut World) -> Self {
@@ -182,7 +182,9 @@ struct ChunkMeshTasks {
 
 /// Data for a generated chunk mesh (sent from async task)
 struct ChunkMeshData {
+    #[allow(dead_code)]
     coord: IVec2,
+    #[allow(dead_code)]
     mesh: Mesh,
     /// Block positions for this chunk (for raycasting/breaking)
     blocks: HashMap<IVec3, BlockType>,
@@ -330,10 +332,6 @@ impl Crusher {
         matches!(ore, BlockType::IronOre | BlockType::CopperOre)
     }
 
-    /// Check if this ore type can be added to input (same type or empty)
-    fn can_add_input(&self, ore: BlockType) -> bool {
-        Self::can_crush(ore) && (self.input_type.is_none() || self.input_type == Some(ore))
-    }
 }
 
 /// Delivery platform - accepts items for delivery quests
@@ -414,6 +412,7 @@ impl ChunkData {
 
     /// Convert array index to local position
     #[inline(always)]
+    #[allow(dead_code)]
     fn index_to_pos(idx: usize) -> IVec3 {
         let idx = idx as i32;
         let y = idx / (CHUNK_SIZE * CHUNK_SIZE);
@@ -433,8 +432,8 @@ impl ChunkData {
         const PLATFORM_Z_MIN: i32 = 10;
         const PLATFORM_Z_MAX: i32 = 21; // 10 + 12 - 1
 
-        world_x >= PLATFORM_X_MIN && world_x <= PLATFORM_X_MAX
-            && world_z >= PLATFORM_Z_MIN && world_z <= PLATFORM_Z_MAX
+        (PLATFORM_X_MIN..=PLATFORM_X_MAX).contains(&world_x)
+            && (PLATFORM_Z_MIN..=PLATFORM_Z_MAX).contains(&world_z)
     }
 
     /// Generate a chunk at the given chunk coordinate
@@ -498,7 +497,7 @@ impl ChunkData {
     /// Get block at local position (fast array access)
     #[inline(always)]
     fn get_block(&self, x: i32, y: i32, z: i32) -> Option<BlockType> {
-        if x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE {
+        if !(0..CHUNK_SIZE).contains(&x) || !(0..CHUNK_HEIGHT).contains(&y) || !(0..CHUNK_SIZE).contains(&z) {
             return None;
         }
         self.blocks[Self::pos_to_index(x, y, z)]
@@ -506,6 +505,7 @@ impl ChunkData {
 
     /// Check if a block exists at local position
     #[inline(always)]
+    #[allow(dead_code)]
     fn has_block_at(&self, local_pos: IVec3) -> bool {
         self.get_block(local_pos.x, local_pos.y, local_pos.z).is_some()
     }
@@ -526,30 +526,31 @@ impl ChunkData {
 
         // Face definitions: (dx, dy, dz, vertices offsets)
         // Counter-clockwise winding order for front faces (Bevy default)
+        // Vertices ordered so that when viewed from outside, they form CCW triangles
         let faces: [(i32, i32, i32, [[f32; 3]; 4]); 6] = [
-            // +Y (top) - looking down at top face, CCW
+            // +Y (top) - looking down at top face from above, CCW
             (0, 1, 0, [
-                [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]
+                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0]
             ]),
-            // -Y (bottom) - looking up at bottom face, CCW
+            // -Y (bottom) - looking up at bottom face from below, CCW
             (0, -1, 0, [
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [0.0, 0.0, 1.0]
+                [0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]
             ]),
-            // +X (east) - looking at +X face from outside, CCW
+            // +X (east) - looking at +X face from +X direction, CCW
             (1, 0, 0, [
-                [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]
+                [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]
             ]),
-            // -X (west) - looking at -X face from outside, CCW
+            // -X (west) - looking at -X face from -X direction, CCW
             (-1, 0, 0, [
-                [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]
+                [0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]
             ]),
-            // +Z (south) - looking at +Z face from outside, CCW
+            // +Z (south) - looking at +Z face from +Z direction, CCW
             (0, 0, 1, [
-                [0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]
+                [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]
             ]),
-            // -Z (north) - looking at -Z face from outside, CCW
+            // -Z (north) - looking at -Z face from -Z direction, CCW
             (0, 0, -1, [
-                [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]
+                [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]
             ]),
         ];
 
@@ -580,13 +581,13 @@ impl ChunkData {
                         let nz = z + dz;
 
                         // Check if neighbor exists
-                        let neighbor_exists = if nx >= 0 && nx < CHUNK_SIZE
-                            && ny >= 0 && ny < CHUNK_HEIGHT
-                            && nz >= 0 && nz < CHUNK_SIZE
+                        let neighbor_exists = if (0..CHUNK_SIZE).contains(&nx)
+                            && (0..CHUNK_HEIGHT).contains(&ny)
+                            && (0..CHUNK_SIZE).contains(&nz)
                         {
                             // Within this chunk - use fast array access
                             self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
-                        } else if ny < 0 || ny >= CHUNK_HEIGHT {
+                        } else if !(0..CHUNK_HEIGHT).contains(&ny) {
                             // Above or below world bounds - no block
                             false
                         } else {
@@ -777,6 +778,7 @@ impl BlockType {
     }
 
     /// Returns true if this block type is a machine (not a regular block)
+    #[allow(dead_code)]
     fn is_machine(&self) -> bool {
         matches!(self, BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock)
     }
@@ -919,8 +921,6 @@ fn receive_chunk_meshes(
             let material = materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 perceptual_roughness: 0.9,
-                double_sided: true,
-                cull_mode: None,
                 ..default()
             });
 
@@ -960,8 +960,6 @@ fn receive_chunk_meshes(
                 let material = materials.add(StandardMaterial {
                     base_color: Color::WHITE,
                     perceptual_roughness: 0.9,
-                    double_sided: true,
-                    cull_mode: None,
                     ..default()
                 });
 
@@ -1291,6 +1289,7 @@ fn toggle_cursor_lock(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn player_look(
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
@@ -1452,6 +1451,7 @@ fn player_move(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn block_break(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
@@ -1641,8 +1641,6 @@ fn block_break(
                             let material = materials.add(StandardMaterial {
                                 base_color: Color::WHITE,
                                 perceptual_roughness: 0.9,
-                                double_sided: true,
-                                cull_mode: None,
                                 ..default()
                             });
 
@@ -1867,8 +1865,6 @@ fn block_place(
                 let material = materials.add(StandardMaterial {
                     base_color: Color::WHITE,
                     perceptual_roughness: 0.9,
-                    double_sided: true,
-                    cull_mode: None,
                     ..default()
                 });
 
