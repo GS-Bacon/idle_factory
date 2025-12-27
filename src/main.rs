@@ -1436,7 +1436,6 @@ fn block_break(
     windows: Query<&Window>,
     interacting_furnace: Res<InteractingFurnace>,
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
-    chunk_meshes: Query<(Entity, &ChunkMesh)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -1556,19 +1555,21 @@ fn block_break(
                     // Helper closure to regenerate a chunk mesh
                     let regenerate_chunk = |coord: IVec2,
                                             commands: &mut Commands,
-                                            chunk_meshes: &Query<(Entity, &ChunkMesh)>,
                                             world_data: &mut WorldData,
                                             meshes: &mut Assets<Mesh>,
                                             materials: &mut Assets<StandardMaterial>| {
                         if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
                             let mesh_handle = meshes.add(new_mesh);
-                            let material = materials.add(StandardMaterial::default());
+                            let material = materials.add(StandardMaterial {
+                                base_color: Color::WHITE,
+                                perceptual_roughness: 0.9,
+                                ..default()
+                            });
 
-                            // Find and despawn old chunk mesh
-                            for (entity, chunk_mesh) in chunk_meshes.iter() {
-                                if chunk_mesh.coord == coord {
-                                    commands.entity(entity).despawn();
-                                    break;
+                            // Despawn old chunk mesh entities using world_data tracking
+                            if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
+                                for entity in old_entities {
+                                    commands.entity(entity).despawn_recursive();
                                 }
                             }
 
@@ -1584,7 +1585,7 @@ fn block_break(
                     };
 
                     // Regenerate the main chunk
-                    regenerate_chunk(chunk_coord, &mut commands, &chunk_meshes, &mut world_data, &mut meshes, &mut materials);
+                    regenerate_chunk(chunk_coord, &mut commands, &mut world_data, &mut meshes, &mut materials);
 
                     // Check if block is at chunk boundary and regenerate neighbor chunks
                     let local_pos = WorldData::world_to_local(pos);
@@ -1601,7 +1602,7 @@ fn block_break(
                     .collect();
 
                     for neighbor_coord in neighbor_coords {
-                        regenerate_chunk(neighbor_coord, &mut commands, &chunk_meshes, &mut world_data, &mut meshes, &mut materials);
+                        regenerate_chunk(neighbor_coord, &mut commands, &mut world_data, &mut meshes, &mut materials);
                     }
                 }
             }
@@ -3052,6 +3053,47 @@ mod tests {
         // Test set_block (y=7 is within CHUNK_HEIGHT)
         world.set_block(IVec3::new(0, 7, 0), BlockType::Stone);
         assert_eq!(world.get_block(IVec3::new(0, 7, 0)), Some(&BlockType::Stone));
+    }
+
+    #[test]
+    fn test_mesh_regeneration_after_block_removal() {
+        let mut world = WorldData::default();
+        let chunk_coord = IVec2::new(0, 0);
+        world.chunks.insert(chunk_coord, ChunkData::generate(chunk_coord));
+
+        // Generate initial mesh
+        let mesh_before = world.generate_chunk_mesh(chunk_coord).unwrap();
+        let positions_before = mesh_before.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
+        let vertex_count_before = match positions_before {
+            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            _ => panic!("Unexpected vertex format"),
+        };
+
+        // Remove a block in the middle of the chunk
+        let block_pos = IVec3::new(8, 7, 8);
+        assert!(world.has_block(block_pos), "Block should exist before removal");
+        world.remove_block(block_pos);
+        assert!(!world.has_block(block_pos), "Block should not exist after removal");
+
+        // Generate mesh after removal
+        let mesh_after = world.generate_chunk_mesh(chunk_coord).unwrap();
+        let positions_after = mesh_after.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
+        let vertex_count_after = match positions_after {
+            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            _ => panic!("Unexpected vertex format"),
+        };
+
+        // After removing a block, the mesh should have MORE vertices
+        // because the neighboring blocks' inner faces are now exposed
+        // Removing one block exposes: bottom face of removed block (now visible from above is gone)
+        // BUT: the neighbors' faces toward the removed block are now visible
+        // So we should have more faces (4 side faces + 1 bottom face - 1 top face = +4 faces minimum)
+        assert!(
+            vertex_count_after > vertex_count_before,
+            "Mesh should have more vertices after block removal. Before: {}, After: {}",
+            vertex_count_before,
+            vertex_count_after
+        );
     }
 
     #[test]

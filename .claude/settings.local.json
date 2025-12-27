@@ -215,7 +215,10 @@
       "Bash(command -v:*)",
       "Bash(timeout 10 gemini:*)",
       "Bash(sudo npm install:*)",
-      "Bash(/usr/local/bin/gemini:*)"
+      "Bash(/usr/local/bin/gemini:*)",
+      "Bash(timeout 30 gemini:*)",
+      "Bash(gemini --help:*)",
+      "Bash(DISPLAY=:10 timeout 15 cargo run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
