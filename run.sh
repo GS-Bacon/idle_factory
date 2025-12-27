@@ -34,4 +34,4 @@ echo "Starting Idle Factory on display $DISPLAY_FOUND"
 
 cd /home/bacon/idle_factory
 source ~/.cargo/env
-DISPLAY=$DISPLAY_FOUND cargo run "$@"
+DISPLAY=$DISPLAY_FOUND cargo run --release "$@"

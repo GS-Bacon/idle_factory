@@ -18,15 +18,16 @@ use std::f32::consts::PI;
 
 // === Constants ===
 const CHUNK_SIZE: i32 = 16;
+const CHUNK_HEIGHT: i32 = 8;
 const BLOCK_SIZE: f32 = 1.0;
 const PLAYER_SPEED: f32 = 5.0;
 const REACH_DISTANCE: f32 = 5.0;
 // WASM: Reduced view distance for better performance
 #[cfg(target_arch = "wasm32")]
-const VIEW_DISTANCE: i32 = 1; // 3x3 chunks for WASM
+const VIEW_DISTANCE: i32 = 2; // 5x5 chunks for WASM
 
 #[cfg(not(target_arch = "wasm32"))]
-const VIEW_DISTANCE: i32 = 2; // 5x5 chunks for native
+const VIEW_DISTANCE: i32 = 3; // 7x7 chunks for native (49 chunks)
 
 // Camera settings
 const MOUSE_SENSITIVITY: f32 = 0.002; // Balanced sensitivity
@@ -390,22 +391,47 @@ struct Inventory {
     selected: Option<BlockType>,
 }
 
-/// Single chunk data - blocks stored with local coordinates (0..CHUNK_SIZE)
+/// Single chunk data - blocks stored in a flat array for fast access
+/// Array index = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
 #[derive(Clone)]
 struct ChunkData {
-    blocks: HashMap<IVec3, BlockType>,
+    /// Flat array of blocks. None = air
+    blocks: Vec<Option<BlockType>>,
+    /// HashMap for compatibility with existing code (lazy populated)
+    blocks_map: HashMap<IVec3, BlockType>,
 }
 
 impl ChunkData {
+    const ARRAY_SIZE: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT) as usize;
+
+    /// Convert local position to array index
+    #[inline(always)]
+    fn pos_to_index(x: i32, y: i32, z: i32) -> usize {
+        (x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE) as usize
+    }
+
+    /// Convert array index to local position
+    #[inline(always)]
+    fn index_to_pos(idx: usize) -> IVec3 {
+        let idx = idx as i32;
+        let y = idx / (CHUNK_SIZE * CHUNK_SIZE);
+        let remaining = idx % (CHUNK_SIZE * CHUNK_SIZE);
+        let z = remaining / CHUNK_SIZE;
+        let x = remaining % CHUNK_SIZE;
+        IVec3::new(x, y, z)
+    }
+
     /// Generate a chunk at the given chunk coordinate
     fn generate(chunk_coord: IVec2) -> Self {
-        let mut blocks = HashMap::new();
+        let mut blocks = vec![None; Self::ARRAY_SIZE];
+        let mut blocks_map = HashMap::new();
+
         // Generate a 16x16x8 chunk of blocks
         // Bottom layers are stone with ore veins, top layer is grass
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
-                for y in 0..8 {
-                    let block_type = if y == 7 {
+                for y in 0..CHUNK_HEIGHT {
+                    let block_type = if y == CHUNK_HEIGHT - 1 {
                         BlockType::Grass
                     } else {
                         // Use simple hash for ore distribution
@@ -426,14 +452,17 @@ impl ChunkData {
                             BlockType::Stone
                         }
                     };
-                    blocks.insert(IVec3::new(x, y, z), block_type);
+                    let idx = Self::pos_to_index(x, y, z);
+                    blocks[idx] = Some(block_type);
+                    blocks_map.insert(IVec3::new(x, y, z), block_type);
                 }
             }
         }
-        Self { blocks }
+        Self { blocks, blocks_map }
     }
 
     /// Simple hash function for deterministic ore generation
+    #[inline(always)]
     fn simple_hash(x: i32, y: i32, z: i32) -> u32 {
         let mut h = (x as u32).wrapping_mul(374761393);
         h = h.wrapping_add((y as u32).wrapping_mul(668265263));
@@ -444,94 +473,122 @@ impl ChunkData {
         h
     }
 
+    /// Get block at local position (fast array access)
+    #[inline(always)]
+    fn get_block(&self, x: i32, y: i32, z: i32) -> Option<BlockType> {
+        if x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE {
+            return None;
+        }
+        self.blocks[Self::pos_to_index(x, y, z)]
+    }
+
     /// Check if a block exists at local position
+    #[inline(always)]
     fn has_block_at(&self, local_pos: IVec3) -> bool {
-        self.blocks.contains_key(&local_pos)
+        self.get_block(local_pos.x, local_pos.y, local_pos.z).is_some()
     }
 
     /// Generate a combined mesh for the entire chunk with face culling
     fn generate_mesh(&self, chunk_coord: IVec2) -> Mesh {
-        let mut positions: Vec<[f32; 3]> = Vec::new();
-        let mut normals: Vec<[f32; 3]> = Vec::new();
-        let mut uvs: Vec<[f32; 2]> = Vec::new();
-        let mut colors: Vec<[f32; 4]> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
+        // Pre-allocate with estimated capacity (reduces reallocations)
+        let estimated_faces = (CHUNK_SIZE * CHUNK_SIZE * 2) as usize; // roughly top + sides
+        let mut positions: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
+        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
+        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(estimated_faces * 4);
+        let mut colors: Vec<[f32; 4]> = Vec::with_capacity(estimated_faces * 4);
+        let mut indices: Vec<u32> = Vec::with_capacity(estimated_faces * 6);
 
-        // Face definitions: (normal, vertices offsets)
-        let faces: [(IVec3, [[f32; 3]; 4]); 6] = [
-            // +Y (top)
-            (IVec3::Y, [
+        // Face definitions: (dx, dy, dz, vertices offsets)
+        // Ordered for cache-friendly access
+        let faces: [(i32, i32, i32, [[f32; 3]; 4]); 6] = [
+            // +Y (top) - most common visible face
+            (0, 1, 0, [
                 [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0]
             ]),
             // -Y (bottom)
-            (IVec3::NEG_Y, [
+            (0, -1, 0, [
                 [0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]
             ]),
             // +X (east)
-            (IVec3::X, [
+            (1, 0, 0, [
                 [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]
             ]),
             // -X (west)
-            (IVec3::NEG_X, [
+            (-1, 0, 0, [
                 [0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]
             ]),
             // +Z (south)
-            (IVec3::Z, [
+            (0, 0, 1, [
                 [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]
             ]),
             // -Z (north)
-            (IVec3::NEG_Z, [
+            (0, 0, -1, [
                 [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]
             ]),
         ];
 
-        for (&local_pos, &block_type) in &self.blocks {
-            let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
-            let base_x = world_pos.x as f32 * BLOCK_SIZE;
-            let base_y = world_pos.y as f32 * BLOCK_SIZE;
-            let base_z = world_pos.z as f32 * BLOCK_SIZE;
+        // Cache chunk world offset
+        let chunk_world_x = (chunk_coord.x * CHUNK_SIZE) as f32;
+        let chunk_world_z = (chunk_coord.y * CHUNK_SIZE) as f32;
 
-            let color = block_type.color();
-            let color_arr = [color.to_srgba().red, color.to_srgba().green, color.to_srgba().blue, 1.0];
+        // Iterate in Y-Z-X order for better cache locality
+        for y in 0..CHUNK_HEIGHT {
+            for z in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    let block_type = match self.get_block(x, y, z) {
+                        Some(bt) => bt,
+                        None => continue,
+                    };
 
-            for (normal_dir, verts) in &faces {
-                // Check if neighbor exists (face culling)
-                let neighbor_local = local_pos + *normal_dir;
+                    let base_x = chunk_world_x + x as f32;
+                    let base_y = y as f32;
+                    let base_z = chunk_world_z + z as f32;
 
-                // Check within chunk bounds
-                let neighbor_exists = if neighbor_local.x >= 0 && neighbor_local.x < CHUNK_SIZE
-                    && neighbor_local.z >= 0 && neighbor_local.z < CHUNK_SIZE
-                    && neighbor_local.y >= 0
-                {
-                    self.has_block_at(neighbor_local)
-                } else {
-                    // At chunk boundary - always render (could check neighbor chunks, but simpler this way)
-                    false
-                };
+                    let color = block_type.color();
+                    let color_arr = [color.to_srgba().red, color.to_srgba().green, color.to_srgba().blue, 1.0];
 
-                if neighbor_exists {
-                    continue; // Skip this face, it's hidden
+                    for (dx, dy, dz, verts) in &faces {
+                        // Fast neighbor check using array
+                        let nx = x + dx;
+                        let ny = y + dy;
+                        let nz = z + dz;
+
+                        // Check if neighbor exists (within bounds and has block)
+                        let neighbor_exists = if nx >= 0 && nx < CHUNK_SIZE
+                            && ny >= 0 && ny < CHUNK_HEIGHT
+                            && nz >= 0 && nz < CHUNK_SIZE
+                        {
+                            self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
+                        } else {
+                            false
+                        };
+
+                        if neighbor_exists {
+                            continue; // Skip this face, it's hidden
+                        }
+
+                        let base_idx = positions.len() as u32;
+                        let normal = [*dx as f32, *dy as f32, *dz as f32];
+
+                        // Add 4 vertices for this face
+                        for vert in verts {
+                            positions.push([
+                                base_x + vert[0],
+                                base_y + vert[1],
+                                base_z + vert[2],
+                            ]);
+                            normals.push(normal);
+                            uvs.push([0.0, 0.0]);
+                            colors.push(color_arr);
+                        }
+
+                        // Add 2 triangles (6 indices) for this face
+                        indices.extend_from_slice(&[
+                            base_idx, base_idx + 1, base_idx + 2,
+                            base_idx, base_idx + 2, base_idx + 3,
+                        ]);
+                    }
                 }
-
-                let base_idx = positions.len() as u32;
-
-                // Add 4 vertices for this face
-                for vert in verts {
-                    positions.push([
-                        base_x + vert[0] * BLOCK_SIZE,
-                        base_y + vert[1] * BLOCK_SIZE,
-                        base_z + vert[2] * BLOCK_SIZE,
-                    ]);
-                    normals.push([normal_dir.x as f32, normal_dir.y as f32, normal_dir.z as f32]);
-                    uvs.push([0.0, 0.0]); // Simple UV, could be improved
-                    colors.push(color_arr);
-                }
-
-                // Add 2 triangles (6 indices) for this face
-                indices.extend_from_slice(&[
-                    base_idx, base_idx + 1, base_idx + 2,
-                    base_idx, base_idx + 2, base_idx + 3,
-                ]);
             }
         }
 
@@ -585,7 +642,7 @@ impl WorldData {
     fn get_block(&self, world_pos: IVec3) -> Option<&BlockType> {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
-        self.chunks.get(&chunk_coord)?.blocks.get(&local_pos)
+        self.chunks.get(&chunk_coord)?.blocks_map.get(&local_pos)
     }
 
     /// Set block at world position
@@ -593,7 +650,13 @@ impl WorldData {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
         if let Some(chunk) = self.chunks.get_mut(&chunk_coord) {
-            chunk.blocks.insert(local_pos, block_type);
+            // Bounds check for y coordinate
+            if local_pos.y < 0 || local_pos.y >= CHUNK_HEIGHT {
+                return;
+            }
+            let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
+            chunk.blocks[idx] = Some(block_type);
+            chunk.blocks_map.insert(local_pos, block_type);
         }
     }
 
@@ -601,7 +664,15 @@ impl WorldData {
     fn remove_block(&mut self, world_pos: IVec3) -> Option<BlockType> {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
-        self.chunks.get_mut(&chunk_coord)?.blocks.remove(&local_pos)
+        // Bounds check for y coordinate
+        if local_pos.y < 0 || local_pos.y >= CHUNK_HEIGHT {
+            return None;
+        }
+        let chunk = self.chunks.get_mut(&chunk_coord)?;
+        let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
+        let block = chunk.blocks[idx].take();
+        chunk.blocks_map.remove(&local_pos);
+        block
     }
 
     /// Check if block exists at world position
@@ -698,11 +769,11 @@ fn spawn_chunk_tasks(
     );
     let player_chunk = WorldData::world_to_chunk(player_world_pos);
 
-    // Find chunks that need loading (limit to 2 new tasks per frame)
+    // Find chunks that need loading (limit to 4 new tasks per frame for faster loading)
     let mut spawned = 0;
     for dx in -VIEW_DISTANCE..=VIEW_DISTANCE {
         for dz in -VIEW_DISTANCE..=VIEW_DISTANCE {
-            if spawned >= 2 {
+            if spawned >= 4 {
                 return;
             }
 
@@ -721,7 +792,7 @@ fn spawn_chunk_tasks(
 
                 // Convert local positions to world positions for the blocks map
                 let mut world_blocks = HashMap::new();
-                for (&local_pos, &block_type) in &chunk_data.blocks {
+                for (&local_pos, &block_type) in &chunk_data.blocks_map {
                     let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
                     world_blocks.insert(world_pos, block_type);
                 }
@@ -761,11 +832,15 @@ fn receive_chunk_meshes(
         tasks.tasks.remove(&coord);
 
         // Create chunk data from blocks
-        let mut chunk_data = ChunkData { blocks: HashMap::new() };
+        let mut blocks = vec![None; ChunkData::ARRAY_SIZE];
+        let mut blocks_map = HashMap::new();
         for (&world_pos, &block_type) in &chunk_mesh_data.blocks {
             let local_pos = WorldData::world_to_local(world_pos);
-            chunk_data.blocks.insert(local_pos, block_type);
+            let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
+            blocks[idx] = Some(block_type);
+            blocks_map.insert(local_pos, block_type);
         }
+        let chunk_data = ChunkData { blocks, blocks_map };
 
         // Spawn single mesh entity for the entire chunk
         let mesh_handle = meshes.add(chunk_mesh_data.mesh);
@@ -2791,13 +2866,13 @@ mod tests {
     fn test_chunk_generation() {
         let chunk = ChunkData::generate(IVec2::ZERO);
         // Check that chunk has blocks
-        assert!(!chunk.blocks.is_empty());
+        assert!(!chunk.blocks_map.is_empty());
 
         // Check that top layer is grass (local coordinates)
-        assert_eq!(chunk.blocks.get(&IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
+        assert_eq!(chunk.blocks_map.get(&IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
 
         // Check that lower layers are stone or ore (ores are generated randomly)
-        let block = chunk.blocks.get(&IVec3::new(0, 0, 0));
+        let block = chunk.blocks_map.get(&IVec3::new(0, 0, 0));
         assert!(matches!(
             block,
             Some(BlockType::Stone) | Some(BlockType::IronOre) | Some(BlockType::CopperOre) | Some(BlockType::Coal)
@@ -2848,9 +2923,9 @@ mod tests {
         assert_eq!(removed, Some(BlockType::Grass));
         assert!(!world.has_block(IVec3::new(0, 7, 0)));
 
-        // Test set_block
-        world.set_block(IVec3::new(0, 10, 0), BlockType::Stone);
-        assert_eq!(world.get_block(IVec3::new(0, 10, 0)), Some(&BlockType::Stone));
+        // Test set_block (y=7 is within CHUNK_HEIGHT)
+        world.set_block(IVec3::new(0, 7, 0), BlockType::Stone);
+        assert_eq!(world.get_block(IVec3::new(0, 7, 0)), Some(&BlockType::Stone));
     }
 
     #[test]
