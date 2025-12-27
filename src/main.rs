@@ -113,7 +113,7 @@ fn main() {
                 quest_progress_check,
                 quest_claim_rewards,
                 // UI update systems
-                update_inventory_ui,
+                update_hotbar_ui,
                 update_furnace_ui,
                 update_delivery_ui,
                 update_quest_ui,
@@ -170,10 +170,13 @@ struct ChunkRef {
 }
 
 #[derive(Component)]
-struct InventoryUI;
+struct HotbarUI;
 
 #[derive(Component)]
-struct InventoryText;
+struct HotbarSlot(usize);
+
+#[derive(Component)]
+struct HotbarSlotCount(usize);
 
 /// Furnace component for smelting
 #[derive(Component, Default)]
@@ -679,29 +682,69 @@ fn setup_player(mut commands: Commands) {
 }
 
 fn setup_ui(mut commands: Commands) {
-    // Inventory UI panel
+    // Hotbar UI - centered at bottom
     commands
         .spawn((
-            InventoryUI,
+            HotbarUI,
             Node {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(10.0),
-                left: Val::Px(10.0),
-                padding: UiRect::all(Val::Px(10.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                InventoryText,
-                Text::new("Inventory: Empty\nWASD:Move Mouse:Look"),
-                TextFont {
-                    font_size: 20.0,
+                bottom: Val::Px(20.0),
+                left: Val::Percent(50.0),
+                margin: UiRect {
+                    left: Val::Px(-225.0), // Center 9 slots (9 * 50 = 450, half = 225)
                     ..default()
                 },
-                TextColor(Color::WHITE),
-            ));
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(4.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            // Create 9 hotbar slots
+            for i in 0..9 {
+                parent
+                    .spawn((
+                        HotbarSlot(i),
+                        Node {
+                            width: Val::Px(46.0),
+                            height: Val::Px(46.0),
+                            border: UiRect::all(Val::Px(2.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            flex_direction: FlexDirection::Column,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
+                        BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                    ))
+                    .with_children(|slot| {
+                        // Slot number
+                        slot.spawn((
+                            Text::new(format!("{}", i + 1)),
+                            TextFont {
+                                font_size: 10.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgba(0.6, 0.6, 0.6, 1.0)),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                top: Val::Px(2.0),
+                                left: Val::Px(4.0),
+                                ..default()
+                            },
+                        ));
+                        // Item count
+                        slot.spawn((
+                            HotbarSlotCount(i),
+                            Text::new(""),
+                            TextFont {
+                                font_size: 14.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+            }
         });
 
     // Crosshair
@@ -844,94 +887,6 @@ fn setup_initial_items(
         )),
         Furnace::default(),
     ));
-
-    // === Demo: Miner + Conveyor chain ===
-    // Layout (top view, Y=8):
-    //   [Miner] -> [Conv] -> [Conv] -> [Furnace]
-    //   x=5        x=6       x=7       x=8
-    //   z=15       z=15      z=15      z=15
-
-    // Spawn Miner at (5, 8, 15) - sits on top of grass, mines stone below
-    let miner_pos = IVec3::new(5, 8, 15);
-    let miner_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.8, 0.6, 0.2), // Orange for miner
-        ..default()
-    });
-    commands.spawn((
-        Mesh3d(cube_mesh.clone()),
-        MeshMaterial3d(miner_material),
-        Transform::from_translation(Vec3::new(
-            miner_pos.x as f32 * BLOCK_SIZE,
-            miner_pos.y as f32 * BLOCK_SIZE,
-            miner_pos.z as f32 * BLOCK_SIZE,
-        )),
-        Miner {
-            position: miner_pos,
-            ..default()
-        },
-    ));
-
-    // Spawn conveyor belt chain (flat boxes)
-    let conveyor_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE * 0.3, BLOCK_SIZE));
-    let conveyor_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.3, 0.3, 0.35), // Dark gray for conveyor
-        ..default()
-    });
-
-    // Conveyor 1: next to miner, heading East
-    let conv1_pos = IVec3::new(6, 8, 15);
-    commands.spawn((
-        Mesh3d(conveyor_mesh.clone()),
-        MeshMaterial3d(conveyor_material.clone()),
-        Transform::from_translation(Vec3::new(
-            conv1_pos.x as f32 * BLOCK_SIZE,
-            conv1_pos.y as f32 * BLOCK_SIZE - 0.35, // Slightly lower
-            conv1_pos.z as f32 * BLOCK_SIZE,
-        )).with_rotation(Direction::East.to_rotation()),
-        Conveyor {
-            position: conv1_pos,
-            direction: Direction::East,
-            item: None,
-            progress: 0.0,
-            item_visual: None,
-        },
-    ));
-
-    // Conveyor 2: continuing East
-    let conv2_pos = IVec3::new(7, 8, 15);
-    commands.spawn((
-        Mesh3d(conveyor_mesh.clone()),
-        MeshMaterial3d(conveyor_material.clone()),
-        Transform::from_translation(Vec3::new(
-            conv2_pos.x as f32 * BLOCK_SIZE,
-            conv2_pos.y as f32 * BLOCK_SIZE - 0.35,
-            conv2_pos.z as f32 * BLOCK_SIZE,
-        )).with_rotation(Direction::East.to_rotation()),
-        Conveyor {
-            position: conv2_pos,
-            direction: Direction::East,
-            item: None,
-            progress: 0.0,
-            item_visual: None,
-        },
-    ));
-
-    // Spawn a second furnace at end of conveyor chain
-    let furnace2_pos = IVec3::new(8, 8, 15);
-    let furnace2_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.4, 0.3, 0.3),
-        ..default()
-    });
-    commands.spawn((
-        Mesh3d(cube_mesh.clone()),
-        MeshMaterial3d(furnace2_material),
-        Transform::from_translation(Vec3::new(
-            furnace2_pos.x as f32 * BLOCK_SIZE,
-            furnace2_pos.y as f32 * BLOCK_SIZE,
-            furnace2_pos.z as f32 * BLOCK_SIZE,
-        )),
-        Furnace::default(),
-    ));
 }
 
 // === Update Systems ===
@@ -941,11 +896,12 @@ fn toggle_cursor_lock(
     key_input: Res<ButtonInput<KeyCode>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
+    interacting_furnace: Res<InteractingFurnace>,
 ) {
     let mut window = windows.single_mut();
 
-    // Escape to unlock cursor
-    if key_input.just_pressed(KeyCode::Escape) {
+    // Escape to unlock cursor (but not if a UI is open - that UI handles ESC itself)
+    if key_input.just_pressed(KeyCode::Escape) && interacting_furnace.0.is_none() {
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
     }
@@ -1260,6 +1216,10 @@ fn block_place(
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
     block_query: Query<(&Block, &GlobalTransform)>,
+    conveyor_query: Query<&Conveyor>,
+    miner_query: Query<&Miner>,
+    crusher_query: Query<&Crusher>,
+    furnace_query: Query<&Transform, With<Furnace>>,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -1321,9 +1281,38 @@ fn block_place(
             normal.z.round() as i32,
         );
 
-        // Don't place if already occupied
+        // Don't place if already occupied (check world data and all machine entities)
         if world_data.has_block(place_pos) {
             return;
+        }
+        // Check if any conveyor occupies this position
+        for conveyor in conveyor_query.iter() {
+            if conveyor.position == place_pos {
+                return;
+            }
+        }
+        // Check if any miner occupies this position
+        for miner in miner_query.iter() {
+            if miner.position == place_pos {
+                return;
+            }
+        }
+        // Check if any crusher occupies this position
+        for crusher in crusher_query.iter() {
+            if crusher.position == place_pos {
+                return;
+            }
+        }
+        // Check if any furnace occupies this position
+        for furnace_transform in furnace_query.iter() {
+            let furnace_pos = IVec3::new(
+                (furnace_transform.translation.x / BLOCK_SIZE).round() as i32,
+                (furnace_transform.translation.y / BLOCK_SIZE).round() as i32,
+                (furnace_transform.translation.z / BLOCK_SIZE).round() as i32,
+            );
+            if furnace_pos == place_pos {
+                return;
+            }
         }
 
         // Consume from inventory
@@ -1466,15 +1455,23 @@ fn select_block_type(
         return;
     }
 
-    // Number keys to select specific types
-    if key_input.just_pressed(KeyCode::Digit1) {
-        if let Some(&block_type) = available.first() {
-            inventory.selected = Some(block_type);
-        }
-    }
-    if key_input.just_pressed(KeyCode::Digit2) {
-        if let Some(&block_type) = available.get(1) {
-            inventory.selected = Some(block_type);
+    // Number keys to select specific types (1-9 for slots)
+    let digit_keys = [
+        (KeyCode::Digit1, 0),
+        (KeyCode::Digit2, 1),
+        (KeyCode::Digit3, 2),
+        (KeyCode::Digit4, 3),
+        (KeyCode::Digit5, 4),
+        (KeyCode::Digit6, 5),
+        (KeyCode::Digit7, 6),
+        (KeyCode::Digit8, 7),
+        (KeyCode::Digit9, 8),
+    ];
+    for (key, index) in digit_keys {
+        if key_input.just_pressed(key) {
+            if let Some(&block_type) = available.get(index) {
+                inventory.selected = Some(block_type);
+            }
         }
     }
 
@@ -1563,31 +1560,53 @@ fn ray_aabb_intersection_with_normal(
     Some((tmin, normal))
 }
 
-fn update_inventory_ui(inventory: Res<Inventory>, mut query: Query<&mut Text, With<InventoryText>>) {
+fn update_hotbar_ui(
+    inventory: Res<Inventory>,
+    mut slot_query: Query<(&HotbarSlot, &mut BackgroundColor, &mut BorderColor)>,
+    mut count_query: Query<(&HotbarSlotCount, &mut Text)>,
+) {
     if !inventory.is_changed() {
         return;
     }
 
-    let Ok(mut text) = query.get_single_mut() else {
-        return;
-    };
+    let items: Vec<(BlockType, u32)> = inventory.items.iter().map(|(k, v)| (*k, *v)).collect();
+    let selected_index = inventory.selected.and_then(|s| items.iter().position(|(b, _)| *b == s));
 
-    let hint = "LClick:Break | RClick:Place | 1-4:Select | E:Furnace";
+    // Update slot backgrounds
+    for (slot, mut bg, mut border) in slot_query.iter_mut() {
+        let is_selected = selected_index == Some(slot.0);
+        if is_selected {
+            *bg = BackgroundColor(Color::srgba(0.4, 0.4, 0.2, 0.9));
+            *border = BorderColor(Color::srgba(1.0, 1.0, 0.5, 1.0));
+        } else if slot.0 < items.len() {
+            *bg = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.8));
+            *border = BorderColor(Color::srgba(0.5, 0.5, 0.5, 1.0));
+        } else {
+            *bg = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8));
+            *border = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
+        }
+    }
 
-    if inventory.items.is_empty() {
-        **text = format!("Inventory: Empty\n{}", hint);
-    } else {
-        let selected_name = inventory.selected.map(|b| b.name()).unwrap_or("None");
-        let items: Vec<String> = inventory
-            .items
-            .iter()
-            .enumerate()
-            .map(|(i, (block_type, count))| {
-                let marker = if Some(*block_type) == inventory.selected { ">" } else { " " };
-                format!("{} [{}] {}: {}", marker, i + 1, block_type.name(), count)
-            })
-            .collect();
-        **text = format!("Selected: {}\n{}\n{}", selected_name, items.join("\n"), hint);
+    // Update slot counts
+    for (slot_count, mut text) in count_query.iter_mut() {
+        if let Some((block_type, count)) = items.get(slot_count.0) {
+            // Show abbreviated name and count
+            let name = match block_type {
+                BlockType::Grass => "Grs",
+                BlockType::Stone => "Stn",
+                BlockType::IronOre => "Fe",
+                BlockType::Coal => "C",
+                BlockType::IronIngot => "FeI",
+                BlockType::MinerBlock => "Min",
+                BlockType::ConveyorBlock => "Cnv",
+                BlockType::CopperOre => "Cu",
+                BlockType::CopperIngot => "CuI",
+                BlockType::CrusherBlock => "Cru",
+            };
+            **text = format!("{}\n{}", name, count);
+        } else {
+            **text = String::new();
+        }
     }
 }
 
