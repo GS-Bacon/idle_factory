@@ -112,6 +112,7 @@ fn main() {
             (
                 // Machine systems
                 miner_mining,
+                miner_visual_feedback,
                 miner_output,
                 crusher_processing,
                 crusher_output,
@@ -1457,6 +1458,8 @@ fn block_break(
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
     conveyor_query: Query<(Entity, &Conveyor, &GlobalTransform)>,
     miner_query: Query<(Entity, &Miner, &GlobalTransform)>,
+    crusher_query: Query<(Entity, &Crusher, &GlobalTransform)>,
+    furnace_query: Query<(Entity, &Furnace, &GlobalTransform)>,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     windows: Query<&Window>,
@@ -1486,11 +1489,13 @@ fn block_break(
     let ray_origin = camera_transform.translation();
     let ray_direction = camera_transform.forward().as_vec3();
 
-    // Track what we hit (world block, conveyor, or miner)
+    // Track what we hit (world block, conveyor, miner, crusher, or furnace)
     enum HitType {
         WorldBlock(IVec3),
         Conveyor(Entity, Option<BlockType>, Option<Entity>), // entity, item, item_visual
         Miner(Entity),
+        Crusher(Entity),
+        Furnace(Entity),
     }
     let mut closest_hit: Option<(HitType, f32)> = None;
     let half_size = BLOCK_SIZE / 2.0;
@@ -1561,6 +1566,42 @@ fn block_break(
                 && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
             {
                 closest_hit = Some((HitType::Miner(entity), t));
+            }
+        }
+    }
+
+    // Check crushers
+    for (entity, _crusher, crusher_transform) in crusher_query.iter() {
+        let crusher_pos = crusher_transform.translation();
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            crusher_pos - Vec3::splat(half_size),
+            crusher_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0
+                && t < REACH_DISTANCE
+                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
+            {
+                closest_hit = Some((HitType::Crusher(entity), t));
+            }
+        }
+    }
+
+    // Check furnaces
+    for (entity, _furnace, furnace_transform) in furnace_query.iter() {
+        let furnace_pos = furnace_transform.translation();
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            furnace_pos - Vec3::splat(half_size),
+            furnace_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0
+                && t < REACH_DISTANCE
+                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
+            {
+                closest_hit = Some((HitType::Furnace(entity), t));
             }
         }
     }
@@ -1661,6 +1702,16 @@ fn block_break(
                 // Return miner to inventory
                 *inventory.items.entry(BlockType::MinerBlock).or_insert(0) += 1;
             }
+            HitType::Crusher(entity) => {
+                commands.entity(entity).despawn();
+                // Return crusher to inventory
+                *inventory.items.entry(BlockType::CrusherBlock).or_insert(0) += 1;
+            }
+            HitType::Furnace(entity) => {
+                commands.entity(entity).despawn();
+                // Note: Furnace doesn't have a placeable block type yet, so we don't return anything
+                // TODO: Add FurnaceBlock to BlockType if we want to allow furnace placement
+            }
         }
     }
 }
@@ -1679,7 +1730,6 @@ fn block_place(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     windows: Query<&Window>,
-    chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -1799,9 +1849,20 @@ fn block_place(
         // Calculate direction from player yaw for conveyors
         let facing_direction = yaw_to_direction(player_camera.yaw);
 
-        // Helper to regenerate chunk mesh after placing a block
-        let regenerate_chunk = |world_data: &WorldData, commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, chunk_mesh_query: &Query<(Entity, &ChunkMesh)>, chunk_coord: IVec2| {
-            if let Some(new_mesh) = world_data.generate_chunk_mesh(chunk_coord) {
+        // Helper closure to regenerate a chunk mesh (same pattern as block_break)
+        let regenerate_chunk = |coord: IVec2,
+                                commands: &mut Commands,
+                                world_data: &mut WorldData,
+                                meshes: &mut Assets<Mesh>,
+                                materials: &mut Assets<StandardMaterial>| {
+            // First despawn old entities BEFORE generating new mesh
+            if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
+                for entity in old_entities {
+                    commands.entity(entity).try_despawn_recursive();
+                }
+            }
+
+            if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
                 let mesh_handle = meshes.add(new_mesh);
                 let material = materials.add(StandardMaterial {
                     base_color: Color::WHITE,
@@ -1811,20 +1872,14 @@ fn block_place(
                     ..default()
                 });
 
-                // Find and despawn old chunk mesh
-                for (entity, chunk_mesh) in chunk_mesh_query.iter() {
-                    if chunk_mesh.coord == chunk_coord {
-                        commands.entity(entity).despawn();
-                        break;
-                    }
-                }
-
-                commands.spawn((
+                let entity = commands.spawn((
                     Mesh3d(mesh_handle),
                     MeshMaterial3d(material),
                     Transform::IDENTITY,
-                    ChunkMesh { coord: chunk_coord },
-                ));
+                    ChunkMesh { coord },
+                )).id();
+
+                world_data.chunk_entities.insert(coord, vec![entity]);
             }
         };
 
@@ -1909,7 +1964,7 @@ fn block_place(
             _ => {
                 // Regular block - add to world data and regenerate chunk mesh
                 world_data.set_block(place_pos, selected_type);
-                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+                regenerate_chunk(chunk_coord, &mut commands, &mut world_data, &mut meshes, &mut materials);
 
                 // Check if block is at chunk boundary and regenerate neighbor chunks
                 let local_pos = WorldData::world_to_local(place_pos);
@@ -1924,7 +1979,7 @@ fn block_place(
                     if at_boundary {
                         let neighbor_coord = IVec2::new(chunk_coord.x + dx, chunk_coord.y + dz);
                         if world_data.chunks.contains_key(&neighbor_coord) {
-                            regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, neighbor_coord);
+                            regenerate_chunk(neighbor_coord, &mut commands, &mut world_data, &mut meshes, &mut materials);
                         }
                     }
                 }
@@ -2399,6 +2454,28 @@ fn miner_mining(
             } else {
                 miner.buffer = Some((resource_type, 1));
             }
+        }
+    }
+}
+
+/// Visual feedback for miner activity (pulse scale when mining)
+fn miner_visual_feedback(
+    time: Res<Time>,
+    mut miner_query: Query<(&Miner, &mut Transform)>,
+) {
+    for (miner, mut transform) in miner_query.iter_mut() {
+        // If progress > 0, the miner is actively mining
+        if miner.progress > 0.0 {
+            // Pulse effect: scale between 0.95 and 1.05 based on progress
+            let pulse = 1.0 + 0.05 * (miner.progress * std::f32::consts::TAU * 2.0).sin();
+            transform.scale = Vec3::splat(pulse);
+        } else if miner.buffer.is_some() {
+            // Buffer full but not mining: slight glow/scale up
+            let pulse = 1.0 + 0.02 * (time.elapsed_secs() * 3.0).sin();
+            transform.scale = Vec3::splat(pulse);
+        } else {
+            // Idle: reset scale
+            transform.scale = Vec3::ONE;
         }
     }
 }
