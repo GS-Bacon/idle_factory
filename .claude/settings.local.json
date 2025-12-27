@@ -224,7 +224,8 @@
       "Bash(time cargo build:*)",
       "Bash(time:*)",
       "Bash(sccache --zero-stats:*)",
-      "Bash(sccache --show-stats:*)"
+      "Bash(sccache --show-stats:*)",
+      "Bash(rmdir:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
