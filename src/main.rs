@@ -94,6 +94,8 @@ fn main() {
                 // Machine systems
                 miner_mining,
                 miner_output,
+                crusher_processing,
+                crusher_output,
                 conveyor_transfer,
                 update_conveyor_item_visuals,
                 delivery_platform_receive,
@@ -167,12 +169,30 @@ struct InventoryText;
 struct Furnace {
     /// Fuel slot (coal)
     fuel: u32,
-    /// Input slot (iron ore)
-    input: u32,
-    /// Output slot (iron ingot)
-    output: u32,
+    /// Input slot - stores ore type and count
+    input_type: Option<BlockType>,
+    input_count: u32,
+    /// Output slot - stores ingot type and count
+    output_type: Option<BlockType>,
+    output_count: u32,
     /// Smelting progress (0.0-1.0)
     progress: f32,
+}
+
+impl Furnace {
+    /// Get smelt output for an ore type
+    fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
+        match ore {
+            BlockType::IronOre => Some(BlockType::IronIngot),
+            BlockType::CopperOre => Some(BlockType::CopperIngot),
+            _ => None,
+        }
+    }
+
+    /// Check if this ore type can be added to input (same type or empty)
+    fn can_add_input(&self, ore: BlockType) -> bool {
+        self.input_type.is_none() || self.input_type == Some(ore)
+    }
 }
 
 /// Marker for furnace UI
@@ -256,6 +276,33 @@ struct Conveyor {
 #[derive(Component)]
 struct ConveyorItemVisual;
 
+/// Crusher component - doubles ore output
+#[derive(Component)]
+struct Crusher {
+    /// World position of this crusher
+    position: IVec3,
+    /// Input ore type and count
+    input_type: Option<BlockType>,
+    input_count: u32,
+    /// Output ore type and count (doubled)
+    output_type: Option<BlockType>,
+    output_count: u32,
+    /// Processing progress (0.0-1.0)
+    progress: f32,
+}
+
+impl Crusher {
+    /// Check if this ore can be crushed
+    fn can_crush(ore: BlockType) -> bool {
+        matches!(ore, BlockType::IronOre | BlockType::CopperOre)
+    }
+
+    /// Check if this ore type can be added to input (same type or empty)
+    fn can_add_input(&self, ore: BlockType) -> bool {
+        Self::can_crush(ore) && (self.input_type.is_none() || self.input_type == Some(ore))
+    }
+}
+
 /// Delivery platform - accepts items for delivery quests
 #[derive(Component, Default)]
 struct DeliveryPlatform {
@@ -321,23 +368,50 @@ struct ChunkData {
 
 impl ChunkData {
     /// Generate a chunk at the given chunk coordinate
-    fn generate(_chunk_coord: IVec2) -> Self {
+    fn generate(chunk_coord: IVec2) -> Self {
         let mut blocks = HashMap::new();
         // Generate a 16x16x8 chunk of blocks
-        // Bottom layers are stone, top layer is grass
+        // Bottom layers are stone with ore veins, top layer is grass
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 for y in 0..8 {
                     let block_type = if y == 7 {
                         BlockType::Grass
                     } else {
-                        BlockType::Stone
+                        // Use simple hash for ore distribution
+                        let world_x = chunk_coord.x * CHUNK_SIZE + x;
+                        let world_z = chunk_coord.y * CHUNK_SIZE + z;
+                        let hash = Self::simple_hash(world_x, y, world_z);
+
+                        if y <= 4 && hash % 20 == 0 {
+                            // Iron ore: 5% chance at y=0-4
+                            BlockType::IronOre
+                        } else if y <= 3 && hash % 25 == 1 {
+                            // Copper ore: 4% chance at y=0-3
+                            BlockType::CopperOre
+                        } else if y <= 5 && hash % 15 == 2 {
+                            // Coal: ~7% chance at y=0-5
+                            BlockType::Coal
+                        } else {
+                            BlockType::Stone
+                        }
                     };
                     blocks.insert(IVec3::new(x, y, z), block_type);
                 }
             }
         }
         Self { blocks }
+    }
+
+    /// Simple hash function for deterministic ore generation
+    fn simple_hash(x: i32, y: i32, z: i32) -> u32 {
+        let mut h = (x as u32).wrapping_mul(374761393);
+        h = h.wrapping_add((y as u32).wrapping_mul(668265263));
+        h = h.wrapping_add((z as u32).wrapping_mul(2147483647));
+        h ^= h >> 13;
+        h = h.wrapping_mul(1274126177);
+        h ^= h >> 16;
+        h
     }
 }
 
@@ -415,6 +489,9 @@ enum BlockType {
     IronIngot,
     MinerBlock,
     ConveyorBlock,
+    CopperOre,
+    CopperIngot,
+    CrusherBlock,
 }
 
 impl BlockType {
@@ -427,6 +504,9 @@ impl BlockType {
             BlockType::IronIngot => Color::srgb(0.8, 0.8, 0.85),
             BlockType::MinerBlock => Color::srgb(0.8, 0.6, 0.2),
             BlockType::ConveyorBlock => Color::srgb(0.3, 0.3, 0.35),
+            BlockType::CopperOre => Color::srgb(0.7, 0.4, 0.3),
+            BlockType::CopperIngot => Color::srgb(0.9, 0.5, 0.3),
+            BlockType::CrusherBlock => Color::srgb(0.4, 0.3, 0.5),
         }
     }
 
@@ -439,12 +519,15 @@ impl BlockType {
             BlockType::IronIngot => "Iron Ingot",
             BlockType::MinerBlock => "Miner",
             BlockType::ConveyorBlock => "Conveyor",
+            BlockType::CopperOre => "Copper Ore",
+            BlockType::CopperIngot => "Copper Ingot",
+            BlockType::CrusherBlock => "Crusher",
         }
     }
 
     /// Returns true if this block type is a machine (not a regular block)
     fn is_machine(&self) -> bool {
-        matches!(self, BlockType::MinerBlock | BlockType::ConveyorBlock)
+        matches!(self, BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock)
     }
 }
 
@@ -728,6 +811,7 @@ fn setup_initial_items(
     inventory.items.insert(BlockType::Coal, 5);
     inventory.items.insert(BlockType::MinerBlock, 3);
     inventory.items.insert(BlockType::ConveyorBlock, 10);
+    inventory.items.insert(BlockType::CrusherBlock, 2);
     inventory.selected = Some(BlockType::MinerBlock);
 
     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -1297,6 +1381,30 @@ fn block_place(
                     },
                 ));
             }
+            BlockType::CrusherBlock => {
+                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: selected_type.color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(cube_mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE,
+                        place_pos.y as f32 * BLOCK_SIZE,
+                        place_pos.z as f32 * BLOCK_SIZE,
+                    )),
+                    Crusher {
+                        position: place_pos,
+                        input_type: None,
+                        input_count: 0,
+                        output_type: None,
+                        output_count: 0,
+                        progress: 0.0,
+                    },
+                ));
+            }
             _ => {
                 // Regular block
                 let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -1574,9 +1682,10 @@ fn furnace_ui_input(
     // [2] Add iron ore to furnace
     if key_input.just_pressed(KeyCode::Digit2) {
         if let Some(count) = inventory.items.get_mut(&BlockType::IronOre) {
-            if *count > 0 {
+            if *count > 0 && furnace.can_add_input(BlockType::IronOre) {
                 *count -= 1;
-                furnace.input += 1;
+                furnace.input_type = Some(BlockType::IronOre);
+                furnace.input_count += 1;
                 if *count == 0 {
                     inventory.items.remove(&BlockType::IronOre);
                 }
@@ -1584,14 +1693,33 @@ fn furnace_ui_input(
         }
     }
 
-    // [3] Take iron ingot from furnace
-    if key_input.just_pressed(KeyCode::Digit3) && furnace.output > 0 {
-        furnace.output -= 1;
-        *inventory.items.entry(BlockType::IronIngot).or_insert(0) += 1;
+    // [3] Add copper ore to furnace
+    if key_input.just_pressed(KeyCode::Digit3) {
+        if let Some(count) = inventory.items.get_mut(&BlockType::CopperOre) {
+            if *count > 0 && furnace.can_add_input(BlockType::CopperOre) {
+                *count -= 1;
+                furnace.input_type = Some(BlockType::CopperOre);
+                furnace.input_count += 1;
+                if *count == 0 {
+                    inventory.items.remove(&BlockType::CopperOre);
+                }
+            }
+        }
+    }
+
+    // [4] Take output from furnace
+    if key_input.just_pressed(KeyCode::Digit4) && furnace.output_count > 0 {
+        if let Some(output_type) = furnace.output_type {
+            furnace.output_count -= 1;
+            *inventory.items.entry(output_type).or_insert(0) += 1;
+            if furnace.output_count == 0 {
+                furnace.output_type = None;
+            }
+        }
     }
 }
 
-/// Smelting logic - convert iron ore + coal to iron ingot
+/// Smelting logic - convert ore + coal to ingot
 const SMELT_TIME: f32 = 3.0; // seconds to smelt one item
 
 fn furnace_smelting(
@@ -1599,20 +1727,82 @@ fn furnace_smelting(
     mut furnace_query: Query<&mut Furnace>,
 ) {
     for mut furnace in furnace_query.iter_mut() {
-        // Need both fuel and input to smelt
-        if furnace.fuel > 0 && furnace.input > 0 {
-            furnace.progress += time.delta_secs() / SMELT_TIME;
+        // Need fuel, input ore, and valid recipe to smelt
+        let can_smelt = furnace.fuel > 0
+            && furnace.input_count > 0
+            && furnace.input_type.is_some();
 
-            // When progress reaches 1.0, complete smelting
-            if furnace.progress >= 1.0 {
+        if can_smelt {
+            let input_ore = furnace.input_type.unwrap();
+            let output_ingot = Furnace::get_smelt_output(input_ore);
+
+            // Check output slot compatibility
+            let output_compatible = match (furnace.output_type, output_ingot) {
+                (None, Some(_)) => true,
+                (Some(current), Some(new)) => current == new && furnace.output_count < 64,
+                _ => false,
+            };
+
+            if output_compatible {
+                furnace.progress += time.delta_secs() / SMELT_TIME;
+
+                // When progress reaches 1.0, complete smelting
+                if furnace.progress >= 1.0 {
+                    furnace.progress = 0.0;
+                    furnace.fuel -= 1;
+                    furnace.input_count -= 1;
+                    if furnace.input_count == 0 {
+                        furnace.input_type = None;
+                    }
+                    furnace.output_type = output_ingot;
+                    furnace.output_count += 1;
+                }
+            } else {
                 furnace.progress = 0.0;
-                furnace.fuel -= 1;
-                furnace.input -= 1;
-                furnace.output += 1;
             }
         } else {
             // Reset progress if missing fuel or input
             furnace.progress = 0.0;
+        }
+    }
+}
+
+/// Crusher processing - doubles ore
+const CRUSH_TIME: f32 = 4.0; // seconds to crush one ore
+
+fn crusher_processing(
+    time: Res<Time>,
+    mut crusher_query: Query<&mut Crusher>,
+) {
+    for mut crusher in crusher_query.iter_mut() {
+        // Need input ore to process
+        if crusher.input_count > 0 && crusher.input_type.is_some() {
+            let input_ore = crusher.input_type.unwrap();
+
+            // Check output slot compatibility (same ore type or empty, max 64)
+            let output_compatible = match crusher.output_type {
+                None => true,
+                Some(current) => current == input_ore && crusher.output_count < 63, // 63 because we add 2
+            };
+
+            if output_compatible {
+                crusher.progress += time.delta_secs() / CRUSH_TIME;
+
+                // When progress reaches 1.0, complete crushing
+                if crusher.progress >= 1.0 {
+                    crusher.progress = 0.0;
+                    crusher.input_count -= 1;
+                    if crusher.input_count == 0 {
+                        crusher.input_type = None;
+                    }
+                    crusher.output_type = Some(input_ore);
+                    crusher.output_count += 2; // Double output!
+                }
+            } else {
+                crusher.progress = 0.0;
+            }
+        } else {
+            crusher.progress = 0.0;
         }
     }
 }
@@ -1712,11 +1902,47 @@ fn miner_output(
     }
 }
 
+/// Crusher output to conveyor
+fn crusher_output(
+    mut crusher_query: Query<&mut Crusher>,
+    mut conveyor_query: Query<&mut Conveyor>,
+) {
+    for mut crusher in crusher_query.iter_mut() {
+        if crusher.output_count == 0 || crusher.output_type.is_none() {
+            continue;
+        }
+
+        let output_type = crusher.output_type.unwrap();
+
+        // Check for adjacent conveyor
+        let adjacent_positions = [
+            crusher.position + IVec3::new(1, 0, 0),  // east
+            crusher.position + IVec3::new(-1, 0, 0), // west
+            crusher.position + IVec3::new(0, 0, 1),  // south
+            crusher.position + IVec3::new(0, 0, -1), // north
+            crusher.position + IVec3::new(0, 1, 0),  // above
+        ];
+
+        for mut conveyor in conveyor_query.iter_mut() {
+            if adjacent_positions.contains(&conveyor.position) && conveyor.item.is_none() {
+                // Transfer item to conveyor
+                conveyor.item = Some(output_type);
+                crusher.output_count -= 1;
+                if crusher.output_count == 0 {
+                    crusher.output_type = None;
+                }
+                break;
+            }
+        }
+    }
+}
+
 /// Conveyor transfer logic - move items along conveyor chain
 fn conveyor_transfer(
     time: Res<Time>,
     mut conveyor_query: Query<(Entity, &mut Conveyor)>,
     mut furnace_query: Query<(&Transform, &mut Furnace)>,
+    mut crusher_query: Query<&mut Crusher>,
 ) {
     // Collect conveyor states first to avoid borrow issues
     let conveyor_states: Vec<(Entity, IVec3, Direction, Option<BlockType>, f32)> = conveyor_query
@@ -1730,6 +1956,12 @@ fn conveyor_transfer(
         .map(|(e, pos, _, _, _)| (*pos, *e))
         .collect();
 
+    // Collect crusher positions
+    let crusher_states: Vec<(IVec3, Option<BlockType>, u32)> = crusher_query
+        .iter()
+        .map(|c| (c.position, c.input_type, c.input_count))
+        .collect();
+
     // Collect transfer actions
     struct TransferAction {
         source: Entity,
@@ -1739,6 +1971,7 @@ fn conveyor_transfer(
     enum TransferTarget {
         Conveyor(Entity),
         Furnace(IVec3),
+        Crusher(IVec3),
     }
 
     let mut actions: Vec<TransferAction> = Vec::new();
@@ -1769,6 +2002,7 @@ fn conveyor_transfer(
             }
         } else {
             // Check if next position has a furnace
+            let mut found = false;
             for (furnace_transform, furnace) in furnace_query.iter() {
                 let furnace_pos = IVec3::new(
                     furnace_transform.translation.x.round() as i32,
@@ -1779,7 +2013,9 @@ fn conveyor_transfer(
                     // Check if furnace can accept this item
                     let can_accept = match block_type {
                         BlockType::Coal => furnace.fuel < 64,
-                        BlockType::IronOre => furnace.input < 64,
+                        BlockType::IronOre | BlockType::CopperOre => {
+                            furnace.can_add_input(*block_type) && furnace.input_count < 64
+                        }
                         _ => false,
                     };
                     if can_accept {
@@ -1789,7 +2025,28 @@ fn conveyor_transfer(
                             item: *block_type,
                         });
                     }
+                    found = true;
                     break;
+                }
+            }
+
+            // Check if next position has a crusher
+            if !found {
+                for (crusher_pos, input_type, input_count) in crusher_states.iter() {
+                    if *crusher_pos == next_pos {
+                        // Check if crusher can accept this ore
+                        let can_accept = Crusher::can_crush(*block_type)
+                            && (input_type.is_none() || *input_type == Some(*block_type))
+                            && *input_count < 64;
+                        if can_accept {
+                            actions.push(TransferAction {
+                                source: *entity,
+                                target: TransferTarget::Crusher(*crusher_pos),
+                                item: *block_type,
+                            });
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -1820,9 +2077,21 @@ fn conveyor_transfer(
                     if pos == furnace_pos {
                         match action.item {
                             BlockType::Coal => furnace.fuel += 1,
-                            BlockType::IronOre => furnace.input += 1,
+                            BlockType::IronOre | BlockType::CopperOre => {
+                                furnace.input_type = Some(action.item);
+                                furnace.input_count += 1;
+                            }
                             _ => {}
                         }
+                        break;
+                    }
+                }
+            }
+            TransferTarget::Crusher(crusher_pos) => {
+                for mut crusher in crusher_query.iter_mut() {
+                    if crusher.position == crusher_pos {
+                        crusher.input_type = Some(action.item);
+                        crusher.input_count += 1;
                         break;
                     }
                 }
@@ -1918,7 +2187,7 @@ fn update_furnace_ui(
         return;
     };
 
-    let progress_bar = if furnace.fuel > 0 && furnace.input > 0 {
+    let progress_bar = if furnace.fuel > 0 && furnace.input_count > 0 {
         let filled = (furnace.progress * 10.0) as usize;
         let empty = 10 - filled;
         format!("[{}{}] {:.0}%", "=".repeat(filled), " ".repeat(empty), furnace.progress * 100.0)
@@ -1926,11 +2195,14 @@ fn update_furnace_ui(
         "[          ] 0%".to_string()
     };
 
+    let input_name = furnace.input_type.map_or("None", |t| t.name());
+    let output_name = furnace.output_type.map_or("None", |t| t.name());
+
     **text = format!(
-        "=== Furnace ===\n\nFuel: {} Coal\nInput: {} Iron Ore\nOutput: {} Iron Ingot\n\nProgress: {}\n\n[1] Add Coal | [2] Add Iron Ore\n[3] Take Iron Ingot | [E] Close",
+        "=== Furnace ===\n\nFuel: {} Coal\nInput: {} {}\nOutput: {} {}\n\nProgress: {}\n\n[1] Coal | [2] Iron Ore | [3] Copper Ore\n[4] Take Output | [E] Close",
         furnace.fuel,
-        furnace.input,
-        furnace.output,
+        furnace.input_count, input_name,
+        furnace.output_count, output_name,
         progress_bar
     );
 }
@@ -2096,11 +2368,29 @@ fn get_quests() -> Vec<QuestDef> {
             ],
         },
         QuestDef {
-            description: "Deliver 100 Iron Ingots",
-            required_item: BlockType::IronIngot,
-            required_amount: 100,
+            description: "Deliver 10 Copper Ingots",
+            required_item: BlockType::CopperIngot,
+            required_amount: 10,
             rewards: vec![
-                (BlockType::MinerBlock, 2),
+                (BlockType::CrusherBlock, 2),
+                (BlockType::ConveyorBlock, 20),
+            ],
+        },
+        QuestDef {
+            description: "Deliver 50 Iron Ingots",
+            required_item: BlockType::IronIngot,
+            required_amount: 50,
+            rewards: vec![
+                (BlockType::MinerBlock, 3),
+                (BlockType::CrusherBlock, 2),
+            ],
+        },
+        QuestDef {
+            description: "Deliver 50 Copper Ingots",
+            required_item: BlockType::CopperIngot,
+            required_amount: 50,
+            rewards: vec![
+                (BlockType::MinerBlock, 3),
                 (BlockType::ConveyorBlock, 40),
             ],
         },
@@ -2223,8 +2513,12 @@ mod tests {
         // Check that top layer is grass (local coordinates)
         assert_eq!(chunk.blocks.get(&IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
 
-        // Check that lower layers are stone
-        assert_eq!(chunk.blocks.get(&IVec3::new(0, 0, 0)), Some(&BlockType::Stone));
+        // Check that lower layers are stone or ore (ores are generated randomly)
+        let block = chunk.blocks.get(&IVec3::new(0, 0, 0));
+        assert!(matches!(
+            block,
+            Some(BlockType::Stone) | Some(BlockType::IronOre) | Some(BlockType::CopperOre) | Some(BlockType::Coal)
+        ));
     }
 
     #[test]
@@ -2255,7 +2549,12 @@ mod tests {
 
         // Test get_block
         assert_eq!(world.get_block(IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
-        assert_eq!(world.get_block(IVec3::new(0, 0, 0)), Some(&BlockType::Stone));
+        // Lower layers can be stone or ore
+        let block = world.get_block(IVec3::new(0, 0, 0));
+        assert!(matches!(
+            block,
+            Some(BlockType::Stone) | Some(BlockType::IronOre) | Some(BlockType::CopperOre) | Some(BlockType::Coal)
+        ));
 
         // Test has_block
         assert!(world.has_block(IVec3::new(0, 0, 0)));

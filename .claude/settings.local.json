@@ -202,7 +202,10 @@
       "Bash(systemctl is-active:*)",
       "Bash(# RustDesk設定ディレクトリ確認 ls -la ~/.config/rustdesk/ || echo \"\"Config dir not found\"\" # パスワード設定 sudo rustdesk --password bacon123 2>&1 || true # 設定ファイル確認 echo \"\"=== Config ===\"\" cat ~/.config/rustdesk/RustDesk.toml || cat /root/.config/rustdesk/RustDesk.toml || echo \"\"Config not found\"\" # ネットワーク接続確認 echo \"\"\"\" echo \"\"=== RustDeskネットワーク ===\"\" ss -anp)",
       "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(dmesg:*)",
+      "Bash(./build-wasm.sh:*)",
+      "Bash(rustup target add:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
