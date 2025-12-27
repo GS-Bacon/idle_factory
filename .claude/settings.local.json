@@ -218,7 +218,9 @@
       "Bash(/usr/local/bin/gemini:*)",
       "Bash(timeout 30 gemini:*)",
       "Bash(gemini --help:*)",
-      "Bash(DISPLAY=:10 timeout 15 cargo run:*)"
+      "Bash(DISPLAY=:10 timeout 15 cargo run:*)",
+      "Bash(gemini -p \"ボクセルゲームでブロックを掘った後、穴の側面が黒く透けてしまうバグがあります。\n\n現在のメッシュ生成ロジック（src/main.rsの513-636行）を確認してください。\n特に面のワインディング順序とカリングに関する問題を探してください。\n\n問題:\n- ブロックを掘ると、隣接ブロックの内側の面が表示されない（黒くなる）\n- メッシュ再生成のテストは通っている（頂点数は増加している）\n- しかし実際のレンダリングでは面が見えない\n\n考えられる原因:\n1. 面のワインディング順序が間違っている\n2. 法線の向きが間違っている\n3. カリング設定の問題\n\nsrc/main.rsの該当部分を読んで、問題を特定し、修正コードを提案してください。\")",
+      "Bash(timeout 60 gemini:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

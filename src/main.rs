@@ -882,6 +882,11 @@ fn receive_chunk_meshes(
     for (coord, chunk_mesh_data) in completed {
         tasks.tasks.remove(&coord);
 
+        // Skip if chunk already exists (player may have modified it)
+        if world_data.chunks.contains_key(&coord) {
+            continue;
+        }
+
         // Create chunk data from blocks
         let mut blocks = vec![None; ChunkData::ARRAY_SIZE];
         let mut blocks_map = HashMap::new();
@@ -902,12 +907,18 @@ fn receive_chunk_meshes(
         // Regenerate this chunk's mesh with neighbor awareness
         if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
             let mesh_handle = meshes.add(new_mesh);
-            let material = materials.add(StandardMaterial::default());
+            let material = materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                perceptual_roughness: 0.9,
+                double_sided: true,
+                cull_mode: None,
+                ..default()
+            });
 
             // Find and despawn old mesh entity if exists (from initial async generation)
-            if let Some(entities) = world_data.chunk_entities.get(&coord) {
-                for &entity in entities {
-                    commands.entity(entity).despawn();
+            if let Some(entities) = world_data.chunk_entities.remove(&coord) {
+                for entity in entities {
+                    commands.entity(entity).try_despawn_recursive();
                 }
             }
 
@@ -937,12 +948,18 @@ fn receive_chunk_meshes(
 
             if let Some(new_mesh) = world_data.generate_chunk_mesh(neighbor_coord) {
                 let mesh_handle = meshes.add(new_mesh);
-                let material = materials.add(StandardMaterial::default());
+                let material = materials.add(StandardMaterial {
+                    base_color: Color::WHITE,
+                    perceptual_roughness: 0.9,
+                    double_sided: true,
+                    cull_mode: None,
+                    ..default()
+                });
 
                 // Find and despawn old mesh entity
-                if let Some(entities) = world_data.chunk_entities.get(&neighbor_coord) {
-                    for &entity in entities {
-                        commands.entity(entity).despawn();
+                if let Some(entities) = world_data.chunk_entities.remove(&neighbor_coord) {
+                    for entity in entities {
+                        commands.entity(entity).try_despawn_recursive();
                     }
                 }
 
@@ -1558,20 +1575,26 @@ fn block_break(
                                             world_data: &mut WorldData,
                                             meshes: &mut Assets<Mesh>,
                                             materials: &mut Assets<StandardMaterial>| {
+                        // First despawn old entities BEFORE generating new mesh
+                        let old_count = if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
+                            let count = old_entities.len();
+                            for entity in old_entities {
+                                commands.entity(entity).try_despawn_recursive();
+                            }
+                            count
+                        } else {
+                            0
+                        };
+
                         if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
                             let mesh_handle = meshes.add(new_mesh);
                             let material = materials.add(StandardMaterial {
                                 base_color: Color::WHITE,
                                 perceptual_roughness: 0.9,
+                                double_sided: true,
+                                cull_mode: None,
                                 ..default()
                             });
-
-                            // Despawn old chunk mesh entities using world_data tracking
-                            if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
-                                for entity in old_entities {
-                                    commands.entity(entity).despawn_recursive();
-                                }
-                            }
 
                             let entity = commands.spawn((
                                 Mesh3d(mesh_handle),
@@ -1581,6 +1604,9 @@ fn block_break(
                             )).id();
 
                             world_data.chunk_entities.insert(coord, vec![entity]);
+
+                            #[cfg(debug_assertions)]
+                            info!("Regenerated chunk {:?}: despawned {} old, spawned new {:?}", coord, old_count, entity);
                         }
                     };
 
