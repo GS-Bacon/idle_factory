@@ -326,6 +326,24 @@ cargo install sccache --locked
 - **mold**: 高速リンカー（リンク時間短縮）
 - **codegen-units = 16**: 並列コード生成
 
+## よくあるバグと対策
+
+### 地面が透ける（黒い穴）
+**原因**: メッシュのワインディング順序が間違っている
+**症状**: 地面や壁に黒い穴が見える（バックフェースカリングで消える）
+**自動検出**: pre-commitフックで `src/main.rs` 変更時に自動テスト
+**手動検出**: `cargo test test_mesh_winding_order`
+**対策**: 面定義の頂点順序を修正（`cross(v1-v0, v2-v0)` が法線方向を向くように）
+
+```
+正しい順序の確認方法:
+1. 三角形の3頂点 v0, v1, v2 を取得
+2. edge1 = v1 - v0, edge2 = v2 - v0
+3. cross(edge1, edge2) が法線と同じ方向なら正しい
+```
+
+**ファイル**: `src/main.rs` の `generate_mesh_with_neighbors` 内の `faces` 配列
+
 ## 作業ログ
 
 ### 2025-12-27
