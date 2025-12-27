@@ -2,6 +2,7 @@
 //! Goal: Walk, mine blocks, collect in inventory
 
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
@@ -783,7 +784,7 @@ impl BlockType {
 // === Setup Systems ===
 
 fn setup_lighting(mut commands: Commands) {
-    // Directional light
+    // Directional light with high-quality shadows
     commands.spawn((
         DirectionalLight {
             illuminance: 10000.0,
@@ -791,6 +792,13 @@ fn setup_lighting(mut commands: Commands) {
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -PI / 4.0, PI / 4.0, 0.0)),
+        CascadeShadowConfigBuilder {
+            num_cascades: 4,
+            first_cascade_far_bound: 10.0,
+            maximum_distance: 100.0,
+            ..default()
+        }
+        .build(),
     ));
 
     // Ambient light
