@@ -209,7 +209,13 @@
       "Bash(./deploy-wasm.sh:*)",
       "Bash(cargo install:*)",
       "Bash(lsof:*)",
-      "Bash(DISPLAY=:10 timeout 20 cargo run:*)"
+      "Bash(DISPLAY=:10 timeout 20 cargo run:*)",
+      "Bash(gemini -p \"このゲームのワールド生成がおかしい問題があります。スクリーンショットを見ると、チャンク間に黒い隙間があり、地形が不連続になっています。\n\n問題点:\n1. チャンク境界で黒い隙間が発生している\n2. 地形が滑らかに繋がっていない\n3. 一部のチャンクが正しく描画されていない\n\n関連ファイル:\n- src/world/chunk.rs - チャンク生成とメッシュ生成\n- src/world/terrain.rs - 地形生成\n- src/world/mod.rs - ワールド管理\n\nコードを調査して、問題の原因を特定し、修正を実装してください。確認なしで進めてOKです。\")",
+      "Bash(gemini)",
+      "Bash(command -v:*)",
+      "Bash(timeout 10 gemini:*)",
+      "Bash(sudo npm install:*)",
+      "Bash(/usr/local/bin/gemini:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

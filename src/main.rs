@@ -904,6 +904,13 @@ fn receive_chunk_meshes(
             let mesh_handle = meshes.add(new_mesh);
             let material = materials.add(StandardMaterial::default());
 
+            // Find and despawn old mesh entity if exists (from initial async generation)
+            if let Some(entities) = world_data.chunk_entities.get(&coord) {
+                for &entity in entities {
+                    commands.entity(entity).despawn();
+                }
+            }
+
             let entity = commands.spawn((
                 Mesh3d(mesh_handle),
                 MeshMaterial3d(material),
@@ -1222,9 +1229,9 @@ fn setup_initial_items(
         Mesh3d(cube_mesh.clone()),
         MeshMaterial3d(furnace_material),
         Transform::from_translation(Vec3::new(
-            furnace_pos.x as f32 * BLOCK_SIZE,
-            furnace_pos.y as f32 * BLOCK_SIZE,
-            furnace_pos.z as f32 * BLOCK_SIZE,
+            furnace_pos.x as f32 * BLOCK_SIZE + 0.5,
+            furnace_pos.y as f32 * BLOCK_SIZE + 0.5,
+            furnace_pos.z as f32 * BLOCK_SIZE + 0.5,
         )),
         Furnace::default(),
     ));
@@ -1731,9 +1738,9 @@ fn block_place(
         // Check if any furnace occupies this position
         for furnace_transform in furnace_query.iter() {
             let furnace_pos = IVec3::new(
-                (furnace_transform.translation.x / BLOCK_SIZE).round() as i32,
-                (furnace_transform.translation.y / BLOCK_SIZE).round() as i32,
-                (furnace_transform.translation.z / BLOCK_SIZE).round() as i32,
+                (furnace_transform.translation.x / BLOCK_SIZE).floor() as i32,
+                (furnace_transform.translation.y / BLOCK_SIZE).floor() as i32,
+                (furnace_transform.translation.z / BLOCK_SIZE).floor() as i32,
             );
             if furnace_pos == place_pos {
                 return;
@@ -1768,9 +1775,9 @@ fn block_place(
                     Mesh3d(cube_mesh),
                     MeshMaterial3d(material),
                     Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE,
-                        place_pos.y as f32 * BLOCK_SIZE,
-                        place_pos.z as f32 * BLOCK_SIZE,
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     )),
                     Miner {
                         position: place_pos,
@@ -1788,9 +1795,9 @@ fn block_place(
                     Mesh3d(conveyor_mesh),
                     MeshMaterial3d(material),
                     Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE,
-                        place_pos.y as f32 * BLOCK_SIZE - 0.35,
-                        place_pos.z as f32 * BLOCK_SIZE,
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE + 0.15,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     )).with_rotation(facing_direction.to_rotation()),
                     Conveyor {
                         position: place_pos,
@@ -1811,9 +1818,9 @@ fn block_place(
                     Mesh3d(cube_mesh),
                     MeshMaterial3d(material),
                     Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE,
-                        place_pos.y as f32 * BLOCK_SIZE,
-                        place_pos.z as f32 * BLOCK_SIZE,
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     )),
                     Crusher {
                         position: place_pos,
@@ -2481,9 +2488,9 @@ fn conveyor_transfer(
             let mut found = false;
             for (furnace_transform, furnace) in furnace_query.iter() {
                 let furnace_pos = IVec3::new(
-                    furnace_transform.translation.x.round() as i32,
-                    furnace_transform.translation.y.round() as i32,
-                    furnace_transform.translation.z.round() as i32,
+                    furnace_transform.translation.x.floor() as i32,
+                    furnace_transform.translation.y.floor() as i32,
+                    furnace_transform.translation.z.floor() as i32,
                 );
                 if furnace_pos == next_pos {
                     // Check if furnace can accept this item
@@ -2546,9 +2553,9 @@ fn conveyor_transfer(
             TransferTarget::Furnace(furnace_pos) => {
                 for (furnace_transform, mut furnace) in furnace_query.iter_mut() {
                     let pos = IVec3::new(
-                        furnace_transform.translation.x.round() as i32,
-                        furnace_transform.translation.y.round() as i32,
-                        furnace_transform.translation.z.round() as i32,
+                        furnace_transform.translation.x.floor() as i32,
+                        furnace_transform.translation.y.floor() as i32,
+                        furnace_transform.translation.z.floor() as i32,
                     );
                     if pos == furnace_pos {
                         match action.item {
@@ -2607,9 +2614,9 @@ fn update_conveyor_item_visuals(
 
                 // Calculate position based on progress
                 let base_pos = Vec3::new(
-                    conveyor.position.x as f32 * BLOCK_SIZE,
-                    conveyor.position.y as f32 * BLOCK_SIZE,
-                    conveyor.position.z as f32 * BLOCK_SIZE,
+                    conveyor.position.x as f32 * BLOCK_SIZE + 0.5,
+                    conveyor.position.y as f32 * BLOCK_SIZE + 0.5,
+                    conveyor.position.z as f32 * BLOCK_SIZE + 0.5,
                 );
                 let dir_offset = conveyor.direction.to_ivec3().as_vec3() * (conveyor.progress - 0.5);
 
@@ -2631,9 +2638,9 @@ fn update_conveyor_item_visuals(
             (Some(_), Some(entity)) => {
                 if let Ok(mut transform) = visual_query.get_mut(entity) {
                     let base_pos = Vec3::new(
-                        conveyor.position.x as f32 * BLOCK_SIZE,
-                        conveyor.position.y as f32 * BLOCK_SIZE,
-                        conveyor.position.z as f32 * BLOCK_SIZE,
+                        conveyor.position.x as f32 * BLOCK_SIZE + 0.5,
+                        conveyor.position.y as f32 * BLOCK_SIZE + 0.5,
+                        conveyor.position.z as f32 * BLOCK_SIZE + 0.5,
                     );
                     let dir_offset = conveyor.direction.to_ivec3().as_vec3() * (conveyor.progress - 0.5);
                     transform.translation = base_pos + dir_offset * BLOCK_SIZE;
@@ -2719,13 +2726,14 @@ fn setup_delivery_platform(
     });
 
     // Spawn platform entity
+    // Platform center: origin + half_size (in blocks), then offset by 0.5 for grid alignment
     commands.spawn((
         Mesh3d(platform_mesh),
         MeshMaterial3d(platform_material),
         Transform::from_translation(Vec3::new(
-            platform_origin.x as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0) - 0.5,
-            platform_origin.y as f32 * BLOCK_SIZE - 0.4,
-            platform_origin.z as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0) - 0.5,
+            platform_origin.x as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
+            platform_origin.y as f32 * BLOCK_SIZE + 0.1,
+            platform_origin.z as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
         )),
         DeliveryPlatform::default(),
     ));
@@ -2756,9 +2764,9 @@ fn setup_delivery_platform(
             Mesh3d(port_mesh.clone()),
             MeshMaterial3d(port_material.clone()),
             Transform::from_translation(Vec3::new(
-                port_pos.x as f32 * BLOCK_SIZE,
-                port_pos.y as f32 * BLOCK_SIZE + 0.1, // Raised above platform
-                port_pos.z as f32 * BLOCK_SIZE,
+                port_pos.x as f32 * BLOCK_SIZE + 0.5,
+                port_pos.y as f32 * BLOCK_SIZE + 0.5,
+                port_pos.z as f32 * BLOCK_SIZE + 0.5,
             )),
         ));
     }
