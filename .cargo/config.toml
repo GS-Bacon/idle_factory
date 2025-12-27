@@ -1,6 +1,14 @@
+# 80コア環境向け最適化
+[build]
+jobs = 80
+rustc-wrapper = "/home/bacon/.cargo/bin/sccache"
+
 # WASM configuration
 [target.wasm32-unknown-unknown]
 rustflags = ["--cfg=getrandom_backend=\"wasm_js\""]
-
-# Runner for WASM (optional, for testing)
 runner = "wasm-bindgen-test-runner"
+
+# リンカー設定（mold使用で高速リンク）
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]

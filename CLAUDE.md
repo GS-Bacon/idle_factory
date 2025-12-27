@@ -118,6 +118,73 @@ AI: 作業完了 → プッシュ
 - AIは作業前に必ず最新をプル
 - コンフリクト防止のため同時編集を避ける
 
+## 並列作業（Git Worktree）
+
+サブエージェントとworktreeを組み合わせて並列作業を行う。
+
+### ユースケース1: 複数アプローチの比較
+パフォーマンス最適化などで異なる手法を試す場合:
+
+```bash
+git worktree add ../idle_factory_opt1 -b opt/approach-a
+git worktree add ../idle_factory_opt2 -b opt/approach-b
+# → 各worktreeでサブエージェントが実装・ベンチマーク
+# → 結果比較、最良をmainにマージ
+```
+
+### ユースケース2: 複数機能の並列実装
+独立した機能を同時に実装する場合:
+
+```bash
+git worktree add ../idle_factory_feat1 -b feat/power-system
+git worktree add ../idle_factory_feat2 -b feat/liquid-pipes
+# → 各worktreeでサブエージェントが実装
+# → 完了順にmainへマージ
+```
+
+### 共通フロー
+```bash
+# 作業完了後は即座にクリーンアップ
+git worktree remove ../idle_factory_xxx
+git branch -d feat/xxx  # または -D で強制削除
+```
+
+**使用条件**:
+- 互いに独立した作業（コンフリクトしない）
+- 並列化の恩恵がある（ビルド時間、待ち時間の削減）
+
+**注意**: target/が各worktreeで生成されるためディスク消費大
+
+## サブエージェント活用
+
+コンテキスト共有が必要な並列作業にはサブエージェントを使用。
+
+### 使い分け
+
+| 手法 | 適したケース |
+|------|-------------|
+| Git Worktree | ファイルが独立、後でマージ可能 |
+| サブエージェント | 同じルール参照、出力の整合性が必要 |
+
+### サブエージェントが適切な例
+- **3Dモデル生成**: 複数モデルを同じスタイルで作成
+- **UI実装**: 同じデザインルールで複数画面
+- **テスト作成**: 同じテストパターンで複数モジュール
+- **リファクタリング**: 同じパターンを複数ファイルに適用
+
+### 使用方法
+```
+# 並列でサブエージェントを起動（Taskツール）
+Task 1: 「ハンマーの3Dモデルを作成。modeling-rules.md参照」
+Task 2: 「コンベアの3Dモデルを作成。modeling-rules.md参照」
+Task 3: 「精錬炉の3Dモデルを作成。modeling-rules.md参照」
+→ 同時に起動、各自がルールを読んで作業
+```
+
+### 判断基準
+- 別ファイルを編集 & 後でマージ可能 → **Worktree**
+- 同じ設定参照 & 出力の整合性必要 → **サブエージェント**
+
 ## 将来のアイデア（実装しない）
 
 | アイデア | メモ |
@@ -148,9 +215,57 @@ AI: 作業完了 → プッシュ
 
 **原則**: 遊べる状態を維持しながら機能追加
 
+## ビルド最適化（80コア環境）
+
+### 設定ファイル
+
+**.cargo/config.toml**:
+```toml
+[build]
+jobs = 80
+rustc-wrapper = "/home/bacon/.cargo/bin/sccache"
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+```
+
+**Cargo.toml**:
+```toml
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+strip = true
+```
+
+### 必要なツール
+```bash
+sudo apt-get install -y mold
+cargo install sccache --locked
+```
+
+### ビルド時間
+
+| ビルド | 最適化前 | キャッシュ後 |
+|--------|----------|-------------|
+| ネイティブ Release | 2分5秒 | **55秒** |
+| WASM | 2分13秒 | **7秒** |
+
+### 仕組み
+- **jobs = 80**: 80コア並列コンパイル
+- **sccache**: コンパイル結果をキャッシュ（リビルド高速化）
+- **mold**: 高速リンカー（リンク時間短縮）
+- **codegen-units = 16**: 並列コード生成
+
 ## 作業ログ
 
 ### 2025-12-27
+- **ビルド最適化（80コア環境）**
+  - sccache導入でコンパイルキャッシュ
+  - moldリンカーで高速リンク
+  - codegen-units=16で並列コード生成
+  - ネイティブ: 2分5秒→55秒、WASM: 2分13秒→7秒
 - **ブロック掘削後の透ける問題を修正** ✅確認済み
   - 両面レンダリング（double_sided: true, cull_mode: None）で対処
   - 根本原因は面のワインディング順序（頂点の定義順）の可能性
