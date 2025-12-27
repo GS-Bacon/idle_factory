@@ -1,6 +1,9 @@
 //! Idle Factory - Milestone 1: Minimal Voxel Game
 //! Goal: Walk, mine blocks, collect in inventory
 
+mod block_type;
+mod constants;
+
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
@@ -17,22 +20,8 @@ use futures_lite::future;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
-// === Constants ===
-const CHUNK_SIZE: i32 = 16;
-const CHUNK_HEIGHT: i32 = 8;
-const BLOCK_SIZE: f32 = 1.0;
-const PLAYER_SPEED: f32 = 5.0;
-const REACH_DISTANCE: f32 = 5.0;
-// WASM: Reduced view distance for better performance
-#[cfg(target_arch = "wasm32")]
-const VIEW_DISTANCE: i32 = 2; // 5x5 chunks for WASM
-
-#[cfg(not(target_arch = "wasm32"))]
-const VIEW_DISTANCE: i32 = 3; // 7x7 chunks for native (49 chunks)
-
-// Camera settings
-const MOUSE_SENSITIVITY: f32 = 0.002; // Balanced sensitivity
-const KEY_ROTATION_SPEED: f32 = 2.0; // radians per second for arrow keys
+pub use block_type::BlockType;
+pub use constants::*;
 
 fn main() {
     // WASM: Set panic hook to display errors in browser console
@@ -88,6 +77,7 @@ fn main() {
         .init_resource::<CurrentQuest>()
         .init_resource::<GameFont>()
         .init_resource::<ChunkMeshTasks>()
+        .init_resource::<DebugHudState>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
@@ -127,6 +117,8 @@ fn main() {
                 update_delivery_ui,
                 update_quest_ui,
                 update_window_title_fps,
+                toggle_debug_hud,
+                update_debug_hud,
             ),
         )
         .run();
@@ -157,6 +149,16 @@ struct CursorLockState {
 /// Font resource for UI text
 #[derive(Resource)]
 struct GameFont(#[allow(dead_code)] Handle<Font>);
+
+/// Debug HUD visibility state
+#[derive(Resource, Default)]
+struct DebugHudState {
+    visible: bool,
+}
+
+/// Marker for debug HUD text
+#[derive(Component)]
+struct DebugHudText;
 
 impl FromWorld for GameFont {
     fn from_world(world: &mut World) -> Self {
@@ -729,58 +731,6 @@ impl WorldData {
             self.has_block(world_pos)
         });
         Some(mesh)
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-enum BlockType {
-    Stone,
-    Grass,
-    IronOre,
-    Coal,
-    IronIngot,
-    MinerBlock,
-    ConveyorBlock,
-    CopperOre,
-    CopperIngot,
-    CrusherBlock,
-}
-
-impl BlockType {
-    fn color(&self) -> Color {
-        match self {
-            BlockType::Stone => Color::srgb(0.5, 0.5, 0.5),
-            BlockType::Grass => Color::srgb(0.2, 0.8, 0.2),
-            BlockType::IronOre => Color::srgb(0.6, 0.5, 0.4),
-            BlockType::Coal => Color::srgb(0.15, 0.15, 0.15),
-            BlockType::IronIngot => Color::srgb(0.8, 0.8, 0.85),
-            BlockType::MinerBlock => Color::srgb(0.8, 0.6, 0.2),
-            BlockType::ConveyorBlock => Color::srgb(0.3, 0.3, 0.35),
-            BlockType::CopperOre => Color::srgb(0.7, 0.4, 0.3),
-            BlockType::CopperIngot => Color::srgb(0.9, 0.5, 0.3),
-            BlockType::CrusherBlock => Color::srgb(0.4, 0.3, 0.5),
-        }
-    }
-
-    fn name(&self) -> &'static str {
-        match self {
-            BlockType::Stone => "Stone",
-            BlockType::Grass => "Grass",
-            BlockType::IronOre => "Iron Ore",
-            BlockType::Coal => "Coal",
-            BlockType::IronIngot => "Iron Ingot",
-            BlockType::MinerBlock => "Miner",
-            BlockType::ConveyorBlock => "Conveyor",
-            BlockType::CopperOre => "Copper Ore",
-            BlockType::CopperIngot => "Copper Ingot",
-            BlockType::CrusherBlock => "Crusher",
-        }
-    }
-
-    /// Returns true if this block type is a machine (not a regular block)
-    #[allow(dead_code)]
-    fn is_machine(&self) -> bool {
-        matches!(self, BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock)
     }
 }
 
@@ -2309,8 +2259,6 @@ fn furnace_ui_input(
 }
 
 /// Smelting logic - convert ore + coal to ingot
-const SMELT_TIME: f32 = 3.0; // seconds to smelt one item
-
 fn furnace_smelting(
     time: Res<Time>,
     mut furnace_query: Query<&mut Furnace>,
@@ -2357,8 +2305,6 @@ fn furnace_smelting(
 }
 
 /// Crusher processing - doubles ore
-const CRUSH_TIME: f32 = 4.0; // seconds to crush one ore
-
 fn crusher_processing(
     time: Res<Time>,
     mut crusher_query: Query<&mut Crusher>,
@@ -2397,9 +2343,6 @@ fn crusher_processing(
 }
 
 // === Miner & Conveyor Systems ===
-
-const MINE_TIME: f32 = 5.0; // seconds to mine one block
-const CONVEYOR_SPEED: f32 = 1.0; // seconds to transfer item
 
 /// Mining logic - automatically mine blocks below the miner
 fn miner_mining(
@@ -2829,9 +2772,82 @@ fn update_window_title_fps(diagnostics: Res<DiagnosticsStore>, mut windows: Quer
     }
 }
 
-// === Delivery Platform Systems ===
+/// Toggle debug HUD with F3 key
+fn toggle_debug_hud(
+    mut commands: Commands,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut debug_state: ResMut<DebugHudState>,
+    debug_query: Query<Entity, With<DebugHudText>>,
+) {
+    if keyboard.just_pressed(KeyCode::F3) {
+        debug_state.visible = !debug_state.visible;
 
-const PLATFORM_SIZE: i32 = 12;
+        if debug_state.visible {
+            // Spawn debug HUD
+            commands.spawn((
+                Text::new("Debug Info"),
+                TextFont {
+                    font_size: 14.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.0, 1.0, 0.0)),
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(50.0),
+                    left: Val::Px(10.0),
+                    ..default()
+                },
+                DebugHudText,
+            ));
+        } else {
+            // Despawn debug HUD
+            for entity in debug_query.iter() {
+                commands.entity(entity).despawn_recursive();
+            }
+        }
+    }
+}
+
+/// Update debug HUD with current info
+fn update_debug_hud(
+    mut debug_query: Query<&mut Text, With<DebugHudText>>,
+    player_query: Query<&Transform, With<Player>>,
+    world_data: Res<WorldData>,
+    diagnostics: Res<DiagnosticsStore>,
+    debug_state: Res<DebugHudState>,
+) {
+    if !debug_state.visible {
+        return;
+    }
+
+    let Ok(mut text) = debug_query.get_single_mut() else {
+        return;
+    };
+
+    let fps = diagnostics
+        .get(&bevy::diagnostic::FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|fps| fps.smoothed())
+        .unwrap_or(0.0);
+
+    let player_pos = player_query
+        .get_single()
+        .map(|t| t.translation)
+        .unwrap_or(Vec3::ZERO);
+
+    let chunk_count = world_data.chunks.len();
+
+    **text = format!(
+        "=== Debug (F3) ===\n\
+         FPS: {:.0}\n\
+         Pos: ({:.1}, {:.1}, {:.1})\n\
+         Chunks: {}",
+        fps,
+        player_pos.x, player_pos.y, player_pos.z,
+        chunk_count
+    );
+}
+
+// === Delivery Platform Systems ===
 
 /// Setup delivery platform near spawn point
 fn setup_delivery_platform(

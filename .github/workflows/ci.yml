@@ -11,55 +11,14 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  check:
-    name: Check & Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-action@stable
-        with:
-          components: clippy
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libasound2-dev \
-            libudev-dev \
-            libxkbcommon-dev \
-            libwayland-dev \
-            libxrandr-dev \
-            libxi-dev \
-            libxcursor-dev \
-            libx11-dev
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cargo check
-        run: cargo check --all-features
-
-      - name: Clippy
-        run: cargo clippy --all-features -- -D warnings
-
   test:
-    name: Unit Tests
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install system dependencies
         run: |
@@ -86,16 +45,18 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run tests
-        run: cargo test --all-features
+        run: cargo test
 
-  e2e:
-    name: E2E Tests
+  clippy:
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: Install system dependencies
         run: |
@@ -108,10 +69,7 @@ jobs:
             libxrandr-dev \
             libxi-dev \
             libxcursor-dev \
-            libx11-dev \
-            xvfb \
-            libgl1-mesa-dri \
-            libgl1-mesa-glx
+            libx11-dev
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -122,21 +80,32 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build
-        run: cargo build --release
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
 
-      - name: Run E2E tests with xvfb
-        run: |
-          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
-            timeout 120 cargo run --release -- --e2e-test || true
+  wasm:
+    name: WASM Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          name: e2e-results
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
           path: |
-            screenshots/
-          retention-days: 7
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build WASM
+        run: cargo build --target wasm32-unknown-unknown

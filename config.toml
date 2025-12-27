@@ -1,0 +1,49 @@
+# Idle Factory Configuration
+
+[player]
+# Movement speed (units per second)
+speed = 5.0
+
+# Block interaction reach distance
+reach_distance = 5.0
+
+[camera]
+# Mouse sensitivity (radians per pixel)
+mouse_sensitivity = 0.002
+
+# Keyboard rotation speed (radians per second)
+key_rotation_speed = 2.0
+
+# Field of view (degrees)
+fov = 90.0
+
+[world]
+# Chunk dimensions
+chunk_size = 16
+chunk_height = 8
+
+# Block size in world units
+block_size = 1.0
+
+# View distance in chunks (native)
+view_distance_native = 3
+
+# View distance in chunks (WASM)
+view_distance_wasm = 2
+
+[machines]
+# Smelting time (seconds)
+smelt_time = 3.0
+
+# Crushing time (seconds)
+crush_time = 4.0
+
+# Mining time (seconds)
+mine_time = 5.0
+
+# Conveyor transfer speed (seconds per block)
+conveyor_speed = 1.0
+
+[delivery]
+# Platform size (blocks)
+platform_size = 12

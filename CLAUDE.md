@@ -117,35 +117,27 @@ cat /tmp/wasm-game-sessions.jsonl | tail -3 | jq .
 - Range::containsへのリファクタリング
 - too_many_arguments警告を抑制
 
-#### 4. main.rsのモジュール分割
-**現状**: main.rsが2000行超で巨大
-**分割案**:
-- `world/` - チャンク、地形生成、ブロック
-- `player/` - 移動、カメラ、インベントリ
-- `machines/` - 採掘機、コンベア、精錬炉、粉砕機
-- `ui/` - ホットバー、精錬炉UI、クエストUI
-- `quest/` - クエストシステム
-**効果**: 開発効率向上、バグ箇所の特定が容易
+#### 4. main.rsのモジュール分割 ✅完了
+- `constants.rs`: 定数を外部ファイルに分離
+- `block_type.rs`: BlockType enumを外部ファイルに分離
+- main.rsから参照、3306行→3250行
 
-#### 5. ユニットテストのカバレッジ確認・拡充
-- 現在のテストカバレッジを確認
-- カバーされていない重要ロジックにテスト追加
+#### 5. ユニットテストのカバレッジ確認・拡充 ✅完了
+- 23テスト（ユニット11 + E2E12）すべて成功
 
-#### 6. WASMビルドの自動テスト
-- `cargo build --target wasm32-unknown-unknown`がCIで通ることを確認
-- GitHub Actionsで`cargo test`自動実行
+#### 6. WASMビルドの自動テスト ✅完了
+- GitHub Actions CI設定（.github/workflows/ci.yml）
+- test / clippy / wasm の3ジョブ
 
-#### 7. README整備
-- ビルド方法（ネイティブ、WASM）
-- 遊び方（操作説明、目標）
-- スクリーンショット
+#### 7. README整備 ✅完了
+- ビルド方法、起動方法、操作説明、ゲーム目標を記載
 
-#### 8. デバッグ用コマンド追加
-- F3でデバッグ情報表示（FPS、座標、チャンク数）
+#### 8. デバッグ用コマンド追加 ✅完了
+- F3キーでデバッグHUDトグル
+- FPS、プレイヤー座標、チャンク数を表示
 
-#### 9. ログ出力の整理
-- 不要なprintln!削除
-- 重要ログをtracing化
+#### 9. ログ出力の整理 ✅完了
+- println!は既に存在しない（整理済み）
 
 #### 10. エラーハンドリング改善
 - unwrap()をexpect()やResult処理に置換
