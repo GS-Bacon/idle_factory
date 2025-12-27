@@ -421,6 +421,20 @@ impl ChunkData {
         IVec3::new(x, y, z)
     }
 
+    /// Check if world position is in the delivery platform area
+    #[inline(always)]
+    fn is_platform_area(world_x: i32, world_z: i32) -> bool {
+        // Platform is at (20, 8, 10) with size 12x12
+        // Clear the top layer (y=7, which is CHUNK_HEIGHT-1) in the platform area
+        const PLATFORM_X_MIN: i32 = 20;
+        const PLATFORM_X_MAX: i32 = 31; // 20 + 12 - 1
+        const PLATFORM_Z_MIN: i32 = 10;
+        const PLATFORM_Z_MAX: i32 = 21; // 10 + 12 - 1
+
+        world_x >= PLATFORM_X_MIN && world_x <= PLATFORM_X_MAX
+            && world_z >= PLATFORM_Z_MIN && world_z <= PLATFORM_Z_MAX
+    }
+
     /// Generate a chunk at the given chunk coordinate
     fn generate(chunk_coord: IVec2) -> Self {
         let mut blocks = vec![None; Self::ARRAY_SIZE];
@@ -430,13 +444,19 @@ impl ChunkData {
         // Bottom layers are stone with ore veins, top layer is grass
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
+                let world_x = chunk_coord.x * CHUNK_SIZE + x;
+                let world_z = chunk_coord.y * CHUNK_SIZE + z;
+
                 for y in 0..CHUNK_HEIGHT {
+                    // Skip top layer (y=7) in delivery platform area
+                    if y == CHUNK_HEIGHT - 1 && Self::is_platform_area(world_x, world_z) {
+                        continue;
+                    }
+
                     let block_type = if y == CHUNK_HEIGHT - 1 {
                         BlockType::Grass
                     } else {
                         // Use simple hash for ore distribution
-                        let world_x = chunk_coord.x * CHUNK_SIZE + x;
-                        let world_z = chunk_coord.y * CHUNK_SIZE + z;
                         let hash = Self::simple_hash(world_x, y, world_z);
 
                         if y <= 4 && hash % 20 == 0 {
@@ -489,7 +509,11 @@ impl ChunkData {
     }
 
     /// Generate a combined mesh for the entire chunk with face culling
-    fn generate_mesh(&self, chunk_coord: IVec2) -> Mesh {
+    /// neighbor_checker: function to check if a block exists at world position (for cross-chunk checks)
+    fn generate_mesh_with_neighbors<F>(&self, chunk_coord: IVec2, neighbor_checker: F) -> Mesh
+    where
+        F: Fn(IVec3) -> bool,
+    {
         // Pre-allocate with estimated capacity (reduces reallocations)
         let estimated_faces = (CHUNK_SIZE * CHUNK_SIZE * 2) as usize; // roughly top + sides
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
@@ -499,31 +523,31 @@ impl ChunkData {
         let mut indices: Vec<u32> = Vec::with_capacity(estimated_faces * 6);
 
         // Face definitions: (dx, dy, dz, vertices offsets)
-        // Ordered for cache-friendly access
+        // Counter-clockwise winding order for front faces (Bevy default)
         let faces: [(i32, i32, i32, [[f32; 3]; 4]); 6] = [
-            // +Y (top) - most common visible face
+            // +Y (top) - looking down at top face, CCW
             (0, 1, 0, [
-                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0]
+                [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]
             ]),
-            // -Y (bottom)
+            // -Y (bottom) - looking up at bottom face, CCW
             (0, -1, 0, [
-                [0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [0.0, 0.0, 1.0]
             ]),
-            // +X (east)
+            // +X (east) - looking at +X face from outside, CCW
             (1, 0, 0, [
-                [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]
+                [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]
             ]),
-            // -X (west)
+            // -X (west) - looking at -X face from outside, CCW
             (-1, 0, 0, [
-                [0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]
+                [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]
             ]),
-            // +Z (south)
+            // +Z (south) - looking at +Z face from outside, CCW
             (0, 0, 1, [
-                [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]
+                [0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]
             ]),
-            // -Z (north)
+            // -Z (north) - looking at -Z face from outside, CCW
             (0, 0, -1, [
-                [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]
+                [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]
             ]),
         ];
 
@@ -553,14 +577,24 @@ impl ChunkData {
                         let ny = y + dy;
                         let nz = z + dz;
 
-                        // Check if neighbor exists (within bounds and has block)
+                        // Check if neighbor exists
                         let neighbor_exists = if nx >= 0 && nx < CHUNK_SIZE
                             && ny >= 0 && ny < CHUNK_HEIGHT
                             && nz >= 0 && nz < CHUNK_SIZE
                         {
+                            // Within this chunk - use fast array access
                             self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
-                        } else {
+                        } else if ny < 0 || ny >= CHUNK_HEIGHT {
+                            // Above or below world bounds - no block
                             false
+                        } else {
+                            // Cross-chunk boundary - use neighbor checker
+                            let world_pos = IVec3::new(
+                                chunk_coord.x * CHUNK_SIZE + nx,
+                                ny,
+                                chunk_coord.y * CHUNK_SIZE + nz,
+                            );
+                            neighbor_checker(world_pos)
                         };
 
                         if neighbor_exists {
@@ -599,6 +633,11 @@ impl ChunkData {
         mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
         mesh.insert_indices(Indices::U32(indices));
         mesh
+    }
+
+    /// Simple mesh generation without neighbor checking (for async tasks)
+    fn generate_mesh(&self, chunk_coord: IVec2) -> Mesh {
+        self.generate_mesh_with_neighbors(chunk_coord, |_| false)
     }
 }
 
@@ -678,6 +717,15 @@ impl WorldData {
     /// Check if block exists at world position
     fn has_block(&self, world_pos: IVec3) -> bool {
         self.get_block(world_pos).is_some()
+    }
+
+    /// Generate mesh for a chunk with proper neighbor checking across chunk boundaries
+    fn generate_chunk_mesh(&self, chunk_coord: IVec2) -> Option<Mesh> {
+        let chunk_data = self.chunks.get(&chunk_coord)?;
+        let mesh = chunk_data.generate_mesh_with_neighbors(chunk_coord, |world_pos| {
+            self.has_block(world_pos)
+        });
+        Some(mesh)
     }
 }
 
@@ -827,6 +875,9 @@ fn receive_chunk_meshes(
         }
     }
 
+    // Collect coords that need neighbor mesh regeneration
+    let mut coords_needing_neighbor_update: Vec<IVec2> = Vec::new();
+
     // Process completed chunks
     for (coord, chunk_mesh_data) in completed {
         tasks.tasks.remove(&coord);
@@ -842,22 +893,62 @@ fn receive_chunk_meshes(
         }
         let chunk_data = ChunkData { blocks, blocks_map };
 
-        // Spawn single mesh entity for the entire chunk
-        let mesh_handle = meshes.add(chunk_mesh_data.mesh);
-        let material = materials.add(StandardMaterial {
-            // Use vertex colors from mesh
-            ..default()
-        });
-
-        let entity = commands.spawn((
-            Mesh3d(mesh_handle),
-            MeshMaterial3d(material),
-            Transform::IDENTITY,
-            ChunkMesh { coord },
-        )).id();
-
         world_data.chunks.insert(coord, chunk_data);
-        world_data.chunk_entities.insert(coord, vec![entity]);
+        coords_needing_neighbor_update.push(coord);
+    }
+
+    // Now regenerate meshes for new chunks and their neighbors (with proper neighbor data)
+    for coord in coords_needing_neighbor_update {
+        // Regenerate this chunk's mesh with neighbor awareness
+        if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
+            let mesh_handle = meshes.add(new_mesh);
+            let material = materials.add(StandardMaterial::default());
+
+            let entity = commands.spawn((
+                Mesh3d(mesh_handle),
+                MeshMaterial3d(material),
+                Transform::IDENTITY,
+                ChunkMesh { coord },
+            )).id();
+
+            world_data.chunk_entities.insert(coord, vec![entity]);
+        }
+
+        // Also regenerate neighboring chunks' meshes (they may now have hidden faces at boundary)
+        let neighbors = [
+            IVec2::new(coord.x - 1, coord.y),
+            IVec2::new(coord.x + 1, coord.y),
+            IVec2::new(coord.x, coord.y - 1),
+            IVec2::new(coord.x, coord.y + 1),
+        ];
+
+        for neighbor_coord in neighbors {
+            // Only regenerate if the neighbor chunk exists
+            if !world_data.chunks.contains_key(&neighbor_coord) {
+                continue;
+            }
+
+            if let Some(new_mesh) = world_data.generate_chunk_mesh(neighbor_coord) {
+                let mesh_handle = meshes.add(new_mesh);
+                let material = materials.add(StandardMaterial::default());
+
+                // Find and despawn old mesh entity
+                if let Some(entities) = world_data.chunk_entities.get(&neighbor_coord) {
+                    for &entity in entities {
+                        commands.entity(entity).despawn();
+                    }
+                }
+
+                let entity = commands.spawn((
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material),
+                    Transform::IDENTITY,
+                    ChunkMesh { coord: neighbor_coord },
+                )).id();
+
+                world_data.chunk_entities.insert(neighbor_coord, vec![entity]);
+            }
+        }
     }
 }
 
@@ -1338,7 +1429,7 @@ fn block_break(
     windows: Query<&Window>,
     interacting_furnace: Res<InteractingFurnace>,
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
-    mut chunk_meshes: Query<(Entity, &ChunkMesh)>,
+    chunk_meshes: Query<(Entity, &ChunkMesh)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -1452,29 +1543,58 @@ fn block_break(
                         inventory.selected = Some(block_type);
                     }
 
-                    // Regenerate the chunk mesh for the affected chunk
+                    // Regenerate the chunk mesh for the affected chunk (with neighbor awareness)
                     let chunk_coord = WorldData::world_to_chunk(pos);
-                    if let Some(chunk_data) = world_data.chunks.get(&chunk_coord) {
-                        let new_mesh = chunk_data.generate_mesh(chunk_coord);
-                        let mesh_handle = meshes.add(new_mesh);
-                        let material = materials.add(StandardMaterial::default());
 
-                        // Find and despawn old chunk mesh, spawn new one
-                        for (entity, chunk_mesh) in chunk_meshes.iter_mut() {
-                            if chunk_mesh.coord == chunk_coord {
-                                commands.entity(entity).despawn();
-                                break;
+                    // Helper closure to regenerate a chunk mesh
+                    let regenerate_chunk = |coord: IVec2,
+                                            commands: &mut Commands,
+                                            chunk_meshes: &Query<(Entity, &ChunkMesh)>,
+                                            world_data: &mut WorldData,
+                                            meshes: &mut Assets<Mesh>,
+                                            materials: &mut Assets<StandardMaterial>| {
+                        if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
+                            let mesh_handle = meshes.add(new_mesh);
+                            let material = materials.add(StandardMaterial::default());
+
+                            // Find and despawn old chunk mesh
+                            for (entity, chunk_mesh) in chunk_meshes.iter() {
+                                if chunk_mesh.coord == coord {
+                                    commands.entity(entity).despawn();
+                                    break;
+                                }
                             }
+
+                            let entity = commands.spawn((
+                                Mesh3d(mesh_handle),
+                                MeshMaterial3d(material),
+                                Transform::IDENTITY,
+                                ChunkMesh { coord },
+                            )).id();
+
+                            world_data.chunk_entities.insert(coord, vec![entity]);
                         }
+                    };
 
-                        let entity = commands.spawn((
-                            Mesh3d(mesh_handle),
-                            MeshMaterial3d(material),
-                            Transform::IDENTITY,
-                            ChunkMesh { coord: chunk_coord },
-                        )).id();
+                    // Regenerate the main chunk
+                    regenerate_chunk(chunk_coord, &mut commands, &chunk_meshes, &mut world_data, &mut meshes, &mut materials);
 
-                        world_data.chunk_entities.insert(chunk_coord, vec![entity]);
+                    // Check if block is at chunk boundary and regenerate neighbor chunks
+                    let local_pos = WorldData::world_to_local(pos);
+                    let neighbor_coords: Vec<IVec2> = [
+                        (local_pos.x == 0, IVec2::new(chunk_coord.x - 1, chunk_coord.y)),
+                        (local_pos.x == CHUNK_SIZE - 1, IVec2::new(chunk_coord.x + 1, chunk_coord.y)),
+                        (local_pos.z == 0, IVec2::new(chunk_coord.x, chunk_coord.y - 1)),
+                        (local_pos.z == CHUNK_SIZE - 1, IVec2::new(chunk_coord.x, chunk_coord.y + 1)),
+                    ]
+                    .iter()
+                    .filter(|(is_boundary, _)| *is_boundary)
+                    .map(|(_, coord)| *coord)
+                    .filter(|coord| world_data.chunks.contains_key(coord))
+                    .collect();
+
+                    for neighbor_coord in neighbor_coords {
+                        regenerate_chunk(neighbor_coord, &mut commands, &chunk_meshes, &mut world_data, &mut meshes, &mut materials);
                     }
                 }
             }
@@ -1709,9 +1829,8 @@ fn block_place(
                 // Regular block - add to world data and regenerate chunk mesh
                 world_data.set_block(place_pos, selected_type);
 
-                // Regenerate chunk mesh
-                if let Some(chunk_data) = world_data.chunks.get(&chunk_coord) {
-                    let new_mesh = chunk_data.generate_mesh(chunk_coord);
+                // Regenerate chunk mesh (with neighbor awareness)
+                if let Some(new_mesh) = world_data.generate_chunk_mesh(chunk_coord) {
                     let mesh_handle = meshes.add(new_mesh);
                     let material = materials.add(StandardMaterial::default());
 
@@ -2185,10 +2304,9 @@ fn miner_mining(
             // Remove block from world
             world_data.remove_block(below_pos);
 
-            // Regenerate chunk mesh
+            // Regenerate chunk mesh (with neighbor awareness)
             let chunk_coord = WorldData::world_to_chunk(below_pos);
-            if let Some(chunk_data) = world_data.chunks.get(&chunk_coord) {
-                let new_mesh = chunk_data.generate_mesh(chunk_coord);
+            if let Some(new_mesh) = world_data.generate_chunk_mesh(chunk_coord) {
                 let mesh_handle = meshes.add(new_mesh);
                 let material = materials.add(StandardMaterial::default());
 
