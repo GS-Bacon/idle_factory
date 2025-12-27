@@ -45,6 +45,7 @@ fn main() {
         .init_resource::<CursorLockState>()
         .init_resource::<InteractingFurnace>()
         .init_resource::<CurrentQuest>()
+        .init_resource::<GameFont>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
@@ -69,6 +70,7 @@ fn main() {
                 miner_mining,
                 miner_output,
                 conveyor_transfer,
+                update_conveyor_item_visuals,
                 delivery_platform_receive,
                 quest_progress_check,
                 quest_claim_rewards,
@@ -103,6 +105,17 @@ struct CursorLockState {
     skip_frames: u8,
     /// Last mouse position for calculating delta in RDP/absolute mode
     last_mouse_pos: Option<Vec2>,
+}
+
+/// Font resource for UI text
+#[derive(Resource)]
+struct GameFont(Handle<Font>);
+
+impl FromWorld for GameFont {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+        GameFont(asset_server.load("fonts/NotoSansJP-Regular.ttf"))
+    }
 }
 
 
@@ -210,7 +223,13 @@ struct Conveyor {
     item: Option<BlockType>,
     /// Transfer progress (0.0-1.0)
     progress: f32,
+    /// Entity for the visual item on conveyor
+    item_visual: Option<Entity>,
 }
+
+/// Marker for conveyor item visual
+#[derive(Component)]
+struct ConveyorItemVisual;
 
 /// Delivery platform - accepts items for delivery quests
 #[derive(Component, Default)]
@@ -754,6 +773,7 @@ fn setup_initial_items(
             direction: Direction::East,
             item: None,
             progress: 0.0,
+            item_visual: None,
         },
     ));
 
@@ -772,6 +792,7 @@ fn setup_initial_items(
             direction: Direction::East,
             item: None,
             progress: 0.0,
+            item_visual: None,
         },
     ));
 
@@ -828,7 +849,13 @@ fn player_look(
     mut windows: Query<&mut Window>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut cursor_lock_state: ResMut<CursorLockState>,
+    interacting_furnace: Res<InteractingFurnace>,
 ) {
+    // Don't look around while furnace UI is open
+    if interacting_furnace.0.is_some() {
+        return;
+    }
+
     let mut window = windows.single_mut();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
@@ -928,7 +955,13 @@ fn player_move(
     key_input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
+    interacting_furnace: Res<InteractingFurnace>,
 ) {
+    // Don't move while furnace UI is open
+    if interacting_furnace.0.is_some() {
+        return;
+    }
+
     let Ok(mut player_transform) = player_query.get_single_mut() else {
         return;
     };
@@ -973,13 +1006,22 @@ fn block_break(
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
     block_query: Query<(Entity, &Block, &GlobalTransform)>,
+    conveyor_query: Query<(Entity, &Conveyor, &GlobalTransform)>,
+    miner_query: Query<(Entity, &Miner, &GlobalTransform)>,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     windows: Query<&Window>,
+    interacting_furnace: Res<InteractingFurnace>,
+    item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
 ) {
     // Only break blocks when cursor is locked (to distinguish from lock-click)
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+
+    // Don't break blocks while furnace UI is open
+    if interacting_furnace.0.is_some() {
+        return;
+    }
 
     if !cursor_locked || !mouse_button.just_pressed(MouseButton::Left) {
         return;
@@ -993,14 +1035,18 @@ fn block_break(
     let ray_origin = camera_transform.translation();
     let ray_direction = camera_transform.forward().as_vec3();
 
-    // Find closest block intersection
-    let mut closest_hit: Option<(Entity, IVec3, f32)> = None;
+    // Track what we hit (block, conveyor, or miner)
+    enum HitType {
+        Block(Entity, IVec3),
+        Conveyor(Entity, Option<BlockType>, Option<Entity>), // entity, item, item_visual
+        Miner(Entity),
+    }
+    let mut closest_hit: Option<(HitType, f32)> = None;
+    let half_size = BLOCK_SIZE / 2.0;
 
+    // Check blocks
     for (entity, block, block_transform) in block_query.iter() {
         let block_pos = block_transform.translation();
-        let half_size = BLOCK_SIZE / 2.0;
-
-        // Simple AABB ray intersection
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
             ray_direction,
@@ -1009,21 +1055,80 @@ fn block_break(
         ) {
             if t > 0.0
                 && t < REACH_DISTANCE
-                && (closest_hit.is_none() || t < closest_hit.unwrap().2)
+                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
             {
-                closest_hit = Some((entity, block.position, t));
+                closest_hit = Some((HitType::Block(entity, block.position), t));
             }
         }
     }
 
-    // Break the closest block
-    if let Some((entity, pos, _)) = closest_hit {
-        if let Some(block_type) = world_data.remove_block(pos) {
-            commands.entity(entity).despawn();
-            *inventory.items.entry(block_type).or_insert(0) += 1;
-            // Auto-select the block type if nothing selected
-            if inventory.selected.is_none() {
-                inventory.selected = Some(block_type);
+    // Check conveyors
+    for (entity, conveyor, conveyor_transform) in conveyor_query.iter() {
+        let conveyor_pos = conveyor_transform.translation();
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            conveyor_pos - Vec3::new(half_size, 0.15, half_size),
+            conveyor_pos + Vec3::new(half_size, 0.15, half_size),
+        ) {
+            if t > 0.0
+                && t < REACH_DISTANCE
+                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
+            {
+                closest_hit = Some((HitType::Conveyor(entity, conveyor.item, conveyor.item_visual), t));
+            }
+        }
+    }
+
+    // Check miners
+    for (entity, _miner, miner_transform) in miner_query.iter() {
+        let miner_pos = miner_transform.translation();
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            miner_pos - Vec3::splat(half_size),
+            miner_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0
+                && t < REACH_DISTANCE
+                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
+            {
+                closest_hit = Some((HitType::Miner(entity), t));
+            }
+        }
+    }
+
+    // Handle the hit
+    if let Some((hit_type, _)) = closest_hit {
+        match hit_type {
+            HitType::Block(entity, pos) => {
+                if let Some(block_type) = world_data.remove_block(pos) {
+                    commands.entity(entity).despawn();
+                    *inventory.items.entry(block_type).or_insert(0) += 1;
+                    if inventory.selected.is_none() {
+                        inventory.selected = Some(block_type);
+                    }
+                }
+            }
+            HitType::Conveyor(entity, item, item_visual) => {
+                commands.entity(entity).despawn();
+                // Also despawn item visual if present
+                if let Some(visual_entity) = item_visual {
+                    if item_visual_query.get(visual_entity).is_ok() {
+                        commands.entity(visual_entity).despawn();
+                    }
+                }
+                // Return conveyor to inventory
+                *inventory.items.entry(BlockType::ConveyorBlock).or_insert(0) += 1;
+                // Also drop any item on the conveyor
+                if let Some(item_type) = item {
+                    *inventory.items.entry(item_type).or_insert(0) += 1;
+                }
+            }
+            HitType::Miner(entity) => {
+                commands.entity(entity).despawn();
+                // Return miner to inventory
+                *inventory.items.entry(BlockType::MinerBlock).or_insert(0) += 1;
             }
         }
     }
@@ -1163,6 +1268,7 @@ fn block_place(
                         direction: facing_direction,
                         item: None,
                         progress: 0.0,
+                        item_visual: None,
                     },
                 ));
             }
@@ -1348,19 +1454,27 @@ fn furnace_interact(
     furnace_query: Query<(Entity, &Transform), With<Furnace>>,
     mut interacting: ResMut<InteractingFurnace>,
     mut furnace_ui_query: Query<&mut Visibility, With<FurnaceUI>>,
-    windows: Query<&Window>,
+    mut windows: Query<&mut Window>,
 ) {
-    // E key to toggle furnace UI
-    if !key_input.just_pressed(KeyCode::KeyE) {
-        return;
-    }
+    // E key or ESC to toggle furnace UI
+    let e_pressed = key_input.just_pressed(KeyCode::KeyE);
+    let esc_pressed = key_input.just_pressed(KeyCode::Escape);
 
-    // If already interacting, close the UI
-    if interacting.0.is_some() {
+    // If already interacting, close the UI with E or ESC
+    if interacting.0.is_some() && (e_pressed || esc_pressed) {
         interacting.0 = None;
         if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
             *vis = Visibility::Hidden;
         }
+        // Re-lock cursor when closing UI
+        let mut window = windows.single_mut();
+        window.cursor_options.grab_mode = CursorGrabMode::Locked;
+        window.cursor_options.visible = false;
+        return;
+    }
+
+    // Only open furnace UI with E key
+    if !e_pressed {
         return;
     }
 
@@ -1702,6 +1816,65 @@ fn conveyor_transfer(
     }
 }
 
+/// Update conveyor item visuals - spawn/despawn/move items on conveyors
+fn update_conveyor_item_visuals(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut conveyor_query: Query<&mut Conveyor>,
+    mut visual_query: Query<&mut Transform, With<ConveyorItemVisual>>,
+) {
+    let item_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.4));
+
+    for mut conveyor in conveyor_query.iter_mut() {
+        match (conveyor.item, conveyor.item_visual) {
+            // Has item but no visual - spawn it
+            (Some(block_type), None) => {
+                let material = materials.add(StandardMaterial {
+                    base_color: block_type.color(),
+                    ..default()
+                });
+
+                // Calculate position based on progress
+                let base_pos = Vec3::new(
+                    conveyor.position.x as f32 * BLOCK_SIZE,
+                    conveyor.position.y as f32 * BLOCK_SIZE,
+                    conveyor.position.z as f32 * BLOCK_SIZE,
+                );
+                let dir_offset = conveyor.direction.to_ivec3().as_vec3() * (conveyor.progress - 0.5);
+
+                let entity = commands.spawn((
+                    Mesh3d(item_mesh.clone()),
+                    MeshMaterial3d(material),
+                    Transform::from_translation(base_pos + dir_offset * BLOCK_SIZE),
+                    ConveyorItemVisual,
+                )).id();
+
+                conveyor.item_visual = Some(entity);
+            }
+            // Has visual but no item - despawn it
+            (None, Some(entity)) => {
+                commands.entity(entity).despawn();
+                conveyor.item_visual = None;
+            }
+            // Has both - update position
+            (Some(_), Some(entity)) => {
+                if let Ok(mut transform) = visual_query.get_mut(entity) {
+                    let base_pos = Vec3::new(
+                        conveyor.position.x as f32 * BLOCK_SIZE,
+                        conveyor.position.y as f32 * BLOCK_SIZE,
+                        conveyor.position.z as f32 * BLOCK_SIZE,
+                    );
+                    let dir_offset = conveyor.direction.to_ivec3().as_vec3() * (conveyor.progress - 0.5);
+                    transform.translation = base_pos + dir_offset * BLOCK_SIZE;
+                }
+            }
+            // Neither - nothing to do
+            (None, None) => {}
+        }
+    }
+}
+
 /// Update furnace UI text
 fn update_furnace_ui(
     interacting: Res<InteractingFurnace>,
@@ -1785,10 +1958,11 @@ fn setup_delivery_platform(
     ));
 
     // Spawn delivery port markers (visual indicators at edges)
-    let port_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.8, BLOCK_SIZE * 0.1, BLOCK_SIZE * 0.8));
+    // Use tall vertical markers for better visibility
+    let port_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.3, BLOCK_SIZE * 0.8, BLOCK_SIZE * 0.3));
     let port_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.8, 0.8, 0.2), // Yellow for ports
-        emissive: bevy::color::LinearRgba::new(0.3, 0.3, 0.1, 1.0),
+        base_color: Color::srgb(1.0, 0.9, 0.2), // Bright yellow for ports
+        emissive: bevy::color::LinearRgba::new(0.5, 0.45, 0.1, 1.0),
         ..default()
     });
 
@@ -1810,7 +1984,7 @@ fn setup_delivery_platform(
             MeshMaterial3d(port_material.clone()),
             Transform::from_translation(Vec3::new(
                 port_pos.x as f32 * BLOCK_SIZE,
-                port_pos.y as f32 * BLOCK_SIZE - 0.35,
+                port_pos.y as f32 * BLOCK_SIZE + 0.1, // Raised above platform
                 port_pos.z as f32 * BLOCK_SIZE,
             )),
         ));
