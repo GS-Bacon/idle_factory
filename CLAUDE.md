@@ -285,6 +285,17 @@ Task 3: 「精錬炉の3Dモデルを作成。modeling-rules.md参照」
 
 ## ビルド最適化（80コア環境）
 
+### プロファイル一覧
+
+| プロファイル | 用途 | インクリメンタル |
+|-------------|------|----------------|
+| dev | 開発（デバッグ情報あり） | **2秒** |
+| dev-fast | 開発（最適化あり） | **2.5秒** |
+| release-fast | リリーステスト | **10秒** |
+| release | 最終リリース | 29秒 |
+
+開発中は `cargo build`（devプロファイル）を使用。
+
 ### 設定ファイル
 
 **.cargo/config.toml**:
@@ -300,11 +311,27 @@ rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 
 **Cargo.toml**:
 ```toml
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 1
+split-debuginfo = "unpacked"
+
 [profile.release]
 opt-level = 3
 lto = "thin"
 codegen-units = 16
 strip = true
+
+[profile.release-fast]
+inherits = "release"
+lto = false
+opt-level = 2
 ```
 
 ### 必要なツール
@@ -313,18 +340,12 @@ sudo apt-get install -y mold
 cargo install sccache --locked
 ```
 
-### ビルド時間
-
-| ビルド | 最適化前 | キャッシュ後 |
-|--------|----------|-------------|
-| ネイティブ Release | 2分5秒 | **55秒** |
-| WASM | 2分13秒 | **7秒** |
-
-### 仕組み
+### 最適化のポイント
+- **split-debuginfo = "unpacked"**: デバッグ情報分離でリンク高速化（4.3秒→2秒）
+- **lto = false**: LTO無効で高速ビルド（29秒→10秒）
+- **sccache**: コンパイル結果をキャッシュ
+- **mold**: 高速リンカー
 - **jobs = 80**: 80コア並列コンパイル
-- **sccache**: コンパイル結果をキャッシュ（リビルド高速化）
-- **mold**: 高速リンカー（リンク時間短縮）
-- **codegen-units = 16**: 並列コード生成
 
 ## よくあるバグと対策
 

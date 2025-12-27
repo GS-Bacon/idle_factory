@@ -36,12 +36,27 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 console_error_panic_hook = "0.1"
 
 # Enable optimizations for dependencies in dev mode for faster runtime
+[profile.dev]
+split-debuginfo = "unpacked"
+
 [profile.dev.package."*"]
 opt-level = 3
 
-# Optimize release builds (balanced for build speed and runtime)
+# Development build with some optimization (fast compile + playable FPS)
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 1
+split-debuginfo = "unpacked"
+
+# Optimize release builds (final release)
 [profile.release]
 opt-level = 3
 lto = "thin"
 codegen-units = 16
 strip = true
+
+# Fast release build (for testing release mode quickly)
+[profile.release-fast]
+inherits = "release"
+lto = false
+opt-level = 2
