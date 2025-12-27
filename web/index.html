@@ -97,12 +97,19 @@
             gameLog.events.push({ t: Date.now() - gameLog.startTime, type, ...data });
         }
 
-        // Track FPS
+        // Track FPS with freeze detection
         let lastFrameTime = performance.now();
+        let lastRafTime = performance.now();
         let frameCount = 0;
+        let freezeDetected = false;
+        const FREEZE_THRESHOLD_MS = 3000; // 3秒フレームなし = フリーズ
+
         function trackFps() {
             frameCount++;
             const now = performance.now();
+            lastRafTime = now;
+            freezeDetected = false;
+
             if (now - lastFrameTime >= 5000) { // Every 5 seconds
                 const fps = Math.round(frameCount / ((now - lastFrameTime) / 1000));
                 gameLog.fps.push({ t: Date.now() - gameLog.startTime, fps });
@@ -111,6 +118,94 @@
             }
             requestAnimationFrame(trackFps);
         }
+
+        // Freeze detection - check if rAF stopped
+        setInterval(() => {
+            const now = performance.now();
+            const timeSinceLastFrame = now - lastRafTime;
+
+            if (timeSinceLastFrame > FREEZE_THRESHOLD_MS && !freezeDetected) {
+                freezeDetected = true;
+                const freezeData = {
+                    t: Date.now() - gameLog.startTime,
+                    duration: timeSinceLastFrame,
+                    lastFps: gameLog.fps.length > 0 ? gameLog.fps[gameLog.fps.length - 1].fps : null
+                };
+                gameLog.errors.push({ ...freezeData, type: 'FREEZE' });
+                logEvent('freeze_detected', freezeData);
+
+                // Auto-save to localStorage
+                saveLogsToStorage('freeze');
+                console.error('FREEZE DETECTED:', freezeData);
+            }
+        }, 1000);
+
+        // Save logs to localStorage
+        function saveLogsToStorage(reason = 'manual') {
+            try {
+                const key = `gameLog_${gameLog.sessionId}`;
+                gameLog.savedAt = Date.now();
+                gameLog.saveReason = reason;
+                localStorage.setItem(key, JSON.stringify(gameLog));
+
+                // Keep list of all sessions
+                const sessions = JSON.parse(localStorage.getItem('gameSessions') || '[]');
+                if (!sessions.includes(gameLog.sessionId)) {
+                    sessions.push(gameLog.sessionId);
+                    // Keep only last 20 sessions
+                    while (sessions.length > 20) {
+                        const oldId = sessions.shift();
+                        localStorage.removeItem(`gameLog_${oldId}`);
+                    }
+                    localStorage.setItem('gameSessions', JSON.stringify(sessions));
+                }
+            } catch (e) {
+                console.warn('Failed to save logs:', e);
+            }
+        }
+
+        // Export all logs for analysis
+        window.exportGameLogs = function() {
+            const sessions = JSON.parse(localStorage.getItem('gameSessions') || '[]');
+            const allLogs = sessions.map(id => {
+                const log = localStorage.getItem(`gameLog_${id}`);
+                return log ? JSON.parse(log) : null;
+            }).filter(Boolean);
+
+            const blob = new Blob([JSON.stringify(allLogs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `game-logs-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            return allLogs;
+        };
+
+        // Show freeze summary
+        window.showFreezeLogs = function() {
+            const sessions = JSON.parse(localStorage.getItem('gameSessions') || '[]');
+            const freezes = [];
+            sessions.forEach(id => {
+                const log = localStorage.getItem(`gameLog_${id}`);
+                if (log) {
+                    const parsed = JSON.parse(log);
+                    const sessionFreezes = parsed.errors.filter(e => e.type === 'FREEZE');
+                    if (sessionFreezes.length > 0) {
+                        freezes.push({
+                            sessionId: id,
+                            startTime: new Date(parsed.startTime).toISOString(),
+                            freezes: sessionFreezes,
+                            lastEvents: parsed.events.slice(-10)
+                        });
+                    }
+                }
+            });
+            console.table(freezes);
+            return freezes;
+        };
+
+        console.log('Debug commands: exportGameLogs(), showFreezeLogs()');
 
         // Track errors
         window.addEventListener('error', (e) => {
@@ -160,9 +255,15 @@
         }
 
         setInterval(sendLogs, 30000); // Every 30 seconds
-        window.addEventListener('beforeunload', sendLogs);
+        window.addEventListener('beforeunload', () => {
+            saveLogsToStorage('unload');
+            sendLogs();
+        });
         window.addEventListener('visibilitychange', () => {
-            if (document.hidden) sendLogs();
+            if (document.hidden) {
+                saveLogsToStorage('hidden');
+                sendLogs();
+            }
         });
 
         async function run() {
