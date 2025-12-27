@@ -274,6 +274,10 @@ cargo install sccache --locked
 ## 作業ログ
 
 ### 2025-12-27
+- **3つのバグを修正**
+  - ブロック設置時のフリーズ: block_placeのchunk再生成パターンをblock_breakと統一
+  - 採掘機の視覚的フィードバック: miner_visual_feedbackシステム追加（パルスアニメーション）
+  - デフォルト機械の破壊: block_breakにCrusher/Furnaceのレイキャスト追加
 - **機械設置時の透ける問題を修正（再修正）** ✅確認済み
   - 原因: 機械設置時に`set_block(place_pos, BlockType::Stone)`で偽の石ブロックを登録していた
   - 修正: 機械（Miner, Conveyor, Crusher）設置時は`set_block`を呼ばない
