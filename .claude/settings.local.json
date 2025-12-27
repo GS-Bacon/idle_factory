@@ -208,7 +208,8 @@
       "Bash(rustup target add:*)",
       "Bash(./deploy-wasm.sh:*)",
       "Bash(cargo install:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(DISPLAY=:10 timeout 20 cargo run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

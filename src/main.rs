@@ -5,11 +5,14 @@ use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
+use bevy::render::mesh::{Indices, PrimitiveTopology};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::window::PresentMode;
+use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy::window::CursorGrabMode;
+use futures_lite::future;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
@@ -82,12 +85,15 @@ fn main() {
         .init_resource::<InteractingFurnace>()
         .init_resource::<CurrentQuest>()
         .init_resource::<GameFont>()
+        .init_resource::<ChunkMeshTasks>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
             (
-                // Core gameplay systems
-                chunk_loading,
+                // Core gameplay systems - chunk loading split into spawn/receive
+                spawn_chunk_tasks,
+                receive_chunk_meshes,
+                unload_distant_chunks,
                 toggle_cursor_lock,
                 player_look,
                 player_move,
@@ -157,16 +163,26 @@ impl FromWorld for GameFont {
 }
 
 
+
+/// Marker for chunk mesh entity (single mesh per chunk)
 #[derive(Component)]
-struct Block {
-    /// World position of this block
-    position: IVec3,
+struct ChunkMesh {
+    coord: IVec2,
 }
 
-#[derive(Component)]
-struct ChunkRef {
-    /// Which chunk this entity belongs to
+/// Resource to track pending chunk mesh generation tasks
+#[derive(Resource, Default)]
+struct ChunkMeshTasks {
+    /// Tasks generating chunk meshes (coord -> task)
+    tasks: HashMap<IVec2, Task<ChunkMeshData>>,
+}
+
+/// Data for a generated chunk mesh (sent from async task)
+struct ChunkMeshData {
     coord: IVec2,
+    mesh: Mesh,
+    /// Block positions for this chunk (for raycasting/breaking)
+    blocks: HashMap<IVec3, BlockType>,
 }
 
 #[derive(Component)]
@@ -427,6 +443,106 @@ impl ChunkData {
         h ^= h >> 16;
         h
     }
+
+    /// Check if a block exists at local position
+    fn has_block_at(&self, local_pos: IVec3) -> bool {
+        self.blocks.contains_key(&local_pos)
+    }
+
+    /// Generate a combined mesh for the entire chunk with face culling
+    fn generate_mesh(&self, chunk_coord: IVec2) -> Mesh {
+        let mut positions: Vec<[f32; 3]> = Vec::new();
+        let mut normals: Vec<[f32; 3]> = Vec::new();
+        let mut uvs: Vec<[f32; 2]> = Vec::new();
+        let mut colors: Vec<[f32; 4]> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+
+        // Face definitions: (normal, vertices offsets)
+        let faces: [(IVec3, [[f32; 3]; 4]); 6] = [
+            // +Y (top)
+            (IVec3::Y, [
+                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0]
+            ]),
+            // -Y (bottom)
+            (IVec3::NEG_Y, [
+                [0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+            ]),
+            // +X (east)
+            (IVec3::X, [
+                [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]
+            ]),
+            // -X (west)
+            (IVec3::NEG_X, [
+                [0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]
+            ]),
+            // +Z (south)
+            (IVec3::Z, [
+                [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]
+            ]),
+            // -Z (north)
+            (IVec3::NEG_Z, [
+                [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]
+            ]),
+        ];
+
+        for (&local_pos, &block_type) in &self.blocks {
+            let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
+            let base_x = world_pos.x as f32 * BLOCK_SIZE;
+            let base_y = world_pos.y as f32 * BLOCK_SIZE;
+            let base_z = world_pos.z as f32 * BLOCK_SIZE;
+
+            let color = block_type.color();
+            let color_arr = [color.to_srgba().red, color.to_srgba().green, color.to_srgba().blue, 1.0];
+
+            for (normal_dir, verts) in &faces {
+                // Check if neighbor exists (face culling)
+                let neighbor_local = local_pos + *normal_dir;
+
+                // Check within chunk bounds
+                let neighbor_exists = if neighbor_local.x >= 0 && neighbor_local.x < CHUNK_SIZE
+                    && neighbor_local.z >= 0 && neighbor_local.z < CHUNK_SIZE
+                    && neighbor_local.y >= 0
+                {
+                    self.has_block_at(neighbor_local)
+                } else {
+                    // At chunk boundary - always render (could check neighbor chunks, but simpler this way)
+                    false
+                };
+
+                if neighbor_exists {
+                    continue; // Skip this face, it's hidden
+                }
+
+                let base_idx = positions.len() as u32;
+
+                // Add 4 vertices for this face
+                for vert in verts {
+                    positions.push([
+                        base_x + vert[0] * BLOCK_SIZE,
+                        base_y + vert[1] * BLOCK_SIZE,
+                        base_z + vert[2] * BLOCK_SIZE,
+                    ]);
+                    normals.push([normal_dir.x as f32, normal_dir.y as f32, normal_dir.z as f32]);
+                    uvs.push([0.0, 0.0]); // Simple UV, could be improved
+                    colors.push(color_arr);
+                }
+
+                // Add 2 triangles (6 indices) for this face
+                indices.extend_from_slice(&[
+                    base_idx, base_idx + 1, base_idx + 2,
+                    base_idx, base_idx + 2, base_idx + 3,
+                ]);
+            }
+        }
+
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, default());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        mesh.insert_indices(Indices::U32(indices));
+        mesh
+    }
 }
 
 /// World data - manages multiple chunks
@@ -565,20 +681,16 @@ fn setup_lighting(mut commands: Commands) {
     });
 }
 
-/// Load/unload chunks around the player
-fn chunk_loading(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut world_data: ResMut<WorldData>,
+/// Spawn async tasks for chunk generation (runs on background threads)
+fn spawn_chunk_tasks(
+    mut tasks: ResMut<ChunkMeshTasks>,
+    world_data: Res<WorldData>,
     player_query: Query<&Transform, With<Player>>,
-    chunk_entities_query: Query<(Entity, &ChunkRef)>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
         return;
     };
 
-    // Get player's chunk coordinate
     let player_world_pos = IVec3::new(
         player_transform.translation.x.floor() as i32,
         0,
@@ -586,72 +698,135 @@ fn chunk_loading(
     );
     let player_chunk = WorldData::world_to_chunk(player_world_pos);
 
-    // Calculate which chunks should be loaded
-    let mut chunks_to_load: Vec<IVec2> = Vec::new();
+    // Find chunks that need loading (limit to 2 new tasks per frame)
+    let mut spawned = 0;
     for dx in -VIEW_DISTANCE..=VIEW_DISTANCE {
         for dz in -VIEW_DISTANCE..=VIEW_DISTANCE {
-            let chunk_coord = IVec2::new(player_chunk.x + dx, player_chunk.y + dz);
-            if !world_data.chunks.contains_key(&chunk_coord) {
-                chunks_to_load.push(chunk_coord);
+            if spawned >= 2 {
+                return;
             }
+
+            let chunk_coord = IVec2::new(player_chunk.x + dx, player_chunk.y + dz);
+
+            // Skip if already loaded or being generated
+            if world_data.chunks.contains_key(&chunk_coord) || tasks.tasks.contains_key(&chunk_coord) {
+                continue;
+            }
+
+            // Spawn async task for this chunk
+            let task_pool = AsyncComputeTaskPool::get();
+            let task = task_pool.spawn(async move {
+                let chunk_data = ChunkData::generate(chunk_coord);
+                let mesh = chunk_data.generate_mesh(chunk_coord);
+
+                // Convert local positions to world positions for the blocks map
+                let mut world_blocks = HashMap::new();
+                for (&local_pos, &block_type) in &chunk_data.blocks {
+                    let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
+                    world_blocks.insert(world_pos, block_type);
+                }
+
+                ChunkMeshData {
+                    coord: chunk_coord,
+                    mesh,
+                    blocks: world_blocks,
+                }
+            });
+
+            tasks.tasks.insert(chunk_coord, task);
+            spawned += 1;
+        }
+    }
+}
+
+/// Receive completed chunk meshes and spawn them
+fn receive_chunk_meshes(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut world_data: ResMut<WorldData>,
+    mut tasks: ResMut<ChunkMeshTasks>,
+) {
+    // Check for completed tasks (limit processing to avoid frame spikes)
+    let mut completed = Vec::new();
+
+    for (&coord, task) in tasks.tasks.iter_mut() {
+        if let Some(chunk_mesh_data) = future::block_on(future::poll_once(task)) {
+            completed.push((coord, chunk_mesh_data));
         }
     }
 
-    // Calculate which chunks should be unloaded
+    // Process completed chunks
+    for (coord, chunk_mesh_data) in completed {
+        tasks.tasks.remove(&coord);
+
+        // Create chunk data from blocks
+        let mut chunk_data = ChunkData { blocks: HashMap::new() };
+        for (&world_pos, &block_type) in &chunk_mesh_data.blocks {
+            let local_pos = WorldData::world_to_local(world_pos);
+            chunk_data.blocks.insert(local_pos, block_type);
+        }
+
+        // Spawn single mesh entity for the entire chunk
+        let mesh_handle = meshes.add(chunk_mesh_data.mesh);
+        let material = materials.add(StandardMaterial {
+            // Use vertex colors from mesh
+            ..default()
+        });
+
+        let entity = commands.spawn((
+            Mesh3d(mesh_handle),
+            MeshMaterial3d(material),
+            Transform::IDENTITY,
+            ChunkMesh { coord },
+        )).id();
+
+        world_data.chunks.insert(coord, chunk_data);
+        world_data.chunk_entities.insert(coord, vec![entity]);
+    }
+}
+
+/// Unload distant chunks
+fn unload_distant_chunks(
+    mut commands: Commands,
+    mut world_data: ResMut<WorldData>,
+    mut tasks: ResMut<ChunkMeshTasks>,
+    player_query: Query<&Transform, With<Player>>,
+    chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
+) {
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    let player_world_pos = IVec3::new(
+        player_transform.translation.x.floor() as i32,
+        0,
+        player_transform.translation.z.floor() as i32,
+    );
+    let player_chunk = WorldData::world_to_chunk(player_world_pos);
+
+    // Find chunks to unload
     let mut chunks_to_unload: Vec<IVec2> = Vec::new();
     for &chunk_coord in world_data.chunks.keys() {
         let dx = (chunk_coord.x - player_chunk.x).abs();
         let dz = (chunk_coord.y - player_chunk.y).abs();
-        if dx > VIEW_DISTANCE || dz > VIEW_DISTANCE {
+        if dx > VIEW_DISTANCE + 1 || dz > VIEW_DISTANCE + 1 {
             chunks_to_unload.push(chunk_coord);
         }
     }
 
     // Unload chunks
     for chunk_coord in chunks_to_unload {
-        // Despawn all entities in this chunk
-        for (entity, chunk_ref) in chunk_entities_query.iter() {
-            if chunk_ref.coord == chunk_coord {
+        // Despawn chunk mesh entity
+        for (entity, chunk_mesh) in chunk_mesh_query.iter() {
+            if chunk_mesh.coord == chunk_coord {
                 commands.entity(entity).despawn();
             }
         }
+
         world_data.chunks.remove(&chunk_coord);
         world_data.chunk_entities.remove(&chunk_coord);
-    }
-
-    // Load chunks (limit to 1 per frame for performance)
-    if let Some(chunk_coord) = chunks_to_load.first() {
-        let chunk_coord = *chunk_coord;
-        let chunk_data = ChunkData::generate(chunk_coord);
-
-        // Spawn blocks for this chunk
-        let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-        let mut entities = Vec::new();
-
-        for (&local_pos, &block_type) in chunk_data.blocks.iter() {
-            let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
-            let material = materials.add(StandardMaterial {
-                base_color: block_type.color(),
-                ..default()
-            });
-
-            let entity = commands.spawn((
-                Mesh3d(cube_mesh.clone()),
-                MeshMaterial3d(material),
-                Transform::from_translation(Vec3::new(
-                    world_pos.x as f32 * BLOCK_SIZE,
-                    world_pos.y as f32 * BLOCK_SIZE,
-                    world_pos.z as f32 * BLOCK_SIZE,
-                )),
-                Block { position: world_pos },
-                ChunkRef { coord: chunk_coord },
-            )).id();
-
-            entities.push(entity);
-        }
-
-        world_data.chunks.insert(chunk_coord, chunk_data);
-        world_data.chunk_entities.insert(chunk_coord, entities);
+        tasks.tasks.remove(&chunk_coord);
     }
 }
 
@@ -1081,7 +1256,6 @@ fn block_break(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
-    block_query: Query<(Entity, &Block, &GlobalTransform)>,
     conveyor_query: Query<(Entity, &Conveyor, &GlobalTransform)>,
     miner_query: Query<(Entity, &Miner, &GlobalTransform)>,
     mut world_data: ResMut<WorldData>,
@@ -1089,6 +1263,9 @@ fn block_break(
     windows: Query<&Window>,
     interacting_furnace: Res<InteractingFurnace>,
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
+    mut chunk_meshes: Query<(Entity, &ChunkMesh)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Only break blocks when cursor is locked (to distinguish from lock-click)
     let window = windows.single();
@@ -1111,29 +1288,45 @@ fn block_break(
     let ray_origin = camera_transform.translation();
     let ray_direction = camera_transform.forward().as_vec3();
 
-    // Track what we hit (block, conveyor, or miner)
+    // Track what we hit (world block, conveyor, or miner)
     enum HitType {
-        Block(Entity, IVec3),
+        WorldBlock(IVec3),
         Conveyor(Entity, Option<BlockType>, Option<Entity>), // entity, item, item_visual
         Miner(Entity),
     }
     let mut closest_hit: Option<(HitType, f32)> = None;
     let half_size = BLOCK_SIZE / 2.0;
 
-    // Check blocks
-    for (entity, block, block_transform) in block_query.iter() {
-        let block_pos = block_transform.translation();
-        if let Some(t) = ray_aabb_intersection(
-            ray_origin,
-            ray_direction,
-            block_pos - Vec3::splat(half_size),
-            block_pos + Vec3::splat(half_size),
-        ) {
-            if t > 0.0
-                && t < REACH_DISTANCE
-                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
-            {
-                closest_hit = Some((HitType::Block(entity, block.position), t));
+    // Check world blocks via raycasting through WorldData
+    // March along ray checking each block position
+    for step in 0..((REACH_DISTANCE / 0.5) as i32) {
+        let t = step as f32 * 0.5;
+        let check_pos = ray_origin + ray_direction * t;
+        let block_pos = IVec3::new(
+            check_pos.x.floor() as i32,
+            check_pos.y.floor() as i32,
+            check_pos.z.floor() as i32,
+        );
+
+        if world_data.has_block(block_pos) {
+            // Precise AABB check
+            let block_center = Vec3::new(
+                block_pos.x as f32 + 0.5,
+                block_pos.y as f32 + 0.5,
+                block_pos.z as f32 + 0.5,
+            );
+            if let Some(hit_t) = ray_aabb_intersection(
+                ray_origin,
+                ray_direction,
+                block_center - Vec3::splat(half_size),
+                block_center + Vec3::splat(half_size),
+            ) {
+                if hit_t > 0.0 && hit_t < REACH_DISTANCE {
+                    if closest_hit.is_none() || hit_t < closest_hit.as_ref().unwrap().1 {
+                        closest_hit = Some((HitType::WorldBlock(block_pos), hit_t));
+                    }
+                    break; // Found closest block
+                }
             }
         }
     }
@@ -1177,12 +1370,36 @@ fn block_break(
     // Handle the hit
     if let Some((hit_type, _)) = closest_hit {
         match hit_type {
-            HitType::Block(entity, pos) => {
+            HitType::WorldBlock(pos) => {
                 if let Some(block_type) = world_data.remove_block(pos) {
-                    commands.entity(entity).despawn();
                     *inventory.items.entry(block_type).or_insert(0) += 1;
                     if inventory.selected.is_none() {
                         inventory.selected = Some(block_type);
+                    }
+
+                    // Regenerate the chunk mesh for the affected chunk
+                    let chunk_coord = WorldData::world_to_chunk(pos);
+                    if let Some(chunk_data) = world_data.chunks.get(&chunk_coord) {
+                        let new_mesh = chunk_data.generate_mesh(chunk_coord);
+                        let mesh_handle = meshes.add(new_mesh);
+                        let material = materials.add(StandardMaterial::default());
+
+                        // Find and despawn old chunk mesh, spawn new one
+                        for (entity, chunk_mesh) in chunk_meshes.iter_mut() {
+                            if chunk_mesh.coord == chunk_coord {
+                                commands.entity(entity).despawn();
+                                break;
+                            }
+                        }
+
+                        let entity = commands.spawn((
+                            Mesh3d(mesh_handle),
+                            MeshMaterial3d(material),
+                            Transform::IDENTITY,
+                            ChunkMesh { coord: chunk_coord },
+                        )).id();
+
+                        world_data.chunk_entities.insert(chunk_coord, vec![entity]);
                     }
                 }
             }
@@ -1215,7 +1432,6 @@ fn block_place(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
-    block_query: Query<(&Block, &GlobalTransform)>,
     conveyor_query: Query<&Conveyor>,
     miner_query: Query<&Miner>,
     crusher_query: Query<&Crusher>,
@@ -1225,6 +1441,7 @@ fn block_place(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     windows: Query<&Window>,
+    chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -1250,25 +1467,38 @@ fn block_place(
 
     let ray_origin = camera_transform.translation();
     let ray_direction = camera_transform.forward().as_vec3();
+    let half_size = BLOCK_SIZE / 2.0;
 
-    // Find closest block intersection with hit normal
+    // Find closest block intersection with hit normal via WorldData raycasting
     let mut closest_hit: Option<(IVec3, Vec3, f32)> = None;
 
-    for (block, block_transform) in block_query.iter() {
-        let block_pos = block_transform.translation();
-        let half_size = BLOCK_SIZE / 2.0;
+    for step in 0..((REACH_DISTANCE / 0.5) as i32) {
+        let t = step as f32 * 0.5;
+        let check_pos = ray_origin + ray_direction * t;
+        let block_pos = IVec3::new(
+            check_pos.x.floor() as i32,
+            check_pos.y.floor() as i32,
+            check_pos.z.floor() as i32,
+        );
 
-        if let Some((t, normal)) = ray_aabb_intersection_with_normal(
-            ray_origin,
-            ray_direction,
-            block_pos - Vec3::splat(half_size),
-            block_pos + Vec3::splat(half_size),
-        ) {
-            if t > 0.0
-                && t < REACH_DISTANCE
-                && (closest_hit.is_none() || t < closest_hit.unwrap().2)
-            {
-                closest_hit = Some((block.position, normal, t));
+        if world_data.has_block(block_pos) {
+            let block_center = Vec3::new(
+                block_pos.x as f32 + 0.5,
+                block_pos.y as f32 + 0.5,
+                block_pos.z as f32 + 0.5,
+            );
+            if let Some((hit_t, normal)) = ray_aabb_intersection_with_normal(
+                ray_origin,
+                ray_direction,
+                block_center - Vec3::splat(half_size),
+                block_center + Vec3::splat(half_size),
+            ) {
+                if hit_t > 0.0 && hit_t < REACH_DISTANCE {
+                    if closest_hit.is_none() || hit_t < closest_hit.unwrap().2 {
+                        closest_hit = Some((block_pos, normal, hit_t));
+                    }
+                    break;
+                }
             }
         }
     }
@@ -1323,11 +1553,6 @@ fn block_place(
                 // Select next available block type
                 inventory.selected = inventory.items.keys().next().copied();
             }
-        }
-
-        // Add to world data (only for non-machine blocks)
-        if !selected_type.is_machine() {
-            world_data.set_block(place_pos, selected_type);
         }
 
         // Get chunk coord for the placed block
@@ -1406,23 +1631,32 @@ fn block_place(
                 ));
             }
             _ => {
-                // Regular block
-                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                let material = materials.add(StandardMaterial {
-                    base_color: selected_type.color(),
-                    ..default()
-                });
-                commands.spawn((
-                    Mesh3d(cube_mesh),
-                    MeshMaterial3d(material),
-                    Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE,
-                        place_pos.y as f32 * BLOCK_SIZE,
-                        place_pos.z as f32 * BLOCK_SIZE,
-                    )),
-                    Block { position: place_pos },
-                    ChunkRef { coord: chunk_coord },
-                ));
+                // Regular block - add to world data and regenerate chunk mesh
+                world_data.set_block(place_pos, selected_type);
+
+                // Regenerate chunk mesh
+                if let Some(chunk_data) = world_data.chunks.get(&chunk_coord) {
+                    let new_mesh = chunk_data.generate_mesh(chunk_coord);
+                    let mesh_handle = meshes.add(new_mesh);
+                    let material = materials.add(StandardMaterial::default());
+
+                    // Find and despawn old chunk mesh
+                    for (entity, chunk_mesh) in chunk_mesh_query.iter() {
+                        if chunk_mesh.coord == chunk_coord {
+                            commands.entity(entity).despawn();
+                            break;
+                        }
+                    }
+
+                    let entity = commands.spawn((
+                        Mesh3d(mesh_handle),
+                        MeshMaterial3d(material),
+                        Transform::IDENTITY,
+                        ChunkMesh { coord: chunk_coord },
+                    )).id();
+
+                    world_data.chunk_entities.insert(chunk_coord, vec![entity]);
+                }
             }
         }
     }
@@ -1848,7 +2082,9 @@ fn miner_mining(
     mut commands: Commands,
     mut miner_query: Query<&mut Miner>,
     mut world_data: ResMut<WorldData>,
-    block_query: Query<(Entity, &Block)>,
+    chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for mut miner in miner_query.iter_mut() {
         // Skip if buffer is full
@@ -1874,12 +2110,29 @@ fn miner_mining(
             // Remove block from world
             world_data.remove_block(below_pos);
 
-            // Despawn block entity
-            for (entity, block) in block_query.iter() {
-                if block.position == below_pos {
-                    commands.entity(entity).despawn();
-                    break;
+            // Regenerate chunk mesh
+            let chunk_coord = WorldData::world_to_chunk(below_pos);
+            if let Some(chunk_data) = world_data.chunks.get(&chunk_coord) {
+                let new_mesh = chunk_data.generate_mesh(chunk_coord);
+                let mesh_handle = meshes.add(new_mesh);
+                let material = materials.add(StandardMaterial::default());
+
+                // Find and despawn old chunk mesh
+                for (entity, chunk_mesh) in chunk_mesh_query.iter() {
+                    if chunk_mesh.coord == chunk_coord {
+                        commands.entity(entity).despawn();
+                        break;
+                    }
                 }
+
+                let entity = commands.spawn((
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material),
+                    Transform::IDENTITY,
+                    ChunkMesh { coord: chunk_coord },
+                )).id();
+
+                world_data.chunk_entities.insert(chunk_coord, vec![entity]);
             }
 
             // Add to buffer
