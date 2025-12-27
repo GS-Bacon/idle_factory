@@ -622,9 +622,12 @@ impl ChunkData {
                         }
 
                         // Add 2 triangles (6 indices) for this face
+                        // Reversed winding order: CCW when viewed from outside
+                        // Bevy uses right-hand coordinate system (+Z = towards camera)
+                        // CCW = front face (not culled)
                         indices.extend_from_slice(&[
-                            base_idx, base_idx + 1, base_idx + 2,
-                            base_idx, base_idx + 2, base_idx + 3,
+                            base_idx, base_idx + 2, base_idx + 1,
+                            base_idx, base_idx + 3, base_idx + 2,
                         ]);
                     }
                 }
