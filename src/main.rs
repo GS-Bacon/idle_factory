@@ -1352,7 +1352,8 @@ fn player_look(
 
         // Check if AccumulatedMouseMotion gives reasonable values
         // RDP often reports huge values (>1000) due to absolute coordinates
-        const MAX_REASONABLE_DELTA: f32 = 200.0;
+        // High-DPI displays or fast mouse movements can produce values up to ~500
+        const MAX_REASONABLE_DELTA: f32 = 500.0;
 
         if raw_delta.x.abs() < MAX_REASONABLE_DELTA && raw_delta.y.abs() < MAX_REASONABLE_DELTA {
             // Native mode - use raw delta directly
@@ -1798,11 +1799,17 @@ fn block_place(
         // Calculate direction from player yaw for conveyors
         let facing_direction = yaw_to_direction(player_camera.yaw);
 
-        // Helper to regenerate chunk mesh after placing a machine
+        // Helper to regenerate chunk mesh after placing a block
         let regenerate_chunk = |world_data: &WorldData, commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, chunk_mesh_query: &Query<(Entity, &ChunkMesh)>, chunk_coord: IVec2| {
             if let Some(new_mesh) = world_data.generate_chunk_mesh(chunk_coord) {
                 let mesh_handle = meshes.add(new_mesh);
-                let material = materials.add(StandardMaterial::default());
+                let material = materials.add(StandardMaterial {
+                    base_color: Color::WHITE,
+                    perceptual_roughness: 0.9,
+                    double_sided: true,
+                    cull_mode: None,
+                    ..default()
+                });
 
                 // Find and despawn old chunk mesh
                 for (entity, chunk_mesh) in chunk_mesh_query.iter() {
@@ -1824,9 +1831,8 @@ fn block_place(
         // Spawn entity based on block type
         match selected_type {
             BlockType::MinerBlock => {
-                // Mark position as occupied in world data to hide underlying block faces
-                world_data.set_block(place_pos, BlockType::Stone);
-                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+                // Machines are spawned as separate entities, no need to modify world data
+                // (they don't occlude terrain blocks)
 
                 let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                 let material = materials.add(StandardMaterial {
@@ -1848,9 +1854,8 @@ fn block_place(
                 ));
             }
             BlockType::ConveyorBlock => {
-                // Mark position as occupied in world data to hide underlying block faces
-                world_data.set_block(place_pos, BlockType::Stone);
-                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+                // Machines are spawned as separate entities, no need to modify world data
+                // (they don't occlude terrain blocks)
 
                 let conveyor_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE * 0.3, BLOCK_SIZE));
                 let material = materials.add(StandardMaterial {
@@ -1875,9 +1880,8 @@ fn block_place(
                 ));
             }
             BlockType::CrusherBlock => {
-                // Mark position as occupied in world data to hide underlying block faces
-                world_data.set_block(place_pos, BlockType::Stone);
-                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+                // Machines are spawned as separate entities, no need to modify world data
+                // (they don't occlude terrain blocks)
 
                 let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                 let material = materials.add(StandardMaterial {
@@ -1906,6 +1910,24 @@ fn block_place(
                 // Regular block - add to world data and regenerate chunk mesh
                 world_data.set_block(place_pos, selected_type);
                 regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+
+                // Check if block is at chunk boundary and regenerate neighbor chunks
+                let local_pos = WorldData::world_to_local(place_pos);
+                let neighbor_offsets: [(i32, i32, bool); 4] = [
+                    (-1, 0, local_pos.x == 0),           // West boundary
+                    (1, 0, local_pos.x == CHUNK_SIZE - 1), // East boundary
+                    (0, -1, local_pos.z == 0),           // North boundary
+                    (0, 1, local_pos.z == CHUNK_SIZE - 1), // South boundary
+                ];
+
+                for (dx, dz, at_boundary) in neighbor_offsets {
+                    if at_boundary {
+                        let neighbor_coord = IVec2::new(chunk_coord.x + dx, chunk_coord.y + dz);
+                        if world_data.chunks.contains_key(&neighbor_coord) {
+                            regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, neighbor_coord);
+                        }
+                    }
+                }
             }
         }
     }
