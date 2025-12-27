@@ -118,16 +118,35 @@
         });
 
         // Track key presses (game actions only)
-        const trackedKeys = new Set(['w','a','s','d','e','q','1','2','3','4']);
+        const trackedKeys = new Set(['w','a','s','d','e','q','1','2','3','4','escape']);
         window.addEventListener('keydown', (e) => {
-            if (trackedKeys.has(e.key.toLowerCase())) {
-                logEvent('key', { k: e.key.toLowerCase() });
+            const key = e.key.toLowerCase();
+            if (trackedKeys.has(key)) {
+                logEvent('key', { k: key });
+            }
+            // ESC to exit pointer lock
+            if (key === 'escape' && document.pointerLockElement) {
+                document.exitPointerLock();
             }
         });
 
-        // Track mouse clicks
+        // Track mouse clicks and handle pointer lock
+        const canvas = document.getElementById('bevy-canvas');
         window.addEventListener('mousedown', (e) => {
             logEvent('click', { btn: e.button });
+            // Request pointer lock on canvas click (required for WASM)
+            if (e.target === canvas && !document.pointerLockElement) {
+                canvas.requestPointerLock();
+            }
+        });
+
+        // Handle pointer lock change
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === canvas) {
+                logEvent('pointer_locked');
+            } else {
+                logEvent('pointer_unlocked');
+            }
         });
 
         // Send logs periodically and on page unload

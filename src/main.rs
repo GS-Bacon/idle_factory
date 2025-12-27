@@ -1798,9 +1798,36 @@ fn block_place(
         // Calculate direction from player yaw for conveyors
         let facing_direction = yaw_to_direction(player_camera.yaw);
 
+        // Helper to regenerate chunk mesh after placing a machine
+        let regenerate_chunk = |world_data: &WorldData, commands: &mut Commands, meshes: &mut Assets<Mesh>, materials: &mut Assets<StandardMaterial>, chunk_mesh_query: &Query<(Entity, &ChunkMesh)>, chunk_coord: IVec2| {
+            if let Some(new_mesh) = world_data.generate_chunk_mesh(chunk_coord) {
+                let mesh_handle = meshes.add(new_mesh);
+                let material = materials.add(StandardMaterial::default());
+
+                // Find and despawn old chunk mesh
+                for (entity, chunk_mesh) in chunk_mesh_query.iter() {
+                    if chunk_mesh.coord == chunk_coord {
+                        commands.entity(entity).despawn();
+                        break;
+                    }
+                }
+
+                commands.spawn((
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material),
+                    Transform::IDENTITY,
+                    ChunkMesh { coord: chunk_coord },
+                ));
+            }
+        };
+
         // Spawn entity based on block type
         match selected_type {
             BlockType::MinerBlock => {
+                // Mark position as occupied in world data to hide underlying block faces
+                world_data.set_block(place_pos, BlockType::Stone);
+                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+
                 let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                 let material = materials.add(StandardMaterial {
                     base_color: selected_type.color(),
@@ -1821,6 +1848,10 @@ fn block_place(
                 ));
             }
             BlockType::ConveyorBlock => {
+                // Mark position as occupied in world data to hide underlying block faces
+                world_data.set_block(place_pos, BlockType::Stone);
+                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+
                 let conveyor_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE * 0.3, BLOCK_SIZE));
                 let material = materials.add(StandardMaterial {
                     base_color: selected_type.color(),
@@ -1844,6 +1875,10 @@ fn block_place(
                 ));
             }
             BlockType::CrusherBlock => {
+                // Mark position as occupied in world data to hide underlying block faces
+                world_data.set_block(place_pos, BlockType::Stone);
+                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
+
                 let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                 let material = materials.add(StandardMaterial {
                     base_color: selected_type.color(),
@@ -1870,29 +1905,7 @@ fn block_place(
             _ => {
                 // Regular block - add to world data and regenerate chunk mesh
                 world_data.set_block(place_pos, selected_type);
-
-                // Regenerate chunk mesh (with neighbor awareness)
-                if let Some(new_mesh) = world_data.generate_chunk_mesh(chunk_coord) {
-                    let mesh_handle = meshes.add(new_mesh);
-                    let material = materials.add(StandardMaterial::default());
-
-                    // Find and despawn old chunk mesh
-                    for (entity, chunk_mesh) in chunk_mesh_query.iter() {
-                        if chunk_mesh.coord == chunk_coord {
-                            commands.entity(entity).despawn();
-                            break;
-                        }
-                    }
-
-                    let entity = commands.spawn((
-                        Mesh3d(mesh_handle),
-                        MeshMaterial3d(material),
-                        Transform::IDENTITY,
-                        ChunkMesh { coord: chunk_coord },
-                    )).id();
-
-                    world_data.chunk_entities.insert(chunk_coord, vec![entity]);
-                }
+                regenerate_chunk(&world_data, &mut commands, &mut meshes, &mut materials, &chunk_mesh_query, chunk_coord);
             }
         }
     }
@@ -1941,6 +1954,9 @@ fn select_block_type(
         if key_input.just_pressed(key) {
             if let Some(&block_type) = available.get(index) {
                 inventory.selected = Some(block_type);
+            } else {
+                // Empty slot - deselect
+                inventory.selected = None;
             }
         }
     }
@@ -2315,12 +2331,8 @@ const CONVEYOR_SPEED: f32 = 1.0; // seconds to transfer item
 /// Mining logic - automatically mine blocks below the miner
 fn miner_mining(
     time: Res<Time>,
-    mut commands: Commands,
     mut miner_query: Query<&mut Miner>,
-    mut world_data: ResMut<WorldData>,
-    chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    world_data: Res<WorldData>,
 ) {
     for mut miner in miner_query.iter_mut() {
         // Skip if buffer is full
@@ -2330,11 +2342,24 @@ fn miner_mining(
             }
         }
 
-        // Find block below miner
+        // Find block below miner to determine resource type
         let below_pos = miner.position + IVec3::new(0, -1, 0);
         let Some(&block_type) = world_data.get_block(below_pos) else {
             miner.progress = 0.0;
             continue;
+        };
+
+        // Only mine resource blocks (not grass/stone)
+        let resource_type = match block_type {
+            BlockType::IronOre => BlockType::IronOre,
+            BlockType::Coal => BlockType::Coal,
+            BlockType::CopperOre => BlockType::CopperOre,
+            BlockType::Stone => BlockType::Stone,
+            _ => {
+                // Can't mine this block type, skip
+                miner.progress = 0.0;
+                continue;
+            }
         };
 
         // Mine progress
@@ -2343,40 +2368,14 @@ fn miner_mining(
         if miner.progress >= 1.0 {
             miner.progress = 0.0;
 
-            // Remove block from world
-            world_data.remove_block(below_pos);
-
-            // Regenerate chunk mesh (with neighbor awareness)
-            let chunk_coord = WorldData::world_to_chunk(below_pos);
-            if let Some(new_mesh) = world_data.generate_chunk_mesh(chunk_coord) {
-                let mesh_handle = meshes.add(new_mesh);
-                let material = materials.add(StandardMaterial::default());
-
-                // Find and despawn old chunk mesh
-                for (entity, chunk_mesh) in chunk_mesh_query.iter() {
-                    if chunk_mesh.coord == chunk_coord {
-                        commands.entity(entity).despawn();
-                        break;
-                    }
-                }
-
-                let entity = commands.spawn((
-                    Mesh3d(mesh_handle),
-                    MeshMaterial3d(material),
-                    Transform::IDENTITY,
-                    ChunkMesh { coord: chunk_coord },
-                )).id();
-
-                world_data.chunk_entities.insert(chunk_coord, vec![entity]);
-            }
-
+            // Generate resource infinitely (don't remove block)
             // Add to buffer
             if let Some((buf_type, ref mut count)) = miner.buffer {
-                if buf_type == block_type {
+                if buf_type == resource_type {
                     *count += 1;
                 }
             } else {
-                miner.buffer = Some((block_type, 1));
+                miner.buffer = Some((resource_type, 1));
             }
         }
     }
