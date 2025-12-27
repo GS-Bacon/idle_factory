@@ -14,11 +14,27 @@ bevy = { version = "0.15", default-features = false, features = [
     "bevy_text",
     "bevy_gizmos",
     "bevy_dev_tools",
-    "multi_threaded",
-    "x11",
     "default_font",
 ] }
+
+# Native-only features
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { version = "0.15", default-features = false, features = [
+    "multi_threaded",
+    "x11",
+] }
+
+# WASM dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["Window"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # Enable optimizations for dependencies in dev mode for faster runtime
 [profile.dev.package."*"]
 opt-level = 3
+
+# Optimize WASM release builds
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
