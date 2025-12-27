@@ -12,8 +12,6 @@ bevy = { version = "0.15", default-features = false, features = [
     "bevy_render",
     "bevy_ui",
     "bevy_text",
-    "bevy_gizmos",
-    "bevy_dev_tools",
     "default_font",
 ] }
 
@@ -40,8 +38,9 @@ console_error_panic_hook = "0.1"
 [profile.dev.package."*"]
 opt-level = 3
 
-# Optimize WASM release builds
-[profile.wasm-release]
-inherits = "release"
+# Optimize release builds for size
+[profile.release]
 opt-level = "z"
-lto = true
+lto = "thin"
+codegen-units = 1
+strip = true

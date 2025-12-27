@@ -23,7 +23,8 @@ wasm-bindgen --out-dir web --target web \
 
 # wasm-optで最適化（サイズ＆速度）
 echo "Optimizing WASM..."
-wasm-opt -O3 web/idle_factory_bg.wasm -o web/idle_factory_bg_opt.wasm
+wasm-opt -O3 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals \
+    web/idle_factory_bg.wasm -o web/idle_factory_bg_opt.wasm
 mv web/idle_factory_bg_opt.wasm web/idle_factory_bg.wasm
 
 # サーバー起動（バックグラウンド）
