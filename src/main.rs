@@ -18,13 +18,22 @@ const CHUNK_SIZE: i32 = 16;
 const BLOCK_SIZE: f32 = 1.0;
 const PLAYER_SPEED: f32 = 5.0;
 const REACH_DISTANCE: f32 = 5.0;
-const VIEW_DISTANCE: i32 = 2; // How many chunks to load around player (radius)
+// WASM: Reduced view distance for better performance
+#[cfg(target_arch = "wasm32")]
+const VIEW_DISTANCE: i32 = 1; // 3x3 chunks for WASM
+
+#[cfg(not(target_arch = "wasm32"))]
+const VIEW_DISTANCE: i32 = 2; // 5x5 chunks for native
 
 // Camera settings
 const MOUSE_SENSITIVITY: f32 = 0.002; // Balanced sensitivity
 const KEY_ROTATION_SPEED: f32 = 2.0; // radians per second for arrow keys
 
 fn main() {
+    // WASM: Set panic hook to display errors in browser console
+    #[cfg(target_arch = "wasm32")]
+    console_error_panic_hook::set_once();
+
     let mut app = App::new();
 
     // Configure plugins based on platform
@@ -50,12 +59,14 @@ fn main() {
 
     #[cfg(target_arch = "wasm32")]
     {
-        // WASM: Use default plugins (no pipelined rendering available)
+        // WASM: Use default plugins with canvas selector
         app.add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "Idle Factory".into(),
-                    // WASM uses default present mode
+                    canvas: Some("#bevy-canvas".to_string()),
+                    fit_canvas_to_parent: true,
+                    prevent_default_event_handling: true,
                     ..default()
                 }),
                 ..default()

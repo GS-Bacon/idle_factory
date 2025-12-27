@@ -205,7 +205,10 @@
       "Bash(kill:*)",
       "Bash(dmesg:*)",
       "Bash(./build-wasm.sh:*)",
-      "Bash(rustup target add:*)"
+      "Bash(rustup target add:*)",
+      "Bash(./deploy-wasm.sh:*)",
+      "Bash(cargo install:*)",
+      "Bash(lsof:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

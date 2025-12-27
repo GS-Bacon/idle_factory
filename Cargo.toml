@@ -24,10 +24,17 @@ bevy = { version = "0.15", default-features = false, features = [
     "x11",
 ] }
 
+# WASM-specific Bevy features
+[target.'cfg(target_arch = "wasm32")'.dependencies.bevy]
+version = "0.15"
+default-features = false
+features = ["webgl2"]
+
 # WASM dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["Window"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
+console_error_panic_hook = "0.1"
 
 # Enable optimizations for dependencies in dev mode for faster runtime
 [profile.dev.package."*"]

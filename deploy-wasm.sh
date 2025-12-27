@@ -21,6 +21,11 @@ echo "Generating JS bindings..."
 wasm-bindgen --out-dir web --target web \
     target/wasm32-unknown-unknown/release/idle_factory.wasm
 
+# wasm-optで最適化（サイズ＆速度）
+echo "Optimizing WASM..."
+wasm-opt -O3 web/idle_factory_bg.wasm -o web/idle_factory_bg_opt.wasm
+mv web/idle_factory_bg_opt.wasm web/idle_factory_bg.wasm
+
 # サーバー起動（バックグラウンド）
 echo "Starting server..."
 cd web
