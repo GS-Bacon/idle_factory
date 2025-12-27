@@ -68,9 +68,29 @@
 
 ## 次の作業
 
-1. 実プレイ確認（ユーザー）
+1. WASMビルド完了 → コミュニティに公開してレビュー募集
+   ```bash
+   # ローカルで実行
+   ./build-wasm.sh
+   cd web && python3 -m http.server 8080
+   ```
+2. 実プレイ確認（ユーザー）
+
+## 将来のアイデア（実装しない）
+
+| アイデア | メモ |
+|----------|------|
+| Discord連携 | ゲーム専用チャンネルのログをIssue化、フィードバック自動収集。レビューが増えたら検討 |
 
 ## 作業ログ
+
+### 2025-12-27
+- **WASM対応を準備**
+  - Cargo.tomlにWASM用条件付き依存関係を追加
+  - main.rsでPipelinedRenderingPluginを条件付きコンパイル
+  - .cargo/config.tomlにgetrandom設定
+  - web/index.html、build-wasm.shを作成
+  - WASMビルド成功（wasm-bindgenはローカルで実行必要）
 
 ### 2025-12-26
 - **クエストシステムを実装**

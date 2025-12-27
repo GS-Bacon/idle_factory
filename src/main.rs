@@ -5,8 +5,11 @@ use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
-use bevy::window::{CursorGrabMode, PresentMode};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::window::PresentMode;
+use bevy::window::CursorGrabMode;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
@@ -22,10 +25,13 @@ const MOUSE_SENSITIVITY: f32 = 0.002; // Balanced sensitivity
 const KEY_ROTATION_SPEED: f32 = 2.0; // radians per second for arrow keys
 
 fn main() {
-    App::new()
-        // Disable pipelined rendering to reduce input lag (1 frame delay reduction)
-        // Trade-off: ~10-30% lower framerate, but much better input responsiveness
-        .add_plugins((
+    let mut app = App::new();
+
+    // Configure plugins based on platform
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Native: Disable pipelined rendering for lower input lag
+        app.add_plugins((
             DefaultPlugins
                 .build()
                 .disable::<PipelinedRenderingPlugin>()
@@ -39,7 +45,26 @@ fn main() {
                     ..default()
                 }),
             FrameTimeDiagnosticsPlugin,
-        ))
+        ));
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        // WASM: Use default plugins (no pipelined rendering available)
+        app.add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Idle Factory".into(),
+                    // WASM uses default present mode
+                    ..default()
+                }),
+                ..default()
+            }),
+            FrameTimeDiagnosticsPlugin,
+        ));
+    }
+
+    app
         .init_resource::<Inventory>()
         .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
