@@ -82,6 +82,15 @@ cat /tmp/wasm-game-sessions.jsonl | tail -3 | jq .
 
 ## WASMデプロイ
 
+### 自動リビルド（推奨）
+```bash
+./watch-wasm.sh
+```
+ファイル変更を監視して自動的にWASMをビルド・デプロイする。
+- `src/`, `Cargo.toml`, `assets/` を監視
+- 変更検知後500ms待機して実行（連続保存対策）
+- Ctrl+C で終了
+
 ### 手動デプロイ
 ```bash
 ./deploy-wasm.sh
@@ -90,11 +99,6 @@ cat /tmp/wasm-game-sessions.jsonl | tail -3 | jq .
 ### アクセスURL
 - ローカル: http://10.13.1.1:8080
 - Tailscale: http://100.84.170.32:8080
-
-### コミット後の運用
-1. コードを変更・コミット
-2. `./deploy-wasm.sh` を実行（WASMビルド＆サーバー再起動）
-3. ブラウザをリロードして確認
 
 ## 次の作業
 
