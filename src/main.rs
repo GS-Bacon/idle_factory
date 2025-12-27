@@ -1576,6 +1576,7 @@ fn block_break(
                                             meshes: &mut Assets<Mesh>,
                                             materials: &mut Assets<StandardMaterial>| {
                         // First despawn old entities BEFORE generating new mesh
+                        #[allow(unused_variables)]
                         let old_count = if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
                             let count = old_entities.len();
                             for entity in old_entities {
