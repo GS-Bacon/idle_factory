@@ -527,32 +527,32 @@ impl ChunkData {
         let mut indices: Vec<u32> = Vec::with_capacity(estimated_faces * 6);
 
         // Face definitions: (dx, dy, dz, vertices offsets)
-        // Counter-clockwise winding order for front faces (Bevy default)
-        // Vertices ordered so that when viewed from outside, they form CCW triangles
+        // Vertices ordered so that cross(v1-v0, v2-v0) points in normal direction
+        // Triangle indices: 0,1,2 and 0,2,3
         let faces: [(i32, i32, i32, [[f32; 3]; 4]); 6] = [
-            // +Y (top) - looking down at top face from above, CCW
+            // +Y (top): normal = (0,1,0)
             (0, 1, 0, [
-                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0]
+                [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]
             ]),
-            // -Y (bottom) - looking up at bottom face from below, CCW
+            // -Y (bottom): normal = (0,-1,0)
             (0, -1, 0, [
-                [0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [0.0, 0.0, 1.0]
             ]),
-            // +X (east) - looking at +X face from +X direction, CCW
+            // +X (east): normal = (1,0,0) - reversed order
             (1, 0, 0, [
-                [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]
+                [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 0.0, 0.0]
             ]),
-            // -X (west) - looking at -X face from -X direction, CCW
+            // -X (west): normal = (-1,0,0) - reversed order
             (-1, 0, 0, [
-                [0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]
+                [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 1.0]
             ]),
-            // +Z (south) - looking at +Z face from +Z direction, CCW
+            // +Z (south): normal = (0,0,1) - reversed order
             (0, 0, 1, [
-                [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]
+                [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0], [1.0, 0.0, 1.0]
             ]),
-            // -Z (north) - looking at -Z face from -Z direction, CCW
+            // -Z (north): normal = (0,0,-1) - reversed order
             (0, 0, -1, [
-                [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0]
+                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]
             ]),
         ];
 
@@ -622,12 +622,10 @@ impl ChunkData {
                         }
 
                         // Add 2 triangles (6 indices) for this face
-                        // Reversed winding order: CCW when viewed from outside
-                        // Bevy uses right-hand coordinate system (+Z = towards camera)
-                        // CCW = front face (not culled)
+                        // Standard order: vertices are already CCW when viewed from outside
                         indices.extend_from_slice(&[
-                            base_idx, base_idx + 2, base_idx + 1,
-                            base_idx, base_idx + 3, base_idx + 2,
+                            base_idx, base_idx + 1, base_idx + 2,
+                            base_idx, base_idx + 2, base_idx + 3,
                         ]);
                     }
                 }
@@ -3241,6 +3239,88 @@ mod tests {
             "Mesh should have more vertices after block removal. Before: {}, After: {}",
             vertex_count_before,
             vertex_count_after
+        );
+    }
+
+    #[test]
+    fn test_mesh_winding_order() {
+        // Test that mesh triangles have correct winding order (CCW when viewed from outside)
+        // This ensures faces are not culled by backface culling
+        let mut world = WorldData::default();
+        let chunk_coord = IVec2::new(0, 0);
+        world.chunks.insert(chunk_coord, ChunkData::generate(chunk_coord));
+
+        let mesh = world.generate_chunk_mesh(chunk_coord).unwrap();
+
+        // Get positions and indices
+        let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap() {
+            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.clone(),
+            _ => panic!("Unexpected vertex format"),
+        };
+
+        let indices = match mesh.indices().unwrap() {
+            bevy::render::mesh::Indices::U32(v) => v.clone(),
+            _ => panic!("Unexpected index format"),
+        };
+
+        // Get normals from mesh
+        let normals = match mesh.attribute(Mesh::ATTRIBUTE_NORMAL).unwrap() {
+            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.clone(),
+            _ => panic!("Unexpected normal format"),
+        };
+
+        // Check each triangle's winding order
+        let mut checked_triangles = 0;
+        let mut correct_winding = 0;
+        let mut wrong_examples: Vec<String> = Vec::new();
+
+        for tri in indices.chunks(3) {
+            let i0 = tri[0] as usize;
+            let i1 = tri[1] as usize;
+            let i2 = tri[2] as usize;
+
+            let v0 = Vec3::from_array(positions[i0]);
+            let v1 = Vec3::from_array(positions[i1]);
+            let v2 = Vec3::from_array(positions[i2]);
+
+            // Calculate face normal using cross product (CCW winding)
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            let cross = edge1.cross(edge2);
+
+            // Skip degenerate triangles
+            if cross.length() < 0.0001 {
+                continue;
+            }
+            let calculated_normal = cross.normalize();
+
+            // Get expected normal from vertex attribute
+            let expected_normal = Vec3::from_array(normals[i0]);
+
+            // Check if calculated normal matches expected normal (dot product > 0)
+            let dot = calculated_normal.dot(expected_normal);
+
+            checked_triangles += 1;
+            if dot > 0.9 {
+                correct_winding += 1;
+            } else if wrong_examples.len() < 3 {
+                wrong_examples.push(format!(
+                    "v0={:?}, v1={:?}, v2={:?}, calc_norm={:?}, expected={:?}, dot={:.3}",
+                    v0, v1, v2, calculated_normal, expected_normal, dot
+                ));
+            }
+        }
+
+        // All triangles should have correct winding order
+        let correct_percentage = (correct_winding as f32 / checked_triangles as f32) * 100.0;
+        assert!(
+            correct_percentage > 99.0,
+            "Winding order incorrect! Only {:.1}% of {} triangles have correct winding. \
+             This will cause backface culling issues (faces appearing as black holes).\n\
+             Examples of wrong triangles:\n{}",
+            correct_percentage,
+            checked_triangles,
+            wrong_examples.join("\n")
         );
     }
 
