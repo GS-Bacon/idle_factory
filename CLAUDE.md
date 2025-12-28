@@ -159,12 +159,13 @@ showFreezeLogs()  // フリーズ情報をテーブル表示
 #### 9. ログ出力の整理 ✅完了
 - println!は既に存在しない（整理済み）
 
-#### 10. エラーハンドリング改善
-- unwrap()をexpect()やResult処理に置換
+#### 10. エラーハンドリング改善 ✅完了
+- unwrap()をis_none_or/let elseパターンに置換
+- レイキャスト判定、精錬炉/粉砕機処理を改善
 
-#### 11. 設定ファイル外出し
-- config.toml（視野角、マウス感度、VIEW_DISTANCE等）
-- ハードコードされた値を設定化
+#### 11. 設定ファイル外出し ⏸️見送り
+- WASMではファイルシステムアクセスが制限される
+- 現状のconstants.rsで十分機能している
 
 ### プレイ確認必要
 
@@ -373,6 +374,16 @@ cargo install sccache --locked
 **ファイル**: `src/main.rs` の `generate_mesh_with_neighbors` 内の `faces` 配列
 
 ## 作業ログ
+
+### 2025-12-28
+- **エラーハンドリング改善**
+  - unwrap()をis_none_or/let elseパターンに置換
+  - レイキャスト判定（block_break, block_place, furnace_interaction）
+  - 精錬炉/粉砕機処理（furnace_smelting, crusher_processing, crusher_output）
+  - clippy警告ゼロ、テスト24件成功
+- **設定ファイル外出し見送り**
+  - WASMではファイルシステムアクセスが制限される
+  - 現状のconstants.rsで十分機能
 
 ### 2025-12-27
 - **ワインディング順序の修正（パフォーマンス向上）**
