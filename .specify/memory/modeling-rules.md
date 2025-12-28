@@ -7,6 +7,31 @@ ref:modeling-compact.md(detailed)|research:lowpoly-style-research.md
 base:mc/unturned-block+astroneer-textureless|shade:flat+vertex-edge-dark
 palette:material-color-only(no-uv)|tri-budget:tool50-200,machine200-1500
 
+## stylization(重要)
+
+principle:functional-part-exaggerate|avoid:uniform-straight-boring
+proportion:80-20(80%silhouette-from-20%feature)|contrast:thick-thin,sharp-round
+
+### tool-exaggeration
+pickaxe:curved-spike(not-straight),tip-sharp-hook,head-asymmetric
+hammer:oversized-head(1.5x-normal),face-slightly-convex,handle-taper
+axe:crescent-blade(三日月),edge-curved-sweep,poll-thick-counterweight
+wrench:large-jaw(2x-handle-width),grip-narrow,head-chunky
+shovel:wide-scoop-blade,curved-dish-shape,edge-rounded-not-flat
+drill:exaggerated-spiral,sharp-point,flutes-deep-cut
+
+### machine-exaggeration
+furnace:flame-opening-large,chimney-thick,body-bulky
+conveyor:rollers-visible-chunky,belt-thick,frame-industrial
+crusher:jaw-massive,teeth-prominent,hopper-wide
+miner:drill-bit-oversized,arm-mechanical-joints,base-heavy
+press:ram-thick,frame-sturdy,pressure-plate-wide
+
+### general-rule
+curve>straight:organic-sweep-preferred
+taper:handles-narrow-at-grip,heads-heavy-at-top
+silhouette:recognizable-at-10px,distinctive-outline
+
 ## tool-ratio
 
 handle:60-70%total|head-h:30-40%|head-w:4-6×handle-dia|grip:handle+15%
