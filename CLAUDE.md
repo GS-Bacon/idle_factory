@@ -376,6 +376,11 @@ cargo install sccache --locked
 ## 作業ログ
 
 ### 2025-12-28
+- **Pointer Lock API対応改善**
+  - ESC後のマウス挙動問題を修正
+  - オーバーレイ追加（「Click to Resume」表示）
+  - pointerlockchange/pointerlockerrorイベント対応
+  - 冗長なexitPointerLock()呼び出しを削除
 - **エラーハンドリング改善**
   - unwrap()をis_none_or/let elseパターンに置換
   - レイキャスト判定（block_break, block_place, furnace_interaction）
