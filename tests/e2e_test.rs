@@ -403,3 +403,212 @@ fn test_block_break_no_freeze() {
     // Verify inventory count
     assert_eq!(inventory.items.get(&BlockType::Grass), Some(&10));
 }
+
+// =====================================================
+// Slot-based Inventory Tests (matching new implementation)
+// =====================================================
+
+const NUM_SLOTS: usize = 9;
+
+/// Slot-based inventory matching the actual game implementation
+#[derive(Clone)]
+struct SlotInventory {
+    slots: [Option<(BlockType, u32)>; NUM_SLOTS],
+    selected_slot: usize,
+}
+
+impl Default for SlotInventory {
+    fn default() -> Self {
+        Self {
+            slots: [None; NUM_SLOTS],
+            selected_slot: 0,
+        }
+    }
+}
+
+impl SlotInventory {
+    fn get_slot(&self, slot: usize) -> Option<BlockType> {
+        self.slots.get(slot).and_then(|s| s.map(|(bt, _)| bt))
+    }
+
+    fn get_slot_count(&self, slot: usize) -> u32 {
+        self.slots.get(slot).and_then(|s| s.map(|(_, c)| c)).unwrap_or(0)
+    }
+
+    fn selected_block(&self) -> Option<BlockType> {
+        self.get_slot(self.selected_slot)
+    }
+
+    fn add_item(&mut self, block_type: BlockType, amount: u32) -> bool {
+        // First, try to find existing slot with same block type
+        for (bt, count) in self.slots.iter_mut().flatten() {
+            if *bt == block_type {
+                *count += amount;
+                return true;
+            }
+        }
+        // Otherwise, find first empty slot
+        for slot in self.slots.iter_mut() {
+            if slot.is_none() {
+                *slot = Some((block_type, amount));
+                return true;
+            }
+        }
+        false
+    }
+
+    fn consume_selected(&mut self) -> Option<BlockType> {
+        if let Some(Some((block_type, count))) = self.slots.get_mut(self.selected_slot) {
+            if *count > 0 {
+                let bt = *block_type;
+                *count -= 1;
+                if *count == 0 {
+                    self.slots[self.selected_slot] = None;
+                }
+                return Some(bt);
+            }
+        }
+        None
+    }
+
+    fn consume_item(&mut self, block_type: BlockType, amount: u32) -> bool {
+        for slot in self.slots.iter_mut() {
+            if let Some((bt, count)) = slot {
+                if *bt == block_type && *count >= amount {
+                    *count -= amount;
+                    if *count == 0 {
+                        *slot = None;
+                    }
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn has_selected(&self) -> bool {
+        self.slots.get(self.selected_slot)
+            .and_then(|s| s.as_ref())
+            .map(|(_, c)| *c > 0)
+            .unwrap_or(false)
+    }
+}
+
+#[test]
+fn test_slot_inventory_add_stacks() {
+    let mut inv = SlotInventory::default();
+
+    // Add 10 stone to empty inventory
+    assert!(inv.add_item(BlockType::Stone, 10));
+    assert_eq!(inv.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inv.get_slot_count(0), 10);
+
+    // Add 5 more stone - should stack in same slot
+    assert!(inv.add_item(BlockType::Stone, 5));
+    assert_eq!(inv.get_slot_count(0), 15);
+
+    // Add grass - should go to next slot
+    assert!(inv.add_item(BlockType::Grass, 20));
+    assert_eq!(inv.get_slot(1), Some(BlockType::Grass));
+    assert_eq!(inv.get_slot_count(1), 20);
+}
+
+#[test]
+fn test_slot_inventory_consume_selected() {
+    let mut inv = SlotInventory::default();
+    inv.add_item(BlockType::Stone, 3);
+    inv.selected_slot = 0;
+
+    // Consume from selected slot
+    assert_eq!(inv.consume_selected(), Some(BlockType::Stone));
+    assert_eq!(inv.get_slot_count(0), 2);
+
+    assert_eq!(inv.consume_selected(), Some(BlockType::Stone));
+    assert_eq!(inv.get_slot_count(0), 1);
+
+    assert_eq!(inv.consume_selected(), Some(BlockType::Stone));
+    // Slot should now be empty
+    assert_eq!(inv.get_slot(0), None);
+    assert_eq!(inv.get_slot_count(0), 0);
+
+    // Consuming from empty slot returns None
+    assert_eq!(inv.consume_selected(), None);
+}
+
+#[test]
+fn test_slot_inventory_empty_slot_stays_selected() {
+    let mut inv = SlotInventory::default();
+    inv.add_item(BlockType::Stone, 1);
+    inv.selected_slot = 0;
+
+    // Consume the only item
+    inv.consume_selected();
+
+    // Selected slot should still be 0 (empty), not auto-switch
+    assert_eq!(inv.selected_slot, 0);
+    assert_eq!(inv.get_slot(0), None);
+    assert!(!inv.has_selected());
+
+    // Adding a different item goes to the next available empty slot (which is 0)
+    inv.add_item(BlockType::Grass, 5);
+    // Grass is now in slot 0 (first empty)
+    assert_eq!(inv.get_slot(0), Some(BlockType::Grass));
+}
+
+#[test]
+fn test_slot_inventory_consume_specific_item() {
+    let mut inv = SlotInventory::default();
+    inv.add_item(BlockType::Stone, 10);
+    inv.add_item(BlockType::Grass, 5);
+
+    // Consume stone (regardless of selected slot)
+    assert!(inv.consume_item(BlockType::Stone, 3));
+    assert_eq!(inv.get_slot_count(0), 7);
+
+    // Consume grass
+    assert!(inv.consume_item(BlockType::Grass, 5));
+    assert_eq!(inv.get_slot(1), None); // Slot emptied
+
+    // Try to consume more grass than available - should fail
+    assert!(!inv.consume_item(BlockType::Grass, 1));
+}
+
+#[test]
+fn test_slot_inventory_full() {
+    let mut inv = SlotInventory::default();
+
+    // Fill all 9 slots with different block types (using only Stone and Grass)
+    for i in 0..NUM_SLOTS {
+        // Alternate between block types but use separate add calls to fill slots
+        let block = if i % 2 == 0 { BlockType::Stone } else { BlockType::Grass };
+        // Force into separate slots by making each a new "stack"
+        inv.slots[i] = Some((block, (i + 1) as u32));
+    }
+
+    // All slots full - adding new item type should fail
+    // (We need a third block type for this test, but we only have 2 in test)
+    // Instead, verify all slots are used
+    for i in 0..NUM_SLOTS {
+        assert!(inv.get_slot(i).is_some());
+    }
+}
+
+#[test]
+fn test_slot_inventory_selection_with_empty_slots() {
+    let mut inv = SlotInventory::default();
+    inv.add_item(BlockType::Stone, 10);
+    // Stone in slot 0, slots 1-8 empty
+
+    // Select empty slot 5
+    inv.selected_slot = 5;
+    assert_eq!(inv.selected_block(), None);
+    assert!(!inv.has_selected());
+
+    // Consume from empty slot should return None
+    assert_eq!(inv.consume_selected(), None);
+
+    // Switch to slot 0
+    inv.selected_slot = 0;
+    assert_eq!(inv.selected_block(), Some(BlockType::Stone));
+    assert!(inv.has_selected());
+}

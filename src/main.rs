@@ -7,7 +7,7 @@ mod constants;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy::input::mouse::AccumulatedMouseMotion;
+use bevy::input::mouse::{AccumulatedMouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 #[cfg(not(target_arch = "wasm32"))]
@@ -106,6 +106,7 @@ fn main() {
                 miner_output,
                 crusher_processing,
                 crusher_output,
+                furnace_output,
                 conveyor_transfer,
                 update_conveyor_item_visuals,
                 delivery_platform_receive,
@@ -144,6 +145,8 @@ struct CursorLockState {
     skip_frames: u8,
     /// Last mouse position for calculating delta in RDP/absolute mode
     last_mouse_pos: Option<Vec2>,
+    /// Skip next block break (used when resuming from pointer lock release)
+    just_locked: bool,
 }
 
 /// Font resource for UI text
@@ -386,11 +389,109 @@ struct QuestUIText;
 
 // === Resources ===
 
-#[derive(Resource, Default)]
+const NUM_SLOTS: usize = 9;
+
+#[derive(Resource)]
 struct Inventory {
-    items: HashMap<BlockType, u32>,
-    /// Currently selected block type for placement
-    selected: Option<BlockType>,
+    /// Fixed 9 slots, each can hold one block type with a count
+    slots: [Option<(BlockType, u32)>; NUM_SLOTS],
+    /// Currently selected slot index (0-8)
+    selected_slot: usize,
+}
+
+impl Default for Inventory {
+    fn default() -> Self {
+        Self {
+            slots: [None; NUM_SLOTS],
+            selected_slot: 0,
+        }
+    }
+}
+
+impl Inventory {
+    /// Get the block type at a given slot index (returns None for empty slots)
+    fn get_slot(&self, slot: usize) -> Option<BlockType> {
+        self.slots.get(slot).and_then(|s| s.map(|(bt, _)| bt))
+    }
+
+    /// Get the count at a given slot index
+    fn get_slot_count(&self, slot: usize) -> u32 {
+        self.slots.get(slot).and_then(|s| s.map(|(_, c)| c)).unwrap_or(0)
+    }
+
+    /// Get the currently selected block type (None if empty slot selected)
+    fn selected_block(&self) -> Option<BlockType> {
+        self.get_slot(self.selected_slot)
+    }
+
+    /// Add items to inventory, returns true if successful
+    fn add_item(&mut self, block_type: BlockType, amount: u32) -> bool {
+        // First, try to find existing slot with same block type
+        for (bt, count) in self.slots.iter_mut().flatten() {
+            if *bt == block_type {
+                *count += amount;
+                return true;
+            }
+        }
+        // Otherwise, find first empty slot
+        for slot in self.slots.iter_mut() {
+            if slot.is_none() {
+                *slot = Some((block_type, amount));
+                return true;
+            }
+        }
+        false // Inventory full
+    }
+
+    /// Remove one item from the selected slot, returns the block type if successful
+    fn consume_selected(&mut self) -> Option<BlockType> {
+        if let Some(Some((block_type, count))) = self.slots.get_mut(self.selected_slot) {
+            if *count > 0 {
+                let bt = *block_type;
+                *count -= 1;
+                if *count == 0 {
+                    self.slots[self.selected_slot] = None;
+                }
+                return Some(bt);
+            }
+        }
+        None
+    }
+
+    /// Check if we have the selected block type with count > 0
+    fn has_selected(&self) -> bool {
+        self.slots.get(self.selected_slot)
+            .and_then(|s| s.as_ref())
+            .map(|(_, c)| *c > 0)
+            .unwrap_or(false)
+    }
+
+    /// Consume a specific block type from inventory, returns true if successful
+    fn consume_item(&mut self, block_type: BlockType, amount: u32) -> bool {
+        for slot in self.slots.iter_mut() {
+            if let Some((bt, count)) = slot {
+                if *bt == block_type && *count >= amount {
+                    *count -= amount;
+                    if *count == 0 {
+                        *slot = None;
+                    }
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Get count of a specific block type in inventory
+    #[allow(dead_code)]
+    fn get_item_count(&self, block_type: BlockType) -> u32 {
+        for (bt, count) in self.slots.iter().flatten() {
+            if *bt == block_type {
+                return *count;
+            }
+        }
+        0
+    }
 }
 
 /// Single chunk data - blocks stored in a flat array for fast access
@@ -1183,13 +1284,14 @@ fn setup_initial_items(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut inventory: ResMut<Inventory>,
 ) {
-    // Give player initial items
-    inventory.items.insert(BlockType::IronOre, 5);
-    inventory.items.insert(BlockType::Coal, 5);
-    inventory.items.insert(BlockType::MinerBlock, 3);
-    inventory.items.insert(BlockType::ConveyorBlock, 10);
-    inventory.items.insert(BlockType::CrusherBlock, 2);
-    inventory.selected = Some(BlockType::MinerBlock);
+    // Give player initial items (order determines slot positions)
+    inventory.add_item(BlockType::MinerBlock, 3);      // Slot 0
+    inventory.add_item(BlockType::ConveyorBlock, 10);  // Slot 1
+    inventory.add_item(BlockType::CrusherBlock, 2);    // Slot 2
+    inventory.add_item(BlockType::FurnaceBlock, 2);    // Slot 3
+    inventory.add_item(BlockType::IronOre, 5);         // Slot 4
+    inventory.add_item(BlockType::Coal, 5);            // Slot 5
+    inventory.selected_slot = 0; // First slot (Miner)
 
     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
 
@@ -1220,6 +1322,7 @@ fn toggle_cursor_lock(
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
     interacting_furnace: Res<InteractingFurnace>,
+    mut cursor_state: ResMut<CursorLockState>,
 ) {
     let mut window = windows.single_mut();
 
@@ -1237,6 +1340,8 @@ fn toggle_cursor_lock(
         // Confined mode causes issues where mouse hits window edge and spins
         window.cursor_options.grab_mode = CursorGrabMode::Locked;
         window.cursor_options.visible = false;
+        // Mark that we just locked - skip next block break to avoid accidental destruction
+        cursor_state.just_locked = true;
     }
 }
 
@@ -1418,6 +1523,7 @@ fn block_break(
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut cursor_state: ResMut<CursorLockState>,
 ) {
     // Only break blocks when cursor is locked (to distinguish from lock-click)
     let window = windows.single();
@@ -1429,6 +1535,12 @@ fn block_break(
     }
 
     if !cursor_locked || !mouse_button.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    // Skip block break if we just locked the cursor (to avoid accidental destruction on resume click)
+    if cursor_state.just_locked {
+        cursor_state.just_locked = false;
         return;
     }
 
@@ -1563,10 +1675,8 @@ fn block_break(
         match hit_type {
             HitType::WorldBlock(pos) => {
                 if let Some(block_type) = world_data.remove_block(pos) {
-                    *inventory.items.entry(block_type).or_insert(0) += 1;
-                    if inventory.selected.is_none() {
-                        inventory.selected = Some(block_type);
-                    }
+                    inventory.add_item(block_type, 1);
+                    // No auto-select - keep current slot selected
 
                     // Regenerate the chunk mesh for the affected chunk (with neighbor awareness)
                     let chunk_coord = WorldData::world_to_chunk(pos);
@@ -1634,34 +1744,35 @@ fn block_break(
                 }
             }
             HitType::Conveyor(entity, item, item_visual) => {
-                commands.entity(entity).despawn();
-                // Also despawn item visual if present
+                // Use despawn_recursive to also remove arrow marker child
+                commands.entity(entity).despawn_recursive();
+                // Also despawn item visual if present (separate entity, not a child)
                 if let Some(visual_entity) = item_visual {
                     if item_visual_query.get(visual_entity).is_ok() {
                         commands.entity(visual_entity).despawn();
                     }
                 }
                 // Return conveyor to inventory
-                *inventory.items.entry(BlockType::ConveyorBlock).or_insert(0) += 1;
+                inventory.add_item(BlockType::ConveyorBlock, 1);
                 // Also drop any item on the conveyor
                 if let Some(item_type) = item {
-                    *inventory.items.entry(item_type).or_insert(0) += 1;
+                    inventory.add_item(item_type, 1);
                 }
             }
             HitType::Miner(entity) => {
-                commands.entity(entity).despawn();
+                commands.entity(entity).despawn_recursive();
                 // Return miner to inventory
-                *inventory.items.entry(BlockType::MinerBlock).or_insert(0) += 1;
+                inventory.add_item(BlockType::MinerBlock, 1);
             }
             HitType::Crusher(entity) => {
-                commands.entity(entity).despawn();
+                commands.entity(entity).despawn_recursive();
                 // Return crusher to inventory
-                *inventory.items.entry(BlockType::CrusherBlock).or_insert(0) += 1;
+                inventory.add_item(BlockType::CrusherBlock, 1);
             }
             HitType::Furnace(entity) => {
-                commands.entity(entity).despawn();
-                // Note: Furnace doesn't have a placeable block type yet, so we don't return anything
-                // TODO: Add FurnaceBlock to BlockType if we want to allow furnace placement
+                commands.entity(entity).despawn_recursive();
+                // Return furnace to inventory
+                inventory.add_item(BlockType::FurnaceBlock, 1);
             }
         }
     }
@@ -1690,15 +1801,10 @@ fn block_place(
     }
 
     // Check if we have a selected block type with items
-    let Some(selected_type) = inventory.selected else {
-        return;
-    };
-    let Some(&count) = inventory.items.get(&selected_type) else {
-        return;
-    };
-    if count == 0 {
+    if !inventory.has_selected() {
         return;
     }
+    let selected_type = inventory.selected_block().unwrap();
 
     let Ok((camera_transform, player_camera)) = camera_query.get_single() else {
         return;
@@ -1785,15 +1891,8 @@ fn block_place(
             }
         }
 
-        // Consume from inventory
-        if let Some(count) = inventory.items.get_mut(&selected_type) {
-            *count -= 1;
-            if *count == 0 {
-                inventory.items.remove(&selected_type);
-                // Select next available block type
-                inventory.selected = inventory.items.keys().next().copied();
-            }
-        }
+        // Consume from inventory (consume_selected handles count decrement and slot clearing)
+        inventory.consume_selected();
 
         // Get chunk coord for the placed block
         let chunk_coord = WorldData::world_to_chunk(place_pos);
@@ -1867,6 +1966,12 @@ fn block_place(
                     base_color: selected_type.color(),
                     ..default()
                 });
+                // Arrow mesh to indicate direction (small elongated cuboid pointing forward)
+                let arrow_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.15, BLOCK_SIZE * 0.05, BLOCK_SIZE * 0.4));
+                let arrow_material = materials.add(StandardMaterial {
+                    base_color: Color::srgb(0.9, 0.9, 0.2), // Yellow arrow
+                    ..default()
+                });
                 commands.spawn((
                     Mesh3d(conveyor_mesh),
                     MeshMaterial3d(material),
@@ -1882,7 +1987,14 @@ fn block_place(
                         progress: 0.0,
                         item_visual: None,
                     },
-                ));
+                )).with_children(|parent| {
+                    // Arrow child pointing in -Z direction (forward in local space)
+                    parent.spawn((
+                        Mesh3d(arrow_mesh),
+                        MeshMaterial3d(arrow_material),
+                        Transform::from_translation(Vec3::new(0.0, 0.2, -0.25)),
+                    ));
+                });
             }
             BlockType::CrusherBlock => {
                 // Machines are spawned as separate entities, no need to modify world data
@@ -1909,6 +2021,24 @@ fn block_place(
                         output_count: 0,
                         progress: 0.0,
                     },
+                ));
+            }
+            BlockType::FurnaceBlock => {
+                // Furnace - similar to crusher, spawns entity with Furnace component
+                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: selected_type.color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(cube_mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                    )),
+                    Furnace::default(),
                 ));
             }
             _ => {
@@ -1954,18 +2084,31 @@ fn yaw_to_direction(yaw: f32) -> Direction {
     }
 }
 
-/// Select block type with number keys (1, 2) or scroll wheel
+/// Select slot with number keys (1-9) or scroll wheel
 fn select_block_type(
     key_input: Res<ButtonInput<KeyCode>>,
+    mut mouse_wheel: EventReader<MouseWheel>,
     mut inventory: ResMut<Inventory>,
 ) {
-    // Get available block types from inventory
-    let available: Vec<BlockType> = inventory.items.keys().copied().collect();
-    if available.is_empty() {
-        return;
+    const NUM_SLOTS: usize = 9;
+
+    // Handle mouse wheel scroll (cycles through all 9 slots including empty)
+    for event in mouse_wheel.read() {
+        let scroll = event.y;
+        if scroll > 0.0 {
+            // Scroll up - previous slot
+            inventory.selected_slot = if inventory.selected_slot == 0 {
+                NUM_SLOTS - 1
+            } else {
+                inventory.selected_slot - 1
+            };
+        } else if scroll < 0.0 {
+            // Scroll down - next slot
+            inventory.selected_slot = (inventory.selected_slot + 1) % NUM_SLOTS;
+        }
     }
 
-    // Number keys to select specific types (1-9 for slots)
+    // Number keys to select specific slots (1-9)
     let digit_keys = [
         (KeyCode::Digit1, 0),
         (KeyCode::Digit2, 1),
@@ -1977,21 +2120,9 @@ fn select_block_type(
         (KeyCode::Digit8, 7),
         (KeyCode::Digit9, 8),
     ];
-    for (key, index) in digit_keys {
+    for (key, slot) in digit_keys {
         if key_input.just_pressed(key) {
-            if let Some(&block_type) = available.get(index) {
-                inventory.selected = Some(block_type);
-            } else {
-                // Empty slot - deselect
-                inventory.selected = None;
-            }
-        }
-    }
-
-    // Ensure selected is valid
-    if let Some(selected) = inventory.selected {
-        if !inventory.items.contains_key(&selected) {
-            inventory.selected = available.first().copied();
+            inventory.selected_slot = slot;
         }
     }
 }
@@ -2082,19 +2213,21 @@ fn update_hotbar_ui(
         return;
     }
 
-    let items: Vec<(BlockType, u32)> = inventory.items.iter().map(|(k, v)| (*k, *v)).collect();
-    let selected_index = inventory.selected.and_then(|s| items.iter().position(|(b, _)| *b == s));
-
-    // Update slot backgrounds
+    // Update slot backgrounds - use slot index for selection
     for (slot, mut bg, mut border) in slot_query.iter_mut() {
-        let is_selected = selected_index == Some(slot.0);
+        let is_selected = inventory.selected_slot == slot.0;
+        let has_item = inventory.get_slot(slot.0).is_some();
+
         if is_selected {
+            // Selected slot - same highlight for empty and filled
             *bg = BackgroundColor(Color::srgba(0.4, 0.4, 0.2, 0.9));
             *border = BorderColor(Color::srgba(1.0, 1.0, 0.5, 1.0));
-        } else if slot.0 < items.len() {
+        } else if has_item {
+            // Non-selected filled slot
             *bg = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.8));
             *border = BorderColor(Color::srgba(0.5, 0.5, 0.5, 1.0));
         } else {
+            // Non-selected empty slot
             *bg = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8));
             *border = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
         }
@@ -2102,7 +2235,8 @@ fn update_hotbar_ui(
 
     // Update slot counts
     for (slot_count, mut text) in count_query.iter_mut() {
-        if let Some((block_type, count)) = items.get(slot_count.0) {
+        if let Some(block_type) = inventory.get_slot(slot_count.0) {
+            let count = inventory.get_slot_count(slot_count.0);
             // Show abbreviated name and count
             let name = match block_type {
                 BlockType::Grass => "Grs",
@@ -2115,6 +2249,7 @@ fn update_hotbar_ui(
                 BlockType::CopperOre => "Cu",
                 BlockType::CopperIngot => "CuI",
                 BlockType::CrusherBlock => "Cru",
+                BlockType::FurnaceBlock => "Fur",
             };
             **text = format!("{}\n{}", name, count);
         } else {
@@ -2142,10 +2277,13 @@ fn furnace_interact(
         if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
             *vis = Visibility::Hidden;
         }
-        // Re-lock cursor when closing UI
+        // Don't re-lock cursor here - let user click to re-lock
+        // (ESC in WASM triggers browser's pointer lock release, causing overlay to show)
+        // Native: user clicks to re-lock via toggle_cursor_lock
+        // WASM: overlay handles click-to-resume
         let mut window = windows.single_mut();
-        window.cursor_options.grab_mode = CursorGrabMode::Locked;
-        window.cursor_options.visible = false;
+        window.cursor_options.grab_mode = CursorGrabMode::None;
+        window.cursor_options.visible = true;
         return;
     }
 
@@ -2213,51 +2351,30 @@ fn furnace_ui_input(
     };
 
     // [1] Add coal to furnace
-    if key_input.just_pressed(KeyCode::Digit1) {
-        if let Some(count) = inventory.items.get_mut(&BlockType::Coal) {
-            if *count > 0 {
-                *count -= 1;
-                furnace.fuel += 1;
-                if *count == 0 {
-                    inventory.items.remove(&BlockType::Coal);
-                }
-            }
+    if key_input.just_pressed(KeyCode::Digit1)
+        && inventory.consume_item(BlockType::Coal, 1) {
+            furnace.fuel += 1;
         }
-    }
 
     // [2] Add iron ore to furnace
-    if key_input.just_pressed(KeyCode::Digit2) {
-        if let Some(count) = inventory.items.get_mut(&BlockType::IronOre) {
-            if *count > 0 && furnace.can_add_input(BlockType::IronOre) {
-                *count -= 1;
-                furnace.input_type = Some(BlockType::IronOre);
-                furnace.input_count += 1;
-                if *count == 0 {
-                    inventory.items.remove(&BlockType::IronOre);
-                }
-            }
+    if key_input.just_pressed(KeyCode::Digit2)
+        && furnace.can_add_input(BlockType::IronOre) && inventory.consume_item(BlockType::IronOre, 1) {
+            furnace.input_type = Some(BlockType::IronOre);
+            furnace.input_count += 1;
         }
-    }
 
     // [3] Add copper ore to furnace
-    if key_input.just_pressed(KeyCode::Digit3) {
-        if let Some(count) = inventory.items.get_mut(&BlockType::CopperOre) {
-            if *count > 0 && furnace.can_add_input(BlockType::CopperOre) {
-                *count -= 1;
-                furnace.input_type = Some(BlockType::CopperOre);
-                furnace.input_count += 1;
-                if *count == 0 {
-                    inventory.items.remove(&BlockType::CopperOre);
-                }
-            }
+    if key_input.just_pressed(KeyCode::Digit3)
+        && furnace.can_add_input(BlockType::CopperOre) && inventory.consume_item(BlockType::CopperOre, 1) {
+            furnace.input_type = Some(BlockType::CopperOre);
+            furnace.input_count += 1;
         }
-    }
 
     // [4] Take output from furnace
     if key_input.just_pressed(KeyCode::Digit4) && furnace.output_count > 0 {
         if let Some(output_type) = furnace.output_type {
             furnace.output_count -= 1;
-            *inventory.items.entry(output_type).or_insert(0) += 1;
+            inventory.add_item(output_type, 1);
             if furnace.output_count == 0 {
                 furnace.output_type = None;
             }
@@ -2498,6 +2615,50 @@ fn crusher_output(
                 crusher.output_count -= 1;
                 if crusher.output_count == 0 {
                     crusher.output_type = None;
+                }
+                break;
+            }
+        }
+    }
+}
+
+/// Furnace output to conveyor
+fn furnace_output(
+    mut furnace_query: Query<(&Transform, &mut Furnace)>,
+    mut conveyor_query: Query<&mut Conveyor>,
+) {
+    for (transform, mut furnace) in furnace_query.iter_mut() {
+        let Some(output_type) = furnace.output_type else {
+            continue;
+        };
+
+        if furnace.output_count == 0 {
+            continue;
+        }
+
+        // Get furnace position from Transform
+        let furnace_pos = IVec3::new(
+            transform.translation.x.floor() as i32,
+            transform.translation.y.floor() as i32,
+            transform.translation.z.floor() as i32,
+        );
+
+        // Check for adjacent conveyor
+        let adjacent_positions = [
+            furnace_pos + IVec3::new(1, 0, 0),  // east
+            furnace_pos + IVec3::new(-1, 0, 0), // west
+            furnace_pos + IVec3::new(0, 0, 1),  // south
+            furnace_pos + IVec3::new(0, 0, -1), // north
+            furnace_pos + IVec3::new(0, 1, 0),  // above
+        ];
+
+        for mut conveyor in conveyor_query.iter_mut() {
+            if adjacent_positions.contains(&conveyor.position) && conveyor.item.is_none() {
+                // Transfer item to conveyor
+                conveyor.item = Some(output_type);
+                furnace.output_count -= 1;
+                if furnace.output_count == 0 {
+                    furnace.output_type = None;
                 }
                 break;
             }
@@ -3084,7 +3245,7 @@ fn quest_claim_rewards(
 
     // Add rewards to inventory
     for (block_type, amount) in &quest.rewards {
-        *inventory.items.entry(*block_type).or_insert(0) += amount;
+        inventory.add_item(*block_type, *amount);
     }
 
     current_quest.rewards_claimed = true;
@@ -3338,11 +3499,11 @@ mod tests {
     #[test]
     fn test_inventory_add() {
         let mut inventory = Inventory::default();
-        *inventory.items.entry(BlockType::Stone).or_insert(0) += 1;
-        assert_eq!(inventory.items.get(&BlockType::Stone), Some(&1));
+        inventory.add_item(BlockType::Stone, 1);
+        assert_eq!(inventory.get_item_count(BlockType::Stone), 1);
 
-        *inventory.items.entry(BlockType::Stone).or_insert(0) += 1;
-        assert_eq!(inventory.items.get(&BlockType::Stone), Some(&2));
+        inventory.add_item(BlockType::Stone, 1);
+        assert_eq!(inventory.get_item_count(BlockType::Stone), 2);
     }
 
     #[test]
@@ -3407,11 +3568,19 @@ mod tests {
     #[test]
     fn test_inventory_selected() {
         let mut inventory = Inventory::default();
-        assert!(inventory.selected.is_none());
+        assert_eq!(inventory.selected_slot, 0);
+        assert!(inventory.selected_block().is_none()); // No items, so no block at slot 0
 
-        // Add item and select it
-        inventory.items.insert(BlockType::Stone, 5);
-        inventory.selected = Some(BlockType::Stone);
-        assert_eq!(inventory.selected, Some(BlockType::Stone));
+        // Add item and verify it's accessible at slot 0
+        inventory.add_item(BlockType::Stone, 5);
+        // Stone should be in the first slot
+        assert!(inventory.selected_block().is_some());
+        assert_eq!(inventory.selected_block(), Some(BlockType::Stone));
+        assert_eq!(inventory.get_slot_count(0), 5);
+
+        // Change slot to empty slot
+        inventory.selected_slot = 1;
+        assert_eq!(inventory.selected_slot, 1);
+        assert!(inventory.selected_block().is_none());
     }
 }

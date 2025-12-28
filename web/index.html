@@ -3,7 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Idle Factory</title>
+    <title>Idle Factory - Voxel Factory Building Game</title>
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://100.84.170.32:8080/">
+    <meta property="og:title" content="Idle Factory - Voxel Factory Building Game">
+    <meta property="og:description" content="Build, mine, and automate your factory in this voxel-based factory building game. Craft miners, conveyors, and furnaces to create production lines.">
+    <meta property="og:image" content="http://100.84.170.32:8080/ogp.png">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="http://100.84.170.32:8080/">
+    <meta name="twitter:title" content="Idle Factory - Voxel Factory Building Game">
+    <meta name="twitter:description" content="Build, mine, and automate your factory in this voxel-based factory building game. Craft miners, conveyors, and furnaces to create production lines.">
+    <meta name="twitter:image" content="http://100.84.170.32:8080/ogp.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
     <style>
         html, body {
             margin: 0;
@@ -285,6 +302,12 @@
             logEvent('click', { btn: e.button });
         });
 
+        // Block mousedown on overlay to prevent Bevy from receiving the click
+        pointerLockOverlay.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+        });
+
         // Click on canvas or overlay to request pointer lock
         canvas.addEventListener('click', () => {
             if (gameStarted && !document.pointerLockElement) {
@@ -292,7 +315,9 @@
             }
         });
 
-        pointerLockOverlay.addEventListener('click', () => {
+        pointerLockOverlay.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent event from reaching canvas/Bevy
+            e.preventDefault();
             requestPointerLockSafe();
         });
 

@@ -376,6 +376,23 @@ cargo install sccache --locked
 ## 作業ログ
 
 ### 2025-12-28
+- **インベントリをスロットベースに完全リファクタリング**
+  - HashMap方式から固定9スロット配列に変更
+  - `add_item`, `consume_selected`, `consume_item`, `get_slot`, `get_slot_count`メソッド実装
+  - スロットが空になっても自動補充されなくなった（バグ修正）
+  - 空スロット選択時も位置を維持
+- **E2Eテスト拡充（18テスト）**
+  - スロットベースインベントリのテスト6件追加
+  - `test_slot_inventory_add_stacks`
+  - `test_slot_inventory_consume_selected`
+  - `test_slot_inventory_empty_slot_stays_selected`
+  - `test_slot_inventory_consume_specific_item`
+  - `test_slot_inventory_full`
+  - `test_slot_inventory_selection_with_empty_slots`
+- **OGP設定追加**
+  - Open Graph / Twitterカードメタタグ追加
+  - ゲームスクリーンショットをOGP画像として使用（ogp.png）
+  - ファビコン追加（⚙️絵文字SVG）
 - **Pointer Lock API対応改善**
   - ESC後のマウス挙動問題を修正
   - オーバーレイ追加（「Click to Resume」表示）
@@ -385,7 +402,7 @@ cargo install sccache --locked
   - unwrap()をis_none_or/let elseパターンに置換
   - レイキャスト判定（block_break, block_place, furnace_interaction）
   - 精錬炉/粉砕機処理（furnace_smelting, crusher_processing, crusher_output）
-  - clippy警告ゼロ、テスト24件成功
+  - clippy警告ゼロ、テスト30件成功（ユニット12 + E2E18）
 - **設定ファイル外出し見送り**
   - WASMではファイルシステムアクセスが制限される
   - 現状のconstants.rsで十分機能

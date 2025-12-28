@@ -16,6 +16,7 @@ pub enum BlockType {
     CopperOre,
     CopperIngot,
     CrusherBlock,
+    FurnaceBlock,
 }
 
 impl BlockType {
@@ -32,6 +33,7 @@ impl BlockType {
             BlockType::CopperOre => Color::srgb(0.7, 0.4, 0.3),
             BlockType::CopperIngot => Color::srgb(0.9, 0.5, 0.3),
             BlockType::CrusherBlock => Color::srgb(0.4, 0.3, 0.5),
+            BlockType::FurnaceBlock => Color::srgb(0.4, 0.3, 0.3),
         }
     }
 
@@ -48,6 +50,7 @@ impl BlockType {
             BlockType::CopperOre => "Copper Ore",
             BlockType::CopperIngot => "Copper Ingot",
             BlockType::CrusherBlock => "Crusher",
+            BlockType::FurnaceBlock => "Furnace",
         }
     }
 
@@ -56,7 +59,7 @@ impl BlockType {
     pub fn is_machine(&self) -> bool {
         matches!(
             self,
-            BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock
+            BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock | BlockType::FurnaceBlock
         )
     }
 }
