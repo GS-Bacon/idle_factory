@@ -1476,7 +1476,8 @@ fn block_break(
                 block_center + Vec3::splat(half_size),
             ) {
                 if hit_t > 0.0 && hit_t < REACH_DISTANCE {
-                    if closest_hit.is_none() || hit_t < closest_hit.as_ref().unwrap().1 {
+                    let is_closer = closest_hit.as_ref().is_none_or(|h| hit_t < h.1);
+                    if is_closer {
                         closest_hit = Some((HitType::WorldBlock(block_pos), hit_t));
                     }
                     break; // Found closest block
@@ -1494,11 +1495,11 @@ fn block_break(
             conveyor_pos - Vec3::new(half_size, 0.15, half_size),
             conveyor_pos + Vec3::new(half_size, 0.15, half_size),
         ) {
-            if t > 0.0
-                && t < REACH_DISTANCE
-                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
-            {
-                closest_hit = Some((HitType::Conveyor(entity, conveyor.item, conveyor.item_visual), t));
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = closest_hit.as_ref().is_none_or(|h| t < h.1);
+                if is_closer {
+                    closest_hit = Some((HitType::Conveyor(entity, conveyor.item, conveyor.item_visual), t));
+                }
             }
         }
     }
@@ -1512,11 +1513,11 @@ fn block_break(
             miner_pos - Vec3::splat(half_size),
             miner_pos + Vec3::splat(half_size),
         ) {
-            if t > 0.0
-                && t < REACH_DISTANCE
-                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
-            {
-                closest_hit = Some((HitType::Miner(entity), t));
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = closest_hit.as_ref().is_none_or(|h| t < h.1);
+                if is_closer {
+                    closest_hit = Some((HitType::Miner(entity), t));
+                }
             }
         }
     }
@@ -1530,11 +1531,11 @@ fn block_break(
             crusher_pos - Vec3::splat(half_size),
             crusher_pos + Vec3::splat(half_size),
         ) {
-            if t > 0.0
-                && t < REACH_DISTANCE
-                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
-            {
-                closest_hit = Some((HitType::Crusher(entity), t));
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = closest_hit.as_ref().is_none_or(|h| t < h.1);
+                if is_closer {
+                    closest_hit = Some((HitType::Crusher(entity), t));
+                }
             }
         }
     }
@@ -1548,11 +1549,11 @@ fn block_break(
             furnace_pos - Vec3::splat(half_size),
             furnace_pos + Vec3::splat(half_size),
         ) {
-            if t > 0.0
-                && t < REACH_DISTANCE
-                && (closest_hit.is_none() || t < closest_hit.as_ref().unwrap().1)
-            {
-                closest_hit = Some((HitType::Furnace(entity), t));
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = closest_hit.as_ref().is_none_or(|h| t < h.1);
+                if is_closer {
+                    closest_hit = Some((HitType::Furnace(entity), t));
+                }
             }
         }
     }
@@ -1732,7 +1733,8 @@ fn block_place(
                 block_center + Vec3::splat(half_size),
             ) {
                 if hit_t > 0.0 && hit_t < REACH_DISTANCE {
-                    if closest_hit.is_none() || hit_t < closest_hit.unwrap().2 {
+                    let is_closer = closest_hit.is_none_or(|h| hit_t < h.2);
+                    if is_closer {
                         closest_hit = Some((block_pos, normal, hit_t));
                     }
                     break;
@@ -2177,8 +2179,11 @@ fn furnace_interact(
             furnace_pos - Vec3::splat(half_size),
             furnace_pos + Vec3::splat(half_size),
         ) {
-            if t > 0.0 && t < REACH_DISTANCE && (closest_furnace.is_none() || t < closest_furnace.unwrap().1) {
-                closest_furnace = Some((entity, t));
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = closest_furnace.is_none_or(|f| t < f.1);
+                if is_closer {
+                    closest_furnace = Some((entity, t));
+                }
             }
         }
     }
@@ -2267,40 +2272,40 @@ fn furnace_smelting(
 ) {
     for mut furnace in furnace_query.iter_mut() {
         // Need fuel, input ore, and valid recipe to smelt
-        let can_smelt = furnace.fuel > 0
-            && furnace.input_count > 0
-            && furnace.input_type.is_some();
+        let Some(input_ore) = furnace.input_type else {
+            furnace.progress = 0.0;
+            continue;
+        };
 
-        if can_smelt {
-            let input_ore = furnace.input_type.unwrap();
-            let output_ingot = Furnace::get_smelt_output(input_ore);
+        if furnace.fuel == 0 || furnace.input_count == 0 {
+            furnace.progress = 0.0;
+            continue;
+        }
 
-            // Check output slot compatibility
-            let output_compatible = match (furnace.output_type, output_ingot) {
-                (None, Some(_)) => true,
-                (Some(current), Some(new)) => current == new && furnace.output_count < 64,
-                _ => false,
-            };
+        let output_ingot = Furnace::get_smelt_output(input_ore);
 
-            if output_compatible {
-                furnace.progress += time.delta_secs() / SMELT_TIME;
+        // Check output slot compatibility
+        let output_compatible = match (furnace.output_type, output_ingot) {
+            (None, Some(_)) => true,
+            (Some(current), Some(new)) => current == new && furnace.output_count < 64,
+            _ => false,
+        };
 
-                // When progress reaches 1.0, complete smelting
-                if furnace.progress >= 1.0 {
-                    furnace.progress = 0.0;
-                    furnace.fuel -= 1;
-                    furnace.input_count -= 1;
-                    if furnace.input_count == 0 {
-                        furnace.input_type = None;
-                    }
-                    furnace.output_type = output_ingot;
-                    furnace.output_count += 1;
-                }
-            } else {
+        if output_compatible {
+            furnace.progress += time.delta_secs() / SMELT_TIME;
+
+            // When progress reaches 1.0, complete smelting
+            if furnace.progress >= 1.0 {
                 furnace.progress = 0.0;
+                furnace.fuel -= 1;
+                furnace.input_count -= 1;
+                if furnace.input_count == 0 {
+                    furnace.input_type = None;
+                }
+                furnace.output_type = output_ingot;
+                furnace.output_count += 1;
             }
         } else {
-            // Reset progress if missing fuel or input
             furnace.progress = 0.0;
         }
     }
@@ -2313,30 +2318,34 @@ fn crusher_processing(
 ) {
     for mut crusher in crusher_query.iter_mut() {
         // Need input ore to process
-        if crusher.input_count > 0 && crusher.input_type.is_some() {
-            let input_ore = crusher.input_type.unwrap();
+        let Some(input_ore) = crusher.input_type else {
+            crusher.progress = 0.0;
+            continue;
+        };
 
-            // Check output slot compatibility (same ore type or empty, max 64)
-            let output_compatible = match crusher.output_type {
-                None => true,
-                Some(current) => current == input_ore && crusher.output_count < 63, // 63 because we add 2
-            };
+        if crusher.input_count == 0 {
+            crusher.progress = 0.0;
+            continue;
+        }
 
-            if output_compatible {
-                crusher.progress += time.delta_secs() / CRUSH_TIME;
+        // Check output slot compatibility (same ore type or empty, max 64)
+        let output_compatible = match crusher.output_type {
+            None => true,
+            Some(current) => current == input_ore && crusher.output_count < 63, // 63 because we add 2
+        };
 
-                // When progress reaches 1.0, complete crushing
-                if crusher.progress >= 1.0 {
-                    crusher.progress = 0.0;
-                    crusher.input_count -= 1;
-                    if crusher.input_count == 0 {
-                        crusher.input_type = None;
-                    }
-                    crusher.output_type = Some(input_ore);
-                    crusher.output_count += 2; // Double output!
-                }
-            } else {
+        if output_compatible {
+            crusher.progress += time.delta_secs() / CRUSH_TIME;
+
+            // When progress reaches 1.0, complete crushing
+            if crusher.progress >= 1.0 {
                 crusher.progress = 0.0;
+                crusher.input_count -= 1;
+                if crusher.input_count == 0 {
+                    crusher.input_type = None;
+                }
+                crusher.output_type = Some(input_ore);
+                crusher.output_count += 2; // Double output!
             }
         } else {
             crusher.progress = 0.0;
@@ -2465,11 +2474,13 @@ fn crusher_output(
     mut conveyor_query: Query<&mut Conveyor>,
 ) {
     for mut crusher in crusher_query.iter_mut() {
-        if crusher.output_count == 0 || crusher.output_type.is_none() {
+        let Some(output_type) = crusher.output_type else {
+            continue;
+        };
+
+        if crusher.output_count == 0 {
             continue;
         }
-
-        let output_type = crusher.output_type.unwrap();
 
         // Check for adjacent conveyor
         let adjacent_positions = [
