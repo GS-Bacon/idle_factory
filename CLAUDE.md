@@ -369,25 +369,73 @@ cargo install sccache --locked
 
 ## よくあるバグと対策
 
-### 地面が透ける（黒い穴）
+**重要**: 新機能実装時、このセクションのパターンに該当する場合は対応するテストも追加すること。
+
+### 1. 地面が透ける（黒い穴）
 **原因**: メッシュのワインディング順序が間違っている
 **症状**: 地面や壁に黒い穴が見える（バックフェースカリングで消える）
-**自動検出**: pre-commitフックで `src/main.rs` 変更時に自動テスト
-**手動検出**: `cargo test test_mesh_winding_order`
+**自動検出**: `cargo test test_mesh_winding_order`
 **対策**: 面定義の頂点順序を修正（`cross(v1-v0, v2-v0)` が法線方向を向くように）
-
-```
-正しい順序の確認方法:
-1. 三角形の3頂点 v0, v1, v2 を取得
-2. edge1 = v1 - v0, edge2 = v2 - v0
-3. cross(edge1, edge2) が法線と同じ方向なら正しい
-```
-
 **ファイル**: `src/main.rs` の `generate_mesh_with_neighbors` 内の `faces` 配列
+
+### 2. 機械設置時に地面が透ける
+**原因**: 機械設置時に`set_block()`で偽のブロックを登録していた
+**症状**: 採掘機・コンベア設置後、その場所の地面が消える
+**自動検出**: `cargo test test_machine_placement_no_block_registration`
+**対策**: 機械はエンティティなので`set_block()`を呼ばない
+**ファイル**: `src/main.rs` の `block_place` 関数
+
+### 3. エンティティ破壊時に子エンティティが残る
+**原因**: 親エンティティ削除時に子（アイテムビジュアル等）を削除していない
+**症状**: コンベア破壊後もアイテムが浮いている
+**自動検出**: `cargo test test_conveyor_destroy_cleans_item_visual`
+**対策**: 破壊時に関連エンティティもdespawn
+**ファイル**: `src/main.rs` の `block_break` 関数
+
+### 4. チャンク境界でブロックが消える
+**原因**: 隣接チャンクの情報なしでメッシュ生成
+**症状**: チャンク境界で片面だけ描画されない
+**自動検出**: `cargo test test_chunk_boundary_mesh`
+**対策**: `generate_mesh_with_neighbors` で隣接チャンク情報を渡す
+**ファイル**: `src/main.rs` の `chunk_mesh_update` システム
+
+### 5. ブロック設置/破壊時のフリーズ
+**原因**: チャンク再生成パターンが不統一
+**症状**: 特定操作で1-2秒フリーズ
+**自動検出**: `cargo test test_block_operations_no_freeze`
+**対策**: `block_place`と`block_break`で同じ再生成パターンを使用
+**ファイル**: `src/main.rs` の `block_place`, `block_break` 関数
+
+### 6. レイキャスト判定漏れ
+**原因**: 新しい機械/ブロックタイプを追加時にレイキャスト判定を追加し忘れ
+**症状**: 特定の機械に対してクリックが効かない
+**自動検出**: `cargo test test_raycast_hits_all_machine_types`
+**対策**: 新機械追加時は必ず`block_break`と`block_place`のレイキャスト判定を更新
+**ファイル**: `src/main.rs` の `block_break`, `block_place`, `furnace_interaction` 関数
+
+### 実装時のチェックリスト
+
+新機能追加時に確認:
+- [ ] メッシュ生成を変更した → ワインディング順序テスト確認
+- [ ] 機械を追加した → レイキャスト判定追加、破壊時クリーンアップ追加
+- [ ] 子エンティティを持つ機械 → 破壊時に子もdespawn
+- [ ] チャンク操作を変更した → 境界テスト確認
+- [ ] ブロック操作を変更した → フリーズテスト確認
 
 ## 作業ログ
 
 ### 2025-12-28
+- **E2Eテスト大幅拡充（30→52テスト）**
+  - 機械コンポーネントテスト: Miner, Conveyor, Furnace, Crusher
+  - エンティティクリーンアップテスト: コンベア破壊時のアイテム残留検出
+  - クエスト・納品プラットフォームテスト
+  - チャンク境界メッシュテスト
+  - 自動化ライン統合テスト（Miner→Conv→Crusher→Conv→Furnace→Conv→Delivery）
+  - レイキャスト全機械タイプテスト
+- **CLAUDE.md「よくあるバグと対策」拡張**
+  - 6つのバグパターンをドキュメント化
+  - 実装時のチェックリスト追加
+  - 過去の失敗から学習し、同じバグを再発させない仕組み
 - **インベントリをスロットベースに完全リファクタリング**
   - HashMap方式から固定9スロット配列に変更
   - `add_item`, `consume_selected`, `consume_item`, `get_slot`, `get_slot_count`メソッド実装
