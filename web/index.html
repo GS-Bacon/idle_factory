@@ -61,10 +61,43 @@
             font-family: monospace;
             font-size: 12px;
         }
+        #pointer-lock-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            cursor: pointer;
+        }
+        #pointer-lock-overlay .message {
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 30px 50px;
+            border-radius: 10px;
+            font-family: sans-serif;
+            font-size: 20px;
+            text-align: center;
+        }
+        #pointer-lock-overlay .hint {
+            font-size: 14px;
+            color: #aaa;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <canvas id="bevy-canvas"></canvas>
+    <div id="pointer-lock-overlay">
+        <div class="message">
+            Click to Resume
+            <div class="hint">Press ESC to pause</div>
+        </div>
+    </div>
     <div id="loading">
         <div>Idle Factory</div>
         <div class="progress-container">
@@ -219,29 +252,68 @@
             if (trackedKeys.has(key)) {
                 logEvent('key', { k: key });
             }
-            // ESC to exit pointer lock
-            if (key === 'escape' && document.pointerLockElement) {
-                document.exitPointerLock();
+            // Note: ESC automatically exits pointer lock (browser behavior)
+            // No need to call document.exitPointerLock() manually
+        });
+
+        // Pointer Lock management
+        const canvas = document.getElementById('bevy-canvas');
+        const pointerLockOverlay = document.getElementById('pointer-lock-overlay');
+        let gameStarted = false;
+        let pointerLockActive = false;
+
+        function requestPointerLockSafe() {
+            if (!document.pointerLockElement) {
+                canvas.requestPointerLock().catch(err => {
+                    console.warn('Pointer lock request failed:', err);
+                });
+            }
+        }
+
+        function showOverlay() {
+            if (gameStarted) {
+                pointerLockOverlay.style.display = 'flex';
+            }
+        }
+
+        function hideOverlay() {
+            pointerLockOverlay.style.display = 'none';
+        }
+
+        // Track mouse clicks and handle pointer lock
+        window.addEventListener('mousedown', (e) => {
+            logEvent('click', { btn: e.button });
+        });
+
+        // Click on canvas or overlay to request pointer lock
+        canvas.addEventListener('click', () => {
+            if (gameStarted && !document.pointerLockElement) {
+                requestPointerLockSafe();
             }
         });
 
-        // Track mouse clicks and handle pointer lock
-        const canvas = document.getElementById('bevy-canvas');
-        window.addEventListener('mousedown', (e) => {
-            logEvent('click', { btn: e.button });
-            // Request pointer lock on canvas click (required for WASM)
-            if (e.target === canvas && !document.pointerLockElement) {
-                canvas.requestPointerLock();
-            }
+        pointerLockOverlay.addEventListener('click', () => {
+            requestPointerLockSafe();
         });
 
         // Handle pointer lock change
         document.addEventListener('pointerlockchange', () => {
             if (document.pointerLockElement === canvas) {
+                pointerLockActive = true;
+                hideOverlay();
                 logEvent('pointer_locked');
             } else {
+                pointerLockActive = false;
+                showOverlay();
                 logEvent('pointer_unlocked');
             }
+        });
+
+        // Handle pointer lock error
+        document.addEventListener('pointerlockerror', () => {
+            console.warn('Pointer lock error');
+            logEvent('pointer_lock_error');
+            showOverlay();
         });
 
         // Send logs periodically and on page unload
@@ -309,6 +381,8 @@
 
                 setProgress(100, 'Starting game...');
                 loadingEl.style.display = 'none';
+                gameStarted = true;
+                showOverlay(); // Show "Click to start" overlay
                 logEvent('game_started');
                 trackFps(); // Start FPS tracking
             } catch (e) {
@@ -316,6 +390,8 @@
                 if (e.toString().includes("Using exceptions for control flow")) {
                     console.log("Game started (winit control flow exception - this is normal)");
                     loadingEl.style.display = 'none';
+                    gameStarted = true;
+                    showOverlay(); // Show "Click to start" overlay
                     logEvent('game_started');
                     trackFps(); // Start FPS tracking
                     return;
