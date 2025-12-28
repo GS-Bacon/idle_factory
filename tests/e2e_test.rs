@@ -612,3 +612,1022 @@ fn test_slot_inventory_selection_with_empty_slots() {
     assert_eq!(inv.selected_block(), Some(BlockType::Stone));
     assert!(inv.has_selected());
 }
+
+// =====================================================
+// Machine Component Tests
+// =====================================================
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Direction {
+    North,
+    South,
+    East,
+    West,
+}
+
+impl Direction {
+    fn to_ivec3(&self) -> IVec3 {
+        match self {
+            Direction::North => IVec3::new(0, 0, -1),
+            Direction::South => IVec3::new(0, 0, 1),
+            Direction::East => IVec3::new(1, 0, 0),
+            Direction::West => IVec3::new(-1, 0, 0),
+        }
+    }
+}
+
+/// Miner component for testing
+struct Miner {
+    position: IVec3,
+    progress: f32,
+    buffer: Option<(BlockType, u32)>,
+}
+
+impl Default for Miner {
+    fn default() -> Self {
+        Self {
+            position: IVec3::ZERO,
+            progress: 0.0,
+            buffer: None,
+        }
+    }
+}
+
+impl Miner {
+    fn tick(&mut self, delta_seconds: f32, ore_type: Option<BlockType>) -> bool {
+        // Mining takes 5 seconds
+        const MINING_TIME: f32 = 5.0;
+
+        if ore_type.is_none() {
+            return false;
+        }
+
+        self.progress += delta_seconds / MINING_TIME;
+        if self.progress >= 1.0 {
+            self.progress = 0.0;
+            let ore = ore_type.unwrap();
+            if let Some((bt, ref mut count)) = self.buffer {
+                if bt == ore {
+                    *count += 1;
+                }
+            } else {
+                self.buffer = Some((ore, 1));
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    fn take_output(&mut self) -> Option<BlockType> {
+        if let Some((bt, ref mut count)) = self.buffer {
+            if *count > 0 {
+                *count -= 1;
+                let result = bt;
+                if *count == 0 {
+                    self.buffer = None;
+                }
+                return Some(result);
+            }
+        }
+        None
+    }
+}
+
+/// Conveyor component for testing
+struct Conveyor {
+    position: IVec3,
+    direction: Direction,
+    item: Option<BlockType>,
+    progress: f32,
+}
+
+impl Conveyor {
+    fn new(position: IVec3, direction: Direction) -> Self {
+        Self {
+            position,
+            direction,
+            item: None,
+            progress: 0.0,
+        }
+    }
+
+    fn accept_item(&mut self, item: BlockType) -> bool {
+        if self.item.is_none() {
+            self.item = Some(item);
+            self.progress = 0.0;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn tick(&mut self, delta_seconds: f32) -> Option<BlockType> {
+        const TRANSFER_TIME: f32 = 0.5;
+
+        if self.item.is_none() {
+            return None;
+        }
+
+        self.progress += delta_seconds / TRANSFER_TIME;
+        if self.progress >= 1.0 {
+            self.progress = 0.0;
+            self.item.take()
+        } else {
+            None
+        }
+    }
+
+    fn output_position(&self) -> IVec3 {
+        self.position + self.direction.to_ivec3()
+    }
+}
+
+/// Furnace component for testing
+struct Furnace {
+    fuel: u32,
+    input_type: Option<BlockType>,
+    input_count: u32,
+    output_type: Option<BlockType>,
+    output_count: u32,
+    progress: f32,
+}
+
+impl Default for Furnace {
+    fn default() -> Self {
+        Self {
+            fuel: 0,
+            input_type: None,
+            input_count: 0,
+            output_type: None,
+            output_count: 0,
+            progress: 0.0,
+        }
+    }
+}
+
+impl Furnace {
+    fn add_fuel(&mut self, count: u32) {
+        self.fuel += count;
+    }
+
+    fn add_input(&mut self, ore_type: BlockType) -> bool {
+        if self.input_type.is_none() || self.input_type == Some(ore_type) {
+            self.input_type = Some(ore_type);
+            self.input_count += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn tick(&mut self, delta_seconds: f32) -> bool {
+        const SMELT_TIME: f32 = 3.0;
+
+        // Need fuel and input to smelt
+        if self.fuel == 0 || self.input_count == 0 {
+            return false;
+        }
+
+        self.progress += delta_seconds / SMELT_TIME;
+        if self.progress >= 1.0 {
+            self.progress = 0.0;
+            self.fuel -= 1;
+            self.input_count -= 1;
+            if self.input_count == 0 {
+                self.input_type = None;
+            }
+            // Produce ingot
+            self.output_type = Some(BlockType::Stone); // Simplified: IronIngot
+            self.output_count += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn take_output(&mut self) -> Option<BlockType> {
+        if self.output_count > 0 {
+            self.output_count -= 1;
+            let result = self.output_type;
+            if self.output_count == 0 {
+                self.output_type = None;
+            }
+            result
+        } else {
+            None
+        }
+    }
+}
+
+/// Crusher component for testing (doubles ore output)
+struct Crusher {
+    input_type: Option<BlockType>,
+    input_count: u32,
+    output_type: Option<BlockType>,
+    output_count: u32,
+    progress: f32,
+}
+
+impl Default for Crusher {
+    fn default() -> Self {
+        Self {
+            input_type: None,
+            input_count: 0,
+            output_type: None,
+            output_count: 0,
+            progress: 0.0,
+        }
+    }
+}
+
+impl Crusher {
+    fn add_input(&mut self, ore_type: BlockType) -> bool {
+        if self.input_type.is_none() || self.input_type == Some(ore_type) {
+            self.input_type = Some(ore_type);
+            self.input_count += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn tick(&mut self, delta_seconds: f32) -> bool {
+        const CRUSH_TIME: f32 = 2.0;
+
+        if self.input_count == 0 {
+            return false;
+        }
+
+        self.progress += delta_seconds / CRUSH_TIME;
+        if self.progress >= 1.0 {
+            self.progress = 0.0;
+            self.input_count -= 1;
+            let ore = self.input_type.unwrap();
+            if self.input_count == 0 {
+                self.input_type = None;
+            }
+            // Double the output
+            self.output_type = Some(ore);
+            self.output_count += 2;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn take_output(&mut self) -> Option<BlockType> {
+        if self.output_count > 0 {
+            self.output_count -= 1;
+            let result = self.output_type;
+            if self.output_count == 0 {
+                self.output_type = None;
+            }
+            result
+        } else {
+            None
+        }
+    }
+}
+
+#[test]
+fn test_miner_mining_cycle() {
+    let mut miner = Miner::default();
+
+    // Simulate mining iron ore
+    let ore_type = Some(BlockType::Stone); // Representing iron ore
+
+    // Not enough time passed
+    assert!(!miner.tick(2.0, ore_type));
+    assert!(miner.buffer.is_none());
+
+    // Complete mining (5 seconds total)
+    assert!(miner.tick(3.0, ore_type));
+    assert_eq!(miner.buffer, Some((BlockType::Stone, 1)));
+
+    // Take output
+    assert_eq!(miner.take_output(), Some(BlockType::Stone));
+    assert!(miner.buffer.is_none());
+}
+
+#[test]
+fn test_miner_no_ore_below() {
+    let mut miner = Miner::default();
+
+    // No ore type means no mining
+    assert!(!miner.tick(10.0, None));
+    assert!(miner.buffer.is_none());
+}
+
+#[test]
+fn test_conveyor_item_transfer() {
+    let mut conv = Conveyor::new(IVec3::new(5, 8, 5), Direction::East);
+
+    // Accept item
+    assert!(conv.accept_item(BlockType::Stone));
+    assert_eq!(conv.item, Some(BlockType::Stone));
+
+    // Can't accept another while occupied
+    assert!(!conv.accept_item(BlockType::Grass));
+
+    // Transfer takes 0.5 seconds
+    assert!(conv.tick(0.3).is_none());
+    assert_eq!(conv.tick(0.3), Some(BlockType::Stone));
+    assert!(conv.item.is_none());
+}
+
+#[test]
+fn test_conveyor_chain() {
+    // Simulate: Miner -> Conv1 -> Conv2 -> (output)
+    let mut miner = Miner::default();
+    miner.buffer = Some((BlockType::Stone, 1));
+
+    let mut conv1 = Conveyor::new(IVec3::new(6, 8, 5), Direction::East);
+    let mut conv2 = Conveyor::new(IVec3::new(7, 8, 5), Direction::East);
+
+    // Miner outputs to conv1
+    if let Some(item) = miner.take_output() {
+        assert!(conv1.accept_item(item));
+    }
+
+    // Conv1 transfers to conv2
+    if let Some(item) = conv1.tick(0.5) {
+        assert!(conv2.accept_item(item));
+    }
+
+    // Conv2 outputs
+    let output = conv2.tick(0.5);
+    assert_eq!(output, Some(BlockType::Stone));
+}
+
+#[test]
+fn test_furnace_smelting() {
+    let mut furnace = Furnace::default();
+
+    // Add fuel and input
+    furnace.add_fuel(1);
+    furnace.add_input(BlockType::Stone); // Representing iron ore
+
+    // Smelting takes 3 seconds
+    assert!(!furnace.tick(2.0));
+    assert!(furnace.tick(1.0));
+
+    // Check output
+    assert_eq!(furnace.output_count, 1);
+    assert_eq!(furnace.take_output(), Some(BlockType::Stone));
+
+    // Fuel consumed
+    assert_eq!(furnace.fuel, 0);
+}
+
+#[test]
+fn test_furnace_no_fuel() {
+    let mut furnace = Furnace::default();
+    furnace.add_input(BlockType::Stone);
+
+    // No smelting without fuel
+    assert!(!furnace.tick(10.0));
+    assert_eq!(furnace.output_count, 0);
+}
+
+#[test]
+fn test_crusher_doubles_output() {
+    let mut crusher = Crusher::default();
+
+    crusher.add_input(BlockType::Stone);
+
+    // Crushing takes 2 seconds
+    assert!(crusher.tick(2.0));
+
+    // Should produce 2 outputs
+    assert_eq!(crusher.output_count, 2);
+    assert_eq!(crusher.take_output(), Some(BlockType::Stone));
+    assert_eq!(crusher.take_output(), Some(BlockType::Stone));
+    assert!(crusher.take_output().is_none());
+}
+
+// =====================================================
+// Entity Cleanup Tests (Bug Prevention)
+// =====================================================
+
+/// Simulates entity management for cleanup testing
+struct EntityManager {
+    entities: HashMap<u32, EntityData>,
+    next_id: u32,
+}
+
+struct EntityData {
+    entity_type: EntityType,
+    children: Vec<u32>,
+    item_visual: Option<u32>,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum EntityType {
+    Conveyor,
+    Miner,
+    Furnace,
+    ItemVisual,
+}
+
+impl EntityManager {
+    fn new() -> Self {
+        Self {
+            entities: HashMap::new(),
+            next_id: 1,
+        }
+    }
+
+    fn spawn(&mut self, entity_type: EntityType) -> u32 {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.entities.insert(id, EntityData {
+            entity_type,
+            children: Vec::new(),
+            item_visual: None,
+        });
+        id
+    }
+
+    fn spawn_conveyor_with_item(&mut self) -> (u32, u32) {
+        let conveyor_id = self.spawn(EntityType::Conveyor);
+        let item_id = self.spawn(EntityType::ItemVisual);
+
+        if let Some(conveyor) = self.entities.get_mut(&conveyor_id) {
+            conveyor.item_visual = Some(item_id);
+        }
+
+        (conveyor_id, item_id)
+    }
+
+    fn despawn_with_cleanup(&mut self, id: u32) {
+        if let Some(entity) = self.entities.remove(&id) {
+            // Despawn children
+            for child_id in entity.children {
+                self.entities.remove(&child_id);
+            }
+            // Despawn item visual if present (THIS IS THE BUG FIX CHECK)
+            if let Some(visual_id) = entity.item_visual {
+                self.entities.remove(&visual_id);
+            }
+        }
+    }
+
+    fn despawn_without_cleanup(&mut self, id: u32) {
+        // BUG: This doesn't clean up item_visual
+        self.entities.remove(&id);
+    }
+
+    fn exists(&self, id: u32) -> bool {
+        self.entities.contains_key(&id)
+    }
+
+    fn count_by_type(&self, entity_type: EntityType) -> usize {
+        self.entities.values().filter(|e| e.entity_type == entity_type).count()
+    }
+}
+
+#[test]
+fn test_conveyor_destroy_cleans_item_visual() {
+    let mut manager = EntityManager::new();
+
+    // Spawn conveyor with item
+    let (conveyor_id, item_id) = manager.spawn_conveyor_with_item();
+
+    assert!(manager.exists(conveyor_id));
+    assert!(manager.exists(item_id));
+    assert_eq!(manager.count_by_type(EntityType::ItemVisual), 1);
+
+    // Destroy conveyor WITH proper cleanup (correct behavior)
+    manager.despawn_with_cleanup(conveyor_id);
+
+    // Both should be gone
+    assert!(!manager.exists(conveyor_id));
+    assert!(!manager.exists(item_id));
+    assert_eq!(manager.count_by_type(EntityType::ItemVisual), 0);
+}
+
+#[test]
+fn test_conveyor_destroy_bug_detection() {
+    let mut manager = EntityManager::new();
+
+    // Spawn conveyor with item
+    let (conveyor_id, item_id) = manager.spawn_conveyor_with_item();
+
+    // Destroy conveyor WITHOUT cleanup (the bug)
+    manager.despawn_without_cleanup(conveyor_id);
+
+    // Conveyor gone but item remains (BUG!)
+    assert!(!manager.exists(conveyor_id));
+    assert!(manager.exists(item_id)); // This is the bug
+    assert_eq!(manager.count_by_type(EntityType::ItemVisual), 1); // Orphaned!
+}
+
+#[test]
+fn test_multiple_conveyors_cleanup() {
+    let mut manager = EntityManager::new();
+
+    // Spawn 5 conveyors with items
+    let mut pairs = Vec::new();
+    for _ in 0..5 {
+        pairs.push(manager.spawn_conveyor_with_item());
+    }
+
+    assert_eq!(manager.count_by_type(EntityType::Conveyor), 5);
+    assert_eq!(manager.count_by_type(EntityType::ItemVisual), 5);
+
+    // Destroy all conveyors properly
+    for (conveyor_id, _) in pairs {
+        manager.despawn_with_cleanup(conveyor_id);
+    }
+
+    // All should be cleaned up
+    assert_eq!(manager.count_by_type(EntityType::Conveyor), 0);
+    assert_eq!(manager.count_by_type(EntityType::ItemVisual), 0);
+}
+
+// =====================================================
+// Quest and Delivery Platform Tests
+// =====================================================
+
+#[derive(Clone)]
+struct QuestDef {
+    target_item: BlockType,
+    required_count: u32,
+    reward_items: Vec<(BlockType, u32)>,
+}
+
+struct CurrentQuest {
+    index: usize,
+    progress: u32,
+    completed: bool,
+    rewards_claimed: bool,
+}
+
+impl CurrentQuest {
+    fn new(index: usize) -> Self {
+        Self {
+            index,
+            progress: 0,
+            completed: false,
+            rewards_claimed: false,
+        }
+    }
+
+    fn add_progress(&mut self, quest: &QuestDef, amount: u32) {
+        if self.completed {
+            return;
+        }
+        self.progress += amount;
+        if self.progress >= quest.required_count {
+            self.completed = true;
+        }
+    }
+
+    fn claim_rewards(&mut self, quest: &QuestDef, inventory: &mut SlotInventory) -> bool {
+        if !self.completed || self.rewards_claimed {
+            return false;
+        }
+        for (item, count) in &quest.reward_items {
+            inventory.add_item(*item, *count);
+        }
+        self.rewards_claimed = true;
+        true
+    }
+}
+
+struct DeliveryPlatform {
+    delivered: HashMap<BlockType, u32>,
+}
+
+impl DeliveryPlatform {
+    fn new() -> Self {
+        Self {
+            delivered: HashMap::new(),
+        }
+    }
+
+    fn deliver(&mut self, item: BlockType) {
+        *self.delivered.entry(item).or_insert(0) += 1;
+    }
+
+    fn get_delivered(&self, item: BlockType) -> u32 {
+        *self.delivered.get(&item).unwrap_or(&0)
+    }
+}
+
+#[test]
+fn test_quest_progress() {
+    let quest = QuestDef {
+        target_item: BlockType::Stone, // Representing IronIngot
+        required_count: 3,
+        reward_items: vec![(BlockType::Grass, 10)],
+    };
+
+    let mut current = CurrentQuest::new(0);
+
+    // Add progress
+    current.add_progress(&quest, 1);
+    assert_eq!(current.progress, 1);
+    assert!(!current.completed);
+
+    current.add_progress(&quest, 2);
+    assert_eq!(current.progress, 3);
+    assert!(current.completed);
+}
+
+#[test]
+fn test_quest_rewards() {
+    let quest = QuestDef {
+        target_item: BlockType::Stone,
+        required_count: 1,
+        reward_items: vec![(BlockType::Grass, 5), (BlockType::Stone, 3)],
+    };
+
+    let mut current = CurrentQuest::new(0);
+    let mut inventory = SlotInventory::default();
+
+    // Can't claim before completion
+    assert!(!current.claim_rewards(&quest, &mut inventory));
+
+    // Complete quest
+    current.add_progress(&quest, 1);
+    assert!(current.completed);
+
+    // Claim rewards
+    assert!(current.claim_rewards(&quest, &mut inventory));
+    assert_eq!(inventory.get_slot_count(0), 5); // Grass
+    assert_eq!(inventory.get_slot_count(1), 3); // Stone
+
+    // Can't claim twice
+    assert!(!current.claim_rewards(&quest, &mut inventory));
+}
+
+#[test]
+fn test_delivery_platform() {
+    let mut platform = DeliveryPlatform::new();
+
+    // Deliver items
+    platform.deliver(BlockType::Stone);
+    platform.deliver(BlockType::Stone);
+    platform.deliver(BlockType::Grass);
+
+    assert_eq!(platform.get_delivered(BlockType::Stone), 2);
+    assert_eq!(platform.get_delivered(BlockType::Grass), 1);
+}
+
+#[test]
+fn test_delivery_updates_quest() {
+    let quest = QuestDef {
+        target_item: BlockType::Stone,
+        required_count: 5,
+        reward_items: vec![],
+    };
+
+    let mut current = CurrentQuest::new(0);
+    let mut platform = DeliveryPlatform::new();
+
+    // Deliver items and update quest
+    for _ in 0..5 {
+        platform.deliver(BlockType::Stone);
+        current.add_progress(&quest, 1);
+    }
+
+    assert_eq!(platform.get_delivered(BlockType::Stone), 5);
+    assert!(current.completed);
+}
+
+// =====================================================
+// Automation Line Integration Test
+// =====================================================
+
+#[test]
+fn test_full_automation_line() {
+    // Simulate: Miner -> Conveyor -> Crusher -> Conveyor -> Furnace -> Conveyor -> Delivery
+
+    let mut miner = Miner {
+        position: IVec3::new(5, 8, 5),
+        progress: 0.0,
+        buffer: None,
+    };
+
+    let mut conv1 = Conveyor::new(IVec3::new(6, 8, 5), Direction::East);
+    let mut crusher = Crusher::default();
+    let mut conv2 = Conveyor::new(IVec3::new(8, 8, 5), Direction::East);
+    let mut furnace = Furnace::default();
+    furnace.add_fuel(10); // Pre-load fuel
+    let mut conv3 = Conveyor::new(IVec3::new(10, 8, 5), Direction::East);
+    let mut platform = DeliveryPlatform::new();
+
+    // Run simulation for several cycles
+    let delta = 0.1; // 100ms per tick
+    for _ in 0..200 { // 20 seconds of simulation
+        // Miner mines
+        miner.tick(delta, Some(BlockType::Stone));
+
+        // Miner outputs to conv1
+        if conv1.item.is_none() {
+            if let Some(item) = miner.take_output() {
+                conv1.accept_item(item);
+            }
+        }
+
+        // Conv1 to crusher
+        if let Some(item) = conv1.tick(delta) {
+            crusher.add_input(item);
+        }
+
+        // Crusher processes
+        crusher.tick(delta);
+
+        // Crusher to conv2
+        if conv2.item.is_none() {
+            if let Some(item) = crusher.take_output() {
+                conv2.accept_item(item);
+            }
+        }
+
+        // Conv2 to furnace
+        if let Some(item) = conv2.tick(delta) {
+            furnace.add_input(item);
+        }
+
+        // Furnace smelts
+        furnace.tick(delta);
+
+        // Furnace to conv3
+        if conv3.item.is_none() {
+            if let Some(item) = furnace.take_output() {
+                conv3.accept_item(item);
+            }
+        }
+
+        // Conv3 to platform
+        if let Some(item) = conv3.tick(delta) {
+            platform.deliver(item);
+        }
+    }
+
+    // Should have some deliveries
+    let delivered = platform.get_delivered(BlockType::Stone);
+    assert!(delivered > 0, "Automation line should produce deliveries, got {}", delivered);
+}
+
+// =====================================================
+// Chunk Boundary Mesh Tests
+// =====================================================
+
+const TEST_CHUNK_SIZE: i32 = 16;
+
+struct TestWorldData {
+    chunks: HashMap<IVec2, HashMap<IVec3, BlockType>>,
+}
+
+impl TestWorldData {
+    fn new() -> Self {
+        Self {
+            chunks: HashMap::new(),
+        }
+    }
+
+    fn set_block(&mut self, world_pos: IVec3, block_type: BlockType) {
+        let chunk_coord = IVec2::new(
+            world_pos.x.div_euclid(TEST_CHUNK_SIZE),
+            world_pos.z.div_euclid(TEST_CHUNK_SIZE),
+        );
+        let chunk = self.chunks.entry(chunk_coord).or_insert_with(HashMap::new);
+        chunk.insert(world_pos, block_type);
+    }
+
+    fn has_block(&self, world_pos: IVec3) -> bool {
+        let chunk_coord = IVec2::new(
+            world_pos.x.div_euclid(TEST_CHUNK_SIZE),
+            world_pos.z.div_euclid(TEST_CHUNK_SIZE),
+        );
+        self.chunks.get(&chunk_coord)
+            .map(|c| c.contains_key(&world_pos))
+            .unwrap_or(false)
+    }
+
+    /// Check if a face should be rendered at the boundary
+    fn should_render_face(&self, block_pos: IVec3, face_direction: IVec3) -> bool {
+        let neighbor_pos = block_pos + face_direction;
+        // Render face if neighbor block doesn't exist
+        !self.has_block(neighbor_pos)
+    }
+}
+
+#[test]
+fn test_chunk_boundary_faces() {
+    let mut world = TestWorldData::new();
+
+    // Place block at chunk boundary (x=15, edge of chunk 0)
+    let boundary_block = IVec3::new(15, 5, 5);
+    world.set_block(boundary_block, BlockType::Stone);
+
+    // East face (toward chunk 1) should be rendered
+    assert!(world.should_render_face(boundary_block, IVec3::new(1, 0, 0)));
+
+    // Now add block in adjacent chunk
+    let adjacent_block = IVec3::new(16, 5, 5); // In chunk (1, 0)
+    world.set_block(adjacent_block, BlockType::Stone);
+
+    // East face should NOT be rendered now (neighbor exists)
+    assert!(!world.should_render_face(boundary_block, IVec3::new(1, 0, 0)));
+    // West face of adjacent block should NOT be rendered
+    assert!(!world.should_render_face(adjacent_block, IVec3::new(-1, 0, 0)));
+}
+
+#[test]
+fn test_chunk_boundary_all_directions() {
+    let mut world = TestWorldData::new();
+
+    // Place block in center of chunk
+    let center = IVec3::new(8, 5, 8);
+    world.set_block(center, BlockType::Stone);
+
+    // All faces should render (no neighbors)
+    let directions = [
+        IVec3::new(1, 0, 0),  // East
+        IVec3::new(-1, 0, 0), // West
+        IVec3::new(0, 1, 0),  // Up
+        IVec3::new(0, -1, 0), // Down
+        IVec3::new(0, 0, 1),  // South
+        IVec3::new(0, 0, -1), // North
+    ];
+
+    for dir in directions {
+        assert!(world.should_render_face(center, dir), "Face {:?} should render", dir);
+    }
+
+    // Add neighbors in all directions
+    for dir in directions {
+        world.set_block(center + dir, BlockType::Stone);
+    }
+
+    // No faces should render now
+    for dir in directions {
+        assert!(!world.should_render_face(center, dir), "Face {:?} should NOT render", dir);
+    }
+}
+
+#[test]
+fn test_chunk_boundary_z_axis() {
+    let mut world = TestWorldData::new();
+
+    // Place block at z boundary
+    let boundary_block = IVec3::new(5, 5, 15);
+    world.set_block(boundary_block, BlockType::Stone);
+
+    // South face should render
+    assert!(world.should_render_face(boundary_block, IVec3::new(0, 0, 1)));
+
+    // Add neighbor in next chunk
+    world.set_block(IVec3::new(5, 5, 16), BlockType::Stone);
+
+    // South face should NOT render
+    assert!(!world.should_render_face(boundary_block, IVec3::new(0, 0, 1)));
+}
+
+// =====================================================
+// Block Operations No-Freeze Tests
+// =====================================================
+
+#[test]
+fn test_rapid_block_operations() {
+    let mut world = TestWorldData::new();
+    let mut inventory = SlotInventory::default();
+    inventory.add_item(BlockType::Stone, 100);
+
+    // Simulate rapid place/break cycles
+    for i in 0..50 {
+        let pos = IVec3::new(i % 16, 8, i / 16);
+
+        // Place block
+        world.set_block(pos, BlockType::Stone);
+        inventory.consume_selected();
+
+        // Break block (simulated - would return to inventory in real game)
+        // In real game, this triggers mesh regeneration
+    }
+
+    // Should complete without issue
+    assert!(inventory.get_slot_count(0) == 50);
+}
+
+#[test]
+fn test_block_operations_at_chunk_boundaries() {
+    let mut world = TestWorldData::new();
+
+    // Operations right at chunk boundaries
+    let boundary_positions = vec![
+        IVec3::new(0, 5, 0),   // Corner
+        IVec3::new(15, 5, 0),  // Edge
+        IVec3::new(0, 5, 15),  // Edge
+        IVec3::new(15, 5, 15), // Corner
+        IVec3::new(16, 5, 0),  // Next chunk
+        IVec3::new(-1, 5, 0),  // Previous chunk
+    ];
+
+    for pos in boundary_positions {
+        world.set_block(pos, BlockType::Stone);
+        assert!(world.has_block(pos), "Block at {:?} should exist", pos);
+    }
+}
+
+// =====================================================
+// Raycast All Machine Types Test
+// =====================================================
+
+struct RaycastTarget {
+    position: Vec3,
+    half_size: Vec3,
+    entity_type: EntityType,
+}
+
+fn ray_aabb_test(
+    ray_origin: Vec3,
+    ray_direction: Vec3,
+    box_min: Vec3,
+    box_max: Vec3,
+) -> Option<f32> {
+    let inv_dir = Vec3::new(
+        1.0 / ray_direction.x,
+        1.0 / ray_direction.y,
+        1.0 / ray_direction.z,
+    );
+
+    let t1 = (box_min.x - ray_origin.x) * inv_dir.x;
+    let t2 = (box_max.x - ray_origin.x) * inv_dir.x;
+    let t3 = (box_min.y - ray_origin.y) * inv_dir.y;
+    let t4 = (box_max.y - ray_origin.y) * inv_dir.y;
+    let t5 = (box_min.z - ray_origin.z) * inv_dir.z;
+    let t6 = (box_max.z - ray_origin.z) * inv_dir.z;
+
+    let tmin = t1.min(t2).max(t3.min(t4)).max(t5.min(t6));
+    let tmax = t1.max(t2).min(t3.max(t4)).min(t5.max(t6));
+
+    if tmax < 0.0 || tmin > tmax {
+        None
+    } else {
+        Some(tmin)
+    }
+}
+
+#[test]
+fn test_raycast_hits_all_machine_types() {
+    let machines = vec![
+        RaycastTarget {
+            position: Vec3::new(5.5, 8.5, 5.5),
+            half_size: Vec3::splat(0.5),
+            entity_type: EntityType::Miner,
+        },
+        RaycastTarget {
+            position: Vec3::new(6.5, 8.15, 6.5),
+            half_size: Vec3::new(0.5, 0.15, 0.5), // Conveyor is flatter
+            entity_type: EntityType::Conveyor,
+        },
+        RaycastTarget {
+            position: Vec3::new(7.5, 8.5, 7.5),
+            half_size: Vec3::splat(0.5),
+            entity_type: EntityType::Furnace,
+        },
+    ];
+
+    // Ray from player position looking at each machine
+    for machine in &machines {
+        let ray_origin = Vec3::new(machine.position.x, machine.position.y + 2.0, machine.position.z - 3.0);
+        let ray_direction = (machine.position - ray_origin).normalize();
+
+        let hit = ray_aabb_test(
+            ray_origin,
+            ray_direction,
+            machine.position - machine.half_size,
+            machine.position + machine.half_size,
+        );
+
+        assert!(hit.is_some(), "Raycast should hit {:?}", machine.entity_type);
+    }
+}
+
+#[test]
+fn test_raycast_misses_when_looking_away() {
+    let machine = RaycastTarget {
+        position: Vec3::new(5.5, 8.5, 5.5),
+        half_size: Vec3::splat(0.5),
+        entity_type: EntityType::Miner,
+    };
+
+    // Looking in opposite direction
+    let ray_origin = Vec3::new(5.5, 10.0, 2.0);
+    let ray_direction = Vec3::new(0.0, 0.0, -1.0); // Looking away
+
+    let hit = ray_aabb_test(
+        ray_origin,
+        ray_direction,
+        machine.position - machine.half_size,
+        machine.position + machine.half_size,
+    );
+
+    assert!(hit.is_none(), "Raycast should miss when looking away");
+}
