@@ -23,6 +23,25 @@ use std::f32::consts::PI;
 pub use block_type::BlockType;
 pub use constants::*;
 
+/// Set the UI open state for JavaScript overlay control (WASM only)
+/// When ui_open is true, JavaScript will not show "Click to Resume" overlay
+#[cfg(target_arch = "wasm32")]
+fn set_ui_open_state(ui_open: bool) {
+    use web_sys::window;
+    if let Some(win) = window() {
+        if let Some(doc) = win.document() {
+            if let Some(canvas) = doc.get_element_by_id("bevy-canvas") {
+                let _ = canvas.set_attribute("data-ui-open", if ui_open { "true" } else { "false" });
+            }
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn set_ui_open_state(_ui_open: bool) {
+    // No-op on native
+}
+
 fn main() {
     // WASM: Set panic hook to display errors in browser console
     #[cfg(target_arch = "wasm32")]
@@ -2897,10 +2916,12 @@ fn furnace_interact(
             // Match Bevy state to browser state to prevent camera from moving
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
+            set_ui_open_state(false);
         } else {
             // E key: Keep cursor locked (no browser interference)
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
+            set_ui_open_state(false);
         }
         return;
     }
@@ -2954,6 +2975,7 @@ fn furnace_interact(
         let mut window = windows.single_mut();
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
+        set_ui_open_state(true);
     }
 }
 
@@ -3154,9 +3176,11 @@ fn crusher_interact(
         if esc_pressed {
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
+            set_ui_open_state(false);
         } else {
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
+            set_ui_open_state(false);
         }
         return;
     }
@@ -3210,6 +3234,7 @@ fn crusher_interact(
         let mut window = windows.single_mut();
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
+        set_ui_open_state(true);
     }
 }
 
@@ -4407,9 +4432,11 @@ fn creative_inventory_toggle(
             if creative_inv_open.0 {
                 window.cursor_options.grab_mode = CursorGrabMode::None;
                 window.cursor_options.visible = true;
+                set_ui_open_state(true);
             } else {
                 window.cursor_options.grab_mode = CursorGrabMode::Locked;
                 window.cursor_options.visible = false;
+                set_ui_open_state(false);
             }
         }
     }
@@ -4422,10 +4449,11 @@ fn creative_inventory_toggle(
             *vis = Visibility::Hidden;
         }
 
-        // Unlock cursor (paused state)
+        // Unlock cursor (paused state) - set ui_open=false so overlay can show
         if let Ok(mut window) = windows.get_single_mut() {
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
+            set_ui_open_state(false);
         }
     }
 }

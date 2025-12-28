@@ -288,8 +288,13 @@
             }
         }
 
+        function isGameUIOpen() {
+            return canvas.getAttribute('data-ui-open') === 'true';
+        }
+
         function showOverlay() {
-            if (gameStarted) {
+            // Don't show overlay if game UI (inventory, furnace, etc.) is open
+            if (gameStarted && !isGameUIOpen()) {
                 pointerLockOverlay.style.display = 'flex';
             }
         }
@@ -353,7 +358,10 @@
             console.warn('Pointer lock error');
             logEvent('pointer_lock_error');
             if (overlayShowTimeout) clearTimeout(overlayShowTimeout);
-            showOverlay();
+            // Only show overlay if UI is not open
+            if (!isGameUIOpen()) {
+                showOverlay();
+            }
         });
 
         // Send logs periodically and on page unload
