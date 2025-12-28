@@ -228,7 +228,11 @@
       "Bash(rmdir:*)",
       "Bash(tailscale funnel:*)",
       "Bash(tailscale status:*)",
-      "Bash(sudo tailscale funnel:*)"
+      "Bash(sudo tailscale funnel:*)",
+      "Bash(sudo systemctl:*)",
+      "Bash(sudo systemctl enable:*)",
+      "Bash(sudo systemctl start:*)",
+      "Bash(sudo systemctl status:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

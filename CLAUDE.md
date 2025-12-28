@@ -425,6 +425,43 @@ cargo install sccache --locked
 ## 作業ログ
 
 ### 2025-12-28
+- **ESC後のカメラ操作無効化を修正**
+  - CursorLockStateに`paused`フラグを追加
+  - ESC押下時にpaused=true、クリック復帰時にpaused=false
+  - player_look, player_move, block_break, block_place, update_target_blockでpausedチェック
+  - "Click to Resume"表示中は全ての操作が無効になるように
+- **レイキャスト精度をDDAアルゴリズムに改善**
+  - 0.5ブロックステップの粗いレイキャストからDDA（Digital Differential Analyzer）に変更
+  - ボクセル単位で正確に通過ブロックをチェック
+  - 下のブロックを貫通して破壊できる問題を修正
+  - update_target_block, block_break, block_placeの3箇所を更新
+- **デバッグHUDにモード表示を追加**
+  - F3でCreative/Survivalモードを表示
+  - [PAUSED]表示を追加
+- **クリエイティブモードUI改善**
+  - Cキーでクリエイティブモード有効時、全9スロットに各アイテム64個を自動付与
+  - クリエイティブモードではブロック設置時にインベントリを消費しない
+  - F1-F9は現在のスロットのアイテムを変更するように変更
+- **ターゲットブロックハイライト追加**
+  - プレイヤーが見ているブロックに赤い半透明キューブを表示
+  - 破壊対象が視覚的にわかるように
+- **クリエイティブモード追加**
+  - Cキーでトグル
+  - F1-F10で各種アイテムを64個取得
+  - Stone, Grass, IronOre, Coal, IronIngot, CopperOre, CopperIngot, Miner, Conveyor, Crusher
+- **ESC処理の再修正**
+  - ESCでUIを閉じた時はカーソルをアンロック（ブラウザの状態と一致）
+  - Eキーでの閉じはロック維持
+  - カメラ操作がロック状態に正しく連動
+- **CHUNK_HEIGHTを8→32に拡大**
+  - 地面の上にブロックを積めるように修正
+  - GROUND_LEVEL定数を追加（Y=7）
+  - 地下はY=0-6、地面はY=7、上空はY=8-31
+- **Pointer Lockとカメラ操作を改善**
+  - ESCでUIを閉じた後にポインターロックを再取得
+  - JavaScript側で100ms遅延を入れてオーバーレイ表示を制御
+  - RDPフォールバックを削除し、シンプルなdeltaクランプ方式に変更
+  - MAX_DELTA=100.0で高速マウス移動時のジャンプを防止
 - **E2Eテスト大幅拡充（30→52テスト）**
   - 機械コンポーネントテスト: Miner, Conveyor, Furnace, Crusher
   - エンティティクリーンアップテスト: コンベア破壊時のアイテム残留検出

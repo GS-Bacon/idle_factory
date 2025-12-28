@@ -78,6 +78,8 @@ fn main() {
         .init_resource::<GameFont>()
         .init_resource::<ChunkMeshTasks>()
         .init_resource::<DebugHudState>()
+        .init_resource::<TargetBlock>()
+        .init_resource::<CreativeMode>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
@@ -112,6 +114,11 @@ fn main() {
                 delivery_platform_receive,
                 quest_progress_check,
                 quest_claim_rewards,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
                 // UI update systems
                 update_hotbar_ui,
                 update_furnace_ui,
@@ -119,7 +126,16 @@ fn main() {
                 update_quest_ui,
                 update_window_title_fps,
                 toggle_debug_hud,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                // Debug and utility systems
                 update_debug_hud,
+                update_target_block,
+                update_target_highlight,
+                creative_mode_input,
             ),
         )
         .run();
@@ -147,6 +163,8 @@ struct CursorLockState {
     last_mouse_pos: Option<Vec2>,
     /// Skip next block break (used when resuming from pointer lock release)
     just_locked: bool,
+    /// Game is paused (ESC pressed, waiting for click to resume)
+    paused: bool,
 }
 
 /// Font resource for UI text
@@ -162,6 +180,27 @@ struct DebugHudState {
 /// Marker for debug HUD text
 #[derive(Component)]
 struct DebugHudText;
+
+/// Target block for highlighting (what the player is looking at)
+#[derive(Resource, Default)]
+struct TargetBlock {
+    /// Position of block that would be broken (left click)
+    break_target: Option<IVec3>,
+    /// Position where block would be placed (right click)
+    place_target: Option<IVec3>,
+    /// Entity for break highlight visualization
+    break_highlight_entity: Option<Entity>,
+}
+
+/// Marker component for target highlight cube
+#[derive(Component)]
+struct TargetHighlight;
+
+/// Creative mode resource for spawning items
+#[derive(Resource, Default)]
+struct CreativeMode {
+    enabled: bool,
+}
 
 impl FromWorld for GameFont {
     fn from_world(world: &mut World) -> Self {
@@ -551,13 +590,14 @@ impl ChunkData {
                 let world_x = chunk_coord.x * CHUNK_SIZE + x;
                 let world_z = chunk_coord.y * CHUNK_SIZE + z;
 
-                for y in 0..CHUNK_HEIGHT {
-                    // Skip top layer (y=7) in delivery platform area
-                    if y == CHUNK_HEIGHT - 1 && Self::is_platform_area(world_x, world_z) {
+                // Only generate blocks up to GROUND_LEVEL (y <= 7)
+                for y in 0..=GROUND_LEVEL {
+                    // Skip ground layer in delivery platform area
+                    if y == GROUND_LEVEL && Self::is_platform_area(world_x, world_z) {
                         continue;
                     }
 
-                    let block_type = if y == CHUNK_HEIGHT - 1 {
+                    let block_type = if y == GROUND_LEVEL {
                         BlockType::Grass
                     } else {
                         // Use simple hash for ore distribution
@@ -1330,18 +1370,19 @@ fn toggle_cursor_lock(
     if key_input.just_pressed(KeyCode::Escape) && interacting_furnace.0.is_none() {
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
+        cursor_state.paused = true;
     }
 
-    // Click to lock cursor (when not locked)
-    if mouse_button.just_pressed(MouseButton::Left)
-        && window.cursor_options.grab_mode == CursorGrabMode::None
-    {
+    // Click to lock cursor (when not locked or paused)
+    let cursor_not_locked = window.cursor_options.grab_mode == CursorGrabMode::None;
+    if mouse_button.just_pressed(MouseButton::Left) && (cursor_not_locked || cursor_state.paused) {
         // Use Locked mode - it properly captures relative mouse motion
         // Confined mode causes issues where mouse hits window edge and spins
         window.cursor_options.grab_mode = CursorGrabMode::Locked;
         window.cursor_options.visible = false;
         // Mark that we just locked - skip next block break to avoid accidental destruction
         cursor_state.just_locked = true;
+        cursor_state.paused = false;
     }
 }
 
@@ -1351,17 +1392,17 @@ fn player_look(
     mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
     key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut windows: Query<&mut Window>,
+    windows: Query<&Window>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut cursor_lock_state: ResMut<CursorLockState>,
     interacting_furnace: Res<InteractingFurnace>,
 ) {
-    // Don't look around while furnace UI is open
-    if interacting_furnace.0.is_some() {
+    // Don't look around while furnace UI is open or game is paused
+    if interacting_furnace.0.is_some() || cursor_lock_state.paused {
         return;
     }
 
-    let mut window = windows.single_mut();
+    let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
     // Get camera component
@@ -1401,44 +1442,23 @@ fn player_look(
     cursor_lock_state.was_locked = cursor_locked;
 
     // --- Mouse motion ---
-    // Try AccumulatedMouseMotion first (works on local/native)
-    // Fall back to cursor position delta (works on RDP)
+    // Use AccumulatedMouseMotion for camera control
+    // Works well with Pointer Lock API in both native and WASM
     if cursor_locked && cursor_lock_state.skip_frames == 0 {
         let raw_delta = accumulated_mouse_motion.delta;
 
-        // Check if AccumulatedMouseMotion gives reasonable values
-        // RDP often reports huge values (>1000) due to absolute coordinates
-        // High-DPI displays or fast mouse movements can produce values up to ~500
-        const MAX_REASONABLE_DELTA: f32 = 500.0;
+        // Clamp delta to prevent extreme camera jumps
+        // Can happen during pointer lock transitions or system lag
+        const MAX_DELTA: f32 = 100.0;
+        let clamped_delta = Vec2::new(
+            raw_delta.x.clamp(-MAX_DELTA, MAX_DELTA),
+            raw_delta.y.clamp(-MAX_DELTA, MAX_DELTA),
+        );
 
-        if raw_delta.x.abs() < MAX_REASONABLE_DELTA && raw_delta.y.abs() < MAX_REASONABLE_DELTA {
-            // Native mode - use raw delta directly
-            camera.yaw -= raw_delta.x * MOUSE_SENSITIVITY;
-            camera.pitch -= raw_delta.y * MOUSE_SENSITIVITY;
-        } else if let Some(cursor_pos) = window.cursor_position() {
-            // RDP/Confined mode - calculate delta from cursor position
-            let center = Vec2::new(window.width() / 2.0, window.height() / 2.0);
-
-            if let Some(last_pos) = cursor_lock_state.last_mouse_pos {
-                let delta = cursor_pos - last_pos;
-                // Only apply if delta is reasonable and non-trivial
-                if delta.length() < MAX_REASONABLE_DELTA && delta.length() > 0.5 {
-                    camera.yaw -= delta.x * MOUSE_SENSITIVITY;
-                    camera.pitch -= delta.y * MOUSE_SENSITIVITY;
-                }
-            }
-
-            // Re-center cursor only when it gets far from center
-            // Reduces overhead from constant set_cursor_position calls
-            let dist_from_center = (cursor_pos - center).length();
-            if dist_from_center > 100.0 {
-                window.set_cursor_position(Some(center));
-                cursor_lock_state.last_mouse_pos = Some(center);
-                // Skip next frame to avoid jump after re-centering
-                cursor_lock_state.skip_frames = 1;
-            } else {
-                cursor_lock_state.last_mouse_pos = Some(cursor_pos);
-            }
+        // Only apply if delta is non-trivial (avoid jitter from small movements)
+        if clamped_delta.length() > 0.1 {
+            camera.yaw -= clamped_delta.x * MOUSE_SENSITIVITY;
+            camera.pitch -= clamped_delta.y * MOUSE_SENSITIVITY;
         }
     }
 
@@ -1464,9 +1484,10 @@ fn player_move(
     mut player_query: Query<&mut Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
     interacting_furnace: Res<InteractingFurnace>,
+    cursor_lock_state: Res<CursorLockState>,
 ) {
-    // Don't move while furnace UI is open
-    if interacting_furnace.0.is_some() {
+    // Don't move while furnace UI is open or game is paused
+    if interacting_furnace.0.is_some() || cursor_lock_state.paused {
         return;
     }
 
@@ -1527,12 +1548,12 @@ fn block_break(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cursor_state: ResMut<CursorLockState>,
 ) {
-    // Only break blocks when cursor is locked (to distinguish from lock-click)
+    // Only break blocks when cursor is locked and not paused
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
-    // Don't break blocks while furnace UI is open
-    if interacting_furnace.0.is_some() {
+    // Don't break blocks while furnace UI is open or game is paused
+    if interacting_furnace.0.is_some() || cursor_state.paused {
         return;
     }
 
@@ -1565,37 +1586,87 @@ fn block_break(
     let mut closest_hit: Option<(HitType, f32)> = None;
     let half_size = BLOCK_SIZE / 2.0;
 
-    // Check world blocks via raycasting through WorldData
-    // March along ray checking each block position
-    for step in 0..((REACH_DISTANCE / 0.5) as i32) {
-        let t = step as f32 * 0.5;
-        let check_pos = ray_origin + ray_direction * t;
-        let block_pos = IVec3::new(
-            check_pos.x.floor() as i32,
-            check_pos.y.floor() as i32,
-            check_pos.z.floor() as i32,
+    // Check world blocks using DDA (Digital Differential Analyzer) for precise traversal
+    {
+        // Current voxel position
+        let mut current = IVec3::new(
+            ray_origin.x.floor() as i32,
+            ray_origin.y.floor() as i32,
+            ray_origin.z.floor() as i32,
         );
 
-        if world_data.has_block(block_pos) {
-            // Precise AABB check
-            let block_center = Vec3::new(
-                block_pos.x as f32 + 0.5,
-                block_pos.y as f32 + 0.5,
-                block_pos.z as f32 + 0.5,
-            );
-            if let Some(hit_t) = ray_aabb_intersection(
-                ray_origin,
-                ray_direction,
-                block_center - Vec3::splat(half_size),
-                block_center + Vec3::splat(half_size),
-            ) {
-                if hit_t > 0.0 && hit_t < REACH_DISTANCE {
-                    let is_closer = closest_hit.as_ref().is_none_or(|h| hit_t < h.1);
-                    if is_closer {
-                        closest_hit = Some((HitType::WorldBlock(block_pos), hit_t));
+        // Direction sign for stepping (+1 or -1 for each axis)
+        let step = IVec3::new(
+            if ray_direction.x >= 0.0 { 1 } else { -1 },
+            if ray_direction.y >= 0.0 { 1 } else { -1 },
+            if ray_direction.z >= 0.0 { 1 } else { -1 },
+        );
+
+        // How far along the ray we need to travel for one voxel step on each axis
+        let t_delta = Vec3::new(
+            if ray_direction.x.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.x).abs() },
+            if ray_direction.y.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.y).abs() },
+            if ray_direction.z.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.z).abs() },
+        );
+
+        // Distance to next voxel boundary for each axis
+        let mut t_max = Vec3::new(
+            if ray_direction.x >= 0.0 {
+                ((current.x + 1) as f32 - ray_origin.x) / ray_direction.x.abs().max(1e-8)
+            } else {
+                (ray_origin.x - current.x as f32) / ray_direction.x.abs().max(1e-8)
+            },
+            if ray_direction.y >= 0.0 {
+                ((current.y + 1) as f32 - ray_origin.y) / ray_direction.y.abs().max(1e-8)
+            } else {
+                (ray_origin.y - current.y as f32) / ray_direction.y.abs().max(1e-8)
+            },
+            if ray_direction.z >= 0.0 {
+                ((current.z + 1) as f32 - ray_origin.z) / ray_direction.z.abs().max(1e-8)
+            } else {
+                (ray_origin.z - current.z as f32) / ray_direction.z.abs().max(1e-8)
+            },
+        );
+
+        let max_steps = (REACH_DISTANCE * 2.0) as i32;
+
+        for _ in 0..max_steps {
+            if world_data.has_block(current) {
+                // Calculate hit distance
+                let block_center = Vec3::new(
+                    current.x as f32 + 0.5,
+                    current.y as f32 + 0.5,
+                    current.z as f32 + 0.5,
+                );
+                if let Some(hit_t) = ray_aabb_intersection(
+                    ray_origin,
+                    ray_direction,
+                    block_center - Vec3::splat(half_size),
+                    block_center + Vec3::splat(half_size),
+                ) {
+                    if hit_t > 0.0 && hit_t < REACH_DISTANCE {
+                        let is_closer = closest_hit.as_ref().is_none_or(|h| hit_t < h.1);
+                        if is_closer {
+                            closest_hit = Some((HitType::WorldBlock(current), hit_t));
+                        }
+                        break; // Found first block
                     }
-                    break; // Found closest block
                 }
+            }
+
+            // Step to next voxel
+            if t_max.x < t_max.y && t_max.x < t_max.z {
+                if t_max.x > REACH_DISTANCE { break; }
+                current.x += step.x;
+                t_max.x += t_delta.x;
+            } else if t_max.y < t_max.z {
+                if t_max.y > REACH_DISTANCE { break; }
+                current.y += step.y;
+                t_max.y += t_delta.y;
+            } else {
+                if t_max.z > REACH_DISTANCE { break; }
+                current.z += step.z;
+                t_max.z += t_delta.z;
             }
         }
     }
@@ -1795,11 +1866,14 @@ fn block_place(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     windows: Query<&Window>,
+    cursor_state: Res<CursorLockState>,
+    creative_mode: Res<CreativeMode>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
-    if !cursor_locked || !mouse_button.just_pressed(MouseButton::Right) {
+    // Don't place blocks while game is paused
+    if cursor_state.paused || !cursor_locked || !mouse_button.just_pressed(MouseButton::Right) {
         return;
     }
 
@@ -1817,37 +1891,96 @@ fn block_place(
     let ray_direction = camera_transform.forward().as_vec3();
     let half_size = BLOCK_SIZE / 2.0;
 
-    // Find closest block intersection with hit normal via WorldData raycasting
+    // Find closest block intersection with hit normal using DDA
     let mut closest_hit: Option<(IVec3, Vec3, f32)> = None;
 
-    for step in 0..((REACH_DISTANCE / 0.5) as i32) {
-        let t = step as f32 * 0.5;
-        let check_pos = ray_origin + ray_direction * t;
-        let block_pos = IVec3::new(
-            check_pos.x.floor() as i32,
-            check_pos.y.floor() as i32,
-            check_pos.z.floor() as i32,
+    {
+        // Current voxel position
+        let mut current = IVec3::new(
+            ray_origin.x.floor() as i32,
+            ray_origin.y.floor() as i32,
+            ray_origin.z.floor() as i32,
         );
 
-        if world_data.has_block(block_pos) {
-            let block_center = Vec3::new(
-                block_pos.x as f32 + 0.5,
-                block_pos.y as f32 + 0.5,
-                block_pos.z as f32 + 0.5,
-            );
-            if let Some((hit_t, normal)) = ray_aabb_intersection_with_normal(
-                ray_origin,
-                ray_direction,
-                block_center - Vec3::splat(half_size),
-                block_center + Vec3::splat(half_size),
-            ) {
-                if hit_t > 0.0 && hit_t < REACH_DISTANCE {
-                    let is_closer = closest_hit.is_none_or(|h| hit_t < h.2);
-                    if is_closer {
-                        closest_hit = Some((block_pos, normal, hit_t));
+        // Direction sign for stepping (+1 or -1 for each axis)
+        let step = IVec3::new(
+            if ray_direction.x >= 0.0 { 1 } else { -1 },
+            if ray_direction.y >= 0.0 { 1 } else { -1 },
+            if ray_direction.z >= 0.0 { 1 } else { -1 },
+        );
+
+        // How far along the ray we need to travel for one voxel step on each axis
+        let t_delta = Vec3::new(
+            if ray_direction.x.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.x).abs() },
+            if ray_direction.y.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.y).abs() },
+            if ray_direction.z.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.z).abs() },
+        );
+
+        // Distance to next voxel boundary for each axis
+        let mut t_max = Vec3::new(
+            if ray_direction.x >= 0.0 {
+                ((current.x + 1) as f32 - ray_origin.x) / ray_direction.x.abs().max(1e-8)
+            } else {
+                (ray_origin.x - current.x as f32) / ray_direction.x.abs().max(1e-8)
+            },
+            if ray_direction.y >= 0.0 {
+                ((current.y + 1) as f32 - ray_origin.y) / ray_direction.y.abs().max(1e-8)
+            } else {
+                (ray_origin.y - current.y as f32) / ray_direction.y.abs().max(1e-8)
+            },
+            if ray_direction.z >= 0.0 {
+                ((current.z + 1) as f32 - ray_origin.z) / ray_direction.z.abs().max(1e-8)
+            } else {
+                (ray_origin.z - current.z as f32) / ray_direction.z.abs().max(1e-8)
+            },
+        );
+
+        // Track which axis we stepped on last (for face normal)
+        let mut last_step_axis = 0; // 0=x, 1=y, 2=z
+        let max_steps = (REACH_DISTANCE * 2.0) as i32;
+
+        for _ in 0..max_steps {
+            if world_data.has_block(current) {
+                let block_center = Vec3::new(
+                    current.x as f32 + 0.5,
+                    current.y as f32 + 0.5,
+                    current.z as f32 + 0.5,
+                );
+                if let Some((hit_t, _normal)) = ray_aabb_intersection_with_normal(
+                    ray_origin,
+                    ray_direction,
+                    block_center - Vec3::splat(half_size),
+                    block_center + Vec3::splat(half_size),
+                ) {
+                    if hit_t > 0.0 && hit_t < REACH_DISTANCE {
+                        // Use DDA-calculated normal for more accurate placement
+                        let dda_normal = match last_step_axis {
+                            0 => Vec3::new(-step.x as f32, 0.0, 0.0),
+                            1 => Vec3::new(0.0, -step.y as f32, 0.0),
+                            _ => Vec3::new(0.0, 0.0, -step.z as f32),
+                        };
+                        closest_hit = Some((current, dda_normal, hit_t));
+                        break;
                     }
-                    break;
                 }
+            }
+
+            // Step to next voxel
+            if t_max.x < t_max.y && t_max.x < t_max.z {
+                if t_max.x > REACH_DISTANCE { break; }
+                current.x += step.x;
+                t_max.x += t_delta.x;
+                last_step_axis = 0;
+            } else if t_max.y < t_max.z {
+                if t_max.y > REACH_DISTANCE { break; }
+                current.y += step.y;
+                t_max.y += t_delta.y;
+                last_step_axis = 1;
+            } else {
+                if t_max.z > REACH_DISTANCE { break; }
+                current.z += step.z;
+                t_max.z += t_delta.z;
+                last_step_axis = 2;
             }
         }
     }
@@ -1926,8 +2059,10 @@ fn block_place(
             }
         }
 
-        // Consume from inventory (consume_selected handles count decrement and slot clearing)
-        inventory.consume_selected();
+        // Consume from inventory (unless in creative mode)
+        if !creative_mode.enabled {
+            inventory.consume_selected();
+        }
 
         // Get chunk coord for the placed block
         let chunk_coord = WorldData::world_to_chunk(place_pos);
@@ -2312,13 +2447,17 @@ fn furnace_interact(
         if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
             *vis = Visibility::Hidden;
         }
-        // Don't re-lock cursor here - let user click to re-lock
-        // (ESC in WASM triggers browser's pointer lock release, causing overlay to show)
-        // Native: user clicks to re-lock via toggle_cursor_lock
-        // WASM: overlay handles click-to-resume
         let mut window = windows.single_mut();
-        window.cursor_options.grab_mode = CursorGrabMode::None;
-        window.cursor_options.visible = true;
+        if esc_pressed {
+            // ESC: Browser releases pointer lock automatically in WASM
+            // Match Bevy state to browser state to prevent camera from moving
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+        } else {
+            // E key: Keep cursor locked (no browser interference)
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
+        }
         return;
     }
 
@@ -3024,6 +3163,8 @@ fn update_debug_hud(
     world_data: Res<WorldData>,
     diagnostics: Res<DiagnosticsStore>,
     debug_state: Res<DebugHudState>,
+    creative_mode: Res<CreativeMode>,
+    cursor_state: Res<CursorLockState>,
 ) {
     if !debug_state.visible {
         return;
@@ -3045,14 +3186,21 @@ fn update_debug_hud(
 
     let chunk_count = world_data.chunks.len();
 
+    // Mode strings
+    let mode_str = if creative_mode.enabled { "Creative" } else { "Survival" };
+    let pause_str = if cursor_state.paused { " [PAUSED]" } else { "" };
+
     **text = format!(
         "=== Debug (F3) ===\n\
          FPS: {:.0}\n\
          Pos: ({:.1}, {:.1}, {:.1})\n\
-         Chunks: {}",
+         Chunks: {}\n\
+         Mode: {}{}",
         fps,
         player_pos.x, player_pos.y, player_pos.z,
-        chunk_count
+        chunk_count,
+        mode_str,
+        pause_str
     );
 }
 
@@ -3333,6 +3481,230 @@ fn update_quest_ui(
             delivered.min(quest.required_amount),
             quest.required_amount
         );
+    }
+}
+
+// === Target Block Highlight ===
+
+/// Update target block based on player's view direction
+fn update_target_block(
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    world_data: Res<WorldData>,
+    windows: Query<&Window>,
+    mut target: ResMut<TargetBlock>,
+    interacting_furnace: Res<InteractingFurnace>,
+    cursor_state: Res<CursorLockState>,
+) {
+    // Don't update target while UI is open or paused
+    if interacting_furnace.0.is_some() || cursor_state.paused {
+        target.break_target = None;
+        target.place_target = None;
+        return;
+    }
+
+    let window = windows.single();
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    if !cursor_locked {
+        target.break_target = None;
+        target.place_target = None;
+        return;
+    }
+
+    let Ok(camera_transform) = camera_query.get_single() else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation();
+    let ray_direction = camera_transform.forward().as_vec3();
+
+    // Use DDA (Digital Differential Analyzer) for precise voxel traversal
+    // This ensures we check every voxel the ray passes through, in order
+
+    // Current voxel position
+    let mut current = IVec3::new(
+        ray_origin.x.floor() as i32,
+        ray_origin.y.floor() as i32,
+        ray_origin.z.floor() as i32,
+    );
+
+    // Direction sign for stepping (+1 or -1 for each axis)
+    let step = IVec3::new(
+        if ray_direction.x >= 0.0 { 1 } else { -1 },
+        if ray_direction.y >= 0.0 { 1 } else { -1 },
+        if ray_direction.z >= 0.0 { 1 } else { -1 },
+    );
+
+    // How far along the ray we need to travel for one voxel step on each axis
+    let t_delta = Vec3::new(
+        if ray_direction.x.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.x).abs() },
+        if ray_direction.y.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.y).abs() },
+        if ray_direction.z.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.z).abs() },
+    );
+
+    // Distance to next voxel boundary for each axis
+    let mut t_max = Vec3::new(
+        if ray_direction.x >= 0.0 {
+            ((current.x + 1) as f32 - ray_origin.x) / ray_direction.x.abs().max(1e-8)
+        } else {
+            (ray_origin.x - current.x as f32) / ray_direction.x.abs().max(1e-8)
+        },
+        if ray_direction.y >= 0.0 {
+            ((current.y + 1) as f32 - ray_origin.y) / ray_direction.y.abs().max(1e-8)
+        } else {
+            (ray_origin.y - current.y as f32) / ray_direction.y.abs().max(1e-8)
+        },
+        if ray_direction.z >= 0.0 {
+            ((current.z + 1) as f32 - ray_origin.z) / ray_direction.z.abs().max(1e-8)
+        } else {
+            (ray_origin.z - current.z as f32) / ray_direction.z.abs().max(1e-8)
+        },
+    );
+
+    // Track which axis we stepped on last (for face normal)
+    let mut last_step_axis = 0; // 0=x, 1=y, 2=z
+
+    // Maximum number of steps (prevent infinite loop)
+    let max_steps = (REACH_DISTANCE * 2.0) as i32;
+
+    for _ in 0..max_steps {
+        // Check current voxel
+        if world_data.has_block(current) {
+            target.break_target = Some(current);
+
+            // Calculate place position based on last step axis
+            let normal = match last_step_axis {
+                0 => IVec3::new(-step.x, 0, 0),
+                1 => IVec3::new(0, -step.y, 0),
+                _ => IVec3::new(0, 0, -step.z),
+            };
+            target.place_target = Some(current + normal);
+            return;
+        }
+
+        // Step to next voxel
+        if t_max.x < t_max.y && t_max.x < t_max.z {
+            if t_max.x > REACH_DISTANCE { break; }
+            current.x += step.x;
+            t_max.x += t_delta.x;
+            last_step_axis = 0;
+        } else if t_max.y < t_max.z {
+            if t_max.y > REACH_DISTANCE { break; }
+            current.y += step.y;
+            t_max.y += t_delta.y;
+            last_step_axis = 1;
+        } else {
+            if t_max.z > REACH_DISTANCE { break; }
+            current.z += step.z;
+            t_max.z += t_delta.z;
+            last_step_axis = 2;
+        }
+    }
+
+    // No block found
+    target.break_target = None;
+    target.place_target = None;
+}
+
+/// Update target highlight entity position
+fn update_target_highlight(
+    mut commands: Commands,
+    mut target: ResMut<TargetBlock>,
+    mut highlight_query: Query<&mut Transform, With<TargetHighlight>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if let Some(pos) = target.break_target {
+        let center = Vec3::new(
+            pos.x as f32 + 0.5,
+            pos.y as f32 + 0.5,
+            pos.z as f32 + 0.5,
+        );
+
+        // Update existing highlight or spawn new one
+        if let Some(entity) = target.break_highlight_entity {
+            if let Ok(mut transform) = highlight_query.get_mut(entity) {
+                transform.translation = center;
+            }
+        } else {
+            // Spawn highlight cube (slightly larger, semi-transparent)
+            let mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 1.02, BLOCK_SIZE * 1.02, BLOCK_SIZE * 1.02));
+            let material = materials.add(StandardMaterial {
+                base_color: Color::srgba(1.0, 0.3, 0.3, 0.3),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            });
+            let entity = commands.spawn((
+                Mesh3d(mesh),
+                MeshMaterial3d(material),
+                Transform::from_translation(center),
+                TargetHighlight,
+            )).id();
+            target.break_highlight_entity = Some(entity);
+        }
+    } else {
+        // No target - despawn highlight if exists
+        if let Some(entity) = target.break_highlight_entity.take() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+// === Creative Mode ===
+
+/// Handle creative mode input (C to toggle, number keys to give items)
+fn creative_mode_input(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut creative: ResMut<CreativeMode>,
+    mut inventory: ResMut<Inventory>,
+) {
+    // C key to toggle creative mode
+    if key_input.just_pressed(KeyCode::KeyC) {
+        creative.enabled = !creative.enabled;
+
+        // When entering creative mode, give all items
+        if creative.enabled {
+            let all_items = [
+                BlockType::Stone,
+                BlockType::Grass,
+                BlockType::IronOre,
+                BlockType::Coal,
+                BlockType::IronIngot,
+                BlockType::CopperOre,
+                BlockType::CopperIngot,
+                BlockType::MinerBlock,
+                BlockType::ConveyorBlock,
+                BlockType::CrusherBlock,
+            ];
+            // Fill first 9 slots with one item each (64 of each)
+            for (i, block_type) in all_items.iter().take(9).enumerate() {
+                inventory.slots[i] = Some((*block_type, 64));
+            }
+        }
+    }
+
+    // In creative mode, scroll to cycle through additional items
+    // (F-keys kept as backup for quick access)
+    if creative.enabled {
+        let items = [
+            (KeyCode::F1, BlockType::Stone),
+            (KeyCode::F2, BlockType::Grass),
+            (KeyCode::F3, BlockType::IronOre),
+            (KeyCode::F4, BlockType::Coal),
+            (KeyCode::F5, BlockType::IronIngot),
+            (KeyCode::F6, BlockType::CopperOre),
+            (KeyCode::F7, BlockType::CopperIngot),
+            (KeyCode::F8, BlockType::MinerBlock),
+            (KeyCode::F9, BlockType::ConveyorBlock),
+        ];
+
+        for (key, block_type) in items {
+            if key_input.just_pressed(key) {
+                // Set current slot to this item type
+                let slot = inventory.selected_slot;
+                inventory.slots[slot] = Some((block_type, 64));
+            }
+        }
     }
 }
 

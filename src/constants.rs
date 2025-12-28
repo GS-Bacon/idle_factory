@@ -2,7 +2,8 @@
 
 /// Chunk dimensions
 pub const CHUNK_SIZE: i32 = 16;
-pub const CHUNK_HEIGHT: i32 = 8;
+pub const CHUNK_HEIGHT: i32 = 32;
+pub const GROUND_LEVEL: i32 = 7; // Y coordinate of ground surface
 
 /// Block size in world units
 pub const BLOCK_SIZE: f32 = 1.0;

@@ -278,6 +278,7 @@
         const pointerLockOverlay = document.getElementById('pointer-lock-overlay');
         let gameStarted = false;
         let pointerLockActive = false;
+        let overlayShowTimeout = null;
 
         function requestPointerLockSafe() {
             if (!document.pointerLockElement) {
@@ -295,6 +296,11 @@
 
         function hideOverlay() {
             pointerLockOverlay.style.display = 'none';
+            // Cancel any pending overlay show
+            if (overlayShowTimeout) {
+                clearTimeout(overlayShowTimeout);
+                overlayShowTimeout = null;
+            }
         }
 
         // Track mouse clicks and handle pointer lock
@@ -329,7 +335,15 @@
                 logEvent('pointer_locked');
             } else {
                 pointerLockActive = false;
-                showOverlay();
+                // Delay showing overlay to allow Bevy to re-lock if needed (e.g., closing UI with E)
+                if (overlayShowTimeout) clearTimeout(overlayShowTimeout);
+                overlayShowTimeout = setTimeout(() => {
+                    // Only show if still unlocked
+                    if (!document.pointerLockElement && gameStarted) {
+                        showOverlay();
+                    }
+                    overlayShowTimeout = null;
+                }, 100); // 100ms delay
                 logEvent('pointer_unlocked');
             }
         });
@@ -338,6 +352,7 @@
         document.addEventListener('pointerlockerror', () => {
             console.warn('Pointer lock error');
             logEvent('pointer_lock_error');
+            if (overlayShowTimeout) clearTimeout(overlayShowTimeout);
             showOverlay();
         });
 
