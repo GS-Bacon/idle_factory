@@ -27,6 +27,11 @@ wasm-opt -O3 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sig
     web/idle_factory_bg.wasm -o web/idle_factory_bg_opt.wasm
 mv web/idle_factory_bg_opt.wasm web/idle_factory_bg.wasm
 
+# assetsをwebにコピー
+echo "Copying assets..."
+mkdir -p web/assets/fonts
+cp assets/fonts/NotoSansJP-Regular.ttf web/assets/fonts/
+
 # サーバー起動（バックグラウンド）
 echo "Starting server..."
 cd web

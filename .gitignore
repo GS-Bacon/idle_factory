@@ -65,3 +65,6 @@ web/*.d.ts
 # already existing elements were commented out
 
 #/target
+
+# WASM build artifacts
+web/assets/

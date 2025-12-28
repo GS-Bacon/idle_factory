@@ -351,15 +351,14 @@
             }).catch(() => {});
         }
 
-        setInterval(sendLogs, 30000); // Every 30 seconds
+        // Disabled: server-side log collection (POST not supported by static server)
+        // setInterval(sendLogs, 30000);
         window.addEventListener('beforeunload', () => {
             saveLogsToStorage('unload');
-            sendLogs();
         });
         window.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 saveLogsToStorage('hidden');
-                sendLogs();
             }
         });
 

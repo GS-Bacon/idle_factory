@@ -225,7 +225,10 @@
       "Bash(time:*)",
       "Bash(sccache --zero-stats:*)",
       "Bash(sccache --show-stats:*)",
-      "Bash(rmdir:*)"
+      "Bash(rmdir:*)",
+      "Bash(tailscale funnel:*)",
+      "Bash(tailscale status:*)",
+      "Bash(sudo tailscale funnel:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
