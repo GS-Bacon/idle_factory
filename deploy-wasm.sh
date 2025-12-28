@@ -7,10 +7,9 @@ cd /home/bacon/idle_factory
 
 echo "=== WASM Deploy Script ==="
 
-# 既存のサーバーを停止
-echo "Stopping existing server..."
-pkill -f "python3 -m http.server 8080" 2>/dev/null || true
-sleep 1
+# サーバーを一時停止（systemd管理）
+echo "Stopping server..."
+sudo systemctl stop idle-factory-web 2>/dev/null || true
 
 # WASMビルド
 echo "Building WASM..."
@@ -32,12 +31,9 @@ echo "Copying assets..."
 mkdir -p web/assets/fonts
 cp assets/fonts/NotoSansJP-Regular.ttf web/assets/fonts/
 
-# サーバー起動（バックグラウンド）
+# サーバー再起動（systemd管理）
 echo "Starting server..."
-cd web
-nohup python3 -m http.server 8080 --bind 0.0.0.0 > /tmp/wasm-server.log 2>&1 &
-SERVER_PID=$!
-echo "Server started with PID: $SERVER_PID"
+sudo systemctl start idle-factory-web
 
 sleep 1
 
@@ -46,5 +42,6 @@ echo ""
 echo "=== Access URLs ==="
 echo "Local:     http://10.13.1.1:8080"
 echo "Tailscale: http://100.84.170.32:8080"
+echo "Public:    https://serversmith.tail1b7bff.ts.net"
 echo ""
 echo "Done!"
