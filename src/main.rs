@@ -1434,6 +1434,8 @@ fn player_look(
             if dist_from_center > 100.0 {
                 window.set_cursor_position(Some(center));
                 cursor_lock_state.last_mouse_pos = Some(center);
+                // Skip next frame to avoid jump after re-centering
+                cursor_lock_state.skip_frames = 1;
             } else {
                 cursor_lock_state.last_mouse_pos = Some(cursor_pos);
             }
@@ -1787,6 +1789,7 @@ fn block_place(
     miner_query: Query<&Miner>,
     crusher_query: Query<&Crusher>,
     furnace_query: Query<&Transform, With<Furnace>>,
+    platform_query: Query<&Transform, With<DeliveryPlatform>>,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -1844,6 +1847,38 @@ fn block_place(
                         closest_hit = Some((block_pos, normal, hit_t));
                     }
                     break;
+                }
+            }
+        }
+    }
+
+    // Also check DeliveryPlatform for raycast hit
+    if let Ok(platform_transform) = platform_query.get_single() {
+        let platform_center = platform_transform.translation;
+        let platform_half_x = (PLATFORM_SIZE as f32 * BLOCK_SIZE) / 2.0;
+        let platform_half_y = BLOCK_SIZE * 0.1; // 0.2 height / 2
+        let platform_half_z = platform_half_x;
+
+        let platform_min = platform_center - Vec3::new(platform_half_x, platform_half_y, platform_half_z);
+        let platform_max = platform_center + Vec3::new(platform_half_x, platform_half_y, platform_half_z);
+
+        if let Some((hit_t, normal)) = ray_aabb_intersection_with_normal(
+            ray_origin,
+            ray_direction,
+            platform_min,
+            platform_max,
+        ) {
+            if hit_t > 0.0 && hit_t < REACH_DISTANCE {
+                // Convert hit point to block position for placement
+                let hit_point = ray_origin + ray_direction * hit_t;
+                let hit_block_pos = IVec3::new(
+                    hit_point.x.floor() as i32,
+                    hit_point.y.floor() as i32,
+                    hit_point.z.floor() as i32,
+                );
+                let is_closer = closest_hit.is_none_or(|h| hit_t < h.2);
+                if is_closer {
+                    closest_hit = Some((hit_block_pos, normal, hit_t));
                 }
             }
         }
