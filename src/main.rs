@@ -34,10 +34,15 @@ fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         // Native: Disable pipelined rendering for lower input lag
+        // Use current working directory for assets (not executable path)
         app.add_plugins((
             DefaultPlugins
                 .build()
                 .disable::<PipelinedRenderingPlugin>()
+                .set(AssetPlugin {
+                    file_path: "assets".to_string(),
+                    ..default()
+                })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Idle Factory".into(),
