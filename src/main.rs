@@ -74,12 +74,14 @@ fn main() {
         .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
         .init_resource::<InteractingFurnace>()
+        .init_resource::<InteractingCrusher>()
         .init_resource::<CurrentQuest>()
         .init_resource::<GameFont>()
         .init_resource::<ChunkMeshTasks>()
         .init_resource::<DebugHudState>()
         .init_resource::<TargetBlock>()
         .init_resource::<CreativeMode>()
+        .init_resource::<CreativeInventoryOpen>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
@@ -97,6 +99,8 @@ fn main() {
                 furnace_interact,
                 furnace_ui_input,
                 furnace_smelting,
+                crusher_interact,
+                crusher_ui_input,
             ),
         )
         .add_systems(
@@ -122,6 +126,7 @@ fn main() {
                 // UI update systems
                 update_hotbar_ui,
                 update_furnace_ui,
+                update_crusher_ui,
                 update_delivery_ui,
                 update_quest_ui,
                 update_window_title_fps,
@@ -136,6 +141,8 @@ fn main() {
                 update_target_block,
                 update_target_highlight,
                 creative_mode_input,
+                creative_inventory_toggle,
+                creative_inventory_click,
             ),
         )
         .run();
@@ -201,6 +208,37 @@ struct TargetHighlight;
 struct CreativeMode {
     enabled: bool,
 }
+
+/// Creative inventory UI open state
+#[derive(Resource, Default)]
+struct CreativeInventoryOpen(bool);
+
+/// Marker for creative inventory UI panel
+#[derive(Component)]
+struct CreativeInventoryUI;
+
+/// Creative inventory item button - stores the BlockType it represents
+#[derive(Component)]
+struct CreativeItemButton(BlockType);
+
+/// All available items for creative mode, organized by category
+const CREATIVE_ITEMS: &[(BlockType, &str)] = &[
+    // Blocks
+    (BlockType::Stone, "Blocks"),
+    (BlockType::Grass, "Blocks"),
+    // Ores
+    (BlockType::IronOre, "Ores"),
+    (BlockType::CopperOre, "Ores"),
+    (BlockType::Coal, "Ores"),
+    // Ingots
+    (BlockType::IronIngot, "Ingots"),
+    (BlockType::CopperIngot, "Ingots"),
+    // Machines
+    (BlockType::MinerBlock, "Machines"),
+    (BlockType::ConveyorBlock, "Machines"),
+    (BlockType::CrusherBlock, "Machines"),
+    (BlockType::FurnaceBlock, "Machines"),
+];
 
 impl FromWorld for GameFont {
     fn from_world(world: &mut World) -> Self {
@@ -282,9 +320,49 @@ struct FurnaceUI;
 #[derive(Component)]
 struct FurnaceUIText;
 
+/// Slot type for machine UI (Furnace/Crusher)
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum MachineSlotType {
+    Fuel,
+    Input,
+    Output,
+}
+
+/// Machine UI slot button
+#[derive(Component)]
+struct MachineSlotButton(MachineSlotType);
+
+/// Machine UI progress bar fill
+#[derive(Component)]
+struct MachineProgressBar;
+
+/// Machine UI slot count text
+#[derive(Component)]
+struct MachineSlotCount(MachineSlotType);
+
 /// Currently interacting furnace entity
 #[derive(Resource, Default)]
 struct InteractingFurnace(Option<Entity>);
+
+/// Currently interacting crusher entity
+#[derive(Resource, Default)]
+struct InteractingCrusher(Option<Entity>);
+
+/// Marker for crusher UI panel
+#[derive(Component)]
+struct CrusherUI;
+
+/// Crusher UI progress bar fill
+#[derive(Component)]
+struct CrusherProgressBar;
+
+/// Crusher UI slot button
+#[derive(Component)]
+struct CrusherSlotButton(MachineSlotType);
+
+/// Crusher UI slot count text
+#[derive(Component)]
+struct CrusherSlotCount(MachineSlotType);
 
 /// Miner component - automatically mines blocks below
 #[derive(Component)]
@@ -1145,6 +1223,88 @@ fn setup_player(mut commands: Commands) {
         });
 }
 
+/// Helper to spawn a machine UI slot (fuel/input/output)
+fn spawn_machine_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType, label: &str, color: Color) {
+    parent
+        .spawn((
+            Button,
+            MachineSlotButton(slot_type),
+            Node {
+                width: Val::Px(60.0),
+                height: Val::Px(60.0),
+                border: UiRect::all(Val::Px(2.0)),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(color),
+            BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+        ))
+        .with_children(|slot| {
+            // Label
+            slot.spawn((
+                Text::new(label),
+                TextFont {
+                    font_size: 10.0,
+                    ..default()
+                },
+                TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+            ));
+            // Count
+            slot.spawn((
+                MachineSlotCount(slot_type),
+                Text::new("0"),
+                TextFont {
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
+
+/// Helper to spawn a crusher UI slot (input/output only, no fuel)
+fn spawn_crusher_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType, label: &str, color: Color) {
+    parent
+        .spawn((
+            Button,
+            CrusherSlotButton(slot_type),
+            Node {
+                width: Val::Px(55.0),
+                height: Val::Px(55.0),
+                border: UiRect::all(Val::Px(2.0)),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(color),
+            BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+        ))
+        .with_children(|slot| {
+            // Label
+            slot.spawn((
+                Text::new(label),
+                TextFont {
+                    font_size: 10.0,
+                    ..default()
+                },
+                TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+            ));
+            // Count
+            slot.spawn((
+                CrusherSlotCount(slot_type),
+                Text::new("0"),
+                TextFont {
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
+
 fn setup_ui(mut commands: Commands) {
     // Hotbar UI - centered at bottom
     commands
@@ -1229,10 +1389,131 @@ fn setup_ui(mut commands: Commands) {
         BackgroundColor(Color::WHITE),
     ));
 
-    // Furnace UI panel (hidden by default)
+    // Furnace UI panel (hidden by default) - Minecraft-style slot layout
     commands
         .spawn((
             FurnaceUI,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(30.0),
+                left: Val::Percent(50.0),
+                padding: UiRect::all(Val::Px(15.0)),
+                margin: UiRect {
+                    left: Val::Px(-175.0),
+                    ..default()
+                },
+                width: Val::Px(350.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.95)),
+            Visibility::Hidden,
+        ))
+        .with_children(|parent| {
+            // Title
+            parent.spawn((
+                Text::new("Furnace"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+
+            // Keep FurnaceUIText for backwards compatibility (hidden, used for state)
+            parent.spawn((
+                FurnaceUIText,
+                Text::new(""),
+                TextFont { font_size: 1.0, ..default() },
+                TextColor(Color::NONE),
+                Node {
+                    display: Display::None,
+                    ..default()
+                },
+            ));
+
+            // Main slot layout: [Input] -> [Progress] -> [Output]
+            //                      [Fuel]
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    row_gap: Val::Px(8.0),
+                    ..default()
+                },))
+                .with_children(|layout| {
+                    // Top row: Input -> Arrow -> Output
+                    layout
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(15.0),
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },))
+                        .with_children(|row| {
+                            // Input slot (Iron Ore / Copper Ore)
+                            spawn_machine_slot(row, MachineSlotType::Input, "Ore", Color::srgb(0.6, 0.5, 0.4));
+
+                            // Progress bar container
+                            row.spawn((Node {
+                                width: Val::Px(60.0),
+                                height: Val::Px(20.0),
+                                flex_direction: FlexDirection::Row,
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                            ))
+                            .with_children(|bar_container| {
+                                // Progress fill
+                                bar_container.spawn((
+                                    MachineProgressBar,
+                                    Node {
+                                        width: Val::Percent(0.0),
+                                        height: Val::Percent(100.0),
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgb(1.0, 0.5, 0.0)),
+                                ));
+                            });
+
+                            // Output slot (Ingot)
+                            spawn_machine_slot(row, MachineSlotType::Output, "Ingot", Color::srgb(0.8, 0.8, 0.85));
+                        });
+
+                    // Bottom row: Fuel slot
+                    layout
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(10.0),
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },))
+                        .with_children(|row| {
+                            // Fuel slot (Coal)
+                            spawn_machine_slot(row, MachineSlotType::Fuel, "Fuel", Color::srgb(0.15, 0.15, 0.15));
+                        });
+                });
+
+            // Instructions
+            parent.spawn((
+                Text::new("Click slots to add/take items | ESC to close"),
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(Color::srgba(0.6, 0.6, 0.6, 1.0)),
+                Node {
+                    margin: UiRect::top(Val::Px(10.0)),
+                    ..default()
+                },
+            ));
+        });
+
+    // Crusher UI panel (hidden by default) - Minecraft-style slot layout
+    commands
+        .spawn((
+            CrusherUI,
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(30.0),
@@ -1244,20 +1525,74 @@ fn setup_ui(mut commands: Commands) {
                 },
                 width: Val::Px(300.0),
                 flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.95)),
+            BackgroundColor(Color::srgba(0.15, 0.12, 0.18, 0.95)),
             Visibility::Hidden,
         ))
         .with_children(|parent| {
+            // Title
             parent.spawn((
-                FurnaceUIText,
-                Text::new("=== Furnace ===\nFuel: 0 Coal\nInput: 0 Iron Ore\nOutput: 0 Iron Ingot\n\n[1] Add Coal | [2] Add Iron Ore\n[3] Take Iron Ingot | [E] Close"),
+                Text::new("Crusher"),
                 TextFont {
-                    font_size: 18.0,
+                    font_size: 20.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+            ));
+
+            // Slot layout: [Input] -> [Progress] -> [Output]
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(15.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Input slot (Ore)
+                    spawn_crusher_slot(row, MachineSlotType::Input, "Ore", Color::srgb(0.5, 0.4, 0.35));
+
+                    // Progress bar container
+                    row.spawn((Node {
+                        width: Val::Px(50.0),
+                        height: Val::Px(16.0),
+                        flex_direction: FlexDirection::Row,
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                    ))
+                    .with_children(|bar_container| {
+                        // Progress fill (uses CrusherProgressBar marker)
+                        bar_container.spawn((
+                            CrusherProgressBar,
+                            Node {
+                                width: Val::Percent(0.0),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.6, 0.3, 0.7)),
+                        ));
+                    });
+
+                    // Output slot (Ore x2)
+                    spawn_crusher_slot(row, MachineSlotType::Output, "x2", Color::srgb(0.6, 0.5, 0.45));
+                });
+
+            // Instructions
+            parent.spawn((
+                Text::new("Click to add/take ore | ESC to close"),
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(Color::srgba(0.6, 0.6, 0.6, 1.0)),
+                Node {
+                    margin: UiRect::top(Val::Px(10.0)),
+                    ..default()
+                },
             ));
         });
 
@@ -1314,6 +1649,110 @@ fn setup_ui(mut commands: Commands) {
                 },
                 TextColor(Color::WHITE),
             ));
+        });
+
+    // Creative inventory UI (hidden by default, fullscreen overlay)
+    commands
+        .spawn((
+            CreativeInventoryUI,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(0.0),
+                left: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+            Visibility::Hidden,
+        ))
+        .with_children(|parent| {
+            // Main panel (center)
+            parent
+                .spawn((
+                    Node {
+                        width: Val::Px(500.0),
+                        height: Val::Px(400.0),
+                        padding: UiRect::all(Val::Px(15.0)),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                ))
+                .with_children(|panel| {
+                    // Title
+                    panel.spawn((
+                        Text::new("Creative Inventory"),
+                        TextFont {
+                            font_size: 24.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(10.0)),
+                            ..default()
+                        },
+                    ));
+
+                    // Instruction
+                    panel.spawn((
+                        Text::new("Click to add 64 items to selected slot | ESC to close"),
+                        TextFont {
+                            font_size: 14.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(10.0)),
+                            ..default()
+                        },
+                    ));
+
+                    // Items grid
+                    panel
+                        .spawn((
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                column_gap: Val::Px(8.0),
+                                row_gap: Val::Px(8.0),
+                                ..default()
+                            },
+                        ))
+                        .with_children(|grid| {
+                            for (block_type, _category) in CREATIVE_ITEMS.iter() {
+                                // Item button
+                                grid.spawn((
+                                    Button,
+                                    CreativeItemButton(*block_type),
+                                    Node {
+                                        width: Val::Px(70.0),
+                                        height: Val::Px(70.0),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        flex_direction: FlexDirection::Column,
+                                        border: UiRect::all(Val::Px(2.0)),
+                                        ..default()
+                                    },
+                                    BackgroundColor(block_type.color()),
+                                    BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0)),
+                                ))
+                                .with_children(|btn| {
+                                    btn.spawn((
+                                        Text::new(block_type.name()),
+                                        TextFont {
+                                            font_size: 10.0,
+                                            ..default()
+                                        },
+                                        TextColor(Color::WHITE),
+                                    ));
+                                });
+                            }
+                        });
+                });
         });
 }
 
@@ -2506,15 +2945,22 @@ fn furnace_interact(
         if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
             *vis = Visibility::Visible;
         }
+        // Unlock cursor for UI interaction
+        let mut window = windows.single_mut();
+        window.cursor_options.grab_mode = CursorGrabMode::None;
+        window.cursor_options.visible = true;
     }
 }
 
-/// Handle input when furnace UI is open
+/// Handle slot click interactions when furnace UI is open
 fn furnace_ui_input(
-    key_input: Res<ButtonInput<KeyCode>>,
     interacting: Res<InteractingFurnace>,
     mut furnace_query: Query<&mut Furnace>,
     mut inventory: ResMut<Inventory>,
+    mut slot_query: Query<
+        (&Interaction, &MachineSlotButton, &mut BackgroundColor, &mut BorderColor),
+        Changed<Interaction>,
+    >,
 ) {
     let Some(furnace_entity) = interacting.0 else {
         return;
@@ -2524,33 +2970,64 @@ fn furnace_ui_input(
         return;
     };
 
-    // [1] Add coal to furnace
-    if key_input.just_pressed(KeyCode::Digit1)
-        && inventory.consume_item(BlockType::Coal, 1) {
-            furnace.fuel += 1;
-        }
+    for (interaction, slot_button, mut bg_color, mut border_color) in slot_query.iter_mut() {
+        let slot_type = slot_button.0;
 
-    // [2] Add iron ore to furnace
-    if key_input.just_pressed(KeyCode::Digit2)
-        && furnace.can_add_input(BlockType::IronOre) && inventory.consume_item(BlockType::IronOre, 1) {
-            furnace.input_type = Some(BlockType::IronOre);
-            furnace.input_count += 1;
-        }
-
-    // [3] Add copper ore to furnace
-    if key_input.just_pressed(KeyCode::Digit3)
-        && furnace.can_add_input(BlockType::CopperOre) && inventory.consume_item(BlockType::CopperOre, 1) {
-            furnace.input_type = Some(BlockType::CopperOre);
-            furnace.input_count += 1;
-        }
-
-    // [4] Take output from furnace
-    if key_input.just_pressed(KeyCode::Digit4) && furnace.output_count > 0 {
-        if let Some(output_type) = furnace.output_type {
-            furnace.output_count -= 1;
-            inventory.add_item(output_type, 1);
-            if furnace.output_count == 0 {
-                furnace.output_type = None;
+        match *interaction {
+            Interaction::Pressed => {
+                match slot_type {
+                    MachineSlotType::Fuel => {
+                        // Add coal from inventory
+                        if inventory.consume_item(BlockType::Coal, 1) {
+                            furnace.fuel += 1;
+                        }
+                    }
+                    MachineSlotType::Input => {
+                        // Add ore from inventory (prioritize iron, then copper)
+                        if furnace.can_add_input(BlockType::IronOre)
+                            && inventory.consume_item(BlockType::IronOre, 1)
+                        {
+                            furnace.input_type = Some(BlockType::IronOre);
+                            furnace.input_count += 1;
+                        } else if furnace.can_add_input(BlockType::CopperOre)
+                            && inventory.consume_item(BlockType::CopperOre, 1)
+                        {
+                            furnace.input_type = Some(BlockType::CopperOre);
+                            furnace.input_count += 1;
+                        }
+                    }
+                    MachineSlotType::Output => {
+                        // Take output ingot to inventory
+                        if furnace.output_count > 0 {
+                            if let Some(output_type) = furnace.output_type {
+                                furnace.output_count -= 1;
+                                inventory.add_item(output_type, 1);
+                                if furnace.output_count == 0 {
+                                    furnace.output_type = None;
+                                }
+                            }
+                        }
+                    }
+                }
+                *border_color = BorderColor(Color::srgb(1.0, 1.0, 0.0));
+            }
+            Interaction::Hovered => {
+                *border_color = BorderColor(Color::srgb(0.8, 0.8, 0.8));
+                // Brighten background slightly
+                let base = match slot_type {
+                    MachineSlotType::Fuel => Color::srgb(0.25, 0.25, 0.25),
+                    MachineSlotType::Input => Color::srgb(0.7, 0.6, 0.5),
+                    MachineSlotType::Output => Color::srgb(0.9, 0.9, 0.95),
+                };
+                *bg_color = BackgroundColor(base);
+            }
+            Interaction::None => {
+                *border_color = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
+                *bg_color = BackgroundColor(match slot_type {
+                    MachineSlotType::Fuel => Color::srgb(0.15, 0.15, 0.15),
+                    MachineSlotType::Input => Color::srgb(0.6, 0.5, 0.4),
+                    MachineSlotType::Output => Color::srgb(0.8, 0.8, 0.85),
+                });
             }
         }
     }
@@ -2640,6 +3117,170 @@ fn crusher_processing(
             }
         } else {
             crusher.progress = 0.0;
+        }
+    }
+}
+
+/// Handle crusher E key interaction (open/close UI)
+fn crusher_interact(
+    key_input: Res<ButtonInput<KeyCode>>,
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    crusher_query: Query<(Entity, &Transform), With<Crusher>>,
+    mut interacting: ResMut<InteractingCrusher>,
+    interacting_furnace: Res<InteractingFurnace>,
+    mut crusher_ui_query: Query<&mut Visibility, With<CrusherUI>>,
+    mut windows: Query<&mut Window>,
+) {
+    // Don't open crusher if furnace is open
+    if interacting_furnace.0.is_some() {
+        return;
+    }
+
+    let e_pressed = key_input.just_pressed(KeyCode::KeyE);
+    let esc_pressed = key_input.just_pressed(KeyCode::Escape);
+
+    // If already interacting, close the UI with E or ESC
+    if interacting.0.is_some() && (e_pressed || esc_pressed) {
+        interacting.0 = None;
+        if let Ok(mut vis) = crusher_ui_query.get_single_mut() {
+            *vis = Visibility::Hidden;
+        }
+        let mut window = windows.single_mut();
+        if esc_pressed {
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+        } else {
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
+        }
+        return;
+    }
+
+    // Only open crusher UI with E key
+    if !e_pressed {
+        return;
+    }
+
+    let window = windows.single();
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    if !cursor_locked {
+        return;
+    }
+
+    let Ok(camera_transform) = camera_query.get_single() else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation();
+    let ray_direction = camera_transform.forward().as_vec3();
+
+    // Find closest crusher intersection
+    let mut closest_crusher: Option<(Entity, f32)> = None;
+    let half_size = BLOCK_SIZE / 2.0;
+
+    for (entity, crusher_transform) in crusher_query.iter() {
+        let crusher_pos = crusher_transform.translation;
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            crusher_pos - Vec3::splat(half_size),
+            crusher_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = closest_crusher.is_none_or(|f| t < f.1);
+                if is_closer {
+                    closest_crusher = Some((entity, t));
+                }
+            }
+        }
+    }
+
+    // Open crusher UI
+    if let Some((entity, _)) = closest_crusher {
+        interacting.0 = Some(entity);
+        if let Ok(mut vis) = crusher_ui_query.get_single_mut() {
+            *vis = Visibility::Visible;
+        }
+        // Unlock cursor for UI interaction
+        let mut window = windows.single_mut();
+        window.cursor_options.grab_mode = CursorGrabMode::None;
+        window.cursor_options.visible = true;
+    }
+}
+
+/// Handle crusher slot click interactions
+fn crusher_ui_input(
+    interacting: Res<InteractingCrusher>,
+    mut crusher_query: Query<&mut Crusher>,
+    mut inventory: ResMut<Inventory>,
+    mut slot_query: Query<
+        (&Interaction, &CrusherSlotButton, &mut BackgroundColor, &mut BorderColor),
+        Changed<Interaction>,
+    >,
+) {
+    let Some(crusher_entity) = interacting.0 else {
+        return;
+    };
+
+    let Ok(mut crusher) = crusher_query.get_mut(crusher_entity) else {
+        return;
+    };
+
+    for (interaction, slot_button, mut bg_color, mut border_color) in slot_query.iter_mut() {
+        let slot_type = slot_button.0;
+
+        match *interaction {
+            Interaction::Pressed => {
+                match slot_type {
+                    MachineSlotType::Fuel => {
+                        // Crusher has no fuel slot - do nothing
+                    }
+                    MachineSlotType::Input => {
+                        // Add ore from inventory (prioritize iron, then copper)
+                        if (crusher.input_type.is_none() || crusher.input_type == Some(BlockType::IronOre))
+                            && inventory.consume_item(BlockType::IronOre, 1)
+                        {
+                            crusher.input_type = Some(BlockType::IronOre);
+                            crusher.input_count += 1;
+                        } else if (crusher.input_type.is_none() || crusher.input_type == Some(BlockType::CopperOre))
+                            && inventory.consume_item(BlockType::CopperOre, 1)
+                        {
+                            crusher.input_type = Some(BlockType::CopperOre);
+                            crusher.input_count += 1;
+                        }
+                    }
+                    MachineSlotType::Output => {
+                        // Take output ore to inventory
+                        if crusher.output_count > 0 {
+                            if let Some(output_type) = crusher.output_type {
+                                crusher.output_count -= 1;
+                                inventory.add_item(output_type, 1);
+                                if crusher.output_count == 0 {
+                                    crusher.output_type = None;
+                                }
+                            }
+                        }
+                    }
+                }
+                *border_color = BorderColor(Color::srgb(1.0, 1.0, 0.0));
+            }
+            Interaction::Hovered => {
+                *border_color = BorderColor(Color::srgb(0.8, 0.8, 0.8));
+                let base = match slot_type {
+                    MachineSlotType::Fuel => Color::srgb(0.5, 0.4, 0.35),
+                    MachineSlotType::Input => Color::srgb(0.6, 0.5, 0.45),
+                    MachineSlotType::Output => Color::srgb(0.7, 0.6, 0.55),
+                };
+                *bg_color = BackgroundColor(base);
+            }
+            Interaction::None => {
+                *border_color = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
+                *bg_color = BackgroundColor(match slot_type {
+                    MachineSlotType::Fuel => Color::srgb(0.5, 0.4, 0.35),
+                    MachineSlotType::Input => Color::srgb(0.5, 0.4, 0.35),
+                    MachineSlotType::Output => Color::srgb(0.6, 0.5, 0.45),
+                });
+            }
         }
     }
 }
@@ -3072,11 +3713,12 @@ fn update_conveyor_item_visuals(
     }
 }
 
-/// Update furnace UI text
+/// Update furnace UI slot counts and progress bar
 fn update_furnace_ui(
     interacting: Res<InteractingFurnace>,
     furnace_query: Query<&Furnace>,
-    mut text_query: Query<&mut Text, With<FurnaceUIText>>,
+    mut slot_count_query: Query<(&MachineSlotCount, &mut Text)>,
+    mut progress_bar_query: Query<&mut Node, With<MachineProgressBar>>,
 ) {
     let Some(furnace_entity) = interacting.0 else {
         return;
@@ -3086,28 +3728,49 @@ fn update_furnace_ui(
         return;
     };
 
-    let Ok(mut text) = text_query.get_single_mut() else {
+    // Update slot counts
+    for (slot_count, mut text) in slot_count_query.iter_mut() {
+        **text = match slot_count.0 {
+            MachineSlotType::Fuel => format!("{}", furnace.fuel),
+            MachineSlotType::Input => format!("{}", furnace.input_count),
+            MachineSlotType::Output => format!("{}", furnace.output_count),
+        };
+    }
+
+    // Update progress bar
+    for mut node in progress_bar_query.iter_mut() {
+        node.width = Val::Percent(furnace.progress * 100.0);
+    }
+}
+
+/// Update crusher UI slot counts and progress bar
+fn update_crusher_ui(
+    interacting: Res<InteractingCrusher>,
+    crusher_query: Query<&Crusher>,
+    mut slot_count_query: Query<(&CrusherSlotCount, &mut Text)>,
+    mut progress_bar_query: Query<&mut Node, With<CrusherProgressBar>>,
+) {
+    let Some(crusher_entity) = interacting.0 else {
         return;
     };
 
-    let progress_bar = if furnace.fuel > 0 && furnace.input_count > 0 {
-        let filled = (furnace.progress * 10.0) as usize;
-        let empty = 10 - filled;
-        format!("[{}{}] {:.0}%", "=".repeat(filled), " ".repeat(empty), furnace.progress * 100.0)
-    } else {
-        "[          ] 0%".to_string()
+    let Ok(crusher) = crusher_query.get(crusher_entity) else {
+        return;
     };
 
-    let input_name = furnace.input_type.map_or("None", |t| t.name());
-    let output_name = furnace.output_type.map_or("None", |t| t.name());
+    // Update slot counts
+    for (slot_count, mut text) in slot_count_query.iter_mut() {
+        **text = match slot_count.0 {
+            MachineSlotType::Fuel => "".to_string(), // Crusher has no fuel
+            MachineSlotType::Input => format!("{}", crusher.input_count),
+            MachineSlotType::Output => format!("{}", crusher.output_count),
+        };
+    }
 
-    **text = format!(
-        "=== Furnace ===\n\nFuel: {} Coal\nInput: {} {}\nOutput: {} {}\n\nProgress: {}\n\n[1] Coal | [2] Iron Ore | [3] Copper Ore\n[4] Take Output | [E] Close",
-        furnace.fuel,
-        furnace.input_count, input_name,
-        furnace.output_count, output_name,
-        progress_bar
-    );
+    // Update progress bar
+    for mut node in progress_bar_query.iter_mut() {
+        node.width = Val::Percent(crusher.progress * 100.0);
+    }
 }
 
 fn update_window_title_fps(diagnostics: Res<DiagnosticsStore>, mut windows: Query<&mut Window>) {
@@ -3703,6 +4366,106 @@ fn creative_mode_input(
                 // Set current slot to this item type
                 let slot = inventory.selected_slot;
                 inventory.slots[slot] = Some((block_type, 64));
+            }
+        }
+    }
+}
+
+/// Toggle creative inventory with E key (only in creative mode)
+fn creative_inventory_toggle(
+    key_input: Res<ButtonInput<KeyCode>>,
+    creative: Res<CreativeMode>,
+    mut creative_inv_open: ResMut<CreativeInventoryOpen>,
+    interacting_furnace: Res<InteractingFurnace>,
+    mut ui_query: Query<&mut Visibility, With<CreativeInventoryUI>>,
+    mut windows: Query<&mut Window>,
+) {
+    // Only toggle if in creative mode and not interacting with furnace
+    if !creative.enabled || interacting_furnace.0.is_some() {
+        return;
+    }
+
+    // E key to toggle creative inventory
+    if key_input.just_pressed(KeyCode::KeyE) {
+        creative_inv_open.0 = !creative_inv_open.0;
+
+        for mut vis in ui_query.iter_mut() {
+            *vis = if creative_inv_open.0 {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+
+        // Unlock/lock cursor
+        if let Ok(mut window) = windows.get_single_mut() {
+            if creative_inv_open.0 {
+                window.cursor_options.grab_mode = CursorGrabMode::None;
+                window.cursor_options.visible = true;
+            } else {
+                window.cursor_options.grab_mode = CursorGrabMode::Locked;
+                window.cursor_options.visible = false;
+            }
+        }
+    }
+
+    // ESC to close
+    if creative_inv_open.0 && key_input.just_pressed(KeyCode::Escape) {
+        creative_inv_open.0 = false;
+
+        for mut vis in ui_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+
+        // Unlock cursor (paused state)
+        if let Ok(mut window) = windows.get_single_mut() {
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+        }
+    }
+}
+
+/// Handle creative inventory item button clicks
+fn creative_inventory_click(
+    creative_inv_open: Res<CreativeInventoryOpen>,
+    mut inventory: ResMut<Inventory>,
+    mut interaction_query: Query<
+        (&Interaction, &CreativeItemButton, &mut BackgroundColor, &mut BorderColor),
+        Changed<Interaction>,
+    >,
+) {
+    if !creative_inv_open.0 {
+        return;
+    }
+
+    for (interaction, button, mut bg_color, mut border_color) in interaction_query.iter_mut() {
+        let block_type = button.0;
+
+        match *interaction {
+            Interaction::Pressed => {
+                // Add 64 of this item to selected slot
+                let slot = inventory.selected_slot;
+                inventory.slots[slot] = Some((block_type, 64));
+                // Visual feedback
+                *border_color = BorderColor(Color::srgb(1.0, 1.0, 0.0));
+            }
+            Interaction::Hovered => {
+                // Highlight on hover
+                *border_color = BorderColor(Color::srgb(0.8, 0.8, 0.8));
+                // Slightly brighter background
+                let base = block_type.color();
+                let Srgba { red, green, blue, alpha } = base.to_srgba();
+                *bg_color = BackgroundColor(Color::srgba(
+                    (red + 0.2).min(1.0),
+                    (green + 0.2).min(1.0),
+                    (blue + 0.2).min(1.0),
+                    alpha,
+                ));
+            }
+            Interaction::None => {
+                // Reset to normal
+                *border_color = BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0));
+                *bg_color = BackgroundColor(block_type.color());
             }
         }
     }
