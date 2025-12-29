@@ -221,11 +221,17 @@ struct TargetBlock {
     place_target: Option<IVec3>,
     /// Entity for break highlight visualization
     break_highlight_entity: Option<Entity>,
+    /// Entity for place highlight visualization
+    place_highlight_entity: Option<Entity>,
 }
 
-/// Marker component for target highlight cube
+/// Marker component for break target highlight (edges)
 #[derive(Component)]
 struct TargetHighlight;
+
+/// Marker component for place target highlight (edges)
+#[derive(Component)]
+struct PlaceHighlight;
 
 /// Creative mode resource for spawning items
 #[derive(Resource, Default)]
@@ -2010,13 +2016,14 @@ fn block_break(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cursor_state: ResMut<CursorLockState>,
+    creative_inv_open: Res<CreativeInventoryOpen>,
 ) {
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
-    // Don't break blocks while furnace UI is open or game is paused
-    if interacting_furnace.0.is_some() || cursor_state.paused {
+    // Don't break blocks while UI is open or game is paused
+    if interacting_furnace.0.is_some() || cursor_state.paused || creative_inv_open.0 {
         return;
     }
 
@@ -2331,12 +2338,13 @@ fn block_place(
     windows: Query<&Window>,
     cursor_state: Res<CursorLockState>,
     creative_mode: Res<CreativeMode>,
+    creative_inv_open: Res<CreativeInventoryOpen>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
-    // Don't place blocks while game is paused
-    if cursor_state.paused || !cursor_locked || !mouse_button.just_pressed(MouseButton::Right) {
+    // Don't place blocks while UI is open or game is paused
+    if cursor_state.paused || creative_inv_open.0 || !cursor_locked || !mouse_button.just_pressed(MouseButton::Right) {
         return;
     }
 
@@ -3405,26 +3413,31 @@ fn miner_output(
             continue;
         }
 
-        // Check for adjacent conveyor (on top of miner, or beside it)
-        let adjacent_positions = [
-            miner.position + IVec3::new(0, 1, 0),  // above
-            miner.position + IVec3::new(1, 0, 0),  // east
-            miner.position + IVec3::new(-1, 0, 0), // west
-            miner.position + IVec3::new(0, 0, 1),  // south
-            miner.position + IVec3::new(0, 0, -1), // north
+        // Check for adjacent conveyor with correct direction (conveyor must face away from miner)
+        let adjacent_with_direction = [
+            (miner.position + IVec3::new(1, 0, 0), Some(Direction::East)),   // east
+            (miner.position + IVec3::new(-1, 0, 0), Some(Direction::West)),  // west
+            (miner.position + IVec3::new(0, 0, 1), Some(Direction::South)),  // south
+            (miner.position + IVec3::new(0, 0, -1), Some(Direction::North)), // north
+            (miner.position + IVec3::new(0, 1, 0), None),                    // above (any direction)
         ];
 
         for mut conveyor in conveyor_query.iter_mut() {
-            if adjacent_positions.contains(&conveyor.position) && conveyor.item.is_none() {
-                // Transfer item to conveyor
-                conveyor.item = Some(block_type);
-                if let Some((_, ref mut buf_count)) = miner.buffer {
-                    *buf_count -= 1;
-                    if *buf_count == 0 {
-                        miner.buffer = None;
+            for (pos, expected_dir) in &adjacent_with_direction {
+                if conveyor.position == *pos && conveyor.item.is_none() {
+                    // Check direction: must match expected, or above (any direction)
+                    let dir_ok = expected_dir.is_none_or(|d| conveyor.direction == d);
+                    if dir_ok {
+                        conveyor.item = Some(block_type);
+                        if let Some((_, ref mut buf_count)) = miner.buffer {
+                            *buf_count -= 1;
+                            if *buf_count == 0 {
+                                miner.buffer = None;
+                            }
+                        }
+                        break;
                     }
                 }
-                break;
             }
         }
     }
@@ -3444,24 +3457,28 @@ fn crusher_output(
             continue;
         }
 
-        // Check for adjacent conveyor
-        let adjacent_positions = [
-            crusher.position + IVec3::new(1, 0, 0),  // east
-            crusher.position + IVec3::new(-1, 0, 0), // west
-            crusher.position + IVec3::new(0, 0, 1),  // south
-            crusher.position + IVec3::new(0, 0, -1), // north
-            crusher.position + IVec3::new(0, 1, 0),  // above
+        // Check for adjacent conveyor with correct direction
+        let adjacent_with_direction = [
+            (crusher.position + IVec3::new(1, 0, 0), Some(Direction::East)),   // east
+            (crusher.position + IVec3::new(-1, 0, 0), Some(Direction::West)),  // west
+            (crusher.position + IVec3::new(0, 0, 1), Some(Direction::South)),  // south
+            (crusher.position + IVec3::new(0, 0, -1), Some(Direction::North)), // north
+            (crusher.position + IVec3::new(0, 1, 0), None),                    // above (any direction)
         ];
 
         for mut conveyor in conveyor_query.iter_mut() {
-            if adjacent_positions.contains(&conveyor.position) && conveyor.item.is_none() {
-                // Transfer item to conveyor
-                conveyor.item = Some(output_type);
-                crusher.output_count -= 1;
-                if crusher.output_count == 0 {
-                    crusher.output_type = None;
+            for (pos, expected_dir) in &adjacent_with_direction {
+                if conveyor.position == *pos && conveyor.item.is_none() {
+                    let dir_ok = expected_dir.is_none_or(|d| conveyor.direction == d);
+                    if dir_ok {
+                        conveyor.item = Some(output_type);
+                        crusher.output_count -= 1;
+                        if crusher.output_count == 0 {
+                            crusher.output_type = None;
+                        }
+                        break;
+                    }
                 }
-                break;
             }
         }
     }
@@ -3488,24 +3505,28 @@ fn furnace_output(
             transform.translation.z.floor() as i32,
         );
 
-        // Check for adjacent conveyor
-        let adjacent_positions = [
-            furnace_pos + IVec3::new(1, 0, 0),  // east
-            furnace_pos + IVec3::new(-1, 0, 0), // west
-            furnace_pos + IVec3::new(0, 0, 1),  // south
-            furnace_pos + IVec3::new(0, 0, -1), // north
-            furnace_pos + IVec3::new(0, 1, 0),  // above
+        // Check for adjacent conveyor with correct direction
+        let adjacent_with_direction = [
+            (furnace_pos + IVec3::new(1, 0, 0), Some(Direction::East)),   // east
+            (furnace_pos + IVec3::new(-1, 0, 0), Some(Direction::West)),  // west
+            (furnace_pos + IVec3::new(0, 0, 1), Some(Direction::South)),  // south
+            (furnace_pos + IVec3::new(0, 0, -1), Some(Direction::North)), // north
+            (furnace_pos + IVec3::new(0, 1, 0), None),                    // above (any direction)
         ];
 
         for mut conveyor in conveyor_query.iter_mut() {
-            if adjacent_positions.contains(&conveyor.position) && conveyor.item.is_none() {
-                // Transfer item to conveyor
-                conveyor.item = Some(output_type);
-                furnace.output_count -= 1;
-                if furnace.output_count == 0 {
-                    furnace.output_type = None;
+            for (pos, expected_dir) in &adjacent_with_direction {
+                if conveyor.position == *pos && conveyor.item.is_none() {
+                    let dir_ok = expected_dir.is_none_or(|d| conveyor.direction == d);
+                    if dir_ok {
+                        conveyor.item = Some(output_type);
+                        furnace.output_count -= 1;
+                        if furnace.output_count == 0 {
+                            furnace.output_type = None;
+                        }
+                        break;
+                    }
                 }
-                break;
             }
         }
     }
@@ -4298,14 +4319,58 @@ fn update_target_block(
     target.place_target = None;
 }
 
+/// Create a wireframe cube mesh (12 edges)
+fn create_wireframe_cube_mesh() -> Mesh {
+    use bevy::render::mesh::PrimitiveTopology;
+
+    let half = BLOCK_SIZE * 0.505; // Slightly larger to avoid z-fighting
+
+    // 8 corners of the cube
+    let corners = [
+        Vec3::new(-half, -half, -half), // 0
+        Vec3::new( half, -half, -half), // 1
+        Vec3::new( half,  half, -half), // 2
+        Vec3::new(-half,  half, -half), // 3
+        Vec3::new(-half, -half,  half), // 4
+        Vec3::new( half, -half,  half), // 5
+        Vec3::new( half,  half,  half), // 6
+        Vec3::new(-half,  half,  half), // 7
+    ];
+
+    // 12 edges as line pairs (24 vertices total)
+    let positions: Vec<[f32; 3]> = [
+        // Bottom face edges
+        (corners[0], corners[1]),
+        (corners[1], corners[5]),
+        (corners[5], corners[4]),
+        (corners[4], corners[0]),
+        // Top face edges
+        (corners[3], corners[2]),
+        (corners[2], corners[6]),
+        (corners[6], corners[7]),
+        (corners[7], corners[3]),
+        // Vertical edges
+        (corners[0], corners[3]),
+        (corners[1], corners[2]),
+        (corners[5], corners[6]),
+        (corners[4], corners[7]),
+    ].iter().flat_map(|(a, b)| vec![a.to_array(), b.to_array()]).collect();
+
+    let mut mesh = Mesh::new(PrimitiveTopology::LineList, bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh
+}
+
 /// Update target highlight entity position
 fn update_target_highlight(
     mut commands: Commands,
     mut target: ResMut<TargetBlock>,
-    mut highlight_query: Query<&mut Transform, With<TargetHighlight>>,
+    mut break_query: Query<&mut Transform, (With<TargetHighlight>, Without<PlaceHighlight>)>,
+    mut place_query: Query<&mut Transform, (With<PlaceHighlight>, Without<TargetHighlight>)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // === Break target (red wireframe) ===
     if let Some(pos) = target.break_target {
         let center = Vec3::new(
             pos.x as f32 + 0.5,
@@ -4313,17 +4378,14 @@ fn update_target_highlight(
             pos.z as f32 + 0.5,
         );
 
-        // Update existing highlight or spawn new one
         if let Some(entity) = target.break_highlight_entity {
-            if let Ok(mut transform) = highlight_query.get_mut(entity) {
+            if let Ok(mut transform) = break_query.get_mut(entity) {
                 transform.translation = center;
             }
         } else {
-            // Spawn highlight cube (slightly larger, semi-transparent)
-            let mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 1.02, BLOCK_SIZE * 1.02, BLOCK_SIZE * 1.02));
+            let mesh = meshes.add(create_wireframe_cube_mesh());
             let material = materials.add(StandardMaterial {
-                base_color: Color::srgba(1.0, 0.3, 0.3, 0.3),
-                alpha_mode: AlphaMode::Blend,
+                base_color: Color::srgb(1.0, 0.2, 0.2),
                 unlit: true,
                 ..default()
             });
@@ -4335,11 +4397,39 @@ fn update_target_highlight(
             )).id();
             target.break_highlight_entity = Some(entity);
         }
-    } else {
-        // No target - despawn highlight if exists
-        if let Some(entity) = target.break_highlight_entity.take() {
-            commands.entity(entity).despawn();
+    } else if let Some(entity) = target.break_highlight_entity.take() {
+        commands.entity(entity).despawn();
+    }
+
+    // === Place target (green wireframe) ===
+    if let Some(pos) = target.place_target {
+        let center = Vec3::new(
+            pos.x as f32 + 0.5,
+            pos.y as f32 + 0.5,
+            pos.z as f32 + 0.5,
+        );
+
+        if let Some(entity) = target.place_highlight_entity {
+            if let Ok(mut transform) = place_query.get_mut(entity) {
+                transform.translation = center;
+            }
+        } else {
+            let mesh = meshes.add(create_wireframe_cube_mesh());
+            let material = materials.add(StandardMaterial {
+                base_color: Color::srgb(0.2, 1.0, 0.2),
+                unlit: true,
+                ..default()
+            });
+            let entity = commands.spawn((
+                Mesh3d(mesh),
+                MeshMaterial3d(material),
+                Transform::from_translation(center),
+                PlaceHighlight,
+            )).id();
+            target.place_highlight_entity = Some(entity);
         }
+    } else if let Some(entity) = target.place_highlight_entity.take() {
+        commands.entity(entity).despawn();
     }
 }
 
