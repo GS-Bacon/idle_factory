@@ -22,7 +22,7 @@
 | ゲーム起動 | `./run.sh` を使用（RDPディスプレイ自動検出） |
 | Gemini CLI | `gemini -m gemini-3-pro-preview -p "プロンプト"` を使用 |
 | Gemini活用 | 3Dモデリング・座標計算・幾何学処理で精度検証中。効果確認後に本格採用 |
-| Discord通知 | フェーズ完了時・作業修正完了時に `./discord-notify.sh "メッセージ"` で報告 |
+| Discord通知 | コミット時に自動でwebhook送信（post-commit hook設定済み） |
 
 ## 検証の分担
 

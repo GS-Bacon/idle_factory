@@ -115,7 +115,8 @@ fn main() {
         .init_resource::<DebugHudState>()
         .init_resource::<TargetBlock>()
         .init_resource::<CreativeMode>()
-        .init_resource::<CreativeInventoryOpen>()
+        .init_resource::<InventoryOpen>()
+        .init_resource::<HeldItem>()
         .init_resource::<CommandInputState>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
@@ -175,7 +176,10 @@ fn main() {
                 update_target_block,
                 update_target_highlight,
                 creative_mode_input,
-                creative_inventory_toggle,
+                inventory_toggle,
+                inventory_slot_click,
+                inventory_update_slots,
+                trash_slot_click,
                 creative_inventory_click,
                 command_input_toggle,
                 command_input_handler,
@@ -251,13 +255,29 @@ struct CreativeMode {
     enabled: bool,
 }
 
-/// Creative inventory UI open state
+/// Inventory UI open state
 #[derive(Resource, Default)]
-struct CreativeInventoryOpen(bool);
+struct InventoryOpen(bool);
 
-/// Marker for creative inventory UI panel
+/// Marker for inventory UI panel (full inventory overlay)
 #[derive(Component)]
-struct CreativeInventoryUI;
+struct InventoryUI;
+
+/// Marker for an inventory slot button (index 0-35)
+#[derive(Component)]
+struct InventorySlotUI(usize);
+
+/// Marker for trash slot
+#[derive(Component)]
+struct TrashSlot;
+
+/// Currently held item for drag and drop
+#[derive(Resource, Default)]
+struct HeldItem(Option<(BlockType, u32)>);
+
+/// Marker for held item cursor display
+#[derive(Component)]
+struct HeldItemDisplay;
 
 /// Creative inventory item button - stores the BlockType it represents
 #[derive(Component)]
@@ -1393,6 +1413,36 @@ fn spawn_crusher_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType, lab
         });
 }
 
+/// Helper to spawn an inventory slot button
+fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
+    parent
+        .spawn((
+            Button,
+            InventorySlotUI(slot_idx),
+            Node {
+                width: Val::Px(36.0),
+                height: Val::Px(36.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+            BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+        ))
+        .with_children(|btn| {
+            // Slot number (small, top-left)
+            btn.spawn((
+                Text::new(""),
+                TextFont {
+                    font_size: 10.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
+
 fn setup_ui(mut commands: Commands) {
     // Hotbar UI - centered at bottom
     commands
@@ -1739,10 +1789,10 @@ fn setup_ui(mut commands: Commands) {
             ));
         });
 
-    // Creative inventory UI (hidden by default, fullscreen overlay)
+    // Full inventory UI (hidden by default, fullscreen overlay)
     commands
         .spawn((
-            CreativeInventoryUI,
+            InventoryUI,
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),
@@ -1757,90 +1807,214 @@ fn setup_ui(mut commands: Commands) {
             Visibility::Hidden,
         ))
         .with_children(|parent| {
-            // Main panel (center)
+            // Main container (horizontal layout)
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(500.0),
-                        height: Val::Px(400.0),
-                        padding: UiRect::all(Val::Px(15.0)),
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.0),
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(20.0),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                 ))
-                .with_children(|panel| {
-                    // Title
-                    panel.spawn((
-                        Text::new("Creative Inventory"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        Node {
-                            margin: UiRect::bottom(Val::Px(10.0)),
-                            ..default()
-                        },
-                    ));
-
-                    // Instruction
-                    panel.spawn((
-                        Text::new("Click to add 64 items to selected slot | ESC to close"),
-                        TextFont {
-                            font_size: 14.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                        Node {
-                            margin: UiRect::bottom(Val::Px(10.0)),
-                            ..default()
-                        },
-                    ));
-
-                    // Items grid
-                    panel
+                .with_children(|container| {
+                    // Left panel: Player inventory
+                    container
                         .spawn((
                             Node {
-                                flex_direction: FlexDirection::Row,
-                                flex_wrap: FlexWrap::Wrap,
-                                column_gap: Val::Px(8.0),
-                                row_gap: Val::Px(8.0),
+                                width: Val::Px(400.0),
+                                padding: UiRect::all(Val::Px(15.0)),
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(10.0),
                                 ..default()
                             },
+                            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                         ))
-                        .with_children(|grid| {
-                            for (block_type, _category) in CREATIVE_ITEMS.iter() {
-                                // Item button
-                                grid.spawn((
-                                    Button,
-                                    CreativeItemButton(*block_type),
+                        .with_children(|panel| {
+                            // Title
+                            panel.spawn((
+                                Text::new("Inventory"),
+                                TextFont {
+                                    font_size: 20.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+
+                            // Main inventory (27 slots, 3x9 grid) - slots 9-35
+                            panel
+                                .spawn((
                                     Node {
-                                        width: Val::Px(70.0),
-                                        height: Val::Px(70.0),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        flex_direction: FlexDirection::Column,
-                                        border: UiRect::all(Val::Px(2.0)),
+                                        display: Display::Grid,
+                                        grid_template_columns: RepeatedGridTrack::flex(9, 1.0),
+                                        row_gap: Val::Px(4.0),
+                                        column_gap: Val::Px(4.0),
+                                        margin: UiRect::top(Val::Px(10.0)),
                                         ..default()
                                     },
-                                    BackgroundColor(block_type.color()),
-                                    BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0)),
                                 ))
-                                .with_children(|btn| {
-                                    btn.spawn((
-                                        Text::new(block_type.name()),
-                                        TextFont {
-                                            font_size: 10.0,
+                                .with_children(|grid| {
+                                    for slot_idx in HOTBAR_SLOTS..NUM_SLOTS {
+                                        spawn_inventory_slot(grid, slot_idx);
+                                    }
+                                });
+
+                            // Separator
+                            panel.spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Px(2.0),
+                                    margin: UiRect::vertical(Val::Px(5.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgba(0.5, 0.5, 0.5, 0.5)),
+                            ));
+
+                            // Hotbar (9 slots) - slots 0-8
+                            panel
+                                .spawn((
+                                    Node {
+                                        display: Display::Grid,
+                                        grid_template_columns: RepeatedGridTrack::flex(9, 1.0),
+                                        column_gap: Val::Px(4.0),
+                                        ..default()
+                                    },
+                                ))
+                                .with_children(|grid| {
+                                    for slot_idx in 0..HOTBAR_SLOTS {
+                                        spawn_inventory_slot(grid, slot_idx);
+                                    }
+                                });
+
+                            // Bottom row: Trash slot
+                            panel
+                                .spawn((
+                                    Node {
+                                        flex_direction: FlexDirection::Row,
+                                        justify_content: JustifyContent::FlexEnd,
+                                        margin: UiRect::top(Val::Px(10.0)),
+                                        ..default()
+                                    },
+                                ))
+                                .with_children(|row| {
+                                    // Trash slot
+                                    row.spawn((
+                                        Button,
+                                        TrashSlot,
+                                        Node {
+                                            width: Val::Px(40.0),
+                                            height: Val::Px(40.0),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            border: UiRect::all(Val::Px(2.0)),
                                             ..default()
                                         },
-                                        TextColor(Color::WHITE),
-                                    ));
+                                        BackgroundColor(Color::srgb(0.4, 0.1, 0.1)),
+                                        BorderColor(Color::srgb(0.6, 0.2, 0.2)),
+                                    ))
+                                    .with_children(|btn| {
+                                        btn.spawn((
+                                            Text::new("X"),
+                                            TextFont {
+                                                font_size: 16.0,
+                                                ..default()
+                                            },
+                                            TextColor(Color::WHITE),
+                                        ));
+                                    });
                                 });
-                            }
+
+                            // Instructions
+                            panel.spawn((
+                                Text::new("Click: pick/place | Shift+Click: quick move | ESC: close"),
+                                TextFont {
+                                    font_size: 11.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(0.6, 0.6, 0.6, 1.0)),
+                            ));
+                        });
+
+                    // Right panel: Creative catalog (only visible in creative mode)
+                    container
+                        .spawn((
+                            CreativeItemButton(BlockType::Stone), // Marker to identify this panel
+                            Node {
+                                width: Val::Px(350.0),
+                                padding: UiRect::all(Val::Px(15.0)),
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(10.0),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                        ))
+                        .with_children(|panel| {
+                            // Title
+                            panel.spawn((
+                                Text::new("Creative Catalog"),
+                                TextFont {
+                                    font_size: 20.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                            ));
+
+                            // Items grid
+                            panel
+                                .spawn((
+                                    Node {
+                                        flex_direction: FlexDirection::Row,
+                                        flex_wrap: FlexWrap::Wrap,
+                                        column_gap: Val::Px(6.0),
+                                        row_gap: Val::Px(6.0),
+                                        ..default()
+                                    },
+                                ))
+                                .with_children(|grid| {
+                                    for (block_type, _category) in CREATIVE_ITEMS.iter() {
+                                        grid.spawn((
+                                            Button,
+                                            CreativeItemButton(*block_type),
+                                            Node {
+                                                width: Val::Px(60.0),
+                                                height: Val::Px(60.0),
+                                                justify_content: JustifyContent::Center,
+                                                align_items: AlignItems::Center,
+                                                flex_direction: FlexDirection::Column,
+                                                border: UiRect::all(Val::Px(2.0)),
+                                                ..default()
+                                            },
+                                            BackgroundColor(block_type.color()),
+                                            BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0)),
+                                        ))
+                                        .with_children(|btn| {
+                                            btn.spawn((
+                                                Text::new(block_type.name()),
+                                                TextFont {
+                                                    font_size: 9.0,
+                                                    ..default()
+                                                },
+                                                TextColor(Color::WHITE),
+                                            ));
+                                        });
+                                    }
+                                });
                         });
                 });
+
+            // Held item display (follows cursor)
+            parent.spawn((
+                HeldItemDisplay,
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(36.0),
+                    height: Val::Px(36.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                Visibility::Hidden,
+            ));
         });
 
     // Command input UI (bottom center, hidden by default)
@@ -1924,7 +2098,7 @@ fn toggle_cursor_lock(
     mut windows: Query<&mut Window>,
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
-    creative_inv_open: Res<CreativeInventoryOpen>,
+    creative_inv_open: Res<InventoryOpen>,
     mut cursor_state: ResMut<CursorLockState>,
 ) {
     let mut window = windows.single_mut();
@@ -2115,7 +2289,7 @@ fn block_break(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cursor_state: ResMut<CursorLockState>,
-    creative_inv_open: Res<CreativeInventoryOpen>,
+    creative_inv_open: Res<InventoryOpen>,
 ) {
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
@@ -2448,7 +2622,7 @@ fn block_place(
     windows: Query<&Window>,
     cursor_state: Res<CursorLockState>,
     creative_mode: Res<CreativeMode>,
-    creative_inv_open: Res<CreativeInventoryOpen>,
+    creative_inv_open: Res<InventoryOpen>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -4987,27 +5161,27 @@ fn creative_mode_input(
     }
 }
 
-/// Toggle creative inventory with E key (only in creative mode)
-fn creative_inventory_toggle(
+/// Toggle inventory with E key (works in both survival and creative mode)
+fn inventory_toggle(
     key_input: Res<ButtonInput<KeyCode>>,
-    creative: Res<CreativeMode>,
-    mut creative_inv_open: ResMut<CreativeInventoryOpen>,
+    mut inventory_open: ResMut<InventoryOpen>,
     interacting_furnace: Res<InteractingFurnace>,
+    interacting_crusher: Res<InteractingCrusher>,
     command_state: Res<CommandInputState>,
-    mut ui_query: Query<&mut Visibility, With<CreativeInventoryUI>>,
+    mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
     mut windows: Query<&mut Window>,
 ) {
-    // Only toggle if in creative mode and not interacting with furnace or command input
-    if !creative.enabled || interacting_furnace.0.is_some() || command_state.open {
+    // Don't toggle if other UIs are open
+    if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || command_state.open {
         return;
     }
 
-    // E key to toggle creative inventory
+    // E key to toggle inventory
     if key_input.just_pressed(KeyCode::KeyE) {
-        creative_inv_open.0 = !creative_inv_open.0;
+        inventory_open.0 = !inventory_open.0;
 
         for mut vis in ui_query.iter_mut() {
-            *vis = if creative_inv_open.0 {
+            *vis = if inventory_open.0 {
                 Visibility::Visible
             } else {
                 Visibility::Hidden
@@ -5016,7 +5190,7 @@ fn creative_inventory_toggle(
 
         // Unlock/lock cursor
         if let Ok(mut window) = windows.get_single_mut() {
-            if creative_inv_open.0 {
+            if inventory_open.0 {
                 window.cursor_options.grab_mode = CursorGrabMode::None;
                 window.cursor_options.visible = true;
                 set_ui_open_state(true);
@@ -5029,14 +5203,14 @@ fn creative_inventory_toggle(
     }
 
     // ESC to close
-    if creative_inv_open.0 && key_input.just_pressed(KeyCode::Escape) {
-        creative_inv_open.0 = false;
+    if inventory_open.0 && key_input.just_pressed(KeyCode::Escape) {
+        inventory_open.0 = false;
 
         for mut vis in ui_query.iter_mut() {
             *vis = Visibility::Hidden;
         }
 
-        // Unlock cursor (paused state) - set ui_open=false so overlay can show
+        // Unlock cursor (paused state)
         if let Ok(mut window) = windows.get_single_mut() {
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
@@ -5047,7 +5221,7 @@ fn creative_inventory_toggle(
 
 /// Handle creative inventory item button clicks
 fn creative_inventory_click(
-    creative_inv_open: Res<CreativeInventoryOpen>,
+    creative_inv_open: Res<InventoryOpen>,
     mut inventory: ResMut<Inventory>,
     mut interaction_query: Query<
         (&Interaction, &CreativeItemButton, &mut BackgroundColor, &mut BorderColor),
@@ -5091,6 +5265,194 @@ fn creative_inventory_click(
     }
 }
 
+/// Handle inventory slot clicks (pick up / place items)
+fn inventory_slot_click(
+    inventory_open: Res<InventoryOpen>,
+    mut inventory: ResMut<Inventory>,
+    mut held_item: ResMut<HeldItem>,
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut interaction_query: Query<
+        (&Interaction, &InventorySlotUI, &mut BackgroundColor, &mut BorderColor),
+        Changed<Interaction>,
+    >,
+) {
+    if !inventory_open.0 {
+        return;
+    }
+
+    let shift_held = key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
+
+    for (interaction, slot_ui, mut bg_color, mut border_color) in interaction_query.iter_mut() {
+        let slot_idx = slot_ui.0;
+
+        match *interaction {
+            Interaction::Pressed => {
+                if shift_held {
+                    // Shift+Click: Quick move between hotbar and main inventory
+                    if let Some((block_type, count)) = inventory.slots[slot_idx].take() {
+                        // Determine target area
+                        let target_range = if slot_idx < HOTBAR_SLOTS {
+                            // From hotbar -> main inventory
+                            HOTBAR_SLOTS..NUM_SLOTS
+                        } else {
+                            // From main -> hotbar
+                            0..HOTBAR_SLOTS
+                        };
+
+                        // Try to stack first
+                        let mut remaining = count;
+                        for target_idx in target_range.clone() {
+                            if remaining == 0 { break; }
+                            if let Some((bt, ref mut c)) = inventory.slots[target_idx] {
+                                if bt == block_type && *c < MAX_STACK_SIZE {
+                                    let space = MAX_STACK_SIZE - *c;
+                                    let to_add = remaining.min(space);
+                                    *c += to_add;
+                                    remaining -= to_add;
+                                }
+                            }
+                        }
+
+                        // Then find empty slots
+                        for target_idx in target_range {
+                            if remaining == 0 { break; }
+                            if inventory.slots[target_idx].is_none() {
+                                let to_add = remaining.min(MAX_STACK_SIZE);
+                                inventory.slots[target_idx] = Some((block_type, to_add));
+                                remaining -= to_add;
+                            }
+                        }
+
+                        // Put back any remaining
+                        if remaining > 0 {
+                            inventory.slots[slot_idx] = Some((block_type, remaining));
+                        }
+                    }
+                } else {
+                    // Normal click: pick up or place
+                    let slot_item = inventory.slots[slot_idx].take();
+                    let held = held_item.0.take();
+
+                    match (slot_item, held) {
+                        (None, None) => {
+                            // Both empty, do nothing
+                        }
+                        (Some(item), None) => {
+                            // Pick up item from slot
+                            held_item.0 = Some(item);
+                        }
+                        (None, Some(item)) => {
+                            // Place held item into slot
+                            inventory.slots[slot_idx] = Some(item);
+                        }
+                        (Some((slot_type, slot_count)), Some((held_type, held_count))) => {
+                            if slot_type == held_type {
+                                // Same type - try to stack
+                                let total = slot_count + held_count;
+                                if total <= MAX_STACK_SIZE {
+                                    inventory.slots[slot_idx] = Some((slot_type, total));
+                                } else {
+                                    inventory.slots[slot_idx] = Some((slot_type, MAX_STACK_SIZE));
+                                    held_item.0 = Some((held_type, total - MAX_STACK_SIZE));
+                                }
+                            } else {
+                                // Different types - swap
+                                inventory.slots[slot_idx] = Some((held_type, held_count));
+                                held_item.0 = Some((slot_type, slot_count));
+                            }
+                        }
+                    }
+                }
+
+                // Visual feedback
+                *border_color = BorderColor(Color::srgb(1.0, 1.0, 0.0));
+            }
+            Interaction::Hovered => {
+                *border_color = BorderColor(Color::srgb(0.7, 0.7, 0.7));
+                *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.9));
+            }
+            Interaction::None => {
+                *border_color = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
+                *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9));
+            }
+        }
+    }
+}
+
+/// Update inventory slot visuals to reflect current inventory state
+fn inventory_update_slots(
+    inventory_open: Res<InventoryOpen>,
+    inventory: Res<Inventory>,
+    mut slot_query: Query<(&InventorySlotUI, &mut BackgroundColor, &Children)>,
+    mut text_query: Query<&mut Text>,
+) {
+    if !inventory_open.0 {
+        return;
+    }
+
+    for (slot_ui, mut bg_color, children) in slot_query.iter_mut() {
+        let slot_idx = slot_ui.0;
+
+        if let Some((block_type, count)) = inventory.slots[slot_idx] {
+            // Show item color and count
+            *bg_color = BackgroundColor(block_type.color());
+
+            // Update text (count)
+            for &child in children.iter() {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    text.0 = if count > 1 {
+                        format!("{}", count)
+                    } else {
+                        String::new()
+                    };
+                }
+            }
+        } else {
+            // Empty slot
+            *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9));
+
+            for &child in children.iter() {
+                if let Ok(mut text) = text_query.get_mut(child) {
+                    text.0 = String::new();
+                }
+            }
+        }
+    }
+}
+
+/// Handle trash slot clicks (delete held item)
+#[allow(clippy::type_complexity)]
+fn trash_slot_click(
+    inventory_open: Res<InventoryOpen>,
+    mut held_item: ResMut<HeldItem>,
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
+        (Changed<Interaction>, With<TrashSlot>),
+    >,
+) {
+    if !inventory_open.0 {
+        return;
+    }
+
+    for (interaction, mut bg_color, mut border_color) in interaction_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                // Delete held item
+                held_item.0 = None;
+                *border_color = BorderColor(Color::srgb(1.0, 0.0, 0.0));
+            }
+            Interaction::Hovered => {
+                *border_color = BorderColor(Color::srgb(1.0, 0.5, 0.5));
+                *bg_color = BackgroundColor(Color::srgb(0.6, 0.1, 0.1));
+            }
+            Interaction::None => {
+                *border_color = BorderColor(Color::srgb(0.6, 0.2, 0.2));
+                *bg_color = BackgroundColor(Color::srgb(0.4, 0.1, 0.1));
+            }
+        }
+    }
+}
+
 // === Command Input System ===
 
 /// Toggle command input with T or / key
@@ -5103,7 +5465,7 @@ fn command_input_toggle(
     mut windows: Query<&mut Window>,
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
-    creative_inv_open: Res<CreativeInventoryOpen>,
+    creative_inv_open: Res<InventoryOpen>,
 ) {
     // Don't open if other UI is open
     if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || creative_inv_open.0 {
