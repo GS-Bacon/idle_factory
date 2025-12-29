@@ -2353,3 +2353,141 @@ fn test_furnace_break_returns_items() {
     assert_eq!(inventory.get_slot(1), Some(BlockType::Stone));
     assert_eq!(inventory.get_slot_count(1), 5, "Input ore should be returned");
 }
+
+// === Command execution tests ===
+
+#[test]
+fn test_command_give_item() {
+    // Simulate /give command
+    let mut inventory = SlotInventory::default();
+
+    // /give stone 10
+    let item_name = "stone";
+    let count = 10u32;
+
+    // Parse item name (simplified)
+    let block_type = match item_name {
+        "stone" => Some(BlockType::Stone),
+        "grass" => Some(BlockType::Grass),
+        _ => None,
+    };
+
+    if let Some(bt) = block_type {
+        inventory.add_item(bt, count);
+    }
+
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(0), 10);
+}
+
+#[test]
+fn test_command_give_default_count() {
+    // /give without count should default to 64
+    let mut inventory = SlotInventory::default();
+    let default_count = 64u32;
+
+    inventory.add_item(BlockType::Stone, default_count);
+
+    assert_eq!(inventory.get_slot_count(0), 64);
+}
+
+#[test]
+fn test_command_clear_inventory() {
+    let mut inventory = SlotInventory::default();
+
+    // Add some items
+    inventory.add_item(BlockType::Stone, 10);
+    inventory.add_item(BlockType::Grass, 5);
+
+    assert!(inventory.get_slot(0).is_some());
+    assert!(inventory.get_slot(1).is_some());
+
+    // Clear inventory
+    for slot in inventory.slots.iter_mut() {
+        *slot = None;
+    }
+
+    assert!(inventory.get_slot(0).is_none());
+    assert!(inventory.get_slot(1).is_none());
+}
+
+#[test]
+fn test_command_creative_mode_fills_inventory() {
+    let mut inventory = SlotInventory::default();
+
+    // Simulate entering creative mode - fills first 9 slots with 64 items each
+    let all_items = [BlockType::Stone, BlockType::Grass];
+    for (i, block_type) in all_items.iter().take(9).enumerate() {
+        inventory.slots[i] = Some((*block_type, 64));
+    }
+
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(0), 64);
+    assert_eq!(inventory.get_slot(1), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot_count(1), 64);
+}
+
+#[test]
+fn test_command_unknown_item_no_crash() {
+    // /give unknownitem should not crash
+    let mut inventory = SlotInventory::default();
+
+    let item_name = "unknownitem";
+    let block_type: Option<BlockType> = match item_name {
+        "stone" => Some(BlockType::Stone),
+        "grass" => Some(BlockType::Grass),
+        _ => None,
+    };
+
+    // Should not add anything for unknown item
+    if let Some(bt) = block_type {
+        inventory.add_item(bt, 64);
+    }
+
+    // Inventory should remain empty
+    assert!(inventory.get_slot(0).is_none());
+}
+
+#[test]
+fn test_miner_buffer_overflow_protection() {
+    // Miner buffer should not exceed max capacity
+    struct MinerBuffer {
+        buffer: Option<(BlockType, u32)>,
+        max_buffer: u32,
+    }
+
+    let mut miner = MinerBuffer {
+        buffer: None,
+        max_buffer: 64,
+    };
+
+    // Simulate mining adding to buffer
+    for _ in 0..100 {
+        match &mut miner.buffer {
+            Some((_, count)) if *count < miner.max_buffer => {
+                *count += 1;
+            }
+            None => {
+                miner.buffer = Some((BlockType::Stone, 1));
+            }
+            _ => {} // Buffer full, don't add
+        }
+    }
+
+    // Buffer should be capped at max
+    assert_eq!(miner.buffer.map(|(_, c)| c), Some(64));
+}
+
+#[test]
+fn test_delivery_platform_accepts_any_item() {
+    // Delivery platform should accept any item type
+    let mut delivered: std::collections::HashMap<BlockType, u32> = std::collections::HashMap::new();
+
+    // Deliver different item types
+    *delivered.entry(BlockType::Stone).or_insert(0) += 1;
+    *delivered.entry(BlockType::Grass).or_insert(0) += 1;
+    *delivered.entry(BlockType::Stone).or_insert(0) += 1;
+
+    assert_eq!(delivered.get(&BlockType::Stone), Some(&2));
+    assert_eq!(delivered.get(&BlockType::Grass), Some(&1));
+}

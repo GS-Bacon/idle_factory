@@ -46,6 +46,6 @@
     "panicked at /home/bacon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-23.0.1/src/backend/wgpu_core.rs:1768:18:\nwgpu error: Validation Error\n\nCaused by:\n  In CommandEncoder::begin_render_pass, label = 'upscaling_pass'\n    Command encoder is locked by a previously created render/compute pass. Before recording any new commands, the pass must be ended.\n\n\n\nStack:\n\nError\n    at imports.wbg.__wbg_new_8a6f238a6ece86ea (http://localhost:8080/idle_factory.js:1341:21)\n    at wasm://wasm/07898286:wasm-function[61037]:0x1a4404e\n    at wasm://wasm/07898286:wasm-function[19758]:0x15d2f60\n    at wasm://wasm/07898286:wasm-function[32915]:0x1973c54\n    at wasm://wasm/07898286:wasm-function[5781]:0xddede0\n    at wasm://wasm/07898286:wasm-function[23766]:0x16d42de\n    at wasm://wasm/07898286:wasm-function[24662]:0x16fc0da\n    at wasm://wasm/07898286:wasm-function[15744]:0x1421b5b\n    at wasm://wasm/07898286:wasm-function[684]:0x37f730\n    at wasm://wasm/07898286:wasm-function[684]:0x37f8a3\n\n"
   ],
   "fpsReadings": [],
-  "startTime": "2025-12-29T05:33:46.811Z",
-  "endTime": "2025-12-29T05:34:01.857Z"
+  "startTime": "2025-12-29T06:04:35.926Z",
+  "endTime": "2025-12-29T06:04:51.468Z"
 }

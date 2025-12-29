@@ -4281,9 +4281,9 @@ fn conveyor_transfer(
             TransferTarget::Delivery => {
                 // Deliver the item to platform
                 if let Some((_, mut platform)) = platform_query.iter_mut().next() {
-                    let count = *platform.delivered.entry(item.block_type).or_insert(0) + 1;
-                    *platform.delivered.get_mut(&item.block_type).unwrap() = count;
-                    info!(category = "QUEST", action = "deliver", item = ?item.block_type, total = count, "Item delivered");
+                    let count = platform.delivered.entry(item.block_type).or_insert(0);
+                    *count += 1;
+                    info!(category = "QUEST", action = "deliver", item = ?item.block_type, total = *count, "Item delivered");
                 }
                 if let Some(visual) = item.visual_entity {
                     commands.entity(visual).despawn();
