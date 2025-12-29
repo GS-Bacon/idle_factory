@@ -385,9 +385,12 @@ impl Furnace {
         }
     }
 
-    /// Check if this ore type can be added to input (same type or empty)
+    /// Check if this ore type can be added to input (same type or empty, within stack limit)
     fn can_add_input(&self, ore: BlockType) -> bool {
-        self.input_type.is_none() || self.input_type == Some(ore)
+        const MAX_MACHINE_STACK: u32 = 64; // Machine slots have smaller stack limit
+        let type_ok = self.input_type.is_none() || self.input_type == Some(ore);
+        let count_ok = self.input_count < MAX_MACHINE_STACK;
+        type_ok && count_ok
     }
 }
 
@@ -3415,8 +3418,9 @@ fn furnace_ui_input(
             Interaction::Pressed => {
                 match slot_type {
                     MachineSlotType::Fuel => {
-                        // Add coal from inventory
-                        if inventory.consume_item(BlockType::Coal, 1) {
+                        // Add coal from inventory (max 64)
+                        const MAX_FUEL: u32 = 64;
+                        if furnace.fuel < MAX_FUEL && inventory.consume_item(BlockType::Coal, 1) {
                             furnace.fuel += 1;
                         }
                     }
@@ -3681,13 +3685,16 @@ fn crusher_ui_input(
                         // Crusher has no fuel slot - do nothing
                     }
                     MachineSlotType::Input => {
-                        // Add ore from inventory (prioritize iron, then copper)
-                        if (crusher.input_type.is_none() || crusher.input_type == Some(BlockType::IronOre))
+                        // Add ore from inventory (prioritize iron, then copper, max 64)
+                        const MAX_INPUT: u32 = 64;
+                        if crusher.input_count < MAX_INPUT
+                            && (crusher.input_type.is_none() || crusher.input_type == Some(BlockType::IronOre))
                             && inventory.consume_item(BlockType::IronOre, 1)
                         {
                             crusher.input_type = Some(BlockType::IronOre);
                             crusher.input_count += 1;
-                        } else if (crusher.input_type.is_none() || crusher.input_type == Some(BlockType::CopperOre))
+                        } else if crusher.input_count < MAX_INPUT
+                            && (crusher.input_type.is_none() || crusher.input_type == Some(BlockType::CopperOre))
                             && inventory.consume_item(BlockType::CopperOre, 1)
                         {
                             crusher.input_type = Some(BlockType::CopperOre);

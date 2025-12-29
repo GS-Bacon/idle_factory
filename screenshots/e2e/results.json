@@ -1,0 +1,51 @@
+{
+  "passed": [
+    "initial_state",
+    "activated",
+    "inventory_open",
+    "inventory_close",
+    "hotbar_selection",
+    "debug_hud"
+  ],
+  "failed": [],
+  "screenshots": [
+    {
+      "name": "initial",
+      "filename": "01_initial.png",
+      "description": "ゲーム起動直後の状態"
+    },
+    {
+      "name": "activated",
+      "filename": "02_activated.png",
+      "description": "ポインターロック取得後"
+    },
+    {
+      "name": "inventory_open",
+      "filename": "03_inventory_open.png",
+      "description": "インベントリUI表示"
+    },
+    {
+      "name": "inventory_close",
+      "filename": "04_inventory_close.png",
+      "description": "インベントリUI閉じた後"
+    },
+    {
+      "name": "hotbar",
+      "filename": "05_hotbar.png",
+      "description": "ホットバー選択後"
+    },
+    {
+      "name": "debug_hud",
+      "filename": "06_debug_hud.png",
+      "description": "デバッグHUD表示中"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: net::ERR_CONTENT_LENGTH_MISMATCH",
+    "panicked at /home/bacon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_asset-0.15.3/src/io/wasm.rs:78:79:\ncalled `Result::unwrap()` on an `Err` value: JsValue(TypeError: Failed to fetch\nTypeError: Failed to fetch)\n\nStack:\n\nError\n    at imports.wbg.__wbg_new_8a6f238a6ece86ea (http://localhost:8080/idle_factory.js:1341:21)\n    at wasm://wasm/07898286:wasm-function[61037]:0x1a4404e\n    at wasm://wasm/07898286:wasm-function[19758]:0x15d2f60\n    at wasm://wasm/07898286:wasm-function[32915]:0x1973c54\n    at wasm://wasm/07898286:wasm-function[23152]:0x16b5d0b\n    at wasm://wasm/07898286:wasm-function[2323]:0x939076\n    at wasm://wasm/07898286:wasm-function[12328]:0x12869bb\n    at wasm://wasm/07898286:wasm-function[1462]:0x6eb0a3\n    at wasm://wasm/07898286:wasm-function[17430]:0x14ee526\n    at wasm://wasm/07898286:wasm-function[35938]:0x1994002\n\n",
+    "panicked at /home/bacon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-23.0.1/src/backend/wgpu_core.rs:1768:18:\nwgpu error: Validation Error\n\nCaused by:\n  In CommandEncoder::begin_render_pass, label = 'upscaling_pass'\n    Command encoder is locked by a previously created render/compute pass. Before recording any new commands, the pass must be ended.\n\n\n\nStack:\n\nError\n    at imports.wbg.__wbg_new_8a6f238a6ece86ea (http://localhost:8080/idle_factory.js:1341:21)\n    at wasm://wasm/07898286:wasm-function[61037]:0x1a4404e\n    at wasm://wasm/07898286:wasm-function[19758]:0x15d2f60\n    at wasm://wasm/07898286:wasm-function[32915]:0x1973c54\n    at wasm://wasm/07898286:wasm-function[5781]:0xddede0\n    at wasm://wasm/07898286:wasm-function[23766]:0x16d42de\n    at wasm://wasm/07898286:wasm-function[24662]:0x16fc0da\n    at wasm://wasm/07898286:wasm-function[15744]:0x1421b5b\n    at wasm://wasm/07898286:wasm-function[684]:0x37f730\n    at wasm://wasm/07898286:wasm-function[684]:0x37f8a3\n\n"
+  ],
+  "fpsReadings": [],
+  "startTime": "2025-12-29T05:33:46.811Z",
+  "endTime": "2025-12-29T05:34:01.857Z"
+}

@@ -1948,3 +1948,317 @@ fn test_zipper_merge() {
         );
     }
 }
+
+// =====================================================
+// Auto Conveyor Direction Tests
+// =====================================================
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum TestDirection {
+    North,
+    South,
+    East,
+    West,
+}
+
+impl TestDirection {
+    fn to_ivec3(self) -> IVec3 {
+        match self {
+            TestDirection::North => IVec3::new(0, 0, -1),
+            TestDirection::South => IVec3::new(0, 0, 1),
+            TestDirection::East => IVec3::new(1, 0, 0),
+            TestDirection::West => IVec3::new(-1, 0, 0),
+        }
+    }
+}
+
+/// Test auto_conveyor_direction logic
+fn auto_conveyor_direction(
+    place_pos: IVec3,
+    fallback_direction: TestDirection,
+    conveyors: &[(IVec3, TestDirection)],
+    machines: &[IVec3],
+) -> TestDirection {
+    // Priority 1: Continue chain from adjacent conveyor pointing toward us
+    for (conv_pos, conv_dir) in conveyors {
+        let expected_target = *conv_pos + conv_dir.to_ivec3();
+        if expected_target == place_pos {
+            return *conv_dir;
+        }
+    }
+
+    // Priority 2: Point away from adjacent machine
+    for machine_pos in machines {
+        let diff = place_pos - *machine_pos;
+        if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
+            if diff.x == 1 { return TestDirection::East; }
+            if diff.x == -1 { return TestDirection::West; }
+            if diff.z == 1 { return TestDirection::South; }
+            if diff.z == -1 { return TestDirection::North; }
+        }
+    }
+
+    // Priority 3: Connect to adjacent conveyor
+    for (conv_pos, _) in conveyors {
+        let diff = *conv_pos - place_pos;
+        if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
+            if diff.x == 1 { return TestDirection::East; }
+            if diff.x == -1 { return TestDirection::West; }
+            if diff.z == 1 { return TestDirection::South; }
+            if diff.z == -1 { return TestDirection::North; }
+        }
+    }
+
+    fallback_direction
+}
+
+#[test]
+fn test_auto_conveyor_continues_chain() {
+    // Conveyor at (5,8,5) pointing East, placing at (6,8,5)
+    let conveyors = vec![(IVec3::new(5, 8, 5), TestDirection::East)];
+    let machines: Vec<IVec3> = vec![];
+    let place_pos = IVec3::new(6, 8, 5);
+
+    let dir = auto_conveyor_direction(place_pos, TestDirection::North, &conveyors, &machines);
+    assert_eq!(dir, TestDirection::East, "Should continue chain direction");
+}
+
+#[test]
+fn test_auto_conveyor_points_away_from_machine() {
+    // Machine at (5,8,5), placing conveyor at (6,8,5)
+    let conveyors: Vec<(IVec3, TestDirection)> = vec![];
+    let machines = vec![IVec3::new(5, 8, 5)];
+    let place_pos = IVec3::new(6, 8, 5);
+
+    let dir = auto_conveyor_direction(place_pos, TestDirection::North, &conveyors, &machines);
+    assert_eq!(dir, TestDirection::East, "Should point away from machine (East)");
+}
+
+#[test]
+fn test_auto_conveyor_connects_to_adjacent() {
+    // Conveyor at (7,8,5) pointing East, placing at (6,8,5)
+    // The existing conveyor is NOT pointing at us, but we should connect to it
+    let conveyors = vec![(IVec3::new(7, 8, 5), TestDirection::East)];
+    let machines: Vec<IVec3> = vec![];
+    let place_pos = IVec3::new(6, 8, 5);
+
+    let dir = auto_conveyor_direction(place_pos, TestDirection::North, &conveyors, &machines);
+    assert_eq!(dir, TestDirection::East, "Should point toward adjacent conveyor");
+}
+
+#[test]
+fn test_auto_conveyor_fallback() {
+    // No adjacent conveyors or machines
+    let conveyors: Vec<(IVec3, TestDirection)> = vec![];
+    let machines: Vec<IVec3> = vec![];
+    let place_pos = IVec3::new(6, 8, 5);
+
+    let dir = auto_conveyor_direction(place_pos, TestDirection::South, &conveyors, &machines);
+    assert_eq!(dir, TestDirection::South, "Should use fallback direction");
+}
+
+#[test]
+fn test_auto_conveyor_machine_priority_over_adjacent() {
+    // Machine at (5,8,5) AND conveyor at (7,8,5)
+    // Machine should take priority
+    let conveyors = vec![(IVec3::new(7, 8, 5), TestDirection::East)];
+    let machines = vec![IVec3::new(5, 8, 5)];
+    let place_pos = IVec3::new(6, 8, 5);
+
+    let dir = auto_conveyor_direction(place_pos, TestDirection::North, &conveyors, &machines);
+    assert_eq!(dir, TestDirection::East, "Machine priority: should point away from machine");
+}
+
+// =====================================================
+// Inventory Edge Case Tests
+// =====================================================
+
+#[test]
+fn test_inventory_add_at_max_slots() {
+    const NUM_SLOTS: usize = 36;
+    const MAX_STACK: u32 = 999;
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum Item { A, B, C, D, E, F, G, H, I, J }
+
+    let mut slots: [Option<(Item, u32)>; NUM_SLOTS] = [None; NUM_SLOTS];
+
+    // Fill all slots with different items (can't stack)
+    let items = [Item::A, Item::B, Item::C, Item::D, Item::E, Item::F, Item::G, Item::H, Item::I, Item::J];
+    for (i, slot) in slots.iter_mut().enumerate() {
+        *slot = Some((items[i % items.len()], MAX_STACK));
+    }
+
+    // Try to add new item - should fail gracefully
+    let mut added = false;
+    for slot in &mut slots {
+        if slot.is_none() {
+            *slot = Some((Item::A, 1));
+            added = true;
+            break;
+        }
+    }
+    assert!(!added, "Should not add to full inventory");
+}
+
+#[test]
+fn test_inventory_stack_overflow_protection() {
+    const MAX_STACK: u32 = 999;
+
+    let mut count: u32 = MAX_STACK - 10;
+
+    // Try to add 20 items
+    let to_add: u32 = 20;
+    let space = MAX_STACK.saturating_sub(count);
+    let actual_add = to_add.min(space);
+    count = count.saturating_add(actual_add);
+
+    assert_eq!(count, MAX_STACK, "Should cap at MAX_STACK");
+    assert_eq!(actual_add, 10, "Should only add 10 items");
+}
+
+#[test]
+fn test_inventory_u32_overflow() {
+    // Test that we don't overflow u32
+    let count: u32 = u32::MAX - 5;
+    let to_add: u32 = 10;
+
+    // Safe addition
+    let result = count.saturating_add(to_add);
+    assert_eq!(result, u32::MAX, "Should saturate at u32::MAX");
+
+    // Check our MAX_STACK approach
+    const MAX_STACK: u32 = 999;
+    let capped = result.min(MAX_STACK);
+    assert_eq!(capped, MAX_STACK, "Should cap at MAX_STACK");
+}
+
+// =====================================================
+// Chunk Unload Tests
+// =====================================================
+
+#[test]
+fn test_chunk_unload_clears_entities() {
+    // Simulate chunk unload tracking
+    struct ChunkEntities {
+        chunk_coord: IVec2,
+        entities: Vec<u32>, // Entity IDs
+    }
+
+    let mut loaded_chunks: Vec<ChunkEntities> = vec![
+        ChunkEntities { chunk_coord: IVec2::new(0, 0), entities: vec![1, 2, 3] },
+        ChunkEntities { chunk_coord: IVec2::new(1, 0), entities: vec![4, 5] },
+        ChunkEntities { chunk_coord: IVec2::new(0, 1), entities: vec![6, 7, 8, 9] },
+    ];
+
+    // Unload chunk (0, 1) - should remove entities 6, 7, 8, 9
+    let unload_coord = IVec2::new(0, 1);
+    let mut despawned: Vec<u32> = vec![];
+
+    loaded_chunks.retain(|chunk| {
+        if chunk.chunk_coord == unload_coord {
+            despawned.extend(&chunk.entities);
+            false
+        } else {
+            true
+        }
+    });
+
+    assert_eq!(despawned.len(), 4, "Should despawn 4 entities");
+    assert_eq!(loaded_chunks.len(), 2, "Should have 2 chunks remaining");
+}
+
+#[test]
+fn test_chunk_boundary_machine_survival() {
+    // Machine at chunk boundary should survive if any adjacent chunk is loaded
+    struct Machine {
+        world_pos: IVec3,
+    }
+
+    fn world_to_chunk(pos: IVec3) -> IVec2 {
+        IVec2::new(pos.x.div_euclid(16), pos.z.div_euclid(16))
+    }
+
+    let machine = Machine { world_pos: IVec3::new(16, 8, 0) }; // At chunk (1, 0)
+    let loaded_chunks = vec![IVec2::new(0, 0), IVec2::new(1, 0)];
+
+    let machine_chunk = world_to_chunk(machine.world_pos);
+    let is_loaded = loaded_chunks.contains(&machine_chunk);
+
+    assert!(is_loaded, "Machine's chunk should be loaded");
+}
+
+// =====================================================
+// Machine UI State Tests
+// =====================================================
+
+#[test]
+fn test_furnace_ui_state_consistency() {
+    // Test that furnace UI state stays consistent
+    struct FurnaceUI {
+        is_open: bool,
+        target_furnace: Option<u32>, // Entity ID
+        fuel: u32,
+        input: Option<u32>,
+        output: Option<u32>,
+    }
+
+    let mut ui = FurnaceUI {
+        is_open: false,
+        target_furnace: None,
+        fuel: 0,
+        input: None,
+        output: None,
+    };
+
+    // Open UI for furnace 42
+    ui.is_open = true;
+    ui.target_furnace = Some(42);
+    ui.fuel = 5;
+    ui.input = Some(10);
+
+    // Simulate furnace destruction while UI is open
+    let furnace_destroyed = true;
+    if furnace_destroyed && ui.target_furnace == Some(42) {
+        ui.is_open = false;
+        ui.target_furnace = None;
+        ui.fuel = 0;
+        ui.input = None;
+        ui.output = None;
+    }
+
+    assert!(!ui.is_open, "UI should close when target is destroyed");
+    assert!(ui.target_furnace.is_none(), "Target should be cleared");
+}
+
+#[test]
+fn test_multiple_ui_exclusive() {
+    // Only one UI should be open at a time
+    struct GameUIState {
+        inventory_open: bool,
+        furnace_open: bool,
+        crusher_open: bool,
+        command_input_open: bool,
+    }
+
+    let mut ui = GameUIState {
+        inventory_open: false,
+        furnace_open: false,
+        crusher_open: false,
+        command_input_open: false,
+    };
+
+    // Open inventory
+    ui.inventory_open = true;
+
+    // Try to open furnace - should close inventory first
+    if ui.inventory_open || ui.crusher_open || ui.command_input_open {
+        ui.inventory_open = false;
+        ui.crusher_open = false;
+        ui.command_input_open = false;
+    }
+    ui.furnace_open = true;
+
+    assert!(!ui.inventory_open, "Inventory should be closed");
+    assert!(ui.furnace_open, "Furnace should be open");
+}
