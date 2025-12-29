@@ -4,9 +4,11 @@
  * WASMゲームを起動し、各種操作を実行してスクリーンショットを撮影。
  * AIがスクリーンショットを確認して視覚的異常を検出する。
  *
- * Usage: node e2e-visual-test.js [--quick|--full]
+ * Usage: node e2e-visual-test.js [options]
  *   --quick: 基本テストのみ（デフォルト）
  *   --full: 全テスト実行
+ *   --headed: ブラウザを表示して実行（キー入力が効く）
+ *   --slow: 操作間隔を長くする（デバッグ用）
  */
 
 const { chromium } = require('playwright');
@@ -23,6 +25,7 @@ const results = {
   failed: [],
   screenshots: [],
   consoleErrors: [],
+  fpsReadings: [],
   startTime: null,
   endTime: null
 };
@@ -66,9 +69,33 @@ async function waitForGameLoad(page) {
   }
 }
 
-async function clickToActivate(page) {
+async function clickToActivate(page, delay = 300) {
   await page.mouse.click(640, 360);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(delay);
+}
+
+// FPS読み取り（デバッグHUDから）
+async function readFPS(page) {
+  try {
+    // ゲーム内のFPS表示を読み取る（デバッグHUDが表示されている場合）
+    const fps = await page.evaluate(() => {
+      // window.gameFPSがあれば使用（ゲーム側で公開している場合）
+      if (window.gameFPS) return window.gameFPS;
+      // なければ-1を返す
+      return -1;
+    });
+    if (fps > 0) {
+      results.fpsReadings.push({ time: Date.now(), fps });
+    }
+    return fps;
+  } catch (e) {
+    return -1;
+  }
+}
+
+// 待機時間を取得（--slowモード対応）
+function getDelay(baseDelay, slowMode) {
+  return slowMode ? baseDelay * 3 : baseDelay;
 }
 
 // テストケース定義
@@ -94,17 +121,21 @@ const tests = {
       name: 'inventory_open',
       description: 'Eキーでインベントリ開く',
       run: async (page) => {
+        // アクティベート状態からEキーを押す
         await page.keyboard.press('KeyE');
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(800);
         await takeScreenshot(page, 'inventory_open', 'インベントリUI表示');
       }
     },
     {
       name: 'inventory_close',
-      description: 'ESCでインベントリ閉じる',
+      description: 'Eキーでインベントリ閉じる',
       run: async (page) => {
-        await page.keyboard.press('Escape');
+        // EキーでインベントリUIを閉じる（ESCではなく）
+        await page.keyboard.press('KeyE');
         await page.waitForTimeout(500);
+        // 再アクティベート
+        await clickToActivate(page);
         await takeScreenshot(page, 'inventory_close', 'インベントリUI閉じた後');
       }
     },
@@ -252,6 +283,26 @@ const tests = {
         await page.waitForTimeout(300);
         await takeScreenshot(page, 'final', 'テスト完了後の状態（デバッグHUD表示）');
       }
+    },
+    {
+      name: 'performance_test',
+      description: 'パフォーマンステスト（10秒間）',
+      run: async (page) => {
+        await clickToActivate(page);
+        console.log('  Running performance test for 10 seconds...');
+        // 10秒間、1秒ごとにFPSを記録
+        for (let i = 0; i < 10; i++) {
+          await readFPS(page);
+          // ランダムに移動してパフォーマンスをテスト
+          const keys = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
+          const key = keys[Math.floor(Math.random() * keys.length)];
+          await page.keyboard.down(key);
+          await page.waitForTimeout(200);
+          await page.keyboard.up(key);
+          await page.waitForTimeout(800);
+        }
+        await takeScreenshot(page, 'performance', 'パフォーマンステスト後');
+      }
     }
   ]
 };
@@ -260,10 +311,14 @@ const tests = {
 async function main() {
   const args = process.argv.slice(2);
   const fullTest = args.includes('--full');
+  const headed = args.includes('--headed');
+  const slowMode = args.includes('--slow');
 
   console.log('='.repeat(60));
   console.log('E2E Visual Test');
   console.log(`Mode: ${fullTest ? 'FULL' : 'QUICK'}`);
+  console.log(`Browser: ${headed ? 'HEADED (visible)' : 'HEADLESS'}`);
+  if (slowMode) console.log('Speed: SLOW (3x delay)');
   console.log('='.repeat(60));
 
   results.startTime = new Date();
@@ -271,7 +326,10 @@ async function main() {
   await ensureDir(SCREENSHOT_DIR);
   await cleanScreenshots();
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: !headed,
+    slowMo: slowMode ? 100 : 0
+  });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 }
   });
@@ -342,6 +400,16 @@ async function main() {
   console.log(`Passed: ${results.passed.length}`);
   console.log(`Failed: ${results.failed.length}`);
   console.log(`Screenshots: ${results.screenshots.length}`);
+
+  // FPS情報
+  if (results.fpsReadings.length > 0) {
+    const avgFps = results.fpsReadings.reduce((a, b) => a + b.fps, 0) / results.fpsReadings.length;
+    const minFps = Math.min(...results.fpsReadings.map(r => r.fps));
+    console.log(`\nFPS: avg=${avgFps.toFixed(1)}, min=${minFps}`);
+    if (minFps < 30) {
+      console.log('  [WARNING] FPS dropped below 30!');
+    }
+  }
 
   if (results.consoleErrors.length > 0) {
     console.log(`\nConsole Errors (${results.consoleErrors.length}):`);
