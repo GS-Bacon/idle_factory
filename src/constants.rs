@@ -33,7 +33,18 @@ pub const CONVEYOR_SPEED: f32 = 1.0;
 
 /// Conveyor settings
 pub const CONVEYOR_MAX_ITEMS: usize = 3; // Maximum items per conveyor
-pub const CONVEYOR_ITEM_SPACING: f32 = 0.33; // Minimum spacing between items (0.0-1.0)
+pub const CONVEYOR_ITEM_SPACING: f32 = 0.4; // Minimum spacing between items (0.0-1.0)
+pub const CONVEYOR_ITEM_SIZE: f32 = 0.25; // Item visual size (fraction of BLOCK_SIZE)
+pub const CONVEYOR_BELT_WIDTH: f32 = 0.6; // Belt width (fraction of BLOCK_SIZE)
+pub const CONVEYOR_BELT_HEIGHT: f32 = 0.2; // Belt height (fraction of BLOCK_SIZE)
 
 /// Delivery platform
 pub const PLATFORM_SIZE: i32 = 12;
+
+/// Inventory
+pub const HOTBAR_SLOTS: usize = 9;
+pub const MAIN_INVENTORY_ROWS: usize = 3;
+pub const MAIN_INVENTORY_COLS: usize = 9;
+pub const MAIN_INVENTORY_SLOTS: usize = MAIN_INVENTORY_ROWS * MAIN_INVENTORY_COLS; // 27
+pub const NUM_SLOTS: usize = HOTBAR_SLOTS + MAIN_INVENTORY_SLOTS; // 36 total
+pub const MAX_STACK_SIZE: u32 = 999;

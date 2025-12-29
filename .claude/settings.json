@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if echo \"$CLAUDE_TOOL_INPUT\" | grep -q \"git commit\"; then cd \"$CLAUDE_PROJECT_DIR\" && ./discord-notify.sh \"[idle_factory] $(git log -1 --format=%s)\"; fi'"
+          }
+        ]
+      }
+    ]
+  }
+}

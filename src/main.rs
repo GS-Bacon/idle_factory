@@ -3,6 +3,14 @@
 
 mod block_type;
 mod constants;
+mod events;
+mod logging;
+mod player;
+
+use events::GameEventsPlugin;
+use logging::GameLoggingPlugin;
+use player::Inventory;
+use tracing::info;
 
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{CascadeShadowConfigBuilder, NotShadowCaster};
@@ -94,6 +102,8 @@ fn main() {
     }
 
     app
+        .add_plugins(GameEventsPlugin)
+        .add_plugins(GameLoggingPlugin)
         .init_resource::<Inventory>()
         .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
@@ -106,6 +116,7 @@ fn main() {
         .init_resource::<TargetBlock>()
         .init_resource::<CreativeMode>()
         .init_resource::<CreativeInventoryOpen>()
+        .init_resource::<CommandInputState>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
@@ -166,6 +177,8 @@ fn main() {
                 creative_mode_input,
                 creative_inventory_toggle,
                 creative_inventory_click,
+                command_input_toggle,
+                command_input_handler,
             ),
         )
         .run();
@@ -249,6 +262,23 @@ struct CreativeInventoryUI;
 /// Creative inventory item button - stores the BlockType it represents
 #[derive(Component)]
 struct CreativeItemButton(BlockType);
+
+/// Command input state - tracks whether command input is open and the current text
+#[derive(Resource, Default)]
+struct CommandInputState {
+    /// Whether command input is open
+    open: bool,
+    /// Current text in the command input
+    text: String,
+}
+
+/// Marker for command input UI container
+#[derive(Component)]
+struct CommandInputUI;
+
+/// Marker for command input text display
+#[derive(Component)]
+struct CommandInputText;
 
 /// All available items for creative mode, organized by category
 const CREATIVE_ITEMS: &[(BlockType, &str)] = &[
@@ -451,6 +481,8 @@ struct ConveyorItem {
     progress: f32,
     /// Visual entity for this item
     visual_entity: Option<Entity>,
+    /// Lateral offset for side-merge animation (-0.5 to 0.5, 0 = centered)
+    lateral_offset: f32,
 }
 
 /// Conveyor belt component - moves items in a direction
@@ -462,6 +494,12 @@ struct Conveyor {
     direction: Direction,
     /// Items on this conveyor (sorted by progress, max CONVEYOR_MAX_ITEMS)
     items: Vec<ConveyorItem>,
+    /// Index for round-robin output (splitter mode) - reserved for future use
+    #[allow(dead_code)]
+    last_output_index: usize,
+    /// Index for alternating input (zipper mode) - reserved for future use
+    #[allow(dead_code)]
+    last_input_source: usize,
 }
 
 impl Conveyor {
@@ -480,15 +518,21 @@ impl Conveyor {
         true
     }
 
-    /// Add an item at the specified progress position
-    fn add_item(&mut self, block_type: BlockType, at_progress: f32) {
+    /// Add an item at the specified progress position with optional visual and lateral offset
+    fn add_item_with_visual(&mut self, block_type: BlockType, at_progress: f32, visual_entity: Option<Entity>, lateral_offset: f32) {
         self.items.push(ConveyorItem {
             block_type,
             progress: at_progress,
-            visual_entity: None,
+            visual_entity,
+            lateral_offset,
         });
         // Sort by progress so we process items in order
         self.items.sort_by(|a, b| a.progress.partial_cmp(&b.progress).unwrap());
+    }
+
+    /// Add an item at the specified progress position (no visual, no lateral offset)
+    fn add_item(&mut self, block_type: BlockType, at_progress: f32) {
+        self.add_item_with_visual(block_type, at_progress, None, 0.0);
     }
 
     /// Check if conveyor can accept item at entry (progress = 0.0)
@@ -515,46 +559,61 @@ impl Conveyor {
     /// - From behind: joins at 0.0 (entry)
     /// - From side (perpendicular): joins at 0.5 (middle)
     fn get_join_progress(&self, from_pos: IVec3) -> Option<f32> {
+        self.get_join_info(from_pos).map(|(p, _)| p)
+    }
+
+    /// Calculate join info (progress, lateral_offset) for an item coming from a source position.
+    /// Returns Some((progress, lateral_offset)) if valid, None otherwise.
+    /// lateral_offset: perpendicular offset from center (-0.5 to +0.5)
+    fn get_join_info(&self, from_pos: IVec3) -> Option<(f32, f32)> {
         let offset = self.position - from_pos;
 
         // Determine if source is behind or to the side of this conveyor
         match self.direction {
             Direction::East => {
-                // Conveyor going East (+X), so behind is West (-X offset)
+                // Conveyor going East (+X), perpendicular is Z
                 if offset.x == 1 && offset.z == 0 {
-                    Some(0.0) // Behind (West), join at entry
-                } else if offset.x == 0 && (offset.z == 1 || offset.z == -1) {
-                    Some(0.5) // Side (North or South), join at middle
+                    Some((0.0, 0.0)) // Behind (West), join at entry, centered
+                } else if offset.x == 0 && offset.z == 1 {
+                    Some((0.5, 0.5)) // From North (+Z), join at middle, positive lateral
+                } else if offset.x == 0 && offset.z == -1 {
+                    Some((0.5, -0.5)) // From South (-Z), join at middle, negative lateral
                 } else {
-                    None // Invalid direction (item coming from front or diagonal)
+                    None
                 }
             }
             Direction::West => {
-                // Conveyor going West (-X), so behind is East (+X offset)
+                // Conveyor going West (-X), perpendicular is Z
                 if offset.x == -1 && offset.z == 0 {
-                    Some(0.0) // Behind (East), join at entry
-                } else if offset.x == 0 && (offset.z == 1 || offset.z == -1) {
-                    Some(0.5) // Side (North or South), join at middle
+                    Some((0.0, 0.0)) // Behind (East), join at entry, centered
+                } else if offset.x == 0 && offset.z == 1 {
+                    Some((0.5, -0.5)) // From North (+Z), negative lateral (reversed)
+                } else if offset.x == 0 && offset.z == -1 {
+                    Some((0.5, 0.5)) // From South (-Z), positive lateral (reversed)
                 } else {
                     None
                 }
             }
             Direction::South => {
-                // Conveyor going South (+Z), so behind is North (-Z offset)
+                // Conveyor going South (+Z), perpendicular is X
                 if offset.z == 1 && offset.x == 0 {
-                    Some(0.0) // Behind (North), join at entry
-                } else if offset.z == 0 && (offset.x == 1 || offset.x == -1) {
-                    Some(0.5) // Side (East or West), join at middle
+                    Some((0.0, 0.0)) // Behind (North), join at entry, centered
+                } else if offset.z == 0 && offset.x == 1 {
+                    Some((0.5, -0.5)) // From East (+X), negative lateral
+                } else if offset.z == 0 && offset.x == -1 {
+                    Some((0.5, 0.5)) // From West (-X), positive lateral
                 } else {
                     None
                 }
             }
             Direction::North => {
-                // Conveyor going North (-Z), so behind is South (+Z offset)
+                // Conveyor going North (-Z), perpendicular is X
                 if offset.z == -1 && offset.x == 0 {
-                    Some(0.0) // Behind (South), join at entry
-                } else if offset.z == 0 && (offset.x == 1 || offset.x == -1) {
-                    Some(0.5) // Side (East or West), join at middle
+                    Some((0.0, 0.0)) // Behind (South), join at entry, centered
+                } else if offset.z == 0 && offset.x == 1 {
+                    Some((0.5, 0.5)) // From East (+X), positive lateral
+                } else if offset.z == 0 && offset.x == -1 {
+                    Some((0.5, -0.5)) // From West (-X), negative lateral
                 } else {
                     None
                 }
@@ -639,119 +698,6 @@ struct QuestUIText;
 
 
 // === Resources ===
-
-const NUM_SLOTS: usize = 9;
-
-#[derive(Resource)]
-struct Inventory {
-    /// Fixed 9 slots, each can hold one block type with a count
-    slots: [Option<(BlockType, u32)>; NUM_SLOTS],
-    /// Currently selected slot index (0-8)
-    selected_slot: usize,
-}
-
-impl Default for Inventory {
-    fn default() -> Self {
-        Self {
-            slots: [None; NUM_SLOTS],
-            selected_slot: 0,
-        }
-    }
-}
-
-impl Inventory {
-    /// Get the block type at a given slot index (returns None for empty slots)
-    fn get_slot(&self, slot: usize) -> Option<BlockType> {
-        self.slots.get(slot).and_then(|s| s.map(|(bt, _)| bt))
-    }
-
-    /// Get the count at a given slot index
-    fn get_slot_count(&self, slot: usize) -> u32 {
-        self.slots.get(slot).and_then(|s| s.map(|(_, c)| c)).unwrap_or(0)
-    }
-
-    /// Get the currently selected block type (None if empty slot selected)
-    fn selected_block(&self) -> Option<BlockType> {
-        self.get_slot(self.selected_slot)
-    }
-
-    /// Add items to inventory, returns true if successful
-    fn add_item(&mut self, block_type: BlockType, amount: u32) -> bool {
-        // First, try to find existing slot with same block type
-        for (bt, count) in self.slots.iter_mut().flatten() {
-            if *bt == block_type {
-                *count += amount;
-                return true;
-            }
-        }
-        // Otherwise, find first empty slot
-        for slot in self.slots.iter_mut() {
-            if slot.is_none() {
-                *slot = Some((block_type, amount));
-                return true;
-            }
-        }
-        false // Inventory full
-    }
-
-    /// Remove one item from the selected slot, returns the block type if successful
-    fn consume_selected(&mut self) -> Option<BlockType> {
-        if let Some(Some((block_type, count))) = self.slots.get_mut(self.selected_slot) {
-            if *count > 0 {
-                let bt = *block_type;
-                *count -= 1;
-                if *count == 0 {
-                    self.slots[self.selected_slot] = None;
-                }
-                return Some(bt);
-            }
-        }
-        None
-    }
-
-    /// Check if we have the selected block type with count > 0
-    fn has_selected(&self) -> bool {
-        self.slots.get(self.selected_slot)
-            .and_then(|s| s.as_ref())
-            .map(|(_, c)| *c > 0)
-            .unwrap_or(false)
-    }
-
-    /// Get the selected block type if any
-    fn get_selected_type(&self) -> Option<BlockType> {
-        self.slots.get(self.selected_slot)
-            .and_then(|s| s.as_ref())
-            .filter(|(_, c)| *c > 0)
-            .map(|(bt, _)| *bt)
-    }
-
-    /// Consume a specific block type from inventory, returns true if successful
-    fn consume_item(&mut self, block_type: BlockType, amount: u32) -> bool {
-        for slot in self.slots.iter_mut() {
-            if let Some((bt, count)) = slot {
-                if *bt == block_type && *count >= amount {
-                    *count -= amount;
-                    if *count == 0 {
-                        *slot = None;
-                    }
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    /// Get count of a specific block type in inventory
-    #[allow(dead_code)]
-    fn get_item_count(&self, block_type: BlockType) -> u32 {
-        for (bt, count) in self.slots.iter().flatten() {
-            if *bt == block_type {
-                return *count;
-            }
-        }
-        0
-    }
-}
 
 /// Single chunk data - blocks stored in a flat array for fast access
 /// Array index = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
@@ -1896,6 +1842,40 @@ fn setup_ui(mut commands: Commands) {
                         });
                 });
         });
+
+    // Command input UI (bottom center, hidden by default)
+    commands
+        .spawn((
+            CommandInputUI,
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(80.0),
+                left: Val::Percent(50.0),
+                margin: UiRect {
+                    left: Val::Px(-200.0),
+                    ..default()
+                },
+                width: Val::Px(400.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.12, 0.12, 0.12, 0.9)),
+            BorderColor(Color::srgb(0.33, 0.33, 0.33)),
+            Visibility::Hidden,
+        ))
+        .with_children(|parent| {
+            // Input text with ">" prefix
+            parent.spawn((
+                CommandInputText,
+                Text::new("> "),
+                TextFont {
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
 }
 
 /// Setup initial items on ground and furnace
@@ -2337,6 +2317,7 @@ fn block_break(
         match hit_type {
             HitType::WorldBlock(pos) => {
                 if let Some(block_type) = world_data.remove_block(pos) {
+                    info!(category = "BLOCK", action = "break", ?pos, ?block_type, "Block broken");
                     inventory.add_item(block_type, 1);
                     // No auto-select - keep current slot selected
 
@@ -2407,7 +2388,9 @@ fn block_break(
             }
             HitType::Conveyor(entity) => {
                 // Get conveyor items before despawning
-                if let Ok((_, conveyor, _)) = conveyor_query.get(entity) {
+                let item_count = if let Ok((_, conveyor, transform)) = conveyor_query.get(entity) {
+                    let pos = transform.translation();
+                    let count = conveyor.items.len();
                     // Despawn all item visuals and return items to inventory
                     for item in &conveyor.items {
                         if let Some(visual_entity) = item.visual_entity {
@@ -2417,23 +2400,29 @@ fn block_break(
                         }
                         inventory.add_item(item.block_type, 1);
                     }
-                }
+                    info!(category = "MACHINE", action = "break", machine = "conveyor", ?pos, items_returned = count, "Conveyor broken");
+                    count
+                } else { 0 };
+                let _ = item_count; // Suppress unused warning
                 // Use despawn_recursive to also remove arrow marker child
                 commands.entity(entity).despawn_recursive();
                 // Return conveyor to inventory
                 inventory.add_item(BlockType::ConveyorBlock, 1);
             }
             HitType::Miner(entity) => {
+                info!(category = "MACHINE", action = "break", machine = "miner", "Miner broken");
                 commands.entity(entity).despawn_recursive();
                 // Return miner to inventory
                 inventory.add_item(BlockType::MinerBlock, 1);
             }
             HitType::Crusher(entity) => {
+                info!(category = "MACHINE", action = "break", machine = "crusher", "Crusher broken");
                 commands.entity(entity).despawn_recursive();
                 // Return crusher to inventory
                 inventory.add_item(BlockType::CrusherBlock, 1);
             }
             HitType::Furnace(entity) => {
+                info!(category = "MACHINE", action = "break", machine = "furnace", "Furnace broken");
                 commands.entity(entity).despawn_recursive();
                 // Return furnace to inventory
                 inventory.add_item(BlockType::FurnaceBlock, 1);
@@ -2449,7 +2438,7 @@ fn block_place(
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
     conveyor_query: Query<&Conveyor>,
     miner_query: Query<&Miner>,
-    crusher_query: Query<&Crusher>,
+    crusher_query: Query<(&Crusher, &Transform)>,
     furnace_query: Query<&Transform, With<Furnace>>,
     platform_query: Query<&Transform, With<DeliveryPlatform>>,
     mut world_data: ResMut<WorldData>,
@@ -2482,6 +2471,34 @@ fn block_place(
     let ray_origin = camera_transform.translation();
     let ray_direction = camera_transform.forward().as_vec3();
     let half_size = BLOCK_SIZE / 2.0;
+
+    // Check if looking at a furnace or crusher - if so, don't place (let machine UI handle it)
+    for furnace_transform in furnace_query.iter() {
+        let furnace_pos = furnace_transform.translation;
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            furnace_pos - Vec3::splat(half_size),
+            furnace_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0 && t < REACH_DISTANCE {
+                return; // Looking at furnace, let furnace_interact handle it
+            }
+        }
+    }
+    for (_, crusher_transform) in crusher_query.iter() {
+        let crusher_pos = crusher_transform.translation;
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            crusher_pos - Vec3::splat(half_size),
+            crusher_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0 && t < REACH_DISTANCE {
+                return; // Looking at crusher, let crusher_interact handle it
+            }
+        }
+    }
 
     // Find closest block intersection with hit normal using DDA
     let mut closest_hit: Option<(IVec3, Vec3, f32)> = None;
@@ -2634,7 +2651,7 @@ fn block_place(
             }
         }
         // Check if any crusher occupies this position
-        for crusher in crusher_query.iter() {
+        for (crusher, _) in crusher_query.iter() {
             if crusher.position == place_pos {
                 return;
             }
@@ -2660,7 +2677,36 @@ fn block_place(
         let chunk_coord = WorldData::world_to_chunk(place_pos);
 
         // Calculate direction from player yaw for conveyors
-        let facing_direction = yaw_to_direction(player_camera.yaw);
+        let player_facing = yaw_to_direction(player_camera.yaw);
+
+        // For conveyors, use auto-direction based on adjacent machines
+        let facing_direction = if selected_type == BlockType::ConveyorBlock {
+            // Collect conveyor positions and directions
+            let conveyors: Vec<(IVec3, Direction)> = conveyor_query
+                .iter()
+                .map(|c| (c.position, c.direction))
+                .collect();
+
+            // Collect machine positions (miners, crushers, furnaces)
+            let mut machines: Vec<IVec3> = Vec::new();
+            for miner in miner_query.iter() {
+                machines.push(miner.position);
+            }
+            for (crusher, _) in crusher_query.iter() {
+                machines.push(crusher.position);
+            }
+            for furnace_transform in furnace_query.iter() {
+                machines.push(IVec3::new(
+                    furnace_transform.translation.x.floor() as i32,
+                    furnace_transform.translation.y.floor() as i32,
+                    furnace_transform.translation.z.floor() as i32,
+                ));
+            }
+
+            auto_conveyor_direction(place_pos, player_facing, &conveyors, &machines)
+        } else {
+            player_facing
+        };
 
         // Helper closure to regenerate a chunk mesh (same pattern as block_break)
         let regenerate_chunk = |coord: IVec2,
@@ -2697,6 +2743,7 @@ fn block_place(
         // Spawn entity based on block type
         match selected_type {
             BlockType::MinerBlock => {
+                info!(category = "MACHINE", action = "place", machine = "miner", ?place_pos, "Miner placed");
                 // Machines are spawned as separate entities, no need to modify world data
                 // (they don't occlude terrain blocks)
 
@@ -2720,43 +2767,53 @@ fn block_place(
                 ));
             }
             BlockType::ConveyorBlock => {
+                info!(category = "MACHINE", action = "place", machine = "conveyor", ?place_pos, ?facing_direction, "Conveyor placed");
                 // Machines are spawned as separate entities, no need to modify world data
                 // (they don't occlude terrain blocks)
 
-                let conveyor_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE * 0.3, BLOCK_SIZE));
+                // Thin belt mesh (0.6 width x 0.2 height x 1.0 length)
+                let conveyor_mesh = meshes.add(Cuboid::new(
+                    BLOCK_SIZE * CONVEYOR_BELT_WIDTH,
+                    BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
+                    BLOCK_SIZE
+                ));
                 let material = materials.add(StandardMaterial {
                     base_color: selected_type.color(),
                     ..default()
                 });
                 // Arrow mesh to indicate direction (small elongated cuboid pointing forward)
-                let arrow_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.15, BLOCK_SIZE * 0.05, BLOCK_SIZE * 0.4));
+                let arrow_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.12, BLOCK_SIZE * 0.03, BLOCK_SIZE * 0.35));
                 let arrow_material = materials.add(StandardMaterial {
                     base_color: Color::srgb(0.9, 0.9, 0.2), // Yellow arrow
                     ..default()
                 });
+                let belt_y = place_pos.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT / 2.0;
                 commands.spawn((
                     Mesh3d(conveyor_mesh),
                     MeshMaterial3d(material),
                     Transform::from_translation(Vec3::new(
                         place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE + 0.15,
+                        belt_y,
                         place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     )).with_rotation(facing_direction.to_rotation()),
                     Conveyor {
                         position: place_pos,
                         direction: facing_direction,
                         items: Vec::new(),
+                        last_output_index: 0,
+                        last_input_source: 0,
                     },
                 )).with_children(|parent| {
                     // Arrow child pointing in -Z direction (forward in local space)
                     parent.spawn((
                         Mesh3d(arrow_mesh),
                         MeshMaterial3d(arrow_material),
-                        Transform::from_translation(Vec3::new(0.0, 0.2, -0.25)),
+                        Transform::from_translation(Vec3::new(0.0, CONVEYOR_BELT_HEIGHT / 2.0 + 0.02, -0.25)),
                     ));
                 });
             }
             BlockType::CrusherBlock => {
+                info!(category = "MACHINE", action = "place", machine = "crusher", ?place_pos, "Crusher placed");
                 // Machines are spawned as separate entities, no need to modify world data
                 // (they don't occlude terrain blocks)
 
@@ -2784,6 +2841,7 @@ fn block_place(
                 ));
             }
             BlockType::FurnaceBlock => {
+                info!(category = "MACHINE", action = "place", machine = "furnace", ?place_pos, "Furnace placed");
                 // Furnace - similar to crusher, spawns entity with Furnace component
                 let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                 let material = materials.add(StandardMaterial {
@@ -2803,6 +2861,7 @@ fn block_place(
             }
             _ => {
                 // Regular block - add to world data and regenerate chunk mesh
+                info!(category = "BLOCK", action = "place", ?place_pos, block_type = ?selected_type, "Block placed");
                 world_data.set_block(place_pos, selected_type);
                 regenerate_chunk(chunk_coord, &mut commands, &mut world_data, &mut meshes, &mut materials);
 
@@ -2844,14 +2903,56 @@ fn yaw_to_direction(yaw: f32) -> Direction {
     }
 }
 
+/// Determine optimal conveyor direction based on adjacent conveyors and machines
+fn auto_conveyor_direction(
+    place_pos: IVec3,
+    fallback_direction: Direction,
+    conveyors: &[(IVec3, Direction)], // (position, direction)
+    machines: &[IVec3], // positions of miners, crushers, furnaces
+) -> Direction {
+    // Priority 1: Continue chain from adjacent conveyor pointing toward us
+    for (conv_pos, conv_dir) in conveyors {
+        let expected_target = *conv_pos + conv_dir.to_ivec3();
+        if expected_target == place_pos {
+            // This conveyor is pointing at our position, continue in same direction
+            return *conv_dir;
+        }
+    }
+
+    // Priority 2: Point away from adjacent machine (to receive items from it)
+    for machine_pos in machines {
+        let diff = place_pos - *machine_pos;
+        if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
+            // Adjacent machine - point away from it
+            if diff.x == 1 { return Direction::East; }
+            if diff.x == -1 { return Direction::West; }
+            if diff.z == 1 { return Direction::South; }
+            if diff.z == -1 { return Direction::North; }
+        }
+    }
+
+    // Priority 3: If there's an adjacent conveyor, try to connect to it
+    for (conv_pos, _) in conveyors {
+        let diff = *conv_pos - place_pos;
+        if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
+            // Adjacent conveyor - point toward it to form a chain
+            if diff.x == 1 { return Direction::East; }
+            if diff.x == -1 { return Direction::West; }
+            if diff.z == 1 { return Direction::South; }
+            if diff.z == -1 { return Direction::North; }
+        }
+    }
+
+    // Fallback: use player's facing direction
+    fallback_direction
+}
+
 /// Select slot with number keys (1-9) or scroll wheel
 fn select_block_type(
     key_input: Res<ButtonInput<KeyCode>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mut inventory: ResMut<Inventory>,
 ) {
-    const NUM_SLOTS: usize = 9;
-
     // Handle mouse wheel scroll (cycles through all 9 slots including empty)
     for event in mouse_wheel.read() {
         let scroll = event.y;
@@ -3018,16 +3119,25 @@ fn update_hotbar_ui(
     }
 }
 
-/// Interact with furnace when looking at it and pressing E
+/// Interact with furnace when looking at it and right-clicking
+#[allow(clippy::too_many_arguments)]
 fn furnace_interact(
     key_input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
     furnace_query: Query<(Entity, &Transform), With<Furnace>>,
     mut interacting: ResMut<InteractingFurnace>,
     mut furnace_ui_query: Query<&mut Visibility, With<FurnaceUI>>,
     mut windows: Query<&mut Window>,
+    command_state: Res<CommandInputState>,
+    cursor_state: Res<CursorLockState>,
 ) {
-    // E key or ESC to toggle furnace UI
+    // Don't process when command input is open or game is paused
+    if command_state.open || cursor_state.paused {
+        return;
+    }
+
+    // ESC or E key to close furnace UI (when open)
     let e_pressed = key_input.just_pressed(KeyCode::KeyE);
     let esc_pressed = key_input.just_pressed(KeyCode::Escape);
 
@@ -3053,8 +3163,8 @@ fn furnace_interact(
         return;
     }
 
-    // Only open furnace UI with E key
-    if !e_pressed {
+    // Only open furnace UI with right-click
+    if !mouse_button.just_pressed(MouseButton::Right) {
         return;
     }
 
@@ -3275,18 +3385,22 @@ fn crusher_processing(
     }
 }
 
-/// Handle crusher E key interaction (open/close UI)
+/// Handle crusher right-click interaction (open/close UI)
+#[allow(clippy::too_many_arguments)]
 fn crusher_interact(
     key_input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
     crusher_query: Query<(Entity, &Transform), With<Crusher>>,
     mut interacting: ResMut<InteractingCrusher>,
     interacting_furnace: Res<InteractingFurnace>,
     mut crusher_ui_query: Query<&mut Visibility, With<CrusherUI>>,
     mut windows: Query<&mut Window>,
+    command_state: Res<CommandInputState>,
+    cursor_state: Res<CursorLockState>,
 ) {
-    // Don't open crusher if furnace is open
-    if interacting_furnace.0.is_some() {
+    // Don't open crusher if furnace is open, command input is active, or game is paused
+    if interacting_furnace.0.is_some() || command_state.open || cursor_state.paused {
         return;
     }
 
@@ -3312,8 +3426,8 @@ fn crusher_interact(
         return;
     }
 
-    // Only open crusher UI with E key
-    if !e_pressed {
+    // Only open crusher UI with right-click
+    if !mouse_button.just_pressed(MouseButton::Right) {
         return;
     }
 
@@ -3795,17 +3909,51 @@ fn conveyor_transfer(
     // Sort actions by item_index descending so we can remove without index shifting issues
     actions.sort_by(|a, b| b.item_index.cmp(&a.item_index));
 
+    // === ZIPPER MERGE LOGIC ===
+    // Group sources by target conveyor for zipper merge
+    let mut sources_by_target: HashMap<Entity, Vec<Entity>> = HashMap::new();
+    for action in &actions {
+        if let TransferTarget::Conveyor(target) = action.target {
+            let sources = sources_by_target.entry(target).or_default();
+            if !sources.contains(&action.source_entity) {
+                sources.push(action.source_entity);
+            }
+        }
+    }
+
+    // Determine which source is allowed for each target (zipper logic)
+    // When multiple sources try to feed into the same conveyor, only one is allowed per tick
+    let allowed_source: HashMap<Entity, Entity> = sources_by_target.iter()
+        .filter_map(|(target, sources)| {
+            if sources.len() <= 1 {
+                // Only one source, always allow
+                sources.first().map(|s| (*target, *s))
+            } else {
+                // Multiple sources - use zipper logic with last_input_source
+                conveyor_query.get(*target).ok().map(|(_, c)| {
+                    let mut sorted_sources: Vec<Entity> = sources.clone();
+                    sorted_sources.sort_by_key(|e| e.index());
+                    let idx = c.last_input_source % sorted_sources.len();
+                    (*target, sorted_sources[idx])
+                })
+            }
+        })
+        .collect();
+
+    // Track which targets successfully received an item (to update last_input_source)
+    let mut targets_to_update: Vec<Entity> = Vec::new();
+
     // First pass: check which conveyor-to-conveyor transfers can proceed
     // This avoids borrow conflicts
-    // Value is Some(progress) if can accept, None otherwise
-    let conveyor_transfer_ok: HashMap<(Entity, usize), Option<f32>> = actions
+    // Value is Some((progress, lateral_offset)) if can accept, None otherwise
+    let conveyor_transfer_ok: HashMap<(Entity, usize), Option<(f32, f32)>> = actions
         .iter()
         .filter_map(|action| {
             if let TransferTarget::Conveyor(target_entity) = action.target {
                 let result = conveyor_query.get(target_entity).ok().and_then(|(_, c)| {
-                    // Calculate join progress based on source position
-                    c.get_join_progress(action.source_pos)
-                        .filter(|&progress| c.can_accept_item(progress))
+                    // Calculate join info (progress, lateral_offset) based on source position
+                    c.get_join_info(action.source_pos)
+                        .filter(|&(progress, _)| c.can_accept_item(progress))
                 });
                 Some(((action.source_entity, action.item_index), result))
             } else {
@@ -3815,8 +3963,8 @@ fn conveyor_transfer(
         .collect();
 
     // Collect conveyor adds for second pass (to avoid borrow conflicts)
-    // Tuple: (target_entity, block_type, join_progress)
-    let mut conveyor_adds: Vec<(Entity, BlockType, f32)> = Vec::new();
+    // Tuple: (target_entity, block_type, join_progress, visual_entity, lateral_offset)
+    let mut conveyor_adds: Vec<(Entity, BlockType, f32, Option<Entity>, f32)> = Vec::new();
 
     // Apply transfers
     for action in actions {
@@ -3832,20 +3980,30 @@ fn conveyor_transfer(
 
         match action.target {
             TransferTarget::Conveyor(target_entity) => {
-                // Check pre-computed result - Some(progress) if can accept
-                let join_progress = conveyor_transfer_ok
+                // Zipper merge: check if this source is allowed for this target
+                if let Some(&allowed) = allowed_source.get(&target_entity) {
+                    if allowed != action.source_entity {
+                        // This source is not allowed this tick (zipper logic)
+                        continue;
+                    }
+                }
+
+                // Check pre-computed result - Some((progress, lateral_offset)) if can accept
+                let join_info = conveyor_transfer_ok
                     .get(&(action.source_entity, action.item_index))
                     .copied()
                     .flatten();
 
-                if let Some(progress) = join_progress {
-                    // Despawn visual if exists
-                    if let Some(visual) = item.visual_entity {
-                        commands.entity(visual).despawn();
-                    }
+                if let Some((progress, lateral_offset)) = join_info {
+                    // Keep visual entity for seamless transfer (BUG-3 fix)
+                    let visual = item.visual_entity;
                     source_conv.items.remove(action.item_index);
-                    // Queue add to target conveyor with correct progress
-                    conveyor_adds.push((target_entity, item.block_type, progress));
+                    // Queue add to target conveyor with visual and lateral offset
+                    conveyor_adds.push((target_entity, item.block_type, progress, visual, lateral_offset));
+                    // Mark target for last_input_source update
+                    if !targets_to_update.contains(&target_entity) {
+                        targets_to_update.push(target_entity);
+                    }
                 }
             }
             TransferTarget::Furnace(furnace_pos) => {
@@ -3910,7 +4068,9 @@ fn conveyor_transfer(
             TransferTarget::Delivery => {
                 // Deliver the item to platform
                 if let Some((_, mut platform)) = platform_query.iter_mut().next() {
-                    *platform.delivered.entry(item.block_type).or_insert(0) += 1;
+                    let count = *platform.delivered.entry(item.block_type).or_insert(0) + 1;
+                    *platform.delivered.get_mut(&item.block_type).unwrap() = count;
+                    info!(category = "QUEST", action = "deliver", item = ?item.block_type, total = count, "Item delivered");
                 }
                 if let Some(visual) = item.visual_entity {
                     commands.entity(visual).despawn();
@@ -3921,17 +4081,37 @@ fn conveyor_transfer(
     }
 
     // Second pass: add items to target conveyors at their calculated join progress
-    for (target_entity, block_type, progress) in conveyor_adds {
+    for (target_entity, block_type, progress, visual, lateral_offset) in conveyor_adds {
         if let Ok((_, mut target_conv)) = conveyor_query.get_mut(target_entity) {
-            target_conv.add_item(block_type, progress);
+            target_conv.add_item_with_visual(block_type, progress, visual, lateral_offset);
+        }
+    }
+
+    // Update last_input_source for conveyors that received items (zipper merge)
+    for target_entity in targets_to_update {
+        if let Ok((_, mut target_conv)) = conveyor_query.get_mut(target_entity) {
+            target_conv.last_input_source += 1;
         }
     }
 
     // Update progress for all items on all conveyors
     let delta = time.delta_secs() / CONVEYOR_SPEED;
+    let lateral_decay = time.delta_secs() * 3.0; // Decay rate for lateral offset (BUG-5 fix)
     for (_, mut conveyor) in conveyor_query.iter_mut() {
         let item_count = conveyor.items.len();
         for i in 0..item_count {
+            // Decay lateral offset towards center
+            if conveyor.items[i].lateral_offset.abs() > 0.01 {
+                let sign = conveyor.items[i].lateral_offset.signum();
+                conveyor.items[i].lateral_offset -= sign * lateral_decay;
+                // Clamp to prevent overshooting
+                if sign * conveyor.items[i].lateral_offset < 0.0 {
+                    conveyor.items[i].lateral_offset = 0.0;
+                }
+            } else {
+                conveyor.items[i].lateral_offset = 0.0;
+            }
+
             if conveyor.items[i].progress < 1.0 {
                 // Check if blocked by item ahead (higher progress)
                 let current_progress = conveyor.items[i].progress;
@@ -3958,20 +4138,28 @@ fn update_conveyor_item_visuals(
     mut conveyor_query: Query<&mut Conveyor>,
     mut visual_query: Query<&mut Transform, With<ConveyorItemVisual>>,
 ) {
-    let item_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.4, BLOCK_SIZE * 0.4));
+    let item_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * CONVEYOR_ITEM_SIZE, BLOCK_SIZE * CONVEYOR_ITEM_SIZE, BLOCK_SIZE * CONVEYOR_ITEM_SIZE));
 
     for mut conveyor in conveyor_query.iter_mut() {
+        // Position items on top of the belt (belt height + item size/2)
+        let item_y = conveyor.position.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT + CONVEYOR_ITEM_SIZE / 2.0;
         let base_pos = Vec3::new(
             conveyor.position.x as f32 * BLOCK_SIZE + 0.5,
-            conveyor.position.y as f32 * BLOCK_SIZE + 0.5,
+            item_y,
             conveyor.position.z as f32 * BLOCK_SIZE + 0.5,
         );
         let direction_vec = conveyor.direction.to_ivec3().as_vec3();
+        // Perpendicular vector for lateral offset (BUG-5 fix)
+        let lateral_vec = match conveyor.direction {
+            Direction::East | Direction::West => Vec3::new(0.0, 0.0, 1.0),
+            Direction::North | Direction::South => Vec3::new(1.0, 0.0, 0.0),
+        };
 
         for item in conveyor.items.iter_mut() {
             // Calculate position: progress 0.0 = entry (-0.5), 1.0 = exit (+0.5)
-            let offset = (item.progress - 0.5) * BLOCK_SIZE;
-            let item_pos = base_pos + direction_vec * offset;
+            let forward_offset = (item.progress - 0.5) * BLOCK_SIZE;
+            let lateral_offset_world = item.lateral_offset * BLOCK_SIZE;
+            let item_pos = base_pos + direction_vec * forward_offset + lateral_vec * lateral_offset_world;
 
             match item.visual_entity {
                 None => {
@@ -4762,44 +4950,25 @@ fn update_target_highlight(
 
 // === Creative Mode ===
 
-/// Handle creative mode input (C to toggle, number keys to give items)
+/// Handle creative mode input (F-keys for quick access in creative mode)
+/// Note: C key toggle removed - use /creative and /survival commands instead
 fn creative_mode_input(
     key_input: Res<ButtonInput<KeyCode>>,
-    mut creative: ResMut<CreativeMode>,
+    creative: Res<CreativeMode>,
     mut inventory: ResMut<Inventory>,
+    command_state: Res<CommandInputState>,
 ) {
-    // C key to toggle creative mode
-    if key_input.just_pressed(KeyCode::KeyC) {
-        creative.enabled = !creative.enabled;
-
-        // When entering creative mode, give all items
-        if creative.enabled {
-            let all_items = [
-                BlockType::Stone,
-                BlockType::Grass,
-                BlockType::IronOre,
-                BlockType::Coal,
-                BlockType::IronIngot,
-                BlockType::CopperOre,
-                BlockType::CopperIngot,
-                BlockType::MinerBlock,
-                BlockType::ConveyorBlock,
-                BlockType::CrusherBlock,
-            ];
-            // Fill first 9 slots with one item each (64 of each)
-            for (i, block_type) in all_items.iter().take(9).enumerate() {
-                inventory.slots[i] = Some((*block_type, 64));
-            }
-        }
+    // Don't process keys while command input is open
+    if command_state.open {
+        return;
     }
 
-    // In creative mode, scroll to cycle through additional items
-    // (F-keys kept as backup for quick access)
+    // In creative mode, F-keys for quick access (except F3 which is debug HUD)
     if creative.enabled {
         let items = [
             (KeyCode::F1, BlockType::Stone),
             (KeyCode::F2, BlockType::Grass),
-            (KeyCode::F3, BlockType::IronOre),
+            // F3 is debug HUD, skip
             (KeyCode::F4, BlockType::Coal),
             (KeyCode::F5, BlockType::IronIngot),
             (KeyCode::F6, BlockType::CopperOre),
@@ -4824,11 +4993,12 @@ fn creative_inventory_toggle(
     creative: Res<CreativeMode>,
     mut creative_inv_open: ResMut<CreativeInventoryOpen>,
     interacting_furnace: Res<InteractingFurnace>,
+    command_state: Res<CommandInputState>,
     mut ui_query: Query<&mut Visibility, With<CreativeInventoryUI>>,
     mut windows: Query<&mut Window>,
 ) {
-    // Only toggle if in creative mode and not interacting with furnace
-    if !creative.enabled || interacting_furnace.0.is_some() {
+    // Only toggle if in creative mode and not interacting with furnace or command input
+    if !creative.enabled || interacting_furnace.0.is_some() || command_state.open {
         return;
     }
 
@@ -4918,6 +5088,267 @@ fn creative_inventory_click(
                 *bg_color = BackgroundColor(block_type.color());
             }
         }
+    }
+}
+
+// === Command Input System ===
+
+/// Toggle command input with T or / key
+#[allow(clippy::too_many_arguments)]
+fn command_input_toggle(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut command_state: ResMut<CommandInputState>,
+    mut ui_query: Query<&mut Visibility, With<CommandInputUI>>,
+    mut text_query: Query<&mut Text, With<CommandInputText>>,
+    mut windows: Query<&mut Window>,
+    interacting_furnace: Res<InteractingFurnace>,
+    interacting_crusher: Res<InteractingCrusher>,
+    creative_inv_open: Res<CreativeInventoryOpen>,
+) {
+    // Don't open if other UI is open
+    if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || creative_inv_open.0 {
+        return;
+    }
+
+    // T or / to open command input (when not already open)
+    if !command_state.open
+        && (key_input.just_pressed(KeyCode::KeyT) || key_input.just_pressed(KeyCode::Slash))
+    {
+        command_state.open = true;
+        command_state.text.clear();
+
+        // If opened with /, pre-fill with /
+        if key_input.just_pressed(KeyCode::Slash) {
+            command_state.text.push('/');
+        }
+
+        // Show UI
+        for mut vis in ui_query.iter_mut() {
+            *vis = Visibility::Visible;
+        }
+
+        // Update text
+        for mut text in text_query.iter_mut() {
+            text.0 = format!("> {}", command_state.text);
+        }
+
+        // Unlock cursor for typing
+        if let Ok(mut window) = windows.get_single_mut() {
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+            set_ui_open_state(true);
+        }
+    }
+}
+
+/// Handle command input typing and execution
+#[allow(clippy::too_many_arguments)]
+fn command_input_handler(
+    mut char_events: EventReader<bevy::input::keyboard::KeyboardInput>,
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut command_state: ResMut<CommandInputState>,
+    mut ui_query: Query<&mut Visibility, With<CommandInputUI>>,
+    mut text_query: Query<&mut Text, With<CommandInputText>>,
+    mut windows: Query<&mut Window>,
+    mut creative_mode: ResMut<CreativeMode>,
+    mut inventory: ResMut<Inventory>,
+) {
+    if !command_state.open {
+        return;
+    }
+
+    // ESC to close without executing
+    if key_input.just_pressed(KeyCode::Escape) {
+        command_state.open = false;
+        command_state.text.clear();
+
+        for mut vis in ui_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+
+        // Unlock cursor (paused state)
+        if let Ok(mut window) = windows.get_single_mut() {
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+            set_ui_open_state(false);
+        }
+        return;
+    }
+
+    // Enter to execute command
+    if key_input.just_pressed(KeyCode::Enter) {
+        let command_text = command_state.text.trim().to_lowercase();
+        execute_command(&command_text, &mut creative_mode, &mut inventory);
+
+        command_state.open = false;
+        command_state.text.clear();
+
+        for mut vis in ui_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+
+        // Re-lock cursor
+        if let Ok(mut window) = windows.get_single_mut() {
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
+            set_ui_open_state(false);
+        }
+        return;
+    }
+
+    // Backspace to delete last character
+    if key_input.just_pressed(KeyCode::Backspace) && !command_state.text.is_empty() {
+        command_state.text.pop();
+    }
+
+    // Handle character input
+    for event in char_events.read() {
+        // Only process key press events
+        if !event.state.is_pressed() {
+            continue;
+        }
+
+        // Convert key code to character
+        if let Some(c) = keycode_to_char(event.key_code, key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight)) {
+            // Limit input length
+            if command_state.text.len() < 50 {
+                command_state.text.push(c);
+            }
+        }
+    }
+
+    // Update display text
+    for mut text in text_query.iter_mut() {
+        text.0 = format!("> {}|", command_state.text);
+    }
+}
+
+/// Convert key code to character
+fn keycode_to_char(key_code: KeyCode, shift: bool) -> Option<char> {
+    match key_code {
+        KeyCode::KeyA => Some(if shift { 'A' } else { 'a' }),
+        KeyCode::KeyB => Some(if shift { 'B' } else { 'b' }),
+        KeyCode::KeyC => Some(if shift { 'C' } else { 'c' }),
+        KeyCode::KeyD => Some(if shift { 'D' } else { 'd' }),
+        KeyCode::KeyE => Some(if shift { 'E' } else { 'e' }),
+        KeyCode::KeyF => Some(if shift { 'F' } else { 'f' }),
+        KeyCode::KeyG => Some(if shift { 'G' } else { 'g' }),
+        KeyCode::KeyH => Some(if shift { 'H' } else { 'h' }),
+        KeyCode::KeyI => Some(if shift { 'I' } else { 'i' }),
+        KeyCode::KeyJ => Some(if shift { 'J' } else { 'j' }),
+        KeyCode::KeyK => Some(if shift { 'K' } else { 'k' }),
+        KeyCode::KeyL => Some(if shift { 'L' } else { 'l' }),
+        KeyCode::KeyM => Some(if shift { 'M' } else { 'm' }),
+        KeyCode::KeyN => Some(if shift { 'N' } else { 'n' }),
+        KeyCode::KeyO => Some(if shift { 'O' } else { 'o' }),
+        KeyCode::KeyP => Some(if shift { 'P' } else { 'p' }),
+        KeyCode::KeyQ => Some(if shift { 'Q' } else { 'q' }),
+        KeyCode::KeyR => Some(if shift { 'R' } else { 'r' }),
+        KeyCode::KeyS => Some(if shift { 'S' } else { 's' }),
+        KeyCode::KeyT => Some(if shift { 'T' } else { 't' }),
+        KeyCode::KeyU => Some(if shift { 'U' } else { 'u' }),
+        KeyCode::KeyV => Some(if shift { 'V' } else { 'v' }),
+        KeyCode::KeyW => Some(if shift { 'W' } else { 'w' }),
+        KeyCode::KeyX => Some(if shift { 'X' } else { 'x' }),
+        KeyCode::KeyY => Some(if shift { 'Y' } else { 'y' }),
+        KeyCode::KeyZ => Some(if shift { 'Z' } else { 'z' }),
+        KeyCode::Digit0 => Some(if shift { ')' } else { '0' }),
+        KeyCode::Digit1 => Some(if shift { '!' } else { '1' }),
+        KeyCode::Digit2 => Some(if shift { '@' } else { '2' }),
+        KeyCode::Digit3 => Some(if shift { '#' } else { '3' }),
+        KeyCode::Digit4 => Some(if shift { '$' } else { '4' }),
+        KeyCode::Digit5 => Some(if shift { '%' } else { '5' }),
+        KeyCode::Digit6 => Some(if shift { '^' } else { '6' }),
+        KeyCode::Digit7 => Some(if shift { '&' } else { '7' }),
+        KeyCode::Digit8 => Some(if shift { '*' } else { '8' }),
+        KeyCode::Digit9 => Some(if shift { '(' } else { '9' }),
+        KeyCode::Space => Some(' '),
+        KeyCode::Minus => Some(if shift { '_' } else { '-' }),
+        KeyCode::Equal => Some(if shift { '+' } else { '=' }),
+        KeyCode::Slash => Some(if shift { '?' } else { '/' }),
+        _ => None,
+    }
+}
+
+/// Execute a command
+fn execute_command(
+    command: &str,
+    creative_mode: &mut ResMut<CreativeMode>,
+    inventory: &mut ResMut<Inventory>,
+) {
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    if parts.is_empty() {
+        return;
+    }
+
+    match parts[0] {
+        "/creative" | "creative" => {
+            creative_mode.enabled = true;
+            // Give all items when entering creative mode
+            let all_items = [
+                BlockType::Stone,
+                BlockType::Grass,
+                BlockType::IronOre,
+                BlockType::Coal,
+                BlockType::IronIngot,
+                BlockType::CopperOre,
+                BlockType::CopperIngot,
+                BlockType::MinerBlock,
+                BlockType::ConveyorBlock,
+                BlockType::CrusherBlock,
+            ];
+            for (i, block_type) in all_items.iter().take(9).enumerate() {
+                inventory.slots[i] = Some((*block_type, 64));
+            }
+            info!("Creative mode enabled");
+        }
+        "/survival" | "survival" => {
+            creative_mode.enabled = false;
+            info!("Survival mode enabled");
+        }
+        "/give" | "give" => {
+            // /give <item> [count]
+            if parts.len() >= 2 {
+                let item_name = parts[1].to_lowercase();
+                let count: u32 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(64);
+
+                if let Some(block_type) = parse_item_name(&item_name) {
+                    inventory.add_item(block_type, count);
+                    info!("Gave {} x{}", block_type.name(), count);
+                }
+            }
+        }
+        "/clear" | "clear" => {
+            // Clear inventory
+            for slot in inventory.slots.iter_mut() {
+                *slot = None;
+            }
+            info!("Inventory cleared");
+        }
+        "/help" | "help" => {
+            info!("Commands: /creative, /survival, /give <item> [count], /clear");
+        }
+        _ => {
+            info!("Unknown command: {}", command);
+        }
+    }
+}
+
+/// Parse item name to BlockType
+fn parse_item_name(name: &str) -> Option<BlockType> {
+    match name {
+        "stone" => Some(BlockType::Stone),
+        "grass" => Some(BlockType::Grass),
+        "ironore" | "iron_ore" => Some(BlockType::IronOre),
+        "copperore" | "copper_ore" => Some(BlockType::CopperOre),
+        "coal" => Some(BlockType::Coal),
+        "ironingot" | "iron_ingot" | "iron" => Some(BlockType::IronIngot),
+        "copperingot" | "copper_ingot" | "copper" => Some(BlockType::CopperIngot),
+        "miner" => Some(BlockType::MinerBlock),
+        "conveyor" => Some(BlockType::ConveyorBlock),
+        "crusher" => Some(BlockType::CrusherBlock),
+        "furnace" => Some(BlockType::FurnaceBlock),
+        _ => None,
     }
 }
 

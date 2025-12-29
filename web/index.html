@@ -140,12 +140,48 @@
             screen: { w: screen.width, h: screen.height, dpr: devicePixelRatio },
             events: [],
             fps: [],
-            errors: []
+            errors: [],
+            rustLogs: []  // Logs from Rust/tracing
         };
 
         function logEvent(type, data = {}) {
             gameLog.events.push({ t: Date.now() - gameLog.startTime, type, ...data });
         }
+
+        // Intercept console to capture Rust tracing logs
+        const originalConsoleLog = console.log;
+        const originalConsoleInfo = console.info;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleDebug = console.debug;
+
+        function captureRustLog(level, args) {
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+            // Check if this looks like a tracing log (has category= or common game event patterns)
+            if (msg.includes('category=') || msg.includes('BLOCK') || msg.includes('MACHINE') || msg.includes('QUEST')) {
+                gameLog.rustLogs.push({
+                    t: Date.now() - gameLog.startTime,
+                    level,
+                    msg
+                });
+            }
+        }
+
+        console.log = function(...args) {
+            captureRustLog('log', args);
+            originalConsoleLog.apply(console, args);
+        };
+        console.info = function(...args) {
+            captureRustLog('info', args);
+            originalConsoleInfo.apply(console, args);
+        };
+        console.warn = function(...args) {
+            captureRustLog('warn', args);
+            originalConsoleWarn.apply(console, args);
+        };
+        console.debug = function(...args) {
+            captureRustLog('debug', args);
+            originalConsoleDebug.apply(console, args);
+        };
 
         // Track FPS with freeze detection
         let lastFrameTime = performance.now();
@@ -255,7 +291,41 @@
             return freezes;
         };
 
-        console.log('Debug commands: exportGameLogs(), showFreezeLogs()');
+        // Show current session game logs (Rust-side)
+        window.showGameLogs = function(category = null) {
+            let logs = gameLog.rustLogs;
+            if (category) {
+                logs = logs.filter(l => l.msg.includes(category.toUpperCase()));
+            }
+            console.table(logs.map(l => ({
+                time: (l.t / 1000).toFixed(1) + 's',
+                level: l.level,
+                message: l.msg.substring(0, 100)
+            })));
+            return logs;
+        };
+
+        // Filter logs by category
+        window.filterLogs = function(category) {
+            const logs = gameLog.rustLogs.filter(l => l.msg.includes(category.toUpperCase()));
+            console.log(`=== ${category.toUpperCase()} Logs (${logs.length}) ===`);
+            logs.forEach(l => {
+                console.log(`[${(l.t/1000).toFixed(1)}s] ${l.msg}`);
+            });
+            return logs;
+        };
+
+        // Get recent logs (last N)
+        window.recentLogs = function(n = 20) {
+            const logs = gameLog.rustLogs.slice(-n);
+            console.table(logs.map(l => ({
+                time: (l.t / 1000).toFixed(1) + 's',
+                message: l.msg
+            })));
+            return logs;
+        };
+
+        console.log('Debug commands: exportGameLogs(), showFreezeLogs(), showGameLogs(category?), filterLogs(category), recentLogs(n)');
 
         // Track errors
         window.addEventListener('error', (e) => {

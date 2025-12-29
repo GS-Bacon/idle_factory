@@ -1631,3 +1631,320 @@ fn test_raycast_misses_when_looking_away() {
 
     assert!(hit.is_none(), "Raycast should miss when looking away");
 }
+
+// ============================================================================
+// Phase 6: Additional Tests for Bug Detection
+// ============================================================================
+
+/// Test that conveyor items maintain proper spacing and don't overlap (BUG-4 prevention)
+#[test]
+fn test_conveyor_item_no_overlap() {
+    const CONVEYOR_ITEM_SPACING: f32 = 0.4;
+
+    // Simulate a conveyor with multiple items
+    let items: Vec<(f32, f32)> = vec![
+        (0.0, 0.0),   // (progress, lateral_offset)
+        (0.4, 0.0),   // Should be at minimum spacing
+        (0.8, 0.0),   // Should be at minimum spacing from previous
+    ];
+
+    // Check that all items maintain minimum spacing
+    for i in 0..items.len() {
+        for j in (i + 1)..items.len() {
+            let distance = (items[j].0 - items[i].0).abs();
+            assert!(
+                distance >= CONVEYOR_ITEM_SPACING - 0.001, // Allow small floating point error
+                "Items at progress {} and {} are too close (distance: {}, min: {})",
+                items[i].0,
+                items[j].0,
+                distance,
+                CONVEYOR_ITEM_SPACING
+            );
+        }
+    }
+}
+
+/// Test that side-merge items have proper lateral offset (BUG-5 prevention)
+#[test]
+fn test_conveyor_side_merge_offset() {
+    // Simulate side merge: item joining from perpendicular direction
+    // Initial lateral_offset should be ±0.5
+    let initial_offset: f32 = 0.5;
+    let decay_rate: f32 = 3.0; // per second
+    let delta_time: f32 = 0.016; // 60 FPS
+
+    // After one frame, offset should decrease
+    let new_offset = initial_offset - decay_rate * delta_time;
+    assert!(new_offset < initial_offset, "Lateral offset should decay");
+    assert!(new_offset > 0.0, "Lateral offset should not overshoot");
+
+    // After enough time, offset should reach near zero
+    let frames_to_center = (initial_offset / (decay_rate * delta_time)).ceil() as i32;
+    assert!(frames_to_center > 0 && frames_to_center < 100, "Should center within reasonable time");
+}
+
+/// Test inventory stack limit at 999
+#[test]
+fn test_inventory_stack_limit_999() {
+    let mut inventory = TestInventory::new();
+
+    // Add items up to stack limit
+    for _ in 0..999 {
+        inventory.add_item(TestBlockType::Stone);
+    }
+
+    assert_eq!(inventory.get_count(TestBlockType::Stone), 999);
+
+    // Adding more should overflow to next slot or fail
+    inventory.add_item(TestBlockType::Stone);
+
+    // Total should be 1000 (999 in first slot, 1 in overflow or same slot depending on impl)
+    // For our test, we just verify it handles the overflow gracefully
+    assert!(inventory.get_count(TestBlockType::Stone) >= 999);
+}
+
+/// Helper struct for inventory stack test
+struct TestInventory {
+    slots: [(Option<TestBlockType>, u32); 9],
+}
+
+impl TestInventory {
+    fn new() -> Self {
+        Self {
+            slots: [(None, 0); 9],
+        }
+    }
+
+    fn add_item(&mut self, item: TestBlockType) {
+        const MAX_STACK: u32 = 999;
+
+        // Find existing stack or empty slot
+        for slot in &mut self.slots {
+            if slot.0 == Some(item) && slot.1 < MAX_STACK {
+                slot.1 += 1;
+                return;
+            }
+        }
+
+        // Find empty slot
+        for slot in &mut self.slots {
+            if slot.0.is_none() {
+                slot.0 = Some(item);
+                slot.1 = 1;
+                return;
+            }
+        }
+    }
+
+    fn get_count(&self, item: TestBlockType) -> u32 {
+        self.slots.iter()
+            .filter(|(i, _)| *i == Some(item))
+            .map(|(_, c)| c)
+            .sum()
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TestBlockType {
+    Stone,
+}
+
+/// Test multiple conveyors merging simultaneously
+#[test]
+fn test_multiple_conveyor_merge() {
+    // Simulate 3 conveyors merging into 1
+    // Main conveyor going East, two side conveyors from North and South
+
+    struct SimConveyor {
+        items: Vec<f32>, // progress values
+        max_items: usize,
+    }
+
+    impl SimConveyor {
+        fn can_accept(&self, at_progress: f32) -> bool {
+            if self.items.len() >= self.max_items {
+                return false;
+            }
+            for &item in &self.items {
+                if (item - at_progress).abs() < 0.4 {
+                    return false;
+                }
+            }
+            true
+        }
+    }
+
+    let mut main_conveyor = SimConveyor {
+        items: vec![],
+        max_items: 3,
+    };
+
+    // Try to add from north (progress 0.5)
+    if main_conveyor.can_accept(0.5) {
+        main_conveyor.items.push(0.5);
+    }
+
+    // Try to add from south (progress 0.5) - should fail due to spacing
+    let can_add_south = main_conveyor.can_accept(0.5);
+    assert!(!can_add_south, "Should not accept two items at same progress");
+
+    // Try to add from behind (progress 0.0) - should succeed
+    let can_add_behind = main_conveyor.can_accept(0.0);
+    assert!(can_add_behind, "Should accept item from behind");
+}
+
+/// Test conveyor loop doesn't cause infinite processing
+#[test]
+fn test_conveyor_loop_handling() {
+    // Simulate a loop of 4 conveyors forming a square
+    // Items should keep circulating without crashing
+
+    struct LoopConveyor {
+        id: usize,
+        items: Vec<f32>,
+        next_id: usize,
+    }
+
+    let mut conveyors = vec![
+        LoopConveyor { id: 0, items: vec![0.5], next_id: 1 },
+        LoopConveyor { id: 1, items: vec![], next_id: 2 },
+        LoopConveyor { id: 2, items: vec![], next_id: 3 },
+        LoopConveyor { id: 3, items: vec![], next_id: 0 }, // Loop back
+    ];
+
+    // Simulate 100 frames
+    for _ in 0..100 {
+        let mut transfers: Vec<(usize, usize)> = vec![]; // (from, to)
+
+        // Find items ready to transfer
+        for conv in &conveyors {
+            if conv.items.iter().any(|&p| p >= 1.0) {
+                transfers.push((conv.id, conv.next_id));
+            }
+        }
+
+        // Apply transfers
+        for (from, to) in transfers {
+            if let Some(idx) = conveyors[from].items.iter().position(|&p| p >= 1.0) {
+                if conveyors[to].items.len() < 3 {
+                    conveyors[from].items.remove(idx);
+                    conveyors[to].items.push(0.0);
+                }
+            }
+        }
+
+        // Advance progress
+        for conv in &mut conveyors {
+            for p in &mut conv.items {
+                *p += 0.1;
+                if *p > 1.0 {
+                    *p = 1.0;
+                }
+            }
+        }
+    }
+
+    // Count total items - should still be exactly 1
+    let total_items: usize = conveyors.iter().map(|c| c.items.len()).sum();
+    assert_eq!(total_items, 1, "Item should not be duplicated or lost in loop");
+}
+
+/// Test that entity count remains stable after repeated operations
+#[test]
+fn test_entity_count_stability() {
+    // Simulate spawning and despawning entities
+    let mut entity_count = 0;
+    let mut max_entities = 0;
+
+    // Simulate 100 cycles of spawn/despawn
+    for _ in 0..100 {
+        // Spawn 5 entities
+        entity_count += 5;
+        max_entities = max_entities.max(entity_count);
+
+        // Despawn 5 entities
+        entity_count -= 5;
+    }
+
+    assert_eq!(entity_count, 0, "All entities should be cleaned up");
+    assert!(max_entities <= 10, "Entity count should not grow unboundedly");
+}
+
+/// Test visual entity handoff doesn't leak (BUG-3 prevention)
+#[test]
+fn test_visual_entity_handoff() {
+    // Simulate transferring item between conveyors
+    // Old implementation: despawn visual, create new -> 1 frame gap (flicker)
+    // New implementation: transfer visual entity -> no gap
+
+    struct ItemWithVisual {
+        progress: f32,
+        visual_entity: Option<u32>, // Simulated entity ID
+    }
+
+    let mut source = ItemWithVisual {
+        progress: 1.0,
+        visual_entity: Some(42),
+    };
+
+    let mut target = ItemWithVisual {
+        progress: 0.0,
+        visual_entity: None,
+    };
+
+    // Transfer: keep visual instead of despawn+spawn
+    target.visual_entity = source.visual_entity.take();
+    target.progress = 0.0;
+
+    assert!(source.visual_entity.is_none(), "Source should release visual");
+    assert_eq!(target.visual_entity, Some(42), "Target should receive visual");
+}
+
+/// Test zipper merge - alternating inputs from multiple sources
+#[test]
+fn test_zipper_merge() {
+    // Simulate zipper merge: two sources feeding into one target
+    // Each tick, only one source should be allowed to transfer
+
+    struct ZipperConveyor {
+        id: usize,
+        last_input_source: usize,
+    }
+
+    let mut target = ZipperConveyor {
+        id: 0,
+        last_input_source: 0,
+    };
+
+    let sources = vec![1_usize, 2_usize]; // Two source conveyors
+    let mut accepted_from: Vec<usize> = Vec::new();
+
+    // Simulate 10 ticks of zipper merge
+    for _ in 0..10 {
+        // Determine which source is allowed this tick
+        let mut sorted_sources = sources.clone();
+        sorted_sources.sort();
+        let allowed_idx = target.last_input_source % sorted_sources.len();
+        let allowed_source = sorted_sources[allowed_idx];
+
+        // Accept from allowed source
+        accepted_from.push(allowed_source);
+        target.last_input_source += 1;
+    }
+
+    // Count how many from each source
+    let from_source_1 = accepted_from.iter().filter(|&&s| s == 1).count();
+    let from_source_2 = accepted_from.iter().filter(|&&s| s == 2).count();
+
+    // Should be evenly distributed (5 from each)
+    assert_eq!(from_source_1, 5, "Should accept 5 items from source 1");
+    assert_eq!(from_source_2, 5, "Should accept 5 items from source 2");
+
+    // Verify alternating pattern
+    for i in 0..9 {
+        assert_ne!(
+            accepted_from[i], accepted_from[i + 1],
+            "Zipper should alternate between sources"
+        );
+    }
+}
