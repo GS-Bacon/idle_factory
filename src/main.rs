@@ -2593,12 +2593,44 @@ fn block_break(
                 inventory.add_item(BlockType::MinerBlock, 1);
             }
             HitType::Crusher(entity) => {
+                // Return crusher contents to inventory before despawning
+                if let Ok((_, crusher, _)) = crusher_query.get(entity) {
+                    if let Some(input_type) = crusher.input_type {
+                        if crusher.input_count > 0 {
+                            inventory.add_item(input_type, crusher.input_count);
+                        }
+                    }
+                    if let Some(output_type) = crusher.output_type {
+                        if crusher.output_count > 0 {
+                            inventory.add_item(output_type, crusher.output_count);
+                        }
+                    }
+                }
                 info!(category = "MACHINE", action = "break", machine = "crusher", "Crusher broken");
                 commands.entity(entity).despawn_recursive();
                 // Return crusher to inventory
                 inventory.add_item(BlockType::CrusherBlock, 1);
             }
             HitType::Furnace(entity) => {
+                // Return furnace contents to inventory before despawning
+                if let Ok((_, furnace, _)) = furnace_query.get(entity) {
+                    // Return fuel (coal)
+                    if furnace.fuel > 0 {
+                        inventory.add_item(BlockType::Coal, furnace.fuel);
+                    }
+                    // Return input ore
+                    if let Some(input_type) = furnace.input_type {
+                        if furnace.input_count > 0 {
+                            inventory.add_item(input_type, furnace.input_count);
+                        }
+                    }
+                    // Return output ingots
+                    if let Some(output_type) = furnace.output_type {
+                        if furnace.output_count > 0 {
+                            inventory.add_item(output_type, furnace.output_count);
+                        }
+                    }
+                }
                 info!(category = "MACHINE", action = "break", machine = "furnace", "Furnace broken");
                 commands.entity(entity).despawn_recursive();
                 // Return furnace to inventory

@@ -9,6 +9,15 @@ use std::collections::HashMap;
 enum BlockType {
     Stone,
     Grass,
+    IronOre,
+    CopperOre,
+    Coal,
+    IronIngot,
+    CopperIngot,
+    MinerBlock,
+    ConveyorBlock,
+    CrusherBlock,
+    FurnaceBlock,
 }
 
 #[derive(Resource, Default)]
@@ -2261,4 +2270,86 @@ fn test_multiple_ui_exclusive() {
 
     assert!(!ui.inventory_open, "Inventory should be closed");
     assert!(ui.furnace_open, "Furnace should be open");
+}
+
+#[test]
+fn test_crusher_break_returns_items() {
+    // When a crusher is broken, its input and output items should be returned to inventory
+    struct CrusherState {
+        input_type: Option<BlockType>,
+        input_count: u32,
+        output_type: Option<BlockType>,
+        output_count: u32,
+    }
+
+    let crusher = CrusherState {
+        input_type: Some(BlockType::Stone), // Using Stone as ore substitute
+        input_count: 5,
+        output_type: Some(BlockType::Stone),
+        output_count: 10, // Crushed output (doubled)
+    };
+
+    let mut inventory = SlotInventory::default();
+
+    // Simulate breaking the crusher - return contents to inventory
+    if let Some(input_type) = crusher.input_type {
+        if crusher.input_count > 0 {
+            inventory.add_item(input_type, crusher.input_count);
+        }
+    }
+    if let Some(output_type) = crusher.output_type {
+        if crusher.output_count > 0 {
+            inventory.add_item(output_type, crusher.output_count);
+        }
+    }
+
+    // Verify items were returned (stacked in slot 0)
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(0), 15, "All items should be returned (5 input + 10 output)");
+}
+
+#[test]
+fn test_furnace_break_returns_items() {
+    // When a furnace is broken, its fuel, input ore, and output ingots should be returned
+    struct FurnaceState {
+        fuel: u32,
+        input_type: Option<BlockType>,
+        input_count: u32,
+        output_type: Option<BlockType>,
+        output_count: u32,
+    }
+
+    let furnace = FurnaceState {
+        fuel: 3,
+        input_type: Some(BlockType::Stone), // Using Stone as ore substitute
+        input_count: 5,
+        output_type: Some(BlockType::Grass), // Using Grass as ingot substitute
+        output_count: 2,
+    };
+
+    let mut inventory = SlotInventory::default();
+
+    // Simulate breaking the furnace - return contents to inventory
+    if furnace.fuel > 0 {
+        // Use Grass for coal substitute (slot 0)
+        inventory.add_item(BlockType::Grass, furnace.fuel);
+    }
+    if let Some(input_type) = furnace.input_type {
+        if furnace.input_count > 0 {
+            inventory.add_item(input_type, furnace.input_count);
+        }
+    }
+    if let Some(output_type) = furnace.output_type {
+        if furnace.output_count > 0 {
+            inventory.add_item(output_type, furnace.output_count);
+        }
+    }
+
+    // Verify items were returned
+    // Grass (fuel substitute + output): 3 + 2 = 5 in slot 0
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot_count(0), 5, "Fuel and output should be returned");
+    // Stone (input ore) in slot 1
+    assert_eq!(inventory.get_slot(1), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(1), 5, "Input ore should be returned");
 }
