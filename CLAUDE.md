@@ -98,15 +98,31 @@
 **重要**: バグ修正タスクを受けたら、まずログを解析してから修正に着手する。
 **絶対禁止**: 憶測での修正。「多分これが原因」で修正してはいけない。必ず証拠を見つけてから。
 
-### 1. ログ取得
-ユーザーにブラウザコンソールで以下を実行してもらう:
-```javascript
-exportGameLogs()    // 全セッションのログをJSONでダウンロード
-showGameLogs()      // 現在セッションのゲームログを表示
-showGameLogs('BLOCK')  // カテゴリでフィルタ (BLOCK, MACHINE, QUEST)
-filterLogs('MACHINE')  // 特定カテゴリのログを詳細表示
-recentLogs(20)      // 直近N件のログを表示
-showFreezeLogs()    // フリーズ情報をテーブル表示
+### 1. ログ取得（AI実行）
+
+**ネイティブ版**:
+```bash
+# ゲーム起動時にログ自動保存
+./run.sh
+
+# ログ確認
+./show-logs.sh              # 最新ログ（末尾50行）
+./show-logs.sh 100          # 末尾100行
+./show-logs.sh errors       # エラーのみ
+./show-logs.sh events       # ゲームイベントのみ（BLOCK, MACHINE, QUEST）
+./show-logs.sh list         # ログファイル一覧
+```
+
+**WASM版**:
+```bash
+# ブラウザコンソールをキャプチャ（30秒間）
+node capture-wasm-logs.js
+
+# 60秒間キャプチャ
+node capture-wasm-logs.js 60
+
+# ログ確認
+./show-logs.sh wasm
 ```
 
 ### ログカテゴリ
@@ -115,21 +131,16 @@ showFreezeLogs()    // フリーズ情報をテーブル表示
 - **QUEST**: 納品イベント
 
 ### 2. ログ解析
-ダウンロードしたJSONを確認:
-- `errors`: フリーズ・エラー情報（`type: 'FREEZE'`に注目）
-- `fps`: FPS推移（急落ポイントを特定）
-- `events`: 操作履歴（フリーズ直前の操作を確認）
+ログファイル（`logs/game_latest.log` or `logs/wasm_latest.log`）を確認:
+- `ERROR`, `WARN` を検索
+- `BLOCK`, `MACHINE`, `QUEST` でイベント追跡
+- タイムスタンプでフリーズ直前の操作を特定
 
 ### 3. 修正タスクに追記
 ログから判明した情報を修正タスクに追加:
 - フリーズ発生タイミング（開始から何秒後）
 - 直前の操作（何をしたらフリーズしたか）
-- FPS推移パターン（徐々に低下 or 突然0）
-
-### フリーズログの確認（ブラウザコンソール）
-```javascript
-showFreezeLogs()  // フリーズ情報をテーブル表示
-```
+- エラーメッセージの内容
 
 ## AI画面検証
 
@@ -692,6 +703,14 @@ cargo install sccache --locked
 ## 作業ログ
 
 ### 2025-12-29
+- **ロギングシステム簡素化**
+  - GameLogBuffer, LogEntry, 未使用マクロを削除
+  - logging.rsを43行に簡素化（157行→43行）
+  - run.shにログファイル出力を追加（logs/game_YYYYMMDD_HHMMSS.log）
+  - capture-wasm-logs.js: WASM版のブラウザコンソールキャプチャ
+  - show-logs.sh: ログ確認ヘルパースクリプト
+  - CLAUDE.mdの「バグ修正の手順」をAI主導のログ収集に更新
+  - テスト81件成功、clippy警告なし
 - **コンベア複数アイテム対応**
   - ConveyorItem構造体を追加（block_type, progress, visual_entity）
   - 1コンベアあたり最大3アイテム（CONVEYOR_MAX_ITEMS定数）

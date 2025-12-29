@@ -1,5 +1,10 @@
 #!/bin/bash
-# Idle Factory launcher - auto-detects available display
+# Idle Factory launcher - auto-detects available display and captures logs
+
+set -e
+
+# Create logs directory if it doesn't exist
+mkdir -p /home/bacon/idle_factory/logs
 
 # Try to find a working display in this order:
 # 1. RDP Xorg session
@@ -34,4 +39,26 @@ echo "Starting Idle Factory on display $DISPLAY_FOUND"
 
 cd /home/bacon/idle_factory
 source ~/.cargo/env
-DISPLAY=$DISPLAY_FOUND cargo run --release "$@"
+
+# Generate timestamped log filename
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE="logs/game_${TIMESTAMP}.log"
+
+# Also maintain a symlink to the latest log
+LATEST_LOG="logs/game_latest.log"
+
+echo "Logging to $LOG_FILE"
+
+# Run the game and capture all output to log file
+# Use unbuffer or stdbuf to prevent buffering issues
+if command -v stdbuf &> /dev/null; then
+    DISPLAY=$DISPLAY_FOUND stdbuf -oL -eL cargo run --release "$@" 2>&1 | tee "$LOG_FILE"
+else
+    DISPLAY=$DISPLAY_FOUND cargo run --release "$@" 2>&1 | tee "$LOG_FILE"
+fi
+
+# Update latest log symlink
+ln -sf "game_${TIMESTAMP}.log" "$LATEST_LOG"
+
+echo ""
+echo "Log saved to $LOG_FILE"

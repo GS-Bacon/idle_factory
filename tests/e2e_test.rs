@@ -1,6 +1,8 @@
 //! E2E Tests for Idle Factory
 //! Tests core game logic without rendering
 
+#![allow(dead_code)] // Test helper types may not all be used in every test
+
 use bevy::prelude::*;
 use std::collections::HashMap;
 
