@@ -31,5 +31,9 @@ pub const CRUSH_TIME: f32 = 4.0;
 pub const MINE_TIME: f32 = 5.0;
 pub const CONVEYOR_SPEED: f32 = 1.0;
 
+/// Conveyor settings
+pub const CONVEYOR_MAX_ITEMS: usize = 3; // Maximum items per conveyor
+pub const CONVEYOR_ITEM_SPACING: f32 = 0.33; // Minimum spacing between items (0.0-1.0)
+
 /// Delivery platform
 pub const PLATFORM_SIZE: i32 = 12;
