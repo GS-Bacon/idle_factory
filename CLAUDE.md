@@ -496,6 +496,31 @@ cargo install sccache --locked
 
 ## 作業ログ
 
+### 2025-12-29
+- **コンベア複数アイテム対応**
+  - ConveyorItem構造体を追加（block_type, progress, visual_entity）
+  - 1コンベアあたり最大3アイテム（CONVEYOR_MAX_ITEMS定数）
+  - アイテム間の最小間隔0.33（CONVEYOR_ITEM_SPACING定数）
+  - conveyor_transferを大幅リファクタリング（2フェーズ処理でborrow競合回避）
+- **コンベア途中合流対応**
+  - Conveyor::get_join_progress()メソッド追加
+  - 側面（垂直）からの合流はprogress=0.5から開始
+  - 後方からの合流はprogress=0.0から開始
+  - miner_output, crusher_output, furnace_output, conveyor_transferを更新
+- **納品アニメーション改善**
+  - アイテムがprogress=1.0（コンベア端）に到達してから納品
+  - 途中で消えず、最後まで流れてから納品
+- **コンベア用ワイヤーフレーム（向き矢印付き）**
+  - create_conveyor_wireframe_mesh(direction)関数追加
+  - 矢印で方向を表示
+  - コンベア設置時は設置予定の向きを表示
+  - 既存コンベア選択時は実際の向きを表示
+- **その他の改善**
+  - Inventory::get_selected_type()メソッド追加
+  - update_target_highlightにコンベア検出を追加
+  - constants.rsにCONVEYOR_MAX_ITEMS, CONVEYOR_ITEM_SPACING追加
+- **テスト**: 40テスト成功、clippy警告なし
+
 ### 2025-12-28
 - **ESC後のカメラ操作無効化を修正**
   - CursorLockStateに`paused`フラグを追加
