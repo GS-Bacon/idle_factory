@@ -125,9 +125,9 @@
     <div id="controls">
         <b>Controls:</b><br>
         WASD - Move | Mouse - Look<br>
-        Left Click - Break | Right Click - Place<br>
-        1-4 - Select Item | E - Furnace UI<br>
-        Q - Claim Quest Reward
+        Left Click - Break | Right Click - Place/Machine UI<br>
+        1-9 - Select Slot | E - Inventory<br>
+        T or / - Commands | F3 - Debug | Q - Claim Reward
     </div>
     <script type="module">
         import init from './idle_factory.js';
@@ -333,7 +333,7 @@
         });
 
         // Track key presses (game actions only)
-        const trackedKeys = new Set(['w','a','s','d','e','q','1','2','3','4','escape']);
+        const trackedKeys = new Set(['w','a','s','d','e','q','t','1','2','3','4','5','6','7','8','9','escape','f3']);
         window.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
             if (trackedKeys.has(key)) {
