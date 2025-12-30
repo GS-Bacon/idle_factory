@@ -751,6 +751,13 @@ cargo install sccache --locked
 **対策**: MutationObserverで`data-ui-open`属性を監視し、trueになったら即座にオーバーレイを非表示
 **ファイル**: `web/index.html` の`uiOpenObserver`
 
+### 14. プレビューと実際の動作が異なる
+**原因**: プレビュー表示と実際の処理で異なるロジックを使用
+**症状**: コンベア設置ガイド（緑ワイヤーフレーム）と実際に設置される向きが違う
+**対策**: プレビューと実際の処理で同じ関数を呼び出す（例: `auto_conveyor_direction`を両方で使用）
+**ファイル**: `src/main.rs` の `update_target_highlight`, `block_place` 関数
+**教訓**: 同じ計算を複数箇所で行う場合は関数に切り出し、全箇所で同じ関数を使う
+
 ### 実装時のチェックリスト
 
 新機能追加時に確認:
@@ -762,6 +769,7 @@ cargo install sccache --locked
 - [ ] モード専用UIを追加した → モードチェック、マーカーコンポーネント追加
 - [ ] UIを追加した → `set_ui_open_state(true/false)` 呼び出し確認
 - [ ] UI表示中に入力が効かないべき → player_move, select_block_typeでInventoryOpenチェック追加
+- [ ] プレビュー/ガイドを表示する機能 → 実際の処理と同じロジックを使う
 
 ### 自動整合性チェック
 
