@@ -755,7 +755,8 @@ impl Conveyor {
             lateral_offset,
         });
         // Sort by progress so we process items in order
-        self.items.sort_by(|a, b| a.progress.partial_cmp(&b.progress).unwrap());
+        // Use unwrap_or(Ordering::Equal) to handle NaN gracefully
+        self.items.sort_by(|a, b| a.progress.partial_cmp(&b.progress).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     /// Add an item at the specified progress position (no visual, no lateral offset)
@@ -1438,9 +1439,14 @@ fn receive_chunk_meshes(
     mut tasks: ResMut<ChunkMeshTasks>,
 ) {
     // Check for completed tasks (limit processing to avoid frame spikes)
+    // BUG-7 fix: Limit to 2 chunks per frame to prevent freeze
+    const MAX_CHUNKS_PER_FRAME: usize = 2;
     let mut completed = Vec::new();
 
     for (&coord, task) in tasks.tasks.iter_mut() {
+        if completed.len() >= MAX_CHUNKS_PER_FRAME {
+            break;
+        }
         if let Some(chunk_mesh_data) = future::block_on(future::poll_once(task)) {
             completed.push((coord, chunk_mesh_data));
         }
@@ -1474,7 +1480,8 @@ fn receive_chunk_meshes(
     }
 
     // Now regenerate meshes for new chunks and their neighbors (with proper neighbor data)
-    for coord in coords_needing_neighbor_update {
+    for coord in &coords_needing_neighbor_update {
+        let coord = *coord; // Dereference for use
         // Regenerate this chunk's mesh with neighbor awareness
         if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
             let mesh_handle = meshes.add(new_mesh);
@@ -1502,6 +1509,7 @@ fn receive_chunk_meshes(
         }
 
         // Also regenerate neighboring chunks' meshes (they may now have hidden faces at boundary)
+        // BUG-7 fix: Collect unique neighbors to avoid redundant regeneration
         let neighbors = [
             IVec2::new(coord.x - 1, coord.y),
             IVec2::new(coord.x + 1, coord.y),
@@ -1510,8 +1518,12 @@ fn receive_chunk_meshes(
         ];
 
         for neighbor_coord in neighbors {
-            // Only regenerate if the neighbor chunk exists
+            // Only regenerate if the neighbor chunk exists and wasn't just created
             if !world_data.chunks.contains_key(&neighbor_coord) {
+                continue;
+            }
+            // Skip if this neighbor was also just loaded (it will regenerate itself)
+            if coords_needing_neighbor_update.contains(&neighbor_coord) {
                 continue;
             }
 
@@ -3843,7 +3855,7 @@ fn furnace_interact(
     mut windows: Query<&mut Window>,
     inventory_open: Res<InventoryOpen>,
     command_state: Res<CommandInputState>,
-    mut cursor_state: ResMut<CursorLockState>,
+    cursor_state: Res<CursorLockState>,
 ) {
     // Don't process when inventory, command input is open or game is paused (input matrix: Right Click)
     if inventory_open.0 || command_state.open || cursor_state.paused {
@@ -3863,11 +3875,10 @@ fn furnace_interact(
         let mut window = windows.single_mut();
         if esc_pressed {
             // ESC: Browser releases pointer lock automatically in WASM
-            // Match Bevy state to browser state to prevent camera from moving
-            // Set paused=true to show "Click to Resume" overlay
+            // Don't set paused=true - JS will auto-relock via data-ui-open observer (BUG-6 fix)
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
-            cursor_state.paused = true;
+            // Don't set paused - let JS handle auto-relock
             set_ui_open_state(false);
         } else {
             // E key: Keep cursor locked (no browser interference)
@@ -4114,7 +4125,7 @@ fn crusher_interact(
     mut crusher_ui_query: Query<&mut Visibility, With<CrusherUI>>,
     mut windows: Query<&mut Window>,
     command_state: Res<CommandInputState>,
-    mut cursor_state: ResMut<CursorLockState>,
+    cursor_state: Res<CursorLockState>,
 ) {
     // Don't open crusher if inventory, furnace is open, command input is active, or game is paused (input matrix: Right Click)
     if inventory_open.0 || interacting_furnace.0.is_some() || command_state.open || cursor_state.paused {
@@ -4132,10 +4143,10 @@ fn crusher_interact(
         }
         let mut window = windows.single_mut();
         if esc_pressed {
-            // Set paused=true to show "Click to Resume" overlay
+            // ESC: Browser releases pointer lock automatically in WASM
+            // Don't set paused=true - JS will auto-relock via data-ui-open observer (BUG-6 fix)
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
-            cursor_state.paused = true;
             set_ui_open_state(false);
         } else {
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
@@ -6003,7 +6014,7 @@ fn inventory_toggle(
             *vis = Visibility::Hidden;
         }
 
-        // Unlock cursor (paused state)
+        // Unlock cursor - JS will auto-relock via data-ui-open observer (BUG-6 fix)
         if let Ok(mut window) = windows.get_single_mut() {
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
@@ -6551,7 +6562,7 @@ fn command_input_handler(
             *vis = Visibility::Hidden;
         }
 
-        // Unlock cursor (paused state)
+        // Unlock cursor - JS will auto-relock via data-ui-open observer (BUG-6 fix)
         if let Ok(mut window) = windows.get_single_mut() {
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;

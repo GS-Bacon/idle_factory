@@ -382,6 +382,7 @@
 
         // Watch for UI open state changes from Bevy
         // When Bevy sets data-ui-open="true", hide the overlay immediately
+        // When Bevy sets data-ui-open="false", auto-relock pointer if game is active
         const uiOpenObserver = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'data-ui-open') {
@@ -389,6 +390,15 @@
                     if (isOpen) {
                         hideOverlay();
                         logEvent('ui_open', { source: 'bevy' });
+                    } else {
+                        // UI closed - auto-relock pointer after small delay (BUG-6 fix)
+                        // This handles ESC closing machine UIs
+                        setTimeout(() => {
+                            if (gameStarted && !document.pointerLockElement && !isGameUIOpen()) {
+                                requestPointerLockSafe();
+                                logEvent('auto_relock', { source: 'ui_close' });
+                            }
+                        }, 50);
                     }
                 }
             }

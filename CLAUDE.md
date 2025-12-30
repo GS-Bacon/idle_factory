@@ -313,6 +313,12 @@ node /home/bacon/idle_factory/test-wasm-interactions.js
 | BUG-3 | コンベアアイテムちらつき | visual_entity引き継ぎ |
 | BUG-4 | コンベアアイテム重なる | サイズ/間隔調整 |
 | BUG-5 | 横合流アニメ不自然 | lateral_offset導入 |
+| BUG-6 | 機械UIをESCで閉じるとポインターロック解除 | JS側でdata-ui-open監視、UI閉じ後に自動再ロック |
+| BUG-7 | プレイ中に長時間フリーズ | チャンク処理を1フレーム2個に制限、隣接チャンク重複排除 |
+
+### 修正待ちバグ
+
+なし
 
 ## 開発フロー
 
@@ -782,6 +788,22 @@ cargo install sccache --locked
 **ファイル**: `src/main.rs` の `update_inventory_tooltip` 関数
 **教訓**: ツールチップ等の共通機能は、新しいUI要素を追加する度に対応が必要
 
+### 18. ESCでUIを閉じた後にポインターロック解除（BUG-6）
+**原因**: ブラウザはESCでポインターロックを自動解除するが、Rust側でpaused=trueにしてオーバーレイを表示していた
+**症状**: 精錬炉/粉砕機UIをESCで閉じると「Click to Resume」が表示され、再クリック必要
+**対策**: JS側で`data-ui-open`属性の`false`変更を監視し、50ms後に自動でポインターロック再取得
+**ファイル**: `web/index.html` の `uiOpenObserver`、`src/main.rs` の各UI閉じ処理
+**教訓**: WASMでのESC処理はブラウザの制約を考慮。paused状態を設定せず、JS側で自動復帰
+
+### 19. チャンク生成/受信で長時間フリーズ（BUG-7）
+**原因**: receive_chunk_meshesで複数チャンクが同時に完了すると、各チャンク+隣接4チャンクのメッシュ再生成がまとめて実行される
+**症状**: FREEZE DETECTED: duration=16秒以上、FPS=0、delta clamping大量発生
+**対策**:
+1. 1フレームで処理するチャンク数を2個に制限（MAX_CHUNKS_PER_FRAME=2）
+2. 同時にロードされたチャンクは隣接再生成をスキップ（自分で再生成するため）
+**ファイル**: `src/main.rs` の `receive_chunk_meshes` 関数
+**教訓**: O(n)の処理が毎フレーム実行される場合、nが増加するとフリーズする。バッチ処理に制限を設ける
+
 ### 実装時のチェックリスト
 
 新機能追加時に確認:
@@ -794,8 +816,9 @@ cargo install sccache --locked
 - [ ] UIを追加した → `set_ui_open_state(true/false)` 呼び出し確認
 - [ ] UI表示中に入力が効かないべき → player_move, select_block_typeでInventoryOpenチェック追加
 - [ ] プレビュー/ガイドを表示する機能 → 実際の処理と同じロジックを使う
-- [ ] ESCで閉じるUIを追加した → cursor_state.paused = true設定、handle_cursor_lockとの連携確認
+- [ ] ESCで閉じるUIを追加した → JS側で自動再ロックを確認（paused=true不要）
 - [ ] ホバー可能なUI要素を追加した → update_inventory_tooltipに対応クエリ追加
+- [ ] 毎フレーム実行される処理を追加した → バッチ処理に制限を設ける（フリーズ防止）
 
 ### 自動整合性チェック
 
