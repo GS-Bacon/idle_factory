@@ -370,6 +370,69 @@ struct CommandInputUI;
 #[derive(Component)]
 struct CommandInputText;
 
+/// Current input state - used to determine which inputs should be active
+/// See CLAUDE.md "入力マトリクス" for the full state table
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InputState {
+    /// Normal gameplay - all inputs active
+    Gameplay,
+    /// Inventory is open - only inventory interactions active
+    Inventory,
+    /// Furnace UI is open - only machine interactions active
+    FurnaceUI,
+    /// Crusher UI is open - only machine interactions active
+    CrusherUI,
+    /// Command input is open - only text input active
+    Command,
+    /// Game is paused (ESC) - only click to resume
+    Paused,
+}
+
+impl InputState {
+    /// Determine current input state from all UI resources
+    fn current(
+        inventory_open: &InventoryOpen,
+        interacting_furnace: &InteractingFurnace,
+        interacting_crusher: &InteractingCrusher,
+        command_state: &CommandInputState,
+        cursor_state: &CursorLockState,
+    ) -> Self {
+        if cursor_state.paused {
+            InputState::Paused
+        } else if command_state.open {
+            InputState::Command
+        } else if inventory_open.0 {
+            InputState::Inventory
+        } else if interacting_furnace.0.is_some() {
+            InputState::FurnaceUI
+        } else if interacting_crusher.0.is_some() {
+            InputState::CrusherUI
+        } else {
+            InputState::Gameplay
+        }
+    }
+
+    /// Check if movement (WASD, Space, Shift) should be active
+    fn allows_movement(&self) -> bool {
+        matches!(self, InputState::Gameplay)
+    }
+
+    /// Check if camera movement (mouse look) should be active
+    fn allows_camera(&self) -> bool {
+        matches!(self, InputState::Gameplay)
+    }
+
+    /// Check if block break/place should be active
+    fn allows_block_actions(&self) -> bool {
+        matches!(self, InputState::Gameplay)
+    }
+
+    /// Check if hotbar selection (1-9, wheel) should be active
+    fn allows_hotbar(&self) -> bool {
+        matches!(self, InputState::Gameplay)
+    }
+}
+
 /// All available items for creative mode, organized by category
 const CREATIVE_ITEMS: &[(BlockType, &str)] = &[
     // Blocks
@@ -2365,13 +2428,15 @@ fn player_move(
     command_state: Res<CommandInputState>,
     cursor_lock_state: Res<CursorLockState>,
 ) {
-    // Don't move while any UI is open or game is paused
-    if interacting_furnace.0.is_some()
-        || interacting_crusher.0.is_some()
-        || inventory_open.0
-        || command_state.open
-        || cursor_lock_state.paused
-    {
+    // Use InputState to check if movement is allowed (see CLAUDE.md 入力マトリクス)
+    let input_state = InputState::current(
+        &inventory_open,
+        &interacting_furnace,
+        &interacting_crusher,
+        &command_state,
+        &cursor_lock_state,
+    );
+    if !input_state.allows_movement() {
         return;
     }
 
@@ -3323,9 +3388,19 @@ fn select_block_type(
     mut inventory: ResMut<Inventory>,
     command_state: Res<CommandInputState>,
     inventory_open: Res<InventoryOpen>,
+    interacting_furnace: Res<InteractingFurnace>,
+    interacting_crusher: Res<InteractingCrusher>,
+    cursor_lock_state: Res<CursorLockState>,
 ) {
-    // Don't process while any UI is open
-    if command_state.open || inventory_open.0 {
+    // Use InputState to check if hotbar selection is allowed (see CLAUDE.md 入力マトリクス)
+    let input_state = InputState::current(
+        &inventory_open,
+        &interacting_furnace,
+        &interacting_crusher,
+        &command_state,
+        &cursor_lock_state,
+    );
+    if !input_state.allows_hotbar() {
         // Still need to drain events to prevent accumulation
         for _ in mouse_wheel.read() {}
         return;

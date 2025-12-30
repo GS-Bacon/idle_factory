@@ -638,6 +638,56 @@ cargo install sccache --locked
 - 最適化作業前: `du -sh target/` で確認
 - 容量不足時: `cargo clean` で全削除、または `rm -rf target/プロファイル名`
 
+## 入力マトリクス（入力系変更時の必須確認）
+
+入力系を変更するときは、このマトリクスを確認して全状態での動作を検討する。
+
+### 状態一覧
+| 状態 | リソース | 説明 |
+|------|----------|------|
+| 通常 | - | ゲームプレイ中 |
+| Inventory | `InventoryOpen` | Eキーでインベントリ開いている |
+| FurnaceUI | `InteractingFurnace` | 精錬炉UI開いている |
+| CrusherUI | `InteractingCrusher` | 粉砕機UI開いている |
+| Command | `CommandInputState` | T or /でコマンド入力中 |
+| Paused | `CursorLockState.paused` | ESCでポーズ中 |
+
+### 入力と状態の関係
+| 入力 | 通常 | Inventory | FurnaceUI | CrusherUI | Command | Paused |
+|------|------|-----------|-----------|-----------|---------|--------|
+| WASD/Space/Shift | 移動 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Mouse Move | 視点 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Left Click | 破壊 | スロット | スロット | スロット | ✗ | 復帰 |
+| Right Click | 設置/UI | ✗ | - | - | ✗ | ✗ |
+| Wheel | HB選択 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| 1-9 | HB選択 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| E | Inv開く | 閉じる | 閉じる | 閉じる | ✗ | ✗ |
+| ESC | ポーズ | 閉じる | 閉じる | 閉じる | 閉じる | - |
+| T or / | Cmd開く | ✗ | ✗ | ✗ | 入力 | ✗ |
+| Q | 報酬 | ✗ | ✗ | ✗ | ✗ | ✗ |
+| F3 | デバッグ | デバッグ | デバッグ | デバッグ | デバッグ | デバッグ |
+
+✗ = 無効、- = 該当なし
+
+### 入力ハンドラーと状態チェック
+| ハンドラー | 行番号 | チェックする状態 |
+|------------|--------|-----------------|
+| player_move | 2357 | Furnace, Crusher, Inventory, Command, Paused |
+| player_look | 2265 | Furnace, Paused |
+| block_break | 2425 | Furnace, Inventory, Paused |
+| block_place | 2795 | Inventory, Paused |
+| select_block_type | 3320 | Command, Inventory |
+| furnace_interact | 3502 | Command, Paused |
+| crusher_interact | 3769 | Furnace, Command, Paused |
+| inventory_toggle | 5359 | Furnace, Crusher, Command |
+| command_input_toggle | 5907 | Furnace, Crusher, Inventory |
+| quest_claim_rewards | 4890 | Command |
+
+### 入力系変更時のチェックリスト
+- [ ] このマトリクスで全状態の動作を確認した
+- [ ] 必要な状態チェックを追加した
+- [ ] 関連するハンドラーを確認した（grep で同じキー/ボタンを処理している箇所）
+
 ## よくあるバグと対策
 
 **重要**: 新機能実装時、このセクションのパターンに該当する場合は対応するテストも追加すること。
