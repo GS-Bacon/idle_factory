@@ -761,6 +761,27 @@ cargo install sccache --locked
 **ファイル**: `src/main.rs` の `update_target_highlight`, `block_place` 関数
 **教訓**: 同じ計算を複数箇所で行う場合は関数に切り出し、全箇所で同じ関数を使う
 
+### 15. 自動向き決定が分岐設置を妨げる
+**原因**: auto_conveyor_directionで隣接コンベアの向きに合わせていた（Priority 3）
+**症状**: コンベアの隣に分岐用コンベアを設置しても同じ向きになる
+**対策**: Priority 3（隣接コンベア方向への自動合わせ）を削除し、プレイヤーの向きを使用
+**ファイル**: `src/main.rs` の `auto_conveyor_direction` 関数
+**教訓**: 自動化は便利だが、ユーザーの意図を上書きしないこと
+
+### 16. 機械UI ESC後にゲームプレイに戻れない
+**原因**: furnace_interact/crusher_interactでESC時にcursor_state.pausedを設定していなかった
+**症状**: 精錬炉/粉砕機UIをESCで閉じた後、クリックしないとゲームプレイに戻れない
+**対策**: ESCでUI閉じる時にcursor_state.paused = trueを設定し、「Click to Resume」オーバーレイを表示
+**ファイル**: `src/main.rs` の `furnace_interact`, `crusher_interact` 関数
+**教訓**: ESC処理は統一的に。handle_cursor_lockと各UI関数の連携を確認
+
+### 17. UI要素のツールチップが表示されない
+**原因**: ツールチップシステムが特定のコンポーネント（InventorySlotUI）のみを対象にしていた
+**症状**: クリエイティブカタログのアイテムにホバーしてもツールチップが表示されない
+**対策**: update_inventory_tooltipにCreativeItemButtonのクエリを追加
+**ファイル**: `src/main.rs` の `update_inventory_tooltip` 関数
+**教訓**: ツールチップ等の共通機能は、新しいUI要素を追加する度に対応が必要
+
 ### 実装時のチェックリスト
 
 新機能追加時に確認:
@@ -773,6 +794,8 @@ cargo install sccache --locked
 - [ ] UIを追加した → `set_ui_open_state(true/false)` 呼び出し確認
 - [ ] UI表示中に入力が効かないべき → player_move, select_block_typeでInventoryOpenチェック追加
 - [ ] プレビュー/ガイドを表示する機能 → 実際の処理と同じロジックを使う
+- [ ] ESCで閉じるUIを追加した → cursor_state.paused = true設定、handle_cursor_lockとの連携確認
+- [ ] ホバー可能なUI要素を追加した → update_inventory_tooltipに対応クエリ追加
 
 ### 自動整合性チェック
 
