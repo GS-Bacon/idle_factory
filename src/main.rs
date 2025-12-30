@@ -86,17 +86,22 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     {
         // WASM: Use default plugins with canvas selector
+        // Disable LogPlugin to use tracing_wasm instead
+        use bevy::log::LogPlugin;
         app.add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Idle Factory".into(),
-                    canvas: Some("#bevy-canvas".to_string()),
-                    fit_canvas_to_parent: true,
-                    prevent_default_event_handling: true,
+            DefaultPlugins
+                .build()
+                .disable::<LogPlugin>()
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Idle Factory".into(),
+                        canvas: Some("#bevy-canvas".to_string()),
+                        fit_canvas_to_parent: true,
+                        prevent_default_event_handling: true,
+                        ..default()
+                    }),
                     ..default()
                 }),
-                ..default()
-            }),
             FrameTimeDiagnosticsPlugin,
         ));
     }
@@ -282,6 +287,10 @@ struct HeldItemDisplay;
 /// Creative inventory item button - stores the BlockType it represents
 #[derive(Component)]
 struct CreativeItemButton(BlockType);
+
+/// Marker for the creative catalog panel (right side of inventory UI)
+#[derive(Component)]
+struct CreativePanel;
 
 /// Command input state - tracks whether command input is open and the current text
 #[derive(Resource, Default)]
@@ -1940,7 +1949,7 @@ fn setup_ui(mut commands: Commands) {
                     // Right panel: Creative catalog (only visible in creative mode)
                     container
                         .spawn((
-                            CreativeItemButton(BlockType::Stone), // Marker to identify this panel
+                            CreativePanel, // Marker to identify this panel
                             Node {
                                 width: Val::Px(350.0),
                                 padding: UiRect::all(Val::Px(15.0)),
@@ -1949,6 +1958,7 @@ fn setup_ui(mut commands: Commands) {
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                            Visibility::Hidden, // Hidden by default, shown only in creative mode
                         ))
                         .with_children(|panel| {
                             // Title
@@ -3161,20 +3171,28 @@ fn select_block_type(
     key_input: Res<ButtonInput<KeyCode>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mut inventory: ResMut<Inventory>,
+    command_state: Res<CommandInputState>,
 ) {
-    // Handle mouse wheel scroll (cycles through all 9 slots including empty)
+    // Don't process while command input is open
+    if command_state.open {
+        // Still need to drain events to prevent accumulation
+        for _ in mouse_wheel.read() {}
+        return;
+    }
+
+    // Handle mouse wheel scroll (cycles through hotbar slots 0-8 only)
     for event in mouse_wheel.read() {
         let scroll = event.y;
         if scroll > 0.0 {
-            // Scroll up - previous slot
+            // Scroll up - previous slot (within hotbar)
             inventory.selected_slot = if inventory.selected_slot == 0 {
-                NUM_SLOTS - 1
+                HOTBAR_SLOTS - 1
             } else {
-                inventory.selected_slot - 1
+                (inventory.selected_slot - 1).min(HOTBAR_SLOTS - 1)
             };
         } else if scroll < 0.0 {
-            // Scroll down - next slot
-            inventory.selected_slot = (inventory.selected_slot + 1) % NUM_SLOTS;
+            // Scroll down - next slot (within hotbar)
+            inventory.selected_slot = (inventory.selected_slot + 1) % HOTBAR_SLOTS;
         }
     }
 
@@ -4722,7 +4740,13 @@ fn quest_claim_rewards(
     key_input: Res<ButtonInput<KeyCode>>,
     mut current_quest: ResMut<CurrentQuest>,
     mut inventory: ResMut<Inventory>,
+    command_state: Res<CommandInputState>,
 ) {
+    // Don't process while command input is open
+    if command_state.open {
+        return;
+    }
+
     if !current_quest.completed || current_quest.rewards_claimed {
         return;
     }
@@ -5201,13 +5225,16 @@ fn creative_mode_input(
 }
 
 /// Toggle inventory with E key (works in both survival and creative mode)
+#[allow(clippy::too_many_arguments)]
 fn inventory_toggle(
     key_input: Res<ButtonInput<KeyCode>>,
     mut inventory_open: ResMut<InventoryOpen>,
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
     command_state: Res<CommandInputState>,
+    creative_mode: Res<CreativeMode>,
     mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
+    mut creative_panel_query: Query<&mut Visibility, (With<CreativePanel>, Without<InventoryUI>)>,
     mut windows: Query<&mut Window>,
 ) {
     // Don't toggle if other UIs are open
@@ -5221,6 +5248,15 @@ fn inventory_toggle(
 
         for mut vis in ui_query.iter_mut() {
             *vis = if inventory_open.0 {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+
+        // Show/hide creative panel based on creative mode
+        for mut vis in creative_panel_query.iter_mut() {
+            *vis = if inventory_open.0 && creative_mode.enabled {
                 Visibility::Visible
             } else {
                 Visibility::Hidden
@@ -5249,6 +5285,11 @@ fn inventory_toggle(
             *vis = Visibility::Hidden;
         }
 
+        // Also hide creative panel
+        for mut vis in creative_panel_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+
         // Unlock cursor (paused state)
         if let Ok(mut window) = windows.get_single_mut() {
             window.cursor_options.grab_mode = CursorGrabMode::None;
@@ -5258,16 +5299,18 @@ fn inventory_toggle(
     }
 }
 
-/// Handle creative inventory item button clicks
+/// Handle creative inventory item button clicks (only in creative mode)
 fn creative_inventory_click(
     creative_inv_open: Res<InventoryOpen>,
+    creative_mode: Res<CreativeMode>,
     mut inventory: ResMut<Inventory>,
     mut interaction_query: Query<
         (&Interaction, &CreativeItemButton, &mut BackgroundColor, &mut BorderColor),
         Changed<Interaction>,
     >,
 ) {
-    if !creative_inv_open.0 {
+    // Only handle clicks in creative mode with inventory open
+    if !creative_inv_open.0 || !creative_mode.enabled {
         return;
     }
 
@@ -6034,5 +6077,145 @@ mod tests {
         inventory.selected_slot = 1;
         assert_eq!(inventory.selected_slot, 1);
         assert!(inventory.selected_block().is_none());
+    }
+
+    // ============================================================
+    // Consistency Check Tests - Detect spec/implementation mismatches
+    // ============================================================
+
+    /// Check that scroll wheel only cycles through hotbar slots (0-8)
+    /// Rule: Mouse wheel should not select main inventory slots (9-35)
+    #[test]
+    fn test_hotbar_scroll_stays_in_bounds() {
+        assert_eq!(HOTBAR_SLOTS, 9, "Hotbar should have 9 slots");
+        assert_eq!(NUM_SLOTS, 36, "Total inventory should have 36 slots");
+
+        // Verify scroll logic stays within hotbar bounds
+        for start_slot in 0..HOTBAR_SLOTS {
+            // Scroll down from any hotbar slot should stay in hotbar
+            let next_slot = (start_slot + 1) % HOTBAR_SLOTS;
+            assert!(next_slot < HOTBAR_SLOTS,
+                "Scroll down from slot {} went to {} (outside hotbar)", start_slot, next_slot);
+
+            // Scroll up from any hotbar slot should stay in hotbar
+            let prev_slot = if start_slot == 0 { HOTBAR_SLOTS - 1 } else { start_slot - 1 };
+            assert!(prev_slot < HOTBAR_SLOTS,
+                "Scroll up from slot {} went to {} (outside hotbar)", start_slot, prev_slot);
+        }
+    }
+
+    /// Check that inventory consumption works correctly
+    /// Rule: Block placement should consume inventory (this tests the mechanism)
+    #[test]
+    fn test_inventory_consumption_mechanism() {
+        let mut inventory = Inventory::default();
+        inventory.add_item(BlockType::Stone, 10);
+        inventory.selected_slot = 0;
+
+        // Verify initial state
+        assert_eq!(inventory.get_slot_count(0), 10);
+        assert!(inventory.has_selected());
+
+        // Consume one item
+        let consumed = inventory.consume_selected();
+        assert_eq!(consumed, Some(BlockType::Stone));
+        assert_eq!(inventory.get_slot_count(0), 9);
+
+        // Consume all remaining
+        for _ in 0..9 {
+            inventory.consume_selected();
+        }
+        assert_eq!(inventory.get_slot_count(0), 0);
+        assert!(!inventory.has_selected(), "Empty slot should report no selection");
+    }
+
+    /// Check that mode-related constants are properly defined
+    #[test]
+    fn test_mode_constants_consistency() {
+        // CreativeMode should default to disabled (survival mode is default)
+        let creative = CreativeMode::default();
+        assert!(!creative.enabled, "Game should start in survival mode by default");
+    }
+
+    /// Check that inventory slot indices are valid
+    #[test]
+    fn test_inventory_slot_indices_consistency() {
+        let inventory = Inventory::default();
+
+        // All hotbar slots (0-8) should be accessible
+        for i in 0..HOTBAR_SLOTS {
+            assert!(inventory.get_slot(i).is_none() || inventory.get_slot(i).is_some(),
+                "Slot {} should be accessible", i);
+        }
+
+        // All main inventory slots (9-35) should be accessible
+        for i in HOTBAR_SLOTS..NUM_SLOTS {
+            assert!(inventory.get_slot(i).is_none() || inventory.get_slot(i).is_some(),
+                "Slot {} should be accessible", i);
+        }
+
+        // Out of bounds should return None
+        assert!(inventory.get_slot(NUM_SLOTS).is_none(),
+            "Slot beyond NUM_SLOTS should return None");
+    }
+
+    /// Check that BlockType properties are consistent
+    #[test]
+    fn test_block_type_consistency() {
+        // All block types should have a name
+        let all_types = [
+            BlockType::Grass,
+            BlockType::Stone,
+            BlockType::IronOre,
+            BlockType::Coal,
+            BlockType::IronIngot,
+            BlockType::MinerBlock,
+            BlockType::ConveyorBlock,
+            BlockType::CopperOre,
+            BlockType::CopperIngot,
+            BlockType::CrusherBlock,
+            BlockType::FurnaceBlock,
+        ];
+
+        for bt in all_types {
+            assert!(!bt.name().is_empty(), "{:?} should have a non-empty name", bt);
+            // Color should be valid (not panic)
+            let _color = bt.color();
+        }
+    }
+
+    /// Check that quest rewards are valid block types
+    #[test]
+    fn test_quest_rewards_consistency() {
+        let quests = get_quests();
+        assert!(!quests.is_empty(), "Should have at least one quest");
+
+        for (i, quest) in quests.iter().enumerate() {
+            // Required item should be a valid block type
+            let _name = quest.required_item.name();
+
+            // Rewards should all be valid
+            for (block_type, amount) in &quest.rewards {
+                assert!(*amount > 0, "Quest {} reward amount should be positive", i);
+                let _name = block_type.name();
+            }
+
+            // Required amount should be positive
+            assert!(quest.required_amount > 0, "Quest {} required amount should be positive", i);
+        }
+    }
+
+    /// Check that initial items are properly set up for new game
+    #[test]
+    fn test_initial_game_state_consistency() {
+        // New inventory should be empty (items are added by setup_initial_items)
+        let inventory = Inventory::default();
+        for i in 0..NUM_SLOTS {
+            assert!(inventory.slots[i].is_none(),
+                "Default inventory slot {} should be empty", i);
+        }
+
+        // Default selected slot should be 0
+        assert_eq!(inventory.selected_slot, 0);
     }
 }

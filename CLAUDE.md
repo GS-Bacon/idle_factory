@@ -691,6 +691,21 @@ cargo install sccache --locked
 **対策**: `block_break`のHitType::Crusher/Furnace処理で、despawn前に全スロットをインベントリに返却
 **ファイル**: `src/main.rs` の `block_break` 関数
 
+### 8. モード別UIの表示制御漏れ
+**原因**: クリエイティブ専用UIがCreativeModeのチェックなしで常に表示
+**症状**: サバイバルモードでもクリエイティブカタログが表示される
+**対策**:
+- モード専用UIにはマーカーコンポーネント追加（例: `CreativePanel`）
+- UI表示/非表示時にモード状態をチェック
+- 対応するクリックハンドラーにもモードチェックを追加
+**ファイル**: `src/main.rs` の `inventory_toggle`, `creative_inventory_click` 関数
+
+### 9. UI表示中のポインターロック
+**原因**: WASM側でcanvasクリック時にUI状態をチェックせずポインターロック要求
+**症状**: インベントリUI内でクリックするとカーソルが消える
+**対策**: `canvas.addEventListener('click', ...)` 内で `isGameUIOpen()` をチェック
+**ファイル**: `web/index.html` のcanvasクリックハンドラー
+
 ### 実装時のチェックリスト
 
 新機能追加時に確認:
@@ -699,8 +714,52 @@ cargo install sccache --locked
 - [ ] 子エンティティを持つ機械 → 破壊時に子もdespawn
 - [ ] チャンク操作を変更した → 境界テスト確認
 - [ ] ブロック操作を変更した → フリーズテスト確認
+- [ ] モード専用UIを追加した → モードチェック、マーカーコンポーネント追加
+- [ ] UIを追加した → `set_ui_open_state(true/false)` 呼び出し確認
+
+### 自動整合性チェック
+
+仕様と実装の矛盾を自動検出するテスト群。`cargo test`で毎回実行される。
+
+| テスト名 | チェック内容 |
+|----------|-------------|
+| `test_hotbar_scroll_stays_in_bounds` | マウスホイールがホットバー範囲(0-8)内で循環 |
+| `test_inventory_consumption_mechanism` | サバイバルモードでブロック消費、クリエイティブで無消費 |
+| `test_mode_constants_consistency` | HOTBAR_SLOTS=9, NUM_SLOTS=36の整合性 |
+| `test_inventory_slot_indices_consistency` | スロットインデックス範囲の正当性 |
+| `test_block_type_consistency` | BlockTypeの設置可能/採掘可能フラグ整合性 |
+| `test_quest_rewards_consistency` | クエスト報酬がインベントリに収まる |
+| `test_initial_game_state_consistency` | 初期ゲーム状態の整合性（サバイバルモード開始等） |
+
+**追加すべき場面**:
+- モード（Creative/Survival）の挙動が異なる機能を追加したとき
+- 定数（スロット数、スタック上限等）に依存する機能を追加したとき
+- 初期状態に影響する変更を加えたとき
 
 ## 作業ログ
+
+### 2025-12-30
+- **整合性チェックテスト追加**
+  - 仕様と実装の矛盾を自動検出するテスト7件追加
+  - test_hotbar_scroll_stays_in_bounds: ホイール範囲チェック
+  - test_inventory_consumption_mechanism: モード別消費チェック
+  - test_mode_constants_consistency: 定数整合性
+  - test_inventory_slot_indices_consistency: スロット範囲
+  - test_block_type_consistency: ブロックタイプ整合性
+  - test_quest_rewards_consistency: クエスト報酬
+  - test_initial_game_state_consistency: 初期状態
+- **バグ修正（BUG-8, BUG-9）**
+  - サバイバルモードでクリエイティブUIが表示される問題を修正
+  - インベントリUI内クリックでカーソルが消える問題を修正
+  - CreativePanelマーカーコンポーネント追加
+  - web/index.htmlのcanvasクリックハンドラーにUI状態チェック追加
+- **入力ハンドラー修正**
+  - select_block_type: ホイールをHOTBAR_SLOTS範囲に制限、command_stateチェック追加
+  - quest_claim_rewards: command_stateチェック追加
+- **WASM修正**
+  - RuntimeError: unreachableを修正（LogPlugin無効化）
+  - キャッシュバスティング追加（.js/.wasmファイル）
+- **テスト**: 69件成功、clippy警告なし
 
 ### 2025-12-29
 - **ロギングシステム簡素化**

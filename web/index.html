@@ -130,7 +130,9 @@
         T or / - Commands | F3 - Debug | Q - Claim Reward
     </div>
     <script type="module">
-        import init from './idle_factory.js';
+        // Cache busting for JS file
+        const jsModule = await import('./idle_factory.js?v=' + Date.now());
+        const init = jsModule.default;
 
         // === Analytics / Logging ===
         const gameLog = {
@@ -391,7 +393,8 @@
 
         // Click on canvas or overlay to request pointer lock
         canvas.addEventListener('click', () => {
-            if (gameStarted && !document.pointerLockElement) {
+            // Don't request pointer lock if UI is open
+            if (gameStarted && !document.pointerLockElement && !isGameUIOpen()) {
                 requestPointerLockSafe();
             }
         });
@@ -466,9 +469,10 @@
             }
 
             try {
-                // Fetch WASM with progress
+                // Fetch WASM with progress (cache busting with timestamp)
                 setProgress(0, 'Downloading WASM...');
-                const wasmResponse = await fetch('./idle_factory_bg.wasm');
+                const cacheBuster = Date.now();
+                const wasmResponse = await fetch('./idle_factory_bg.wasm?v=' + cacheBuster);
                 const contentLength = wasmResponse.headers.get('Content-Length');
                 const total = parseInt(contentLength, 10) || 30000000; // ~30MB fallback
 
