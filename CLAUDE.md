@@ -875,6 +875,13 @@ cargo install sccache --locked
   - HeldItemText、return_held_item_to_inventory追加
   - Inventory::add_itemの戻り値をbool→u32に変更（残量を返す）
   - 69ユニットテスト成功、clippy警告なし
+- **バグ修正3件（BUG-15,16,17）**
+  - コンベア分岐設置不可: auto_conveyor_directionのPriority 3を削除
+  - 機械UI ESC後クリック必要: furnace_interact/crusher_interactでcursor_state.paused=true設定
+  - クリエイティブホバー表示なし: update_inventory_tooltipにCreativeItemButtonクエリ追加
+- **post-commit hook改善**
+  - WASMビルド＆デプロイを自動実行（バックグラウンド）
+  - デプロイ完了/失敗をDiscord通知
 
 ### 2025-12-29
 - **ロギングシステム簡素化**
