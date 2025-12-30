@@ -320,7 +320,7 @@ node /home/bacon/idle_factory/test-wasm-interactions.js
 
 **指示**: 「タスクリストを消化して」と言われたらP0から順に実行
 
-### P0: バグ防止・安定性（5件）
+### P0: バグ防止・安定性（6件）
 
 | # | タスク | 詳細 |
 |---|--------|------|
@@ -329,6 +329,7 @@ node /home/bacon/idle_factory/test-wasm-interactions.js
 | 3 | inventory_toggle: InputStateResources対応 | 入力状態の統一チェック |
 | 4 | player_look: InputStateResources対応 | 入力状態の統一チェック |
 | 5 | 未使用コード削除（allows_camera警告解消） | clippy警告解消 |
+| 6 | pre-commit強化 | cargo test + clippy をコミット前に自動実行 |
 
 ### P1: v0.1 MVP必須（4件）
 
@@ -469,10 +470,11 @@ Task 3: 「精錬炉の3Dモデルを作成。modeling-rules.md参照」
 
 ## 将来のアイデア（実装しない）
 
-| アイデア | メモ |
-|----------|------|
-| Discord連携 | ゲーム専用チャンネルのログをIssue化、フィードバック自動収集。レビューが増えたら検討 |
-| CI/CD | mainプッシュ時にWASM自動ビルド。手動公開が面倒になったら検討 |
+| アイデア | メモ | 推奨タイミング |
+|----------|------|----------------|
+| Discord連携 | ゲーム専用チャンネルのログをIssue化、フィードバック自動収集 | 外部テスター5人以上 |
+| CI/CD | mainプッシュ時にWASM自動ビルド・デプロイ | 手動公開が週3回以上 |
+| コード生成 | YAML→BlockType/Quest自動生成。Mod対応にも有用 | アイテム50種 or Mod対応時 |
 
 ## 実プレイ確認後の計画
 
