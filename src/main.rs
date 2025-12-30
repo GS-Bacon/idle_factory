@@ -3643,15 +3643,8 @@ fn auto_conveyor_direction(
         }
     }
 
-    // Priority 3: If there's an adjacent conveyor, align with its direction for merging
-    for (conv_pos, conv_dir) in conveyors {
-        let diff = *conv_pos - place_pos;
-        if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
-            // Adjacent conveyor - align with its direction to enable merging
-            // This allows side-by-side conveyors to flow in the same direction
-            return *conv_dir;
-        }
-    }
+    // Note: Previously had Priority 3 to align with adjacent conveyors,
+    // but this prevented creating branches/splits. Now uses player direction.
 
     // Fallback: use player's facing direction
     fallback_direction
@@ -3850,7 +3843,7 @@ fn furnace_interact(
     mut windows: Query<&mut Window>,
     inventory_open: Res<InventoryOpen>,
     command_state: Res<CommandInputState>,
-    cursor_state: Res<CursorLockState>,
+    mut cursor_state: ResMut<CursorLockState>,
 ) {
     // Don't process when inventory, command input is open or game is paused (input matrix: Right Click)
     if inventory_open.0 || command_state.open || cursor_state.paused {
@@ -3871,8 +3864,10 @@ fn furnace_interact(
         if esc_pressed {
             // ESC: Browser releases pointer lock automatically in WASM
             // Match Bevy state to browser state to prevent camera from moving
+            // Set paused=true to show "Click to Resume" overlay
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
+            cursor_state.paused = true;
             set_ui_open_state(false);
         } else {
             // E key: Keep cursor locked (no browser interference)
@@ -4119,7 +4114,7 @@ fn crusher_interact(
     mut crusher_ui_query: Query<&mut Visibility, With<CrusherUI>>,
     mut windows: Query<&mut Window>,
     command_state: Res<CommandInputState>,
-    cursor_state: Res<CursorLockState>,
+    mut cursor_state: ResMut<CursorLockState>,
 ) {
     // Don't open crusher if inventory, furnace is open, command input is active, or game is paused (input matrix: Right Click)
     if inventory_open.0 || interacting_furnace.0.is_some() || command_state.open || cursor_state.paused {
@@ -4137,8 +4132,10 @@ fn crusher_interact(
         }
         let mut window = windows.single_mut();
         if esc_pressed {
+            // Set paused=true to show "Click to Resume" overlay
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
+            cursor_state.paused = true;
             set_ui_open_state(false);
         } else {
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
@@ -6380,6 +6377,7 @@ fn update_inventory_tooltip(
     inventory: Res<Inventory>,
     windows: Query<&Window>,
     slot_query: Query<(&Interaction, &InventorySlotUI, &GlobalTransform)>,
+    creative_query: Query<(&Interaction, &CreativeItemButton, &GlobalTransform)>,
     mut tooltip_query: Query<(&mut Node, &mut Visibility, &Children), With<InventoryTooltip>>,
     mut text_query: Query<&mut Text>,
 ) {
@@ -6393,20 +6391,31 @@ fn update_inventory_tooltip(
         return;
     }
 
-    // Find hovered slot
-    let mut hovered_item: Option<(BlockType, u32, Vec2)> = None;
+    // Find hovered slot (inventory slots)
+    let mut hovered_item: Option<(BlockType, Option<u32>, Vec2)> = None;
     for (interaction, slot_ui, global_transform) in slot_query.iter() {
         if *interaction == Interaction::Hovered {
             let slot_idx = slot_ui.0;
             if let Some((block_type, count)) = inventory.slots[slot_idx] {
                 let pos = global_transform.translation();
-                hovered_item = Some((block_type, count, Vec2::new(pos.x, pos.y)));
+                hovered_item = Some((block_type, Some(count), Vec2::new(pos.x, pos.y)));
                 break;
             }
         }
     }
 
-    if let Some((block_type, count, slot_pos)) = hovered_item {
+    // Check creative catalog items if no inventory slot is hovered
+    if hovered_item.is_none() {
+        for (interaction, creative_btn, global_transform) in creative_query.iter() {
+            if *interaction == Interaction::Hovered {
+                let pos = global_transform.translation();
+                hovered_item = Some((creative_btn.0, None, Vec2::new(pos.x, pos.y)));
+                break;
+            }
+        }
+    }
+
+    if let Some((block_type, count_opt, slot_pos)) = hovered_item {
         *visibility = Visibility::Inherited;
 
         // Position tooltip near the slot (offset to the right and up)
@@ -6421,7 +6430,12 @@ fn update_inventory_tooltip(
         // Update tooltip text
         if let Some(&child) = children.first() {
             if let Ok(mut text) = text_query.get_mut(child) {
-                text.0 = format!("{} ({})", block_type.name(), count);
+                if let Some(count) = count_opt {
+                    text.0 = format!("{} ({})", block_type.name(), count);
+                } else {
+                    // Creative catalog item - just show name
+                    text.0 = block_type.name().to_string();
+                }
             }
         }
     } else {
