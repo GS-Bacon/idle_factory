@@ -453,8 +453,31 @@ impl InputState {
 }
 
 /// Bundled resources for InputState (reduces parameter count)
+/// Note: CursorLockState is NOT included to allow systems to use ResMut if needed
 #[derive(SystemParam)]
 struct InputStateResources<'w> {
+    inventory_open: Res<'w, InventoryOpen>,
+    interacting_furnace: Res<'w, InteractingFurnace>,
+    interacting_crusher: Res<'w, InteractingCrusher>,
+    command_state: Res<'w, CommandInputState>,
+}
+
+impl InputStateResources<'_> {
+    /// Get state with external cursor_state (for systems that need ResMut<CursorLockState>)
+    fn get_state_with(&self, cursor_state: &CursorLockState) -> InputState {
+        InputState::current(
+            &self.inventory_open,
+            &self.interacting_furnace,
+            &self.interacting_crusher,
+            &self.command_state,
+            cursor_state,
+        )
+    }
+}
+
+/// InputStateResources with CursorLockState included (for systems that only need Res)
+#[derive(SystemParam)]
+struct InputStateResourcesWithCursor<'w> {
     inventory_open: Res<'w, InventoryOpen>,
     interacting_furnace: Res<'w, InteractingFurnace>,
     interacting_crusher: Res<'w, InteractingCrusher>,
@@ -462,7 +485,7 @@ struct InputStateResources<'w> {
     cursor_state: Res<'w, CursorLockState>,
 }
 
-impl InputStateResources<'_> {
+impl InputStateResourcesWithCursor<'_> {
     fn get_state(&self) -> InputState {
         InputState::current(
             &self.inventory_open,
@@ -2681,7 +2704,7 @@ fn player_move(
     key_input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
-    input_resources: InputStateResources,
+    input_resources: InputStateResourcesWithCursor,
     tutorial_shown: Res<TutorialShown>,
 ) {
     // Block movement while tutorial is showing
@@ -2762,7 +2785,7 @@ fn block_break(
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
     // Use InputState to check if block actions are allowed (see CLAUDE.md 入力マトリクス)
-    let input_state = input_resources.get_state();
+    let input_state = input_resources.get_state_with(&cursor_state);
     if !input_state.allows_block_actions() {
         return;
     }
@@ -3124,7 +3147,7 @@ fn block_place(
     mut materials: ResMut<Assets<StandardMaterial>>,
     windows: Query<&Window>,
     creative_mode: Res<CreativeMode>,
-    input_resources: InputStateResources,
+    input_resources: InputStateResourcesWithCursor,
     mut action_timer: ResMut<ContinuousActionTimer>,
 ) {
     let window = windows.single();
@@ -3641,7 +3664,7 @@ fn select_block_type(
     key_input: Res<ButtonInput<KeyCode>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mut inventory: ResMut<Inventory>,
-    input_resources: InputStateResources,
+    input_resources: InputStateResourcesWithCursor,
 ) {
     // Use InputState to check if hotbar selection is allowed (see CLAUDE.md 入力マトリクス)
     let input_state = input_resources.get_state();
@@ -5641,9 +5664,8 @@ fn update_guide_markers(
     time: Res<Time>,
     miner_query: Query<&Miner>,
     conveyor_query: Query<&Conveyor>,
-    furnace_query: Query<&Transform, With<Furnace>>,
-    crusher_query: Query<&Transform, With<Crusher>>,
-    marker_query: Query<&mut Transform, With<GuideMarker>>,
+    furnace_query: Query<&Transform, (With<Furnace>, Without<GuideMarker>)>,
+    crusher_query: Query<&Transform, (With<Crusher>, Without<GuideMarker>)>,
 ) {
     let selected = inventory.get_selected_type();
 
@@ -5716,15 +5738,8 @@ fn update_guide_markers(
 
             guide_markers.entities.push(entity);
         }
-    } else {
-        // Update existing marker colors for pulse effect
-        for entity in &guide_markers.entities {
-            if let Ok(mut _transform) = marker_query.get(*entity) {
-                // Just let the material pulse via recreation would be expensive
-                // For simplicity, we accept static color for now
-            }
-        }
     }
+    // Note: pulse effect would require material recreation each frame - skipped for performance
 }
 
 /// Generate guide positions for miners (outside delivery platform edges)
@@ -5761,8 +5776,8 @@ fn generate_miner_guide_positions() -> Vec<IVec3> {
 fn generate_conveyor_guide_positions(
     miner_query: &Query<&Miner>,
     conveyor_query: &Query<&Conveyor>,
-    furnace_query: &Query<&Transform, With<Furnace>>,
-    crusher_query: &Query<&Transform, With<Crusher>>,
+    furnace_query: &Query<&Transform, (With<Furnace>, Without<GuideMarker>)>,
+    crusher_query: &Query<&Transform, (With<Crusher>, Without<GuideMarker>)>,
 ) -> Vec<IVec3> {
     let mut positions = Vec::new();
     let mut existing: std::collections::HashSet<IVec3> = std::collections::HashSet::new();
