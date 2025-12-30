@@ -4,6 +4,7 @@
 mod block_type;
 mod constants;
 mod events;
+mod game_spec;
 mod logging;
 mod player;
 
@@ -2271,20 +2272,18 @@ fn setup_ui(mut commands: Commands) {
 }
 
 /// Setup initial items on ground and furnace
+/// Spec: game_spec::INITIAL_EQUIPMENT
 fn setup_initial_items(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut inventory: ResMut<Inventory>,
 ) {
-    // Give player initial items (order determines slot positions)
-    inventory.add_item(BlockType::MinerBlock, 3);      // Slot 0
-    inventory.add_item(BlockType::ConveyorBlock, 10);  // Slot 1
-    inventory.add_item(BlockType::CrusherBlock, 2);    // Slot 2
-    inventory.add_item(BlockType::FurnaceBlock, 2);    // Slot 3
-    inventory.add_item(BlockType::IronOre, 5);         // Slot 4
-    inventory.add_item(BlockType::Coal, 5);            // Slot 5
-    inventory.selected_slot = 0; // First slot (Miner)
+    // Give player initial items from spec (order determines slot positions)
+    for (block_type, count) in game_spec::INITIAL_EQUIPMENT {
+        inventory.add_item(*block_type, *count);
+    }
+    inventory.selected_slot = 0; // First slot
 
     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
 
@@ -4896,46 +4895,17 @@ fn update_delivery_ui(
 
 // === Quest Systems ===
 
-/// Quest definitions
+/// Quest definitions from game_spec (Single Source of Truth)
 fn get_quests() -> Vec<QuestDef> {
-    vec![
-        QuestDef {
-            description: "Deliver 3 Iron Ingots",
-            required_item: BlockType::IronIngot,
-            required_amount: 3,
-            rewards: vec![
-                (BlockType::MinerBlock, 2),
-                (BlockType::ConveyorBlock, 20),
-            ],
-        },
-        QuestDef {
-            description: "Deliver 10 Copper Ingots",
-            required_item: BlockType::CopperIngot,
-            required_amount: 10,
-            rewards: vec![
-                (BlockType::CrusherBlock, 2),
-                (BlockType::ConveyorBlock, 20),
-            ],
-        },
-        QuestDef {
-            description: "Deliver 50 Iron Ingots",
-            required_item: BlockType::IronIngot,
-            required_amount: 50,
-            rewards: vec![
-                (BlockType::MinerBlock, 3),
-                (BlockType::CrusherBlock, 2),
-            ],
-        },
-        QuestDef {
-            description: "Deliver 50 Copper Ingots",
-            required_item: BlockType::CopperIngot,
-            required_amount: 50,
-            rewards: vec![
-                (BlockType::MinerBlock, 3),
-                (BlockType::ConveyorBlock, 40),
-            ],
-        },
-    ]
+    game_spec::QUESTS
+        .iter()
+        .map(|spec| QuestDef {
+            description: spec.description,
+            required_item: spec.required_item,
+            required_amount: spec.required_amount,
+            rewards: spec.rewards.to_vec(),
+        })
+        .collect()
 }
 
 /// Check quest progress
