@@ -3643,15 +3643,13 @@ fn auto_conveyor_direction(
         }
     }
 
-    // Priority 3: If there's an adjacent conveyor, try to connect to it
-    for (conv_pos, _) in conveyors {
+    // Priority 3: If there's an adjacent conveyor, align with its direction for merging
+    for (conv_pos, conv_dir) in conveyors {
         let diff = *conv_pos - place_pos;
         if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
-            // Adjacent conveyor - point toward it to form a chain
-            if diff.x == 1 { return Direction::East; }
-            if diff.x == -1 { return Direction::West; }
-            if diff.z == 1 { return Direction::South; }
-            if diff.z == -1 { return Direction::North; }
+            // Adjacent conveyor - align with its direction to enable merging
+            // This allows side-by-side conveyors to flow in the same direction
+            return *conv_dir;
         }
     }
 
@@ -5548,6 +5546,9 @@ fn update_target_highlight(
     mut materials: ResMut<Assets<StandardMaterial>>,
     inventory: Res<Inventory>,
     conveyor_query: Query<&Conveyor>,
+    miner_query: Query<&Miner>,
+    crusher_query: Query<&Crusher>,
+    furnace_query: Query<&Transform, With<Furnace>>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
 ) {
     // Check if player has a placeable item selected
@@ -5557,12 +5558,41 @@ fn update_target_highlight(
     let selected_item = inventory.get_selected_type();
     let placing_conveyor = selected_item == Some(BlockType::ConveyorBlock);
 
-    // Get player's facing direction for placing conveyors
+    // Get player's facing direction as fallback
+    let player_facing = camera_query.get_single().ok().map(|cam_transform| {
+        let forward = cam_transform.forward().as_vec3();
+        yaw_to_direction(-forward.x.atan2(-forward.z))
+    });
+
+    // Calculate place direction using auto_conveyor_direction (same logic as block_place)
     let place_direction = if placing_conveyor {
-        camera_query.get_single().ok().map(|cam_transform| {
-            let forward = cam_transform.forward().as_vec3();
-            yaw_to_direction(-forward.x.atan2(-forward.z))
-        })
+        if let (Some(place_pos), Some(fallback_dir)) = (target.place_target, player_facing) {
+            // Collect conveyor positions and directions
+            let conveyors: Vec<(IVec3, Direction)> = conveyor_query
+                .iter()
+                .map(|c| (c.position, c.direction))
+                .collect();
+
+            // Collect machine positions
+            let mut machine_positions: Vec<IVec3> = Vec::new();
+            for miner in miner_query.iter() {
+                machine_positions.push(miner.position);
+            }
+            for crusher in crusher_query.iter() {
+                machine_positions.push(crusher.position);
+            }
+            for furnace_transform in furnace_query.iter() {
+                machine_positions.push(IVec3::new(
+                    furnace_transform.translation.x.floor() as i32,
+                    furnace_transform.translation.y.floor() as i32,
+                    furnace_transform.translation.z.floor() as i32,
+                ));
+            }
+
+            Some(auto_conveyor_direction(place_pos, fallback_dir, &conveyors, &machine_positions))
+        } else {
+            player_facing
+        }
     } else {
         None
     };
