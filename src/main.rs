@@ -433,6 +433,28 @@ impl InputState {
     }
 }
 
+/// Bundled resources for InputState (reduces parameter count)
+#[derive(SystemParam)]
+struct InputStateResources<'w> {
+    inventory_open: Res<'w, InventoryOpen>,
+    interacting_furnace: Res<'w, InteractingFurnace>,
+    interacting_crusher: Res<'w, InteractingCrusher>,
+    command_state: Res<'w, CommandInputState>,
+    cursor_state: Res<'w, CursorLockState>,
+}
+
+impl InputStateResources<'_> {
+    fn get_state(&self) -> InputState {
+        InputState::current(
+            &self.inventory_open,
+            &self.interacting_furnace,
+            &self.interacting_crusher,
+            &self.command_state,
+            &self.cursor_state,
+        )
+    }
+}
+
 /// All available items for creative mode, organized by category
 const CREATIVE_ITEMS: &[(BlockType, &str)] = &[
     // Blocks
@@ -2416,26 +2438,15 @@ fn player_look(
     camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn player_move(
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
-    interacting_furnace: Res<InteractingFurnace>,
-    interacting_crusher: Res<InteractingCrusher>,
-    inventory_open: Res<InventoryOpen>,
-    command_state: Res<CommandInputState>,
-    cursor_lock_state: Res<CursorLockState>,
+    input_resources: InputStateResources,
 ) {
     // Use InputState to check if movement is allowed (see CLAUDE.md 入力マトリクス)
-    let input_state = InputState::current(
-        &inventory_open,
-        &interacting_furnace,
-        &interacting_crusher,
-        &command_state,
-        &cursor_lock_state,
-    );
+    let input_state = input_resources.get_state();
     if !input_state.allows_movement() {
         return;
     }
@@ -2495,20 +2506,20 @@ fn block_break(
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     windows: Query<&Window>,
-    interacting_furnace: Res<InteractingFurnace>,
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cursor_state: ResMut<CursorLockState>,
-    creative_inv_open: Res<InventoryOpen>,
+    input_resources: InputStateResources,
     mut action_timer: ResMut<ContinuousActionTimer>,
 ) {
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
-    // Don't break blocks while UI is open or game is paused
-    if interacting_furnace.0.is_some() || cursor_state.paused || creative_inv_open.0 {
+    // Use InputState to check if block actions are allowed (see CLAUDE.md 入力マトリクス)
+    let input_state = input_resources.get_state();
+    if !input_state.allows_block_actions() {
         return;
     }
 
@@ -2868,16 +2879,16 @@ fn block_place(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     windows: Query<&Window>,
-    cursor_state: Res<CursorLockState>,
     creative_mode: Res<CreativeMode>,
-    creative_inv_open: Res<InventoryOpen>,
+    input_resources: InputStateResources,
     mut action_timer: ResMut<ContinuousActionTimer>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
-    // Don't place blocks while UI is open or game is paused
-    if cursor_state.paused || creative_inv_open.0 || !cursor_locked {
+    // Use InputState to check if block actions are allowed (see CLAUDE.md 入力マトリクス)
+    let input_state = input_resources.get_state();
+    if !input_state.allows_block_actions() || !cursor_locked {
         return;
     }
 
@@ -3386,20 +3397,10 @@ fn select_block_type(
     key_input: Res<ButtonInput<KeyCode>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mut inventory: ResMut<Inventory>,
-    command_state: Res<CommandInputState>,
-    inventory_open: Res<InventoryOpen>,
-    interacting_furnace: Res<InteractingFurnace>,
-    interacting_crusher: Res<InteractingCrusher>,
-    cursor_lock_state: Res<CursorLockState>,
+    input_resources: InputStateResources,
 ) {
     // Use InputState to check if hotbar selection is allowed (see CLAUDE.md 入力マトリクス)
-    let input_state = InputState::current(
-        &inventory_open,
-        &interacting_furnace,
-        &interacting_crusher,
-        &command_state,
-        &cursor_lock_state,
-    );
+    let input_state = input_resources.get_state();
     if !input_state.allows_hotbar() {
         // Still need to drain events to prevent accumulation
         for _ in mouse_wheel.read() {}
