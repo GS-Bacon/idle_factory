@@ -418,11 +418,6 @@ impl InputState {
         matches!(self, InputState::Gameplay)
     }
 
-    /// Check if camera movement (mouse look) should be active
-    fn allows_camera(&self) -> bool {
-        matches!(self, InputState::Gameplay)
-    }
-
     /// Check if block break/place should be active
     fn allows_block_actions(&self) -> bool {
         matches!(self, InputState::Gameplay)
@@ -2354,10 +2349,18 @@ fn player_look(
     windows: Query<&Window>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut cursor_lock_state: ResMut<CursorLockState>,
+    inventory_open: Res<InventoryOpen>,
     interacting_furnace: Res<InteractingFurnace>,
+    interacting_crusher: Res<InteractingCrusher>,
+    command_state: Res<CommandInputState>,
 ) {
-    // Don't look around while furnace UI is open or game is paused
-    if interacting_furnace.0.is_some() || cursor_lock_state.paused {
+    // Don't look around while any UI is open or game is paused (input matrix: Mouse Move)
+    if inventory_open.0
+        || interacting_furnace.0.is_some()
+        || interacting_crusher.0.is_some()
+        || command_state.open
+        || cursor_lock_state.paused
+    {
         return;
     }
 
@@ -3582,11 +3585,12 @@ fn furnace_interact(
     mut interacting: ResMut<InteractingFurnace>,
     mut furnace_ui_query: Query<&mut Visibility, With<FurnaceUI>>,
     mut windows: Query<&mut Window>,
+    inventory_open: Res<InventoryOpen>,
     command_state: Res<CommandInputState>,
     cursor_state: Res<CursorLockState>,
 ) {
-    // Don't process when command input is open or game is paused
-    if command_state.open || cursor_state.paused {
+    // Don't process when inventory, command input is open or game is paused (input matrix: Right Click)
+    if inventory_open.0 || command_state.open || cursor_state.paused {
         return;
     }
 
@@ -3847,14 +3851,15 @@ fn crusher_interact(
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
     crusher_query: Query<(Entity, &Transform), With<Crusher>>,
     mut interacting: ResMut<InteractingCrusher>,
+    inventory_open: Res<InventoryOpen>,
     interacting_furnace: Res<InteractingFurnace>,
     mut crusher_ui_query: Query<&mut Visibility, With<CrusherUI>>,
     mut windows: Query<&mut Window>,
     command_state: Res<CommandInputState>,
     cursor_state: Res<CursorLockState>,
 ) {
-    // Don't open crusher if furnace is open, command input is active, or game is paused
-    if interacting_furnace.0.is_some() || command_state.open || cursor_state.paused {
+    // Don't open crusher if inventory, furnace is open, command input is active, or game is paused (input matrix: Right Click)
+    if inventory_open.0 || interacting_furnace.0.is_some() || command_state.open || cursor_state.paused {
         return;
     }
 
@@ -5410,18 +5415,20 @@ fn inventory_toggle(
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
     command_state: Res<CommandInputState>,
+    cursor_state: Res<CursorLockState>,
     creative_mode: Res<CreativeMode>,
     mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
     mut creative_panel_query: Query<&mut Visibility, (With<CreativePanel>, Without<InventoryUI>)>,
     mut windows: Query<&mut Window>,
 ) {
-    // Don't toggle if other UIs are open
-    if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || command_state.open {
+    // Don't toggle if other UIs are open or game is paused (input matrix: E key)
+    if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || command_state.open || cursor_state.paused {
         if key_input.just_pressed(KeyCode::KeyE) {
-            info!("[INVENTORY] E pressed but blocked: furnace={}, crusher={}, command={}",
+            info!("[INVENTORY] E pressed but blocked: furnace={}, crusher={}, command={}, paused={}",
                 interacting_furnace.0.is_some(),
                 interacting_crusher.0.is_some(),
-                command_state.open);
+                command_state.open,
+                cursor_state.paused);
         }
         return;
     }

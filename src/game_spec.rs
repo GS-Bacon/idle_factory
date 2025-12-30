@@ -8,9 +8,17 @@
 use crate::block_type::BlockType;
 
 /// Initial player equipment
-/// Spec: first-30-minutes.md - "初期装備"
+///
+/// 現在の実装は「クイックスタートモード」相当:
+/// - 採掘機・コンベア・粉砕機・精錬炉を最初から所持
+/// - 鉄鉱石・石炭もインベントリに所持（すぐに自動化を試せる）
+/// - ピッケルは不要（左クリック破壊で代替）
+///
+/// 通常モード（first-30-minutes.md）は将来実装:
+/// - 初期装備: 精錬炉×1のみ
+/// - スポーン地点に鉄鉱石・石炭がドロップ
+/// - 手動フェーズ→報酬で機械入手→自動化
 pub const INITIAL_EQUIPMENT: &[(BlockType, u32)] = &[
-    // Current implementation (to be discussed with user)
     (BlockType::MinerBlock, 3),
     (BlockType::ConveyorBlock, 10),
     (BlockType::CrusherBlock, 2),
@@ -19,12 +27,14 @@ pub const INITIAL_EQUIPMENT: &[(BlockType, u32)] = &[
     (BlockType::Coal, 5),
 ];
 
-/// Items dropped on ground at spawn
-/// Spec: "スポーン地点に鉄鉱石×5、石炭×5が落ちている"
+/// Items dropped on ground at spawn (通常モード用)
+///
+/// 現在のクイックスタートモードでは使用しない（インベントリに直接付与）。
+/// 通常モード実装時に有効化予定。
+#[allow(dead_code)]
 pub const SPAWN_GROUND_ITEMS: &[(BlockType, u32)] = &[
-    // TODO: Implement dropped items
-    // (BlockType::IronOre, 5),
-    // (BlockType::Coal, 5),
+    (BlockType::IronOre, 5),
+    (BlockType::Coal, 5),
 ];
 
 /// Quest definitions

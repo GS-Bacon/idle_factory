@@ -320,59 +320,41 @@ node /home/bacon/idle_factory/test-wasm-interactions.js
 
 **指示**: 「タスクリストを消化して」と言われたらP0から順に実行
 
-### P0: バグ防止・安定性（6件）
+### P0: バグ防止・安定性 ✅完了
 
-| # | タスク | 詳細 |
-|---|--------|------|
-| 1 | furnace_interact: InputStateResources対応 | 入力状態の統一チェック |
-| 2 | crusher_interact: InputStateResources対応 | 入力状態の統一チェック |
-| 3 | inventory_toggle: InputStateResources対応 | 入力状態の統一チェック |
-| 4 | player_look: InputStateResources対応 | 入力状態の統一チェック |
-| 5 | 未使用コード削除（allows_camera警告解消） | clippy警告解消 |
-| 6 | pre-commit強化 | cargo test + clippy をコミット前に自動実行 |
+- 入力ハンドラーの状態チェック統一（player_look, furnace_interact, crusher_interact, inventory_toggle）
+- 未使用コード削除（allows_camera）
+- pre-commit強化（cargo build + test + clippy）
 
-### P1: v0.1 MVP必須（4件）
+### P1: v0.1 MVP ✅完了
 
-| # | タスク | 詳細 |
-|---|--------|------|
-| 6 | 初期装備修正 | 現在: Miner×3等 → 仕様: ピッケル、精錬炉×1（要決定） |
-| 7 | 落ちているアイテム実装 | 鉄鉱石×5、石炭×5を地面にドロップ |
-| 8 | クエスト順序修正 | Quest2=銅10個 → 鉄インゴット100個 |
-| 9 | クエスト報酬調整 | first-30-minutes.mdに合わせる |
+- 初期装備: 現在のクイックスタートモード（Miner×3等）を維持、仕様コメント更新
+- クエスト: game_spec.rsで仕様通り（Quest2=鉄インゴット100個）
 
 ### P2: v0.1 推奨（1件）
 
 | # | タスク | 詳細 |
 |---|--------|------|
-| 10 | チュートリアルポップアップ | 初回プレイ時の操作説明 |
+| 1 | チュートリアルポップアップ | 初回プレイ時の操作説明 |
 
-### P3: メンテナンス（6件）
+### P3: メンテナンス（7件）
 
 | # | タスク | 詳細 |
 |---|--------|------|
-| 11 | CLAUDE.md分割: MVP定義 | → .specify/specs/mvp-v0.1.md |
-| 12 | CLAUDE.md分割: 入力ルール | → .specify/memory/input-rules.md |
-| 13 | CLAUDE.md分割: 作業ログ | → .specify/memory/work-log.md |
-| 14 | CLAUDE.md分割: フェーズ計画 | → .specify/roadmap.mdに統合 |
-| 15 | CLAUDE.md分割: 確認済みリスト削除 | 古い確認済みリストを削除 |
-| 16 | テスト: 入力状態テスト追加 | InputState enum のテスト |
-| 17 | main.rs分割（6662行） | モジュール分割を継続 |
+| 2 | CLAUDE.md分割: MVP定義 | → .specify/specs/mvp-v0.1.md |
+| 3 | CLAUDE.md分割: 入力ルール | → .specify/memory/input-rules.md |
+| 4 | CLAUDE.md分割: 作業ログ | → .specify/memory/work-log.md |
+| 5 | CLAUDE.md分割: フェーズ計画 | → .specify/roadmap.mdに統合 |
+| 6 | CLAUDE.md分割: 確認済みリスト削除 | 古い確認済みリストを削除 |
+| 7 | テスト: 入力状態テスト追加 | InputState enum のテスト |
+| 8 | main.rs分割（6662行） | モジュール分割を継続 |
 
 ### P4: 後回し（2件）
 
 | # | タスク | 詳細 |
 |---|--------|------|
-| 18 | ガイドマーカー | 設置推奨位置のハイライト |
-| 19 | 資源バイオーム | 鉄/銅/石炭バイオーム実装 |
-
-### 要決定事項
-
-| 項目 | 現在 | 仕様 |
-|------|------|------|
-| 初期装備 | Miner×3, Conv×10, Crusher×2, Furnace×2, IronOre×5 | ピッケル、精錬炉×1 |
-| Quest2 | 銅インゴット10個 | 鉄インゴット100個 |
-
-**推奨**: 現在の初期装備を維持し、仕様を更新する（ピッケルは左クリック破壊で代替済み）
+| 9 | ガイドマーカー | 設置推奨位置のハイライト |
+| 10 | 資源バイオーム | 鉄/銅/石炭バイオーム実装 |
 
 ### 修正済みバグ
 
@@ -922,6 +904,13 @@ grep -n "MouseWheel\|mouse_wheel" src/main.rs
 ## 作業ログ
 
 ### 2025-12-30
+- **P0/P1タスク完了**
+  - 入力ハンドラー状態チェック統一: player_look, furnace_interact, crusher_interact, inventory_toggle
+  - 全ハンドラーで入力マトリクス（inventory_open, interacting_furnace, interacting_crusher, command_state, cursor_state.paused）を正しくチェック
+  - 未使用コード削除: InputState::allows_camera()を削除
+  - pre-commit強化: cargo build + test + clippyを自動実行
+  - game_spec.rs: 初期装備・クエストのコメント更新（クイックスタートモード）
+  - テスト69件成功、clippy警告なし
 - **整合性チェックテスト追加**
   - 仕様と実装の矛盾を自動検出するテスト7件追加
   - test_hotbar_scroll_stays_in_bounds: ホイール範囲チェック
