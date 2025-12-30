@@ -123,9 +123,11 @@ fn main() {
         .init_resource::<TargetBlock>()
         .init_resource::<CreativeMode>()
         .init_resource::<InventoryOpen>()
+        .init_resource::<TutorialShown>()
         .init_resource::<HeldItem>()
         .init_resource::<ContinuousActionTimer>()
         .init_resource::<CommandInputState>()
+        .init_resource::<GuideMarkers>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
@@ -140,6 +142,7 @@ fn main() {
                 tick_action_timers,
             ),
         )
+        .add_systems(Update, tutorial_dismiss)
         .add_systems(Update, block_break)
         .add_systems(Update, block_place)
         .add_systems(Update, select_block_type)
@@ -190,6 +193,7 @@ fn main() {
                 update_debug_hud,
                 update_target_block,
                 update_target_highlight,
+                update_guide_markers,
                 inventory_toggle,
                 inventory_slot_click,
                 inventory_continuous_shift_click,
@@ -273,6 +277,17 @@ struct TargetHighlight;
 #[derive(Component)]
 struct PlaceHighlight;
 
+/// Marker component for guide markers (recommended placement positions)
+#[derive(Component)]
+struct GuideMarker;
+
+/// Resource to track guide marker entities
+#[derive(Resource, Default)]
+struct GuideMarkers {
+    entities: Vec<Entity>,
+    last_selected: Option<BlockType>,
+}
+
 /// Creative mode resource for spawning items
 #[derive(Resource, Default)]
 struct CreativeMode {
@@ -282,6 +297,14 @@ struct CreativeMode {
 /// Inventory UI open state
 #[derive(Resource, Default)]
 struct InventoryOpen(bool);
+
+/// Tutorial shown state (prevents showing again)
+#[derive(Resource, Default)]
+struct TutorialShown(bool);
+
+/// Marker for tutorial popup UI
+#[derive(Component)]
+struct TutorialPopup;
 
 /// Marker for inventory UI panel (full inventory overlay)
 #[derive(Component)]
@@ -932,11 +955,15 @@ impl ChunkData {
         let mut blocks_map = HashMap::new();
 
         // Generate a 16x16x8 chunk of blocks
-        // Bottom layers are stone with ore veins, top layer is grass
+        // Bottom layers are stone with ore veins, top layer is grass or ore
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 let world_x = chunk_coord.x * CHUNK_SIZE + x;
                 let world_z = chunk_coord.y * CHUNK_SIZE + z;
+
+                // Get biome for this position
+                let biome = Self::get_biome(world_x, world_z);
+                let is_ore_patch = Self::is_surface_ore_patch(world_x, world_z);
 
                 // Only generate blocks up to GROUND_LEVEL (y <= 7)
                 for y in 0..=GROUND_LEVEL {
@@ -946,22 +973,66 @@ impl ChunkData {
                     }
 
                     let block_type = if y == GROUND_LEVEL {
-                        BlockType::Grass
+                        // Surface layer: show ore in patches based on biome
+                        if is_ore_patch && !Self::is_platform_area(world_x, world_z) {
+                            match biome {
+                                1 => BlockType::IronOre,   // Iron biome
+                                2 => BlockType::CopperOre, // Copper biome
+                                3 => BlockType::Coal,      // Coal biome
+                                _ => BlockType::Grass,     // Mixed biome
+                            }
+                        } else {
+                            BlockType::Grass
+                        }
                     } else {
-                        // Use simple hash for ore distribution
+                        // Underground: biome-weighted ore distribution
                         let hash = Self::simple_hash(world_x, y, world_z);
 
-                        if y <= 4 && hash % 20 == 0 {
-                            // Iron ore: 5% chance at y=0-4
-                            BlockType::IronOre
-                        } else if y <= 3 && hash % 25 == 1 {
-                            // Copper ore: 4% chance at y=0-3
-                            BlockType::CopperOre
-                        } else if y <= 5 && hash % 15 == 2 {
-                            // Coal: ~7% chance at y=0-5
-                            BlockType::Coal
-                        } else {
-                            BlockType::Stone
+                        match biome {
+                            1 => {
+                                // Iron biome: higher iron, some coal
+                                if y <= 5 && hash % 8 == 0 {
+                                    BlockType::IronOre  // ~12.5% iron
+                                } else if y <= 4 && hash % 20 == 1 {
+                                    BlockType::Coal     // ~5% coal
+                                } else {
+                                    BlockType::Stone
+                                }
+                            }
+                            2 => {
+                                // Copper biome: higher copper, some iron
+                                if y <= 5 && hash % 8 == 0 {
+                                    BlockType::CopperOre // ~12.5% copper
+                                } else if y <= 4 && hash % 25 == 1 {
+                                    BlockType::IronOre   // ~4% iron
+                                } else {
+                                    BlockType::Stone
+                                }
+                            }
+                            3 => {
+                                // Coal biome: high coal, some iron/copper
+                                if y <= 6 && hash % 6 == 0 {
+                                    BlockType::Coal      // ~16% coal
+                                } else if y <= 3 && hash % 30 == 1 {
+                                    BlockType::IronOre   // ~3% iron
+                                } else if y <= 3 && hash % 30 == 2 {
+                                    BlockType::CopperOre // ~3% copper
+                                } else {
+                                    BlockType::Stone
+                                }
+                            }
+                            _ => {
+                                // Mixed biome: original distribution
+                                if y <= 4 && hash % 20 == 0 {
+                                    BlockType::IronOre   // 5% iron
+                                } else if y <= 3 && hash % 25 == 1 {
+                                    BlockType::CopperOre // 4% copper
+                                } else if y <= 5 && hash % 15 == 2 {
+                                    BlockType::Coal      // ~7% coal
+                                } else {
+                                    BlockType::Stone
+                                }
+                            }
                         }
                     };
                     let idx = Self::pos_to_index(x, y, z);
@@ -983,6 +1054,32 @@ impl ChunkData {
         h = h.wrapping_mul(1274126177);
         h ^= h >> 16;
         h
+    }
+
+    /// Determine biome type based on world coordinates
+    /// Returns: 0=Mixed, 1=Iron, 2=Copper, 3=Coal
+    #[inline(always)]
+    fn get_biome(world_x: i32, world_z: i32) -> u8 {
+        // Use larger scale hash for biome regions (32-block regions)
+        let region_x = world_x.div_euclid(32);
+        let region_z = world_z.div_euclid(32);
+        let biome_hash = Self::simple_hash(region_x, 0, region_z);
+
+        // Assign biomes based on hash
+        match biome_hash % 10 {
+            0..=2 => 1, // 30% Iron biome
+            3..=5 => 2, // 30% Copper biome
+            6..=7 => 3, // 20% Coal biome
+            _ => 0,     // 20% Mixed
+        }
+    }
+
+    /// Check if position should have surface ore (visible ore patch)
+    #[inline(always)]
+    fn is_surface_ore_patch(world_x: i32, world_z: i32) -> bool {
+        // Create ore patches every 8-12 blocks based on hash
+        let patch_hash = Self::simple_hash(world_x.div_euclid(4), 100, world_z.div_euclid(4));
+        patch_hash.is_multiple_of(8)
     }
 
     /// Get block at local position (fast array access)
@@ -2264,6 +2361,102 @@ fn setup_ui(mut commands: Commands) {
                 TextColor(Color::WHITE),
             ));
         });
+
+    // Tutorial popup (shown on first play)
+    commands
+        .spawn((
+            TutorialPopup,
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+            GlobalZIndex(100),
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    Node {
+                        width: Val::Px(450.0),
+                        padding: UiRect::all(Val::Px(25.0)),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(15.0),
+                        border: UiRect::all(Val::Px(3.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                    BorderColor(Color::srgb(0.4, 0.6, 0.4)),
+                ))
+                .with_children(|panel| {
+                    // Title
+                    panel.spawn((
+                        Text::new("Controls"),
+                        TextFont {
+                            font_size: 28.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.4, 0.8, 0.4)),
+                    ));
+
+                    // Controls list
+                    let controls = [
+                        ("WASD", "Move"),
+                        ("Mouse", "Look around"),
+                        ("Left Click", "Break block"),
+                        ("Right Click", "Place / Open machine"),
+                        ("1-9 / Scroll", "Select hotbar"),
+                        ("E", "Inventory"),
+                        ("T or /", "Commands (/creative, /survival)"),
+                        ("F3", "Debug info"),
+                        ("ESC", "Pause"),
+                    ];
+
+                    for (key, action) in controls {
+                        panel
+                            .spawn((Node {
+                                flex_direction: FlexDirection::Row,
+                                justify_content: JustifyContent::SpaceBetween,
+                                ..default()
+                            },))
+                            .with_children(|row| {
+                                row.spawn((
+                                    Text::new(key),
+                                    TextFont {
+                                        font_size: 16.0,
+                                        ..default()
+                                    },
+                                    TextColor(Color::srgb(0.9, 0.9, 0.5)),
+                                ));
+                                row.spawn((
+                                    Text::new(action),
+                                    TextFont {
+                                        font_size: 16.0,
+                                        ..default()
+                                    },
+                                    TextColor(Color::WHITE),
+                                ));
+                            });
+                    }
+
+                    // Close instruction
+                    panel.spawn((
+                        Text::new("Click or press any key to start"),
+                        TextFont {
+                            font_size: 14.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.7, 0.7, 0.7, 0.8)),
+                        Node {
+                            margin: UiRect::top(Val::Px(15.0)),
+                            ..default()
+                        },
+                    ));
+                });
+        });
 }
 
 /// Setup initial items on ground and furnace
@@ -2353,7 +2546,13 @@ fn player_look(
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
     command_state: Res<CommandInputState>,
+    tutorial_shown: Res<TutorialShown>,
 ) {
+    // Block look while tutorial is showing
+    if !tutorial_shown.0 {
+        return;
+    }
+
     // Don't look around while any UI is open or game is paused (input matrix: Mouse Move)
     if inventory_open.0
         || interacting_furnace.0.is_some()
@@ -2440,13 +2639,56 @@ fn player_look(
     camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
 }
 
+/// Dismiss tutorial popup on any input
+fn tutorial_dismiss(
+    mut commands: Commands,
+    key_input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    mut tutorial_shown: ResMut<TutorialShown>,
+    popup_query: Query<Entity, With<TutorialPopup>>,
+    mut windows: Query<&mut Window>,
+) {
+    // Already dismissed
+    if tutorial_shown.0 {
+        return;
+    }
+
+    // Check for any key or mouse button press
+    let any_key = key_input.get_just_pressed().next().is_some();
+    let any_click = mouse_button.just_pressed(MouseButton::Left)
+        || mouse_button.just_pressed(MouseButton::Right);
+
+    if any_key || any_click {
+        tutorial_shown.0 = true;
+
+        // Despawn tutorial popup
+        for entity in popup_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        // Lock cursor for gameplay
+        if let Ok(mut window) = windows.get_single_mut() {
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
+        }
+
+        info!("[TUTORIAL] Dismissed, starting gameplay");
+    }
+}
+
 fn player_move(
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
     input_resources: InputStateResources,
+    tutorial_shown: Res<TutorialShown>,
 ) {
+    // Block movement while tutorial is showing
+    if !tutorial_shown.0 {
+        return;
+    }
+
     // Use InputState to check if movement is allowed (see CLAUDE.md 入力マトリクス)
     let input_state = input_resources.get_state();
     if !input_state.allows_movement() {
@@ -5387,6 +5629,228 @@ fn update_target_highlight(
     }
 }
 
+/// Update guide markers based on selected item
+/// Shows recommended placement positions for machines
+#[allow(clippy::too_many_arguments)]
+fn update_guide_markers(
+    mut commands: Commands,
+    mut guide_markers: ResMut<GuideMarkers>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    inventory: Res<Inventory>,
+    time: Res<Time>,
+    miner_query: Query<&Miner>,
+    conveyor_query: Query<&Conveyor>,
+    furnace_query: Query<&Transform, With<Furnace>>,
+    crusher_query: Query<&Transform, With<Crusher>>,
+    marker_query: Query<&mut Transform, With<GuideMarker>>,
+) {
+    let selected = inventory.get_selected_type();
+
+    // Clear markers if selection changed or nothing selected
+    if selected != guide_markers.last_selected {
+        for entity in guide_markers.entities.drain(..) {
+            commands.entity(entity).despawn_recursive();
+        }
+        guide_markers.last_selected = selected;
+    }
+
+    // No markers if nothing is selected or non-machine item
+    let Some(block_type) = selected else {
+        return;
+    };
+
+    // Only show guides for placeable machines
+    if !matches!(block_type,
+        BlockType::MinerBlock |
+        BlockType::ConveyorBlock |
+        BlockType::FurnaceBlock |
+        BlockType::CrusherBlock
+    ) {
+        return;
+    }
+
+    // Calculate pulse effect (0.3 to 0.7 alpha)
+    let pulse = (time.elapsed_secs() * 3.0).sin() * 0.2 + 0.5;
+
+    // Generate guide positions based on selected item
+    let guide_positions = match block_type {
+        BlockType::MinerBlock => {
+            // Show positions outside delivery platform edges
+            generate_miner_guide_positions()
+        }
+        BlockType::ConveyorBlock => {
+            // Show positions extending from existing machines
+            generate_conveyor_guide_positions(&miner_query, &conveyor_query, &furnace_query, &crusher_query)
+        }
+        BlockType::FurnaceBlock | BlockType::CrusherBlock => {
+            // Show positions along conveyor paths
+            generate_processor_guide_positions(&conveyor_query)
+        }
+        _ => vec![],
+    };
+
+    // Only update if we need to spawn new markers
+    if guide_markers.entities.is_empty() && !guide_positions.is_empty() {
+        let mesh = meshes.add(create_wireframe_cube_mesh());
+
+        for pos in guide_positions {
+            let material = materials.add(StandardMaterial {
+                base_color: Color::srgba(0.3, 0.6, 1.0, pulse),
+                unlit: true,
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            });
+
+            let entity = commands.spawn((
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(material),
+                Transform::from_translation(Vec3::new(
+                    pos.x as f32 + 0.5,
+                    pos.y as f32 + 0.5,
+                    pos.z as f32 + 0.5,
+                )),
+                GuideMarker,
+                NotShadowCaster,
+            )).id();
+
+            guide_markers.entities.push(entity);
+        }
+    } else {
+        // Update existing marker colors for pulse effect
+        for entity in &guide_markers.entities {
+            if let Ok(mut _transform) = marker_query.get(*entity) {
+                // Just let the material pulse via recreation would be expensive
+                // For simplicity, we accept static color for now
+            }
+        }
+    }
+}
+
+/// Generate guide positions for miners (outside delivery platform edges)
+fn generate_miner_guide_positions() -> Vec<IVec3> {
+    let mut positions = Vec::new();
+
+    // Delivery platform: origin (20, 8, 10), size 12x12
+    // Show positions 2-3 blocks outside each edge at Y=8
+
+    // North of platform (z = 8, 9)
+    for x in (20..32).step_by(3) {
+        positions.push(IVec3::new(x, 8, 8));
+    }
+
+    // South of platform (z = 23, 24)
+    for x in (20..32).step_by(3) {
+        positions.push(IVec3::new(x, 8, 23));
+    }
+
+    // West of platform (x = 18)
+    for z in (10..22).step_by(3) {
+        positions.push(IVec3::new(18, 8, z));
+    }
+
+    // East of platform (x = 33)
+    for z in (10..22).step_by(3) {
+        positions.push(IVec3::new(33, 8, z));
+    }
+
+    positions
+}
+
+/// Generate guide positions for conveyors (extending from existing machines)
+fn generate_conveyor_guide_positions(
+    miner_query: &Query<&Miner>,
+    conveyor_query: &Query<&Conveyor>,
+    furnace_query: &Query<&Transform, With<Furnace>>,
+    crusher_query: &Query<&Transform, With<Crusher>>,
+) -> Vec<IVec3> {
+    let mut positions = Vec::new();
+    let mut existing: std::collections::HashSet<IVec3> = std::collections::HashSet::new();
+
+    // Collect existing machine positions
+    for miner in miner_query.iter() {
+        existing.insert(miner.position);
+    }
+    for conveyor in conveyor_query.iter() {
+        existing.insert(conveyor.position);
+    }
+    for transform in furnace_query.iter() {
+        let pos = IVec3::new(
+            transform.translation.x.floor() as i32,
+            transform.translation.y.floor() as i32,
+            transform.translation.z.floor() as i32,
+        );
+        existing.insert(pos);
+    }
+    for transform in crusher_query.iter() {
+        let pos = IVec3::new(
+            transform.translation.x.floor() as i32,
+            transform.translation.y.floor() as i32,
+            transform.translation.z.floor() as i32,
+        );
+        existing.insert(pos);
+    }
+
+    // Show positions adjacent to conveyor ends
+    for conveyor in conveyor_query.iter() {
+        let next_pos = match conveyor.direction {
+            Direction::North => conveyor.position + IVec3::new(0, 0, -1),
+            Direction::South => conveyor.position + IVec3::new(0, 0, 1),
+            Direction::East => conveyor.position + IVec3::new(1, 0, 0),
+            Direction::West => conveyor.position + IVec3::new(-1, 0, 0),
+        };
+
+        if !existing.contains(&next_pos) && !positions.contains(&next_pos) {
+            positions.push(next_pos);
+        }
+    }
+
+    // Show positions adjacent to miners (output side)
+    for miner in miner_query.iter() {
+        for dir in [IVec3::X, IVec3::NEG_X, IVec3::Z, IVec3::NEG_Z] {
+            let adj = miner.position + dir;
+            if !existing.contains(&adj) && !positions.contains(&adj) {
+                positions.push(adj);
+                break; // Only one suggestion per miner
+            }
+        }
+    }
+
+    // Limit to 8 suggestions to avoid clutter
+    positions.truncate(8);
+    positions
+}
+
+/// Generate guide positions for processors (along conveyor paths)
+fn generate_processor_guide_positions(conveyor_query: &Query<&Conveyor>) -> Vec<IVec3> {
+    let mut positions = Vec::new();
+    let mut conveyor_positions: std::collections::HashSet<IVec3> = std::collections::HashSet::new();
+
+    for conveyor in conveyor_query.iter() {
+        conveyor_positions.insert(conveyor.position);
+    }
+
+    // Show positions adjacent to conveyors (as inline processors)
+    for conveyor in conveyor_query.iter() {
+        // Position perpendicular to conveyor direction
+        let perpendicular = match conveyor.direction {
+            Direction::North | Direction::South => [IVec3::X, IVec3::NEG_X],
+            Direction::East | Direction::West => [IVec3::Z, IVec3::NEG_Z],
+        };
+
+        for dir in perpendicular {
+            let adj = conveyor.position + dir;
+            if !conveyor_positions.contains(&adj) && !positions.contains(&adj) {
+                positions.push(adj);
+            }
+        }
+    }
+
+    // Limit to 6 suggestions
+    positions.truncate(6);
+    positions
+}
+
 // === Creative Mode ===
 
 // Note: F-key shortcuts removed - use Creative Catalog (E key while in creative mode) instead
@@ -6226,8 +6690,12 @@ mod tests {
         // Check that chunk has blocks
         assert!(!chunk.blocks_map.is_empty());
 
-        // Check that top layer is grass (local coordinates)
-        assert_eq!(chunk.blocks_map.get(&IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
+        // Check that top layer is grass or ore (biome ore patches show on surface)
+        let surface_block = chunk.blocks_map.get(&IVec3::new(0, 7, 0));
+        assert!(matches!(
+            surface_block,
+            Some(BlockType::Grass) | Some(BlockType::IronOre) | Some(BlockType::CopperOre) | Some(BlockType::Coal)
+        ));
 
         // Check that lower layers are stone or ore (ores are generated randomly)
         let block = chunk.blocks_map.get(&IVec3::new(0, 0, 0));
@@ -6263,8 +6731,12 @@ mod tests {
         // Insert a chunk first
         world.chunks.insert(IVec2::new(0, 0), ChunkData::generate(IVec2::ZERO));
 
-        // Test get_block
-        assert_eq!(world.get_block(IVec3::new(0, 7, 0)), Some(&BlockType::Grass));
+        // Test get_block - surface can be grass or ore (biome ore patches)
+        let surface = world.get_block(IVec3::new(0, 7, 0));
+        assert!(matches!(
+            surface,
+            Some(BlockType::Grass) | Some(BlockType::IronOre) | Some(BlockType::CopperOre) | Some(BlockType::Coal)
+        ));
         // Lower layers can be stone or ore
         let block = world.get_block(IVec3::new(0, 0, 0));
         assert!(matches!(
@@ -6276,9 +6748,12 @@ mod tests {
         assert!(world.has_block(IVec3::new(0, 0, 0)));
         assert!(!world.has_block(IVec3::new(0, 10, 0))); // Above terrain
 
-        // Test remove_block
+        // Test remove_block - surface can be grass or ore (biome ore patches)
         let removed = world.remove_block(IVec3::new(0, 7, 0));
-        assert_eq!(removed, Some(BlockType::Grass));
+        assert!(matches!(
+            removed,
+            Some(BlockType::Grass) | Some(BlockType::IronOre) | Some(BlockType::CopperOre) | Some(BlockType::Coal)
+        ));
         assert!(!world.has_block(IVec3::new(0, 7, 0)));
 
         // Test set_block (y=7 is within CHUNK_HEIGHT)
@@ -6635,5 +7110,124 @@ mod tests {
 
         // Default selected slot should be 0
         assert_eq!(inventory.selected_slot, 0);
+    }
+
+    // === InputState Tests ===
+
+    #[test]
+    fn test_input_state_priority() {
+        // Test priority: Paused > Command > Inventory > FurnaceUI > CrusherUI > Gameplay
+
+        // All closed = Gameplay
+        let state = InputState::current(
+            &InventoryOpen(false),
+            &InteractingFurnace(None),
+            &InteractingCrusher(None),
+            &CommandInputState::default(),
+            &CursorLockState::default(),
+        );
+        assert!(matches!(state, InputState::Gameplay));
+
+        // Paused overrides everything
+        let state = InputState::current(
+            &InventoryOpen(true),
+            &InteractingFurnace(Some(Entity::PLACEHOLDER)),
+            &InteractingCrusher(Some(Entity::PLACEHOLDER)),
+            &CommandInputState { open: true, text: String::new() },
+            &CursorLockState { paused: true, ..default() },
+        );
+        assert!(matches!(state, InputState::Paused));
+
+        // Command overrides UI states
+        let state = InputState::current(
+            &InventoryOpen(true),
+            &InteractingFurnace(Some(Entity::PLACEHOLDER)),
+            &InteractingCrusher(None),
+            &CommandInputState { open: true, text: String::new() },
+            &CursorLockState::default(),
+        );
+        assert!(matches!(state, InputState::Command));
+
+        // Inventory overrides machine UIs
+        let state = InputState::current(
+            &InventoryOpen(true),
+            &InteractingFurnace(Some(Entity::PLACEHOLDER)),
+            &InteractingCrusher(None),
+            &CommandInputState::default(),
+            &CursorLockState::default(),
+        );
+        assert!(matches!(state, InputState::Inventory));
+    }
+
+    #[test]
+    fn test_input_state_allows_methods() {
+        // Gameplay allows everything
+        assert!(InputState::Gameplay.allows_movement());
+        assert!(InputState::Gameplay.allows_block_actions());
+        assert!(InputState::Gameplay.allows_hotbar());
+
+        // UI states block movement
+        assert!(!InputState::Inventory.allows_movement());
+        assert!(!InputState::FurnaceUI.allows_movement());
+        assert!(!InputState::CrusherUI.allows_movement());
+        assert!(!InputState::Command.allows_movement());
+        assert!(!InputState::Paused.allows_movement());
+
+        // UI states block block actions
+        assert!(!InputState::Inventory.allows_block_actions());
+        assert!(!InputState::Command.allows_block_actions());
+        assert!(!InputState::Paused.allows_block_actions());
+    }
+
+    #[test]
+    fn test_tutorial_state_default() {
+        // TutorialShown should default to false (tutorial visible on startup)
+        let tutorial = TutorialShown::default();
+        assert!(!tutorial.0, "Tutorial should not be shown by default");
+    }
+
+    #[test]
+    fn test_biome_generation() {
+        // Test that biomes are deterministic
+        let biome1 = ChunkData::get_biome(0, 0);
+        let biome2 = ChunkData::get_biome(0, 0);
+        assert_eq!(biome1, biome2, "Biome should be deterministic");
+
+        // Test that different regions can have different biomes
+        let mut biomes_found = std::collections::HashSet::new();
+        for x in 0..10 {
+            for z in 0..10 {
+                let biome = ChunkData::get_biome(x * 32, z * 32);
+                biomes_found.insert(biome);
+            }
+        }
+        // Should find multiple biome types (0=Mixed, 1=Iron, 2=Copper, 3=Coal)
+        assert!(biomes_found.len() >= 2, "Should have at least 2 different biomes");
+
+        // Test biome ore concentrations by generating chunks
+        let iron_chunk = ChunkData::generate(IVec2::new(100, 100)); // Will be in some biome
+        let has_ore = iron_chunk.blocks.iter().any(|b| b.is_some() && matches!(b, Some(BlockType::IronOre) | Some(BlockType::CopperOre) | Some(BlockType::Coal)));
+        assert!(has_ore, "Chunks should contain some ore");
+    }
+
+    #[test]
+    fn test_surface_ore_patches() {
+        // Test that surface ore patches are deterministic
+        let is_patch1 = ChunkData::is_surface_ore_patch(0, 0);
+        let is_patch2 = ChunkData::is_surface_ore_patch(0, 0);
+        assert_eq!(is_patch1, is_patch2, "Ore patch check should be deterministic");
+
+        // Test that some positions are ore patches and some are not
+        let mut patch_count = 0;
+        for x in 0..100 {
+            for z in 0..100 {
+                if ChunkData::is_surface_ore_patch(x, z) {
+                    patch_count += 1;
+                }
+            }
+        }
+        // Expect roughly 12.5% (1/8) to be patches
+        assert!(patch_count > 500 && patch_count < 2000,
+            "Ore patch distribution should be ~12.5%, got {}", patch_count);
     }
 }
