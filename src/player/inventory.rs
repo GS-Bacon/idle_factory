@@ -53,7 +53,7 @@ impl Inventory {
     }
 
     /// Add items to inventory, returns the amount that couldn't be added (0 = all added)
-    pub fn add_item(&mut self, block_type: BlockType, mut amount: u32) -> bool {
+    pub fn add_item(&mut self, block_type: BlockType, mut amount: u32) -> u32 {
         // First, try to stack onto existing slots with same block type
         for slot in self.slots.iter_mut() {
             if amount == 0 { break; }
@@ -77,7 +77,7 @@ impl Inventory {
             }
         }
 
-        amount == 0 // Return true if all items were added
+        amount // Return remaining amount (0 = all added)
     }
 
     /// Move items from one slot to another. Returns true if any items were moved.

@@ -706,6 +706,30 @@ cargo install sccache --locked
 **対策**: `canvas.addEventListener('click', ...)` 内で `isGameUIOpen()` をチェック
 **ファイル**: `web/index.html` のcanvasクリックハンドラー
 
+### 10. インベントリ表示中にShiftで降下する
+**原因**: player_move関数がInventoryOpenをチェックしていなかった
+**症状**: インベントリを開いてShiftキーを押すとプレイヤーが降下する
+**対策**: player_moveにInventoryOpen、InteractingCrusher、CommandInputStateチェックを追加
+**ファイル**: `src/main.rs` の `player_move` 関数
+
+### 11. クリックでアイテムが意図せず置き換わる
+**原因**: HeldItemをカーソル位置に表示していなかった
+**症状**: スロットクリックでアイテムが消えた/置き換わったように見える
+**対策**: update_held_item_display関数でHeldItemをカーソル追従表示、インベントリ閉じる時にHeldItemをインベントリに返却
+**ファイル**: `src/main.rs` の `update_held_item_display`, `inventory_toggle` 関数
+
+### 12. インベントリ表示中にマウスホイールでホットバーが変わる
+**原因**: select_block_type関数がInventoryOpenをチェックしていなかった
+**症状**: インベントリUI内でスクロールするとホットバー選択が変わる
+**対策**: select_block_typeにInventoryOpenチェックを追加
+**ファイル**: `src/main.rs` の `select_block_type` 関数
+
+### 13. インベントリUIの上にオーバーレイが表示される
+**原因**: WASM側で`data-ui-open`属性の変更を監視していなかった
+**症状**: Eキーでインベントリを開いても「Click to Resume」オーバーレイがUI上に被る
+**対策**: MutationObserverで`data-ui-open`属性を監視し、trueになったら即座にオーバーレイを非表示
+**ファイル**: `web/index.html` の`uiOpenObserver`
+
 ### 実装時のチェックリスト
 
 新機能追加時に確認:
@@ -716,6 +740,7 @@ cargo install sccache --locked
 - [ ] ブロック操作を変更した → フリーズテスト確認
 - [ ] モード専用UIを追加した → モードチェック、マーカーコンポーネント追加
 - [ ] UIを追加した → `set_ui_open_state(true/false)` 呼び出し確認
+- [ ] UI表示中に入力が効かないべき → player_move, select_block_typeでInventoryOpenチェック追加
 
 ### 自動整合性チェック
 
@@ -760,6 +785,34 @@ cargo install sccache --locked
   - RuntimeError: unreachableを修正（LogPlugin無効化）
   - キャッシュバスティング追加（.js/.wasmファイル）
 - **テスト**: 69件成功、clippy警告なし
+- **連続操作機能追加**
+  - Shift+左クリック押しっぱなしでインベントリ連続移動
+  - 左クリック押しっぱなしでブロック連続破壊
+  - 右クリック押しっぱなしでブロック連続設置
+  - ContinuousActionTimerリソースで0.15秒間隔を制御
+- **ホットバーアイテム名表示**
+  - ホットバー選択中のアイテム名を上部に表示
+  - HotbarItemNameText、update_hotbar_item_name追加
+- **インベントリツールチップ**
+  - スロットホバー時にアイテム名と数量を表示
+  - InventoryTooltip、update_inventory_tooltip追加
+- **クリエイティブモード統一**
+  - F-keyショートカットを削除（カタログのみに統一）
+  - /creative、/survivalコマンドでモード切替
+  - Eキーでインベントリ+カタログ表示
+- **システムパラメータ最適化**
+  - MachineBreakQueries、MachinePlaceQueries SystemParam追加
+  - block_break、block_placeのパラメータ数を17→14に削減
+  - Bevyの16パラメータ制限を回避
+- **インベントリUI改善（マイクラ風）**
+  - HeldItemDisplayをカーソル追従に（update_held_item_display追加）
+  - 持っているアイテムをカーソル位置に表示、数量テキスト付き
+  - インベントリ閉じる時にHeldItemをインベントリに自動返却
+  - player_moveにInventoryOpen、InteractingCrusher、CommandInputStateチェック追加
+  - select_block_typeにInventoryOpenチェック追加（UI表示中はホイール無効）
+  - HeldItemText、return_held_item_to_inventory追加
+  - Inventory::add_itemの戻り値をbool→u32に変更（残量を返す）
+  - 69ユニットテスト成功、clippy警告なし
 
 ### 2025-12-29
 - **ロギングシステム簡素化**

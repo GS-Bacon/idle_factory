@@ -380,6 +380,21 @@
             }
         }
 
+        // Watch for UI open state changes from Bevy
+        // When Bevy sets data-ui-open="true", hide the overlay immediately
+        const uiOpenObserver = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'data-ui-open') {
+                    const isOpen = canvas.getAttribute('data-ui-open') === 'true';
+                    if (isOpen) {
+                        hideOverlay();
+                        logEvent('ui_open', { source: 'bevy' });
+                    }
+                }
+            }
+        });
+        uiOpenObserver.observe(canvas, { attributes: true, attributeFilter: ['data-ui-open'] });
+
         // Track mouse clicks and handle pointer lock
         window.addEventListener('mousedown', (e) => {
             logEvent('click', { btn: e.button });

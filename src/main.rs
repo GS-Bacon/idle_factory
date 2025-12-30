@@ -15,6 +15,7 @@ use tracing::info;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{CascadeShadowConfigBuilder, NotShadowCaster};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::ecs::system::SystemParam;
 use bevy::input::mouse::{AccumulatedMouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -122,21 +123,29 @@ fn main() {
         .init_resource::<CreativeMode>()
         .init_resource::<InventoryOpen>()
         .init_resource::<HeldItem>()
+        .init_resource::<ContinuousActionTimer>()
         .init_resource::<CommandInputState>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
             (
-                // Core gameplay systems - chunk loading split into spawn/receive
+                // Core gameplay systems - chunk loading
                 spawn_chunk_tasks,
                 receive_chunk_meshes,
                 unload_distant_chunks,
                 toggle_cursor_lock,
                 player_look,
                 player_move,
-                block_break,
-                block_place,
-                select_block_type,
+                tick_action_timers,
+            ),
+        )
+        .add_systems(Update, block_break)
+        .add_systems(Update, block_place)
+        .add_systems(Update, select_block_type)
+        .add_systems(
+            Update,
+            (
+                // Machine interaction systems
                 furnace_interact,
                 furnace_ui_input,
                 furnace_smelting,
@@ -180,10 +189,19 @@ fn main() {
                 update_debug_hud,
                 update_target_block,
                 update_target_highlight,
-                creative_mode_input,
                 inventory_toggle,
                 inventory_slot_click,
+                inventory_continuous_shift_click,
                 inventory_update_slots,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                // UI interaction systems
+                update_held_item_display,
+                update_hotbar_item_name,
+                update_inventory_tooltip,
                 trash_slot_click,
                 creative_inventory_click,
                 command_input_toggle,
@@ -284,6 +302,10 @@ struct HeldItem(Option<(BlockType, u32)>);
 #[derive(Component)]
 struct HeldItemDisplay;
 
+/// Marker for held item count text
+#[derive(Component)]
+struct HeldItemText;
+
 /// Creative inventory item button - stores the BlockType it represents
 #[derive(Component)]
 struct CreativeItemButton(BlockType);
@@ -291,6 +313,45 @@ struct CreativeItemButton(BlockType);
 /// Marker for the creative catalog panel (right side of inventory UI)
 #[derive(Component)]
 struct CreativePanel;
+
+/// Timer for continuous block break/place operations
+#[derive(Resource)]
+struct ContinuousActionTimer {
+    /// Timer for block breaking
+    break_timer: Timer,
+    /// Timer for block placing
+    place_timer: Timer,
+    /// Timer for inventory shift-click
+    inventory_timer: Timer,
+}
+
+impl Default for ContinuousActionTimer {
+    fn default() -> Self {
+        Self {
+            break_timer: Timer::from_seconds(0.15, TimerMode::Once),
+            place_timer: Timer::from_seconds(0.15, TimerMode::Once),
+            inventory_timer: Timer::from_seconds(0.1, TimerMode::Once),
+        }
+    }
+}
+
+/// Bundled machine queries for block_break system (reduces parameter count)
+#[derive(SystemParam)]
+struct MachineBreakQueries<'w, 's> {
+    conveyor: Query<'w, 's, (Entity, &'static Conveyor, &'static GlobalTransform)>,
+    miner: Query<'w, 's, (Entity, &'static Miner, &'static GlobalTransform)>,
+    crusher: Query<'w, 's, (Entity, &'static Crusher, &'static GlobalTransform)>,
+    furnace: Query<'w, 's, (Entity, &'static Furnace, &'static GlobalTransform)>,
+}
+
+/// Bundled machine queries for block_place system (reduces parameter count)
+#[derive(SystemParam)]
+struct MachinePlaceQueries<'w, 's> {
+    conveyor: Query<'w, 's, &'static Conveyor>,
+    miner: Query<'w, 's, &'static Miner>,
+    crusher: Query<'w, 's, (&'static Crusher, &'static Transform)>,
+    furnace: Query<'w, 's, &'static Transform, With<Furnace>>,
+}
 
 /// Command input state - tracks whether command input is open and the current text
 #[derive(Resource, Default)]
@@ -368,6 +429,14 @@ struct HotbarSlot(usize);
 
 #[derive(Component)]
 struct HotbarSlotCount(usize);
+
+/// Marker for the hotbar item name display (shown above hotbar)
+#[derive(Component)]
+struct HotbarItemNameText;
+
+/// Marker for inventory tooltip (shown when hovering over slots)
+#[derive(Component)]
+struct InventoryTooltip;
 
 /// Furnace component for smelting
 #[derive(Component, Default)]
@@ -1521,6 +1590,23 @@ fn setup_ui(mut commands: Commands) {
             }
         });
 
+    // Hotbar item name display (above hotbar)
+    commands.spawn((
+        HotbarItemNameText,
+        Text::new(""),
+        TextFont {
+            font_size: 16.0,
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(75.0),
+            left: Val::Percent(50.0),
+            ..default()
+        },
+    ));
+
     // Crosshair
     commands.spawn((
         Node {
@@ -2022,12 +2108,46 @@ fn setup_ui(mut commands: Commands) {
                     width: Val::Px(36.0),
                     height: Val::Px(36.0),
                     justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
+                    align_items: AlignItems::End,
+                    padding: UiRect::all(Val::Px(2.0)),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Visibility::Hidden,
-            ));
+            )).with_children(|parent| {
+                // Item count text
+                parent.spawn((
+                    HeldItemText,
+                    Text::new(""),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
+            });
+
+            // Tooltip display (follows cursor, shows item name on hover)
+            parent.spawn((
+                InventoryTooltip,
+                Node {
+                    position_type: PositionType::Absolute,
+                    padding: UiRect::all(Val::Px(6.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.95)),
+                BorderColor(Color::srgb(0.4, 0.4, 0.4)),
+                Visibility::Hidden,
+            )).with_children(|tooltip| {
+                tooltip.spawn((
+                    Text::new(""),
+                    TextFont {
+                        font_size: 14.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
+            });
         });
 
     // Command input UI (bottom center, hidden by default)
@@ -2233,16 +2353,25 @@ fn player_look(
     camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn player_move(
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
     interacting_furnace: Res<InteractingFurnace>,
+    interacting_crusher: Res<InteractingCrusher>,
+    inventory_open: Res<InventoryOpen>,
+    command_state: Res<CommandInputState>,
     cursor_lock_state: Res<CursorLockState>,
 ) {
-    // Don't move while furnace UI is open or game is paused
-    if interacting_furnace.0.is_some() || cursor_lock_state.paused {
+    // Don't move while any UI is open or game is paused
+    if interacting_furnace.0.is_some()
+        || interacting_crusher.0.is_some()
+        || inventory_open.0
+        || command_state.open
+        || cursor_lock_state.paused
+    {
         return;
     }
 
@@ -2285,15 +2414,19 @@ fn player_move(
     }
 }
 
+/// Tick all action timers (separate system to reduce parameter count)
+fn tick_action_timers(time: Res<Time>, mut action_timer: ResMut<ContinuousActionTimer>) {
+    action_timer.break_timer.tick(time.delta());
+    action_timer.place_timer.tick(time.delta());
+    action_timer.inventory_timer.tick(time.delta());
+}
+
 #[allow(clippy::too_many_arguments)]
 fn block_break(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
-    conveyor_query: Query<(Entity, &Conveyor, &GlobalTransform)>,
-    miner_query: Query<(Entity, &Miner, &GlobalTransform)>,
-    crusher_query: Query<(Entity, &Crusher, &GlobalTransform)>,
-    furnace_query: Query<(Entity, &Furnace, &GlobalTransform)>,
+    machines: MachineBreakQueries,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
     windows: Query<&Window>,
@@ -2303,6 +2436,7 @@ fn block_break(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cursor_state: ResMut<CursorLockState>,
     creative_inv_open: Res<InventoryOpen>,
+    mut action_timer: ResMut<ContinuousActionTimer>,
 ) {
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
@@ -2313,7 +2447,14 @@ fn block_break(
         return;
     }
 
-    if !cursor_locked || !mouse_button.just_pressed(MouseButton::Left) {
+    // Support continuous breaking: first click is instant, then timer-gated
+    let can_break = mouse_button.just_pressed(MouseButton::Left)
+        || (mouse_button.pressed(MouseButton::Left) && action_timer.break_timer.finished());
+    if can_break {
+        action_timer.break_timer.reset();
+    }
+
+    if !cursor_locked || !can_break {
         return;
     }
 
@@ -2428,7 +2569,7 @@ fn block_break(
     }
 
     // Check conveyors
-    for (entity, _conveyor, conveyor_transform) in conveyor_query.iter() {
+    for (entity, _conveyor, conveyor_transform) in machines.conveyor.iter() {
         let conveyor_pos = conveyor_transform.translation();
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
@@ -2446,7 +2587,7 @@ fn block_break(
     }
 
     // Check miners
-    for (entity, _miner, miner_transform) in miner_query.iter() {
+    for (entity, _miner, miner_transform) in machines.miner.iter() {
         let miner_pos = miner_transform.translation();
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
@@ -2464,7 +2605,7 @@ fn block_break(
     }
 
     // Check crushers
-    for (entity, _crusher, crusher_transform) in crusher_query.iter() {
+    for (entity, _crusher, crusher_transform) in machines.crusher.iter() {
         let crusher_pos = crusher_transform.translation();
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
@@ -2482,7 +2623,7 @@ fn block_break(
     }
 
     // Check furnaces
-    for (entity, _furnace, furnace_transform) in furnace_query.iter() {
+    for (entity, _furnace, furnace_transform) in machines.furnace.iter() {
         let furnace_pos = furnace_transform.translation();
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
@@ -2575,7 +2716,7 @@ fn block_break(
             }
             HitType::Conveyor(entity) => {
                 // Get conveyor items before despawning
-                let item_count = if let Ok((_, conveyor, transform)) = conveyor_query.get(entity) {
+                let item_count = if let Ok((_, conveyor, transform)) = machines.conveyor.get(entity) {
                     let pos = transform.translation();
                     let count = conveyor.items.len();
                     // Despawn all item visuals and return items to inventory
@@ -2604,7 +2745,7 @@ fn block_break(
             }
             HitType::Crusher(entity) => {
                 // Return crusher contents to inventory before despawning
-                if let Ok((_, crusher, _)) = crusher_query.get(entity) {
+                if let Ok((_, crusher, _)) = machines.crusher.get(entity) {
                     if let Some(input_type) = crusher.input_type {
                         if crusher.input_count > 0 {
                             inventory.add_item(input_type, crusher.input_count);
@@ -2623,7 +2764,7 @@ fn block_break(
             }
             HitType::Furnace(entity) => {
                 // Return furnace contents to inventory before despawning
-                if let Ok((_, furnace, _)) = furnace_query.get(entity) {
+                if let Ok((_, furnace, _)) = machines.furnace.get(entity) {
                     // Return fuel (coal)
                     if furnace.fuel > 0 {
                         inventory.add_item(BlockType::Coal, furnace.fuel);
@@ -2655,10 +2796,7 @@ fn block_place(
     mut commands: Commands,
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera)>,
-    conveyor_query: Query<&Conveyor>,
-    miner_query: Query<&Miner>,
-    crusher_query: Query<(&Crusher, &Transform)>,
-    furnace_query: Query<&Transform, With<Furnace>>,
+    machines: MachinePlaceQueries,
     platform_query: Query<&Transform, With<DeliveryPlatform>>,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
@@ -2668,12 +2806,24 @@ fn block_place(
     cursor_state: Res<CursorLockState>,
     creative_mode: Res<CreativeMode>,
     creative_inv_open: Res<InventoryOpen>,
+    mut action_timer: ResMut<ContinuousActionTimer>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
     // Don't place blocks while UI is open or game is paused
-    if cursor_state.paused || creative_inv_open.0 || !cursor_locked || !mouse_button.just_pressed(MouseButton::Right) {
+    if cursor_state.paused || creative_inv_open.0 || !cursor_locked {
+        return;
+    }
+
+    // Support continuous placing: first click is instant, then timer-gated
+    let can_place = mouse_button.just_pressed(MouseButton::Right)
+        || (mouse_button.pressed(MouseButton::Right) && action_timer.place_timer.finished());
+    if can_place {
+        action_timer.place_timer.reset();
+    }
+
+    if !can_place {
         return;
     }
 
@@ -2692,7 +2842,7 @@ fn block_place(
     let half_size = BLOCK_SIZE / 2.0;
 
     // Check if looking at a furnace or crusher - if so, don't place (let machine UI handle it)
-    for furnace_transform in furnace_query.iter() {
+    for furnace_transform in machines.furnace.iter() {
         let furnace_pos = furnace_transform.translation;
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
@@ -2705,7 +2855,7 @@ fn block_place(
             }
         }
     }
-    for (_, crusher_transform) in crusher_query.iter() {
+    for (_, crusher_transform) in machines.crusher.iter() {
         let crusher_pos = crusher_transform.translation;
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
@@ -2858,25 +3008,25 @@ fn block_place(
             return;
         }
         // Check if any conveyor occupies this position
-        for conveyor in conveyor_query.iter() {
+        for conveyor in machines.conveyor.iter() {
             if conveyor.position == place_pos {
                 return;
             }
         }
         // Check if any miner occupies this position
-        for miner in miner_query.iter() {
+        for miner in machines.miner.iter() {
             if miner.position == place_pos {
                 return;
             }
         }
         // Check if any crusher occupies this position
-        for (crusher, _) in crusher_query.iter() {
+        for (crusher, _) in machines.crusher.iter() {
             if crusher.position == place_pos {
                 return;
             }
         }
         // Check if any furnace occupies this position
-        for furnace_transform in furnace_query.iter() {
+        for furnace_transform in machines.furnace.iter() {
             let furnace_pos = IVec3::new(
                 (furnace_transform.translation.x / BLOCK_SIZE).floor() as i32,
                 (furnace_transform.translation.y / BLOCK_SIZE).floor() as i32,
@@ -2901,28 +3051,28 @@ fn block_place(
         // For conveyors, use auto-direction based on adjacent machines
         let facing_direction = if selected_type == BlockType::ConveyorBlock {
             // Collect conveyor positions and directions
-            let conveyors: Vec<(IVec3, Direction)> = conveyor_query
+            let conveyors: Vec<(IVec3, Direction)> = machines.conveyor
                 .iter()
                 .map(|c| (c.position, c.direction))
                 .collect();
 
             // Collect machine positions (miners, crushers, furnaces)
-            let mut machines: Vec<IVec3> = Vec::new();
-            for miner in miner_query.iter() {
-                machines.push(miner.position);
+            let mut machine_positions: Vec<IVec3> = Vec::new();
+            for miner in machines.miner.iter() {
+                machine_positions.push(miner.position);
             }
-            for (crusher, _) in crusher_query.iter() {
-                machines.push(crusher.position);
+            for (crusher, _) in machines.crusher.iter() {
+                machine_positions.push(crusher.position);
             }
-            for furnace_transform in furnace_query.iter() {
-                machines.push(IVec3::new(
+            for furnace_transform in machines.furnace.iter() {
+                machine_positions.push(IVec3::new(
                     furnace_transform.translation.x.floor() as i32,
                     furnace_transform.translation.y.floor() as i32,
                     furnace_transform.translation.z.floor() as i32,
                 ));
             }
 
-            auto_conveyor_direction(place_pos, player_facing, &conveyors, &machines)
+            auto_conveyor_direction(place_pos, player_facing, &conveyors, &machine_positions)
         } else {
             player_facing
         };
@@ -3172,9 +3322,10 @@ fn select_block_type(
     mut mouse_wheel: EventReader<MouseWheel>,
     mut inventory: ResMut<Inventory>,
     command_state: Res<CommandInputState>,
+    inventory_open: Res<InventoryOpen>,
 ) {
-    // Don't process while command input is open
-    if command_state.open {
+    // Don't process while any UI is open
+    if command_state.open || inventory_open.0 {
         // Still need to drain events to prevent accumulation
         for _ in mouse_wheel.read() {}
         return;
@@ -5187,39 +5338,18 @@ fn update_target_highlight(
 
 // === Creative Mode ===
 
-/// Handle creative mode input (F-keys for quick access in creative mode)
-/// Note: C key toggle removed - use /creative and /survival commands instead
-fn creative_mode_input(
-    key_input: Res<ButtonInput<KeyCode>>,
-    creative: Res<CreativeMode>,
-    mut inventory: ResMut<Inventory>,
-    command_state: Res<CommandInputState>,
-) {
-    // Don't process keys while command input is open
-    if command_state.open {
-        return;
-    }
+// Note: F-key shortcuts removed - use Creative Catalog (E key while in creative mode) instead
+// Use /creative and /survival commands to toggle modes
 
-    // In creative mode, F-keys for quick access (except F3 which is debug HUD)
-    if creative.enabled {
-        let items = [
-            (KeyCode::F1, BlockType::Stone),
-            (KeyCode::F2, BlockType::Grass),
-            // F3 is debug HUD, skip
-            (KeyCode::F4, BlockType::Coal),
-            (KeyCode::F5, BlockType::IronIngot),
-            (KeyCode::F6, BlockType::CopperOre),
-            (KeyCode::F7, BlockType::CopperIngot),
-            (KeyCode::F8, BlockType::MinerBlock),
-            (KeyCode::F9, BlockType::ConveyorBlock),
-        ];
-
-        for (key, block_type) in items {
-            if key_input.just_pressed(key) {
-                // Set current slot to this item type
-                let slot = inventory.selected_slot;
-                inventory.slots[slot] = Some((block_type, 64));
-            }
+/// Return held item to inventory when closing
+fn return_held_item_to_inventory(inventory: &mut Inventory, held_item: &mut HeldItem) {
+    if let Some((block_type, count)) = held_item.0.take() {
+        // Try to add to inventory
+        let remaining = inventory.add_item(block_type, count);
+        if remaining > 0 {
+            // If inventory is full, item is lost (or could be dropped later)
+            // For now, just put back what couldn't fit
+            held_item.0 = Some((block_type, remaining));
         }
     }
 }
@@ -5229,6 +5359,8 @@ fn creative_mode_input(
 fn inventory_toggle(
     key_input: Res<ButtonInput<KeyCode>>,
     mut inventory_open: ResMut<InventoryOpen>,
+    mut inventory: ResMut<Inventory>,
+    mut held_item: ResMut<HeldItem>,
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
     command_state: Res<CommandInputState>,
@@ -5239,19 +5371,38 @@ fn inventory_toggle(
 ) {
     // Don't toggle if other UIs are open
     if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || command_state.open {
+        if key_input.just_pressed(KeyCode::KeyE) {
+            info!("[INVENTORY] E pressed but blocked: furnace={}, crusher={}, command={}",
+                interacting_furnace.0.is_some(),
+                interacting_crusher.0.is_some(),
+                command_state.open);
+        }
         return;
     }
 
     // E key to toggle inventory
     if key_input.just_pressed(KeyCode::KeyE) {
+        info!("[INVENTORY] E key pressed, toggling from {} to {}", inventory_open.0, !inventory_open.0);
         inventory_open.0 = !inventory_open.0;
 
+        // Return held item when closing
+        if !inventory_open.0 {
+            return_held_item_to_inventory(&mut inventory, &mut held_item);
+        }
+
+        let mut ui_count = 0;
         for mut vis in ui_query.iter_mut() {
+            ui_count += 1;
             *vis = if inventory_open.0 {
                 Visibility::Visible
             } else {
                 Visibility::Hidden
             };
+        }
+        info!("[INVENTORY] Updated {} UI entities, now open={}", ui_count, inventory_open.0);
+
+        if ui_count == 0 {
+            warn!("[INVENTORY] No InventoryUI entity found! UI will not display.");
         }
 
         // Show/hide creative panel based on creative mode
@@ -5280,6 +5431,9 @@ fn inventory_toggle(
     // ESC to close
     if inventory_open.0 && key_input.just_pressed(KeyCode::Escape) {
         inventory_open.0 = false;
+
+        // Return held item when closing
+        return_held_item_to_inventory(&mut inventory, &mut held_item);
 
         for mut vis in ui_query.iter_mut() {
             *vis = Visibility::Hidden;
@@ -5461,6 +5615,86 @@ fn inventory_slot_click(
     }
 }
 
+/// Helper function to perform shift-click move on a slot
+fn perform_shift_click_move(inventory: &mut Inventory, slot_idx: usize) -> bool {
+    if let Some((block_type, count)) = inventory.slots[slot_idx].take() {
+        // Determine target area
+        let target_range = if slot_idx < HOTBAR_SLOTS {
+            // From hotbar -> main inventory
+            HOTBAR_SLOTS..NUM_SLOTS
+        } else {
+            // From main -> hotbar
+            0..HOTBAR_SLOTS
+        };
+
+        // Try to stack first
+        let mut remaining = count;
+        for target_idx in target_range.clone() {
+            if remaining == 0 { break; }
+            if let Some((bt, ref mut c)) = inventory.slots[target_idx] {
+                if bt == block_type && *c < MAX_STACK_SIZE {
+                    let space = MAX_STACK_SIZE - *c;
+                    let to_add = remaining.min(space);
+                    *c += to_add;
+                    remaining -= to_add;
+                }
+            }
+        }
+
+        // Then find empty slots
+        for target_idx in target_range {
+            if remaining == 0 { break; }
+            if inventory.slots[target_idx].is_none() {
+                let to_add = remaining.min(MAX_STACK_SIZE);
+                inventory.slots[target_idx] = Some((block_type, to_add));
+                remaining -= to_add;
+            }
+        }
+
+        // Put back any remaining
+        if remaining > 0 {
+            inventory.slots[slot_idx] = Some((block_type, remaining));
+        }
+        return remaining < count; // Return true if anything was moved
+    }
+    false
+}
+
+/// Continuous shift+click support for inventory
+fn inventory_continuous_shift_click(
+    inventory_open: Res<InventoryOpen>,
+    mut inventory: ResMut<Inventory>,
+    key_input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    mut action_timer: ResMut<ContinuousActionTimer>,
+    interaction_query: Query<(&Interaction, &InventorySlotUI)>,
+) {
+    if !inventory_open.0 {
+        return;
+    }
+
+    let shift_held = key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
+    if !shift_held || !mouse_button.pressed(MouseButton::Left) {
+        return;
+    }
+
+    // Skip if timer hasn't finished (and this isn't the first click handled by inventory_slot_click)
+    if !action_timer.inventory_timer.finished() {
+        return;
+    }
+
+    // Find hovered slot
+    for (interaction, slot_ui) in interaction_query.iter() {
+        if *interaction == Interaction::Hovered {
+            let slot_idx = slot_ui.0;
+            if perform_shift_click_move(&mut inventory, slot_idx) {
+                action_timer.inventory_timer.reset();
+            }
+            break;
+        }
+    }
+}
+
 /// Update inventory slot visuals to reflect current inventory state
 fn inventory_update_slots(
     inventory_open: Res<InventoryOpen>,
@@ -5499,6 +5733,137 @@ fn inventory_update_slots(
                 }
             }
         }
+    }
+}
+
+/// Update held item display to follow cursor and show held item
+fn update_held_item_display(
+    inventory_open: Res<InventoryOpen>,
+    held_item: Res<HeldItem>,
+    windows: Query<&Window>,
+    mut held_display_query: Query<(&mut Node, &mut BackgroundColor, &mut Visibility), With<HeldItemDisplay>>,
+    mut held_text_query: Query<&mut Text, With<HeldItemText>>,
+) {
+    let Ok((mut node, mut bg_color, mut visibility)) = held_display_query.get_single_mut() else {
+        return;
+    };
+
+    // Only show when inventory is open and we're holding something
+    if !inventory_open.0 {
+        *visibility = Visibility::Hidden;
+        return;
+    }
+
+    match &held_item.0 {
+        Some((block_type, count)) => {
+            // Show the held item
+            *visibility = Visibility::Visible;
+            *bg_color = BackgroundColor(block_type.color());
+
+            // Update count text
+            if let Ok(mut text) = held_text_query.get_single_mut() {
+                text.0 = if *count > 1 {
+                    format!("{}", count)
+                } else {
+                    String::new()
+                };
+            }
+
+            // Position at cursor
+            if let Ok(window) = windows.get_single() {
+                if let Some(cursor_pos) = window.cursor_position() {
+                    // Offset so item appears slightly below and to the right of cursor
+                    node.left = Val::Px(cursor_pos.x + 8.0);
+                    node.top = Val::Px(cursor_pos.y + 8.0);
+                }
+            }
+        }
+        None => {
+            *visibility = Visibility::Hidden;
+        }
+    }
+}
+
+/// Update the hotbar item name display to show the selected item's name
+fn update_hotbar_item_name(
+    inventory: Res<Inventory>,
+    inventory_open: Res<InventoryOpen>,
+    mut text_query: Query<(&mut Text, &mut Node), With<HotbarItemNameText>>,
+) {
+    let Ok((mut text, mut node)) = text_query.get_single_mut() else {
+        return;
+    };
+
+    // Hide when inventory is open
+    if inventory_open.0 {
+        text.0 = String::new();
+        return;
+    }
+
+    // Show selected item name
+    if let Some(block_type) = inventory.selected_block() {
+        let name = block_type.name();
+        text.0 = name.to_string();
+        // Center the text by adjusting margin based on text length
+        let char_width = 8.0; // Approximate character width
+        node.margin.left = Val::Px(-(name.len() as f32 * char_width / 2.0));
+    } else {
+        text.0 = String::new();
+    }
+}
+
+/// Update inventory tooltip to show item name when hovering over slots
+fn update_inventory_tooltip(
+    inventory_open: Res<InventoryOpen>,
+    inventory: Res<Inventory>,
+    windows: Query<&Window>,
+    slot_query: Query<(&Interaction, &InventorySlotUI, &GlobalTransform)>,
+    mut tooltip_query: Query<(&mut Node, &mut Visibility, &Children), With<InventoryTooltip>>,
+    mut text_query: Query<&mut Text>,
+) {
+    let Ok((mut node, mut visibility, children)) = tooltip_query.get_single_mut() else {
+        return;
+    };
+
+    // Hide tooltip if inventory is closed
+    if !inventory_open.0 {
+        *visibility = Visibility::Hidden;
+        return;
+    }
+
+    // Find hovered slot
+    let mut hovered_item: Option<(BlockType, u32, Vec2)> = None;
+    for (interaction, slot_ui, global_transform) in slot_query.iter() {
+        if *interaction == Interaction::Hovered {
+            let slot_idx = slot_ui.0;
+            if let Some((block_type, count)) = inventory.slots[slot_idx] {
+                let pos = global_transform.translation();
+                hovered_item = Some((block_type, count, Vec2::new(pos.x, pos.y)));
+                break;
+            }
+        }
+    }
+
+    if let Some((block_type, count, slot_pos)) = hovered_item {
+        *visibility = Visibility::Inherited;
+
+        // Position tooltip near the slot (offset to the right and up)
+        if let Ok(window) = windows.get_single() {
+            let half_width = window.width() / 2.0;
+            let half_height = window.height() / 2.0;
+            // Convert from global UI coords to absolute position
+            node.left = Val::Px(slot_pos.x + half_width + 45.0);
+            node.top = Val::Px(half_height - slot_pos.y - 10.0);
+        }
+
+        // Update tooltip text
+        if let Some(&child) = children.first() {
+            if let Ok(mut text) = text_query.get_mut(child) {
+                text.0 = format!("{} ({})", block_type.name(), count);
+            }
+        }
+    } else {
+        *visibility = Visibility::Hidden;
     }
 }
 
