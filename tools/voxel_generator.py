@@ -317,176 +317,249 @@ class VoxelModel:
 # =============================================================================
 
 def create_conveyor_straight() -> VoxelModel:
-    """直進コンベアを生成（細いベルト、16x16x3グリッド内に配置）"""
-    # 16x16x3の空間に細いコンベア（幅6ボクセル）を中央配置
+    """直進コンベアを生成（幅8ボクセル、16x16x3グリッド内に配置）"""
+    # 16x16x3の空間にコンベア（幅8ボクセル）を中央配置
     model = VoxelModel(16, 16, 3)
 
-    # コンベア幅: 6ボクセル (x=5〜10)
+    # コンベア幅: 8ボクセル (x=4〜11)
     # フレーム (底面の枠)
-    model.fill_box(5, 0, 0, 10, 15, 0, "frame")  # 底面
-    model.fill_box(5, 0, 1, 5, 15, 2, "frame")   # 左壁
-    model.fill_box(10, 0, 1, 10, 15, 2, "frame") # 右壁
+    model.fill_box(4, 0, 0, 11, 15, 0, "frame")  # 底面
+    model.fill_box(4, 0, 1, 4, 15, 2, "frame")   # 左壁
+    model.fill_box(11, 0, 1, 11, 15, 2, "frame") # 右壁
 
     # ベルト
-    model.fill_box(6, 0, 1, 9, 15, 1, "belt")
+    model.fill_box(5, 0, 1, 10, 15, 1, "belt")
 
     # ローラー (前後)
-    model.fill_box(6, 0, 2, 9, 0, 2, "roller")
-    model.fill_box(6, 15, 2, 9, 15, 2, "roller")
+    model.fill_box(5, 0, 2, 10, 0, 2, "roller")
+    model.fill_box(5, 15, 2, 10, 15, 2, "roller")
 
-    # 進行方向の矢印 (+Y方向)
-    model.draw_arrow(7, 12, 2, "+y", "arrow")
+    # 進行方向の矢印 (+Y方向) - ベルト面に平面プリント (z=1)
+    # 中央2マス幅 (x=7,8が中心)
+    # 矢じり
+    model.set_voxel_named(7, 12, 1, "arrow")
+    model.set_voxel_named(8, 12, 1, "arrow")
+    model.set_voxel_named(6, 11, 1, "arrow")
+    model.set_voxel_named(7, 11, 1, "arrow")
+    model.set_voxel_named(8, 11, 1, "arrow")
+    model.set_voxel_named(9, 11, 1, "arrow")
+    model.set_voxel_named(5, 10, 1, "arrow")
+    model.set_voxel_named(6, 10, 1, "arrow")
+    model.set_voxel_named(9, 10, 1, "arrow")
+    model.set_voxel_named(10, 10, 1, "arrow")
+    # 軸
+    model.set_voxel_named(7, 9, 1, "arrow")
+    model.set_voxel_named(8, 9, 1, "arrow")
+    model.set_voxel_named(7, 8, 1, "arrow")
+    model.set_voxel_named(8, 8, 1, "arrow")
+    model.set_voxel_named(7, 7, 1, "arrow")
+    model.set_voxel_named(8, 7, 1, "arrow")
+    model.set_voxel_named(7, 6, 1, "arrow")
+    model.set_voxel_named(8, 6, 1, "arrow")
 
     return model
 
 
 def create_conveyor_corner_left() -> VoxelModel:
-    """左折コンベアを生成（後ろから入力、左へ出力）- 細いL字"""
+    """左折コンベアを生成（後ろから入力、左へ出力）- 幅8ボクセルL字"""
     model = VoxelModel(16, 16, 3)
 
-    # L字の細いコンベア（幅6ボクセル）
-    # 縦部分: y=0〜10, x=5〜10
-    # 横部分: x=0〜10, y=5〜10
+    # L字のコンベア（幅8ボクセル）
+    # 縦部分: y=0〜11, x=4〜11
+    # 横部分: x=0〜11, y=4〜11
 
     # 底面フレーム (L字型)
-    model.fill_box(5, 0, 0, 10, 10, 0, "frame")   # 縦の帯
-    model.fill_box(0, 5, 0, 10, 10, 0, "frame")   # 横の帯
+    model.fill_box(4, 0, 0, 11, 11, 0, "frame")   # 縦の帯
+    model.fill_box(0, 4, 0, 11, 11, 0, "frame")   # 横の帯
 
     # 外壁
-    model.fill_box(10, 0, 1, 10, 4, 2, "frame")   # 右壁（入力側下部）
-    model.fill_box(10, 10, 1, 10, 10, 2, "frame") # 右壁（コーナー）
-    model.fill_box(5, 0, 1, 5, 4, 2, "frame")     # 左壁（入力側下部）
-    model.fill_box(0, 5, 1, 0, 10, 2, "frame")    # 左壁（出力側）
-    model.fill_box(0, 10, 1, 10, 10, 2, "frame")  # 上壁
-    model.fill_box(5, 5, 1, 5, 5, 2, "frame")     # 内角
+    model.fill_box(11, 0, 1, 11, 3, 2, "frame")   # 右壁（入力側下部）
+    model.fill_box(11, 11, 1, 11, 11, 2, "frame") # 右壁（コーナー）
+    model.fill_box(4, 0, 1, 4, 3, 2, "frame")     # 左壁（入力側下部）
+    model.fill_box(0, 4, 1, 0, 11, 2, "frame")    # 左壁（出力側）
+    model.fill_box(0, 11, 1, 11, 11, 2, "frame")  # 上壁
+    model.fill_box(4, 4, 1, 4, 4, 2, "frame")     # 内角
 
     # ベルト
-    model.fill_box(6, 1, 1, 9, 9, 1, "belt")      # 縦部分
-    model.fill_box(1, 6, 1, 9, 9, 1, "belt")      # 横部分
+    model.fill_box(5, 1, 1, 10, 10, 1, "belt")    # 縦部分
+    model.fill_box(1, 5, 1, 10, 10, 1, "belt")    # 横部分
 
     # ローラー
-    model.fill_box(6, 0, 2, 9, 0, 2, "roller")    # 入力
-    model.fill_box(0, 6, 2, 0, 9, 2, "roller")    # 出力
+    model.fill_box(5, 0, 2, 10, 0, 2, "roller")   # 入力
+    model.fill_box(0, 5, 2, 0, 10, 2, "roller")   # 出力
 
-    # 矢印
-    model.draw_arrow(3, 7, 2, "-x", "arrow")      # 左へ
+    # 矢印 (-X方向) - ベルト面に平面プリント (z=1)
+    # 中央2マス幅
+    # 矢じり
+    model.set_voxel_named(3, 7, 1, "arrow")
+    model.set_voxel_named(3, 8, 1, "arrow")
+    model.set_voxel_named(4, 6, 1, "arrow")
+    model.set_voxel_named(4, 7, 1, "arrow")
+    model.set_voxel_named(4, 8, 1, "arrow")
+    model.set_voxel_named(4, 9, 1, "arrow")
+    model.set_voxel_named(5, 5, 1, "arrow")
+    model.set_voxel_named(5, 6, 1, "arrow")
+    model.set_voxel_named(5, 9, 1, "arrow")
+    model.set_voxel_named(5, 10, 1, "arrow")
+    # 軸
+    model.set_voxel_named(6, 7, 1, "arrow")
+    model.set_voxel_named(6, 8, 1, "arrow")
+    model.set_voxel_named(7, 7, 1, "arrow")
+    model.set_voxel_named(7, 8, 1, "arrow")
 
     return model
 
 
 def create_conveyor_corner_right() -> VoxelModel:
-    """右折コンベアを生成（後ろから入力、右へ出力）- 細いL字"""
+    """右折コンベアを生成（後ろから入力、右へ出力）- 幅8ボクセルL字"""
     model = VoxelModel(16, 16, 3)
 
-    # L字の細いコンベア（幅6ボクセル）
-    # 縦部分: y=0〜10, x=5〜10
-    # 横部分: x=5〜15, y=5〜10
+    # L字のコンベア（幅8ボクセル）
+    # 縦部分: y=0〜11, x=4〜11
+    # 横部分: x=4〜15, y=4〜11
 
     # 底面フレーム (L字型)
-    model.fill_box(5, 0, 0, 10, 10, 0, "frame")   # 縦の帯
-    model.fill_box(5, 5, 0, 15, 10, 0, "frame")   # 横の帯
+    model.fill_box(4, 0, 0, 11, 11, 0, "frame")   # 縦の帯
+    model.fill_box(4, 4, 0, 15, 11, 0, "frame")   # 横の帯
 
     # 外壁
-    model.fill_box(5, 0, 1, 5, 4, 2, "frame")     # 左壁（入力側下部）
-    model.fill_box(5, 10, 1, 5, 10, 2, "frame")   # 左壁（コーナー）
-    model.fill_box(10, 0, 1, 10, 4, 2, "frame")   # 右壁（入力側下部）
-    model.fill_box(15, 5, 1, 15, 10, 2, "frame")  # 右壁（出力側）
-    model.fill_box(5, 10, 1, 15, 10, 2, "frame")  # 上壁
-    model.fill_box(10, 5, 1, 10, 5, 2, "frame")   # 内角
+    model.fill_box(4, 0, 1, 4, 3, 2, "frame")     # 左壁（入力側下部）
+    model.fill_box(4, 11, 1, 4, 11, 2, "frame")   # 左壁（コーナー）
+    model.fill_box(11, 0, 1, 11, 3, 2, "frame")   # 右壁（入力側下部）
+    model.fill_box(15, 4, 1, 15, 11, 2, "frame")  # 右壁（出力側）
+    model.fill_box(4, 11, 1, 15, 11, 2, "frame")  # 上壁
+    model.fill_box(11, 4, 1, 11, 4, 2, "frame")   # 内角
 
     # ベルト
-    model.fill_box(6, 1, 1, 9, 9, 1, "belt")      # 縦部分
-    model.fill_box(6, 6, 1, 14, 9, 1, "belt")     # 横部分
+    model.fill_box(5, 1, 1, 10, 10, 1, "belt")    # 縦部分
+    model.fill_box(5, 5, 1, 14, 10, 1, "belt")    # 横部分
 
     # ローラー
-    model.fill_box(6, 0, 2, 9, 0, 2, "roller")    # 入力
-    model.fill_box(15, 6, 2, 15, 9, 2, "roller")  # 出力
+    model.fill_box(5, 0, 2, 10, 0, 2, "roller")   # 入力
+    model.fill_box(15, 5, 2, 15, 10, 2, "roller") # 出力
 
-    # 矢印
-    model.draw_arrow(12, 7, 2, "+x", "arrow")     # 右へ
+    # 矢印 (+X方向) - ベルト面に平面プリント (z=1)
+    # 中央2マス幅
+    # 矢じり
+    model.set_voxel_named(12, 7, 1, "arrow")
+    model.set_voxel_named(12, 8, 1, "arrow")
+    model.set_voxel_named(11, 6, 1, "arrow")
+    model.set_voxel_named(11, 7, 1, "arrow")
+    model.set_voxel_named(11, 8, 1, "arrow")
+    model.set_voxel_named(11, 9, 1, "arrow")
+    model.set_voxel_named(10, 5, 1, "arrow")
+    model.set_voxel_named(10, 6, 1, "arrow")
+    model.set_voxel_named(10, 9, 1, "arrow")
+    model.set_voxel_named(10, 10, 1, "arrow")
+    # 軸
+    model.set_voxel_named(9, 7, 1, "arrow")
+    model.set_voxel_named(9, 8, 1, "arrow")
+    model.set_voxel_named(8, 7, 1, "arrow")
+    model.set_voxel_named(8, 8, 1, "arrow")
 
     return model
 
 
 def create_conveyor_t_junction() -> VoxelModel:
-    """T字合流コンベアを生成（左右から入力、前方へ出力）- 細いT字"""
+    """T字合流コンベアを生成（左右から入力、前方へ出力）- 幅8ボクセルT字"""
     model = VoxelModel(16, 16, 3)
 
-    # T字の細いコンベア（幅6ボクセル）
-    # 縦部分: y=5〜15, x=5〜10
-    # 横部分: x=0〜15, y=5〜10
+    # T字のコンベア（幅8ボクセル）
+    # 縦部分: y=4〜15, x=4〜11
+    # 横部分: x=0〜15, y=4〜11
 
     # 底面フレーム（T字型）
-    model.fill_box(5, 5, 0, 10, 15, 0, "frame")   # 縦の帯
-    model.fill_box(0, 5, 0, 15, 10, 0, "frame")   # 横の帯
+    model.fill_box(4, 4, 0, 11, 15, 0, "frame")   # 縦の帯
+    model.fill_box(0, 4, 0, 15, 11, 0, "frame")   # 横の帯
 
     # 外壁
-    model.fill_box(0, 5, 1, 0, 10, 2, "frame")    # 左壁
-    model.fill_box(15, 5, 1, 15, 10, 2, "frame")  # 右壁
-    model.fill_box(5, 15, 1, 10, 15, 2, "frame")  # 前壁（出力）
-    model.fill_box(0, 10, 1, 4, 10, 2, "frame")   # 上壁左
-    model.fill_box(11, 10, 1, 15, 10, 2, "frame") # 上壁右
-    model.fill_box(5, 5, 1, 5, 5, 2, "frame")     # 内角左
-    model.fill_box(10, 5, 1, 10, 5, 2, "frame")   # 内角右
+    model.fill_box(0, 4, 1, 0, 11, 2, "frame")    # 左壁
+    model.fill_box(15, 4, 1, 15, 11, 2, "frame")  # 右壁
+    model.fill_box(4, 15, 1, 11, 15, 2, "frame")  # 前壁（出力）
+    model.fill_box(0, 11, 1, 3, 11, 2, "frame")   # 上壁左
+    model.fill_box(12, 11, 1, 15, 11, 2, "frame") # 上壁右
+    model.fill_box(4, 4, 1, 4, 4, 2, "frame")     # 内角左
+    model.fill_box(11, 4, 1, 11, 4, 2, "frame")   # 内角右
 
     # ベルト（T字型）
-    model.fill_box(6, 6, 1, 9, 14, 1, "belt")     # 縦部分
-    model.fill_box(1, 6, 1, 14, 9, 1, "belt")     # 横部分
+    model.fill_box(5, 5, 1, 10, 14, 1, "belt")    # 縦部分
+    model.fill_box(1, 5, 1, 14, 10, 1, "belt")    # 横部分
 
     # ローラー
-    model.fill_box(0, 6, 2, 0, 9, 2, "roller")    # 左入力
-    model.fill_box(15, 6, 2, 15, 9, 2, "roller")  # 右入力
-    model.fill_box(6, 15, 2, 9, 15, 2, "roller")  # 前出力
+    model.fill_box(0, 5, 2, 0, 10, 2, "roller")   # 左入力
+    model.fill_box(15, 5, 2, 15, 10, 2, "roller") # 右入力
+    model.fill_box(5, 15, 2, 10, 15, 2, "roller") # 前出力
 
-    # 矢印
-    model.draw_arrow(3, 7, 2, "+x", "arrow")      # 左から
-    model.draw_arrow(12, 7, 2, "-x", "arrow")     # 右から
-    model.draw_arrow(7, 12, 2, "+y", "arrow")     # 前へ
+    # 矢印 (+Y方向のみ出力) - ベルト面に平面プリント (z=1)
+    # 中央2マス幅
+    # 矢じり
+    model.set_voxel_named(7, 12, 1, "arrow")
+    model.set_voxel_named(8, 12, 1, "arrow")
+    model.set_voxel_named(6, 11, 1, "arrow")
+    model.set_voxel_named(7, 11, 1, "arrow")
+    model.set_voxel_named(8, 11, 1, "arrow")
+    model.set_voxel_named(9, 11, 1, "arrow")
+    model.set_voxel_named(5, 10, 1, "arrow")
+    model.set_voxel_named(6, 10, 1, "arrow")
+    model.set_voxel_named(9, 10, 1, "arrow")
+    model.set_voxel_named(10, 10, 1, "arrow")
 
     return model
 
 
 def create_conveyor_splitter() -> VoxelModel:
-    """十字スプリッターを生成（後ろから入力、前・左・右へ出力）- 細い十字"""
+    """十字スプリッターを生成（後ろから入力、前・左・右へ出力）- 幅8ボクセル十字"""
     model = VoxelModel(16, 16, 3)
 
-    # 十字の細いコンベア（幅6ボクセル）
-    # 縦部分: y=0〜15, x=5〜10
-    # 横部分: x=0〜15, y=5〜10
+    # 十字のコンベア（幅8ボクセル）
+    # 縦部分: y=0〜15, x=4〜11
+    # 横部分: x=0〜15, y=4〜11
 
     # 底面フレーム（十字型）
-    model.fill_box(5, 0, 0, 10, 15, 0, "frame")   # 縦の帯
-    model.fill_box(0, 5, 0, 15, 10, 0, "frame")   # 横の帯
+    model.fill_box(4, 0, 0, 11, 15, 0, "frame")   # 縦の帯
+    model.fill_box(0, 4, 0, 15, 11, 0, "frame")   # 横の帯
 
     # 外壁
-    model.fill_box(5, 0, 1, 10, 0, 2, "frame")    # 後壁（入力）
-    model.fill_box(5, 15, 1, 10, 15, 2, "frame")  # 前壁（出力）
-    model.fill_box(0, 5, 1, 0, 10, 2, "frame")    # 左壁（出力）
-    model.fill_box(15, 5, 1, 15, 10, 2, "frame")  # 右壁（出力）
+    model.fill_box(4, 0, 1, 11, 0, 2, "frame")    # 後壁（入力）
+    model.fill_box(4, 15, 1, 11, 15, 2, "frame")  # 前壁（出力）
+    model.fill_box(0, 4, 1, 0, 11, 2, "frame")    # 左壁（出力）
+    model.fill_box(15, 4, 1, 15, 11, 2, "frame")  # 右壁（出力）
 
     # 内壁（四隅）
-    model.fill_box(5, 5, 1, 5, 5, 2, "frame")     # 左後角
-    model.fill_box(10, 5, 1, 10, 5, 2, "frame")   # 右後角
-    model.fill_box(5, 10, 1, 5, 10, 2, "frame")   # 左前角
-    model.fill_box(10, 10, 1, 10, 10, 2, "frame") # 右前角
+    model.fill_box(4, 4, 1, 4, 4, 2, "frame")     # 左後角
+    model.fill_box(11, 4, 1, 11, 4, 2, "frame")   # 右後角
+    model.fill_box(4, 11, 1, 4, 11, 2, "frame")   # 左前角
+    model.fill_box(11, 11, 1, 11, 11, 2, "frame") # 右前角
 
     # ベルト（十字型）
-    model.fill_box(6, 1, 1, 9, 14, 1, "belt")     # 縦
-    model.fill_box(1, 6, 1, 14, 9, 1, "belt")     # 横
+    model.fill_box(5, 1, 1, 10, 14, 1, "belt")    # 縦
+    model.fill_box(1, 5, 1, 14, 10, 1, "belt")    # 横
 
-    # 分岐ポイント（中央）
-    model.fill_cylinder(7, 7, 2, 2, 2, "dark_steel")
+    # 分岐ポイント（中央）- 中央2x2
+    model.fill_box(7, 7, 2, 8, 8, 2, "dark_steel")
 
     # ローラー
-    model.fill_box(6, 0, 2, 9, 0, 2, "roller")    # 後入力
-    model.fill_box(6, 15, 2, 9, 15, 2, "roller")  # 前出力
-    model.fill_box(0, 6, 2, 0, 9, 2, "roller")    # 左出力
-    model.fill_box(15, 6, 2, 15, 9, 2, "roller")  # 右出力
+    model.fill_box(5, 0, 2, 10, 0, 2, "roller")   # 後入力
+    model.fill_box(5, 15, 2, 10, 15, 2, "roller") # 前出力
+    model.fill_box(0, 5, 2, 0, 10, 2, "roller")   # 左出力
+    model.fill_box(15, 5, 2, 15, 10, 2, "roller") # 右出力
 
-    # 矢印（3方向出力）
-    model.draw_arrow(7, 12, 2, "+y", "arrow")     # 前へ
-    model.draw_arrow(3, 7, 2, "-x", "arrow")      # 左へ
-    model.draw_arrow(12, 7, 2, "+x", "arrow")     # 右へ
+    # 矢印（3方向出力）- ベルト面に平面プリント (z=1)
+    # 前へ (+Y)
+    model.set_voxel_named(7, 12, 1, "arrow")
+    model.set_voxel_named(8, 12, 1, "arrow")
+    model.set_voxel_named(6, 11, 1, "arrow")
+    model.set_voxel_named(9, 11, 1, "arrow")
+    # 左へ (-X)
+    model.set_voxel_named(3, 7, 1, "arrow")
+    model.set_voxel_named(3, 8, 1, "arrow")
+    model.set_voxel_named(4, 6, 1, "arrow")
+    model.set_voxel_named(4, 9, 1, "arrow")
+    # 右へ (+X)
+    model.set_voxel_named(12, 7, 1, "arrow")
+    model.set_voxel_named(12, 8, 1, "arrow")
+    model.set_voxel_named(11, 6, 1, "arrow")
+    model.set_voxel_named(11, 9, 1, "arrow")
 
     return model
 
