@@ -291,7 +291,7 @@ node /home/bacon/idle_factory/test-wasm-interactions.js
   - 作業ログ → .specify/memory/work-log.md
   - フェーズ計画 → .specify/roadmap.md
 - InputStateテスト: test_input_state_priority, test_input_state_allows_methods追加済み
-- main.rs: 7362行（継続的に分割中）
+- main.rs: 8949行 → 分割モジュール作成済み（world/, machines/, ui/）
 
 ### P4: 後回し ✅完了
 
@@ -543,7 +543,11 @@ src/
     └── delivery.rs      # 納品プラットフォーム
 ```
 
-**リファクタリングのタイミング**: フェーズ1-6完了後、イベント駆動化と同時に実施
+**現在の分割状況**（2024年12月実施）:
+- `src/world/` - chunk.rs (395行), terrain.rs (130行) 作成済み
+- `src/machines/` - components.rs (201行), conveyor.rs (337行) 作成済み
+- `src/ui/` - components.rs (122行) 作成済み
+- main.rsから段階的に移行中（システム関数はまだmain.rsに残存）
 
 #### イベント設計（例）
 ```rust

@@ -6,8 +6,11 @@ mod constants;
 mod events;
 mod game_spec;
 mod logging;
+mod machines;
 mod player;
 mod save;
+mod ui;
+mod world;
 
 use events::GameEventsPlugin;
 use logging::GameLoggingPlugin;
