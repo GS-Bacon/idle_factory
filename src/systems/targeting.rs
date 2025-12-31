@@ -424,21 +424,24 @@ pub fn update_conveyor_shapes(
             .count();
 
         // Determine new shape
+        // Note: Model naming is by OUTPUT direction (corner_left = outputs left)
+        // But shape detection is by INPUT direction (has_left_input = input from left)
+        // When input comes from LEFT, we need to turn RIGHT (use CornerRight model)
+        // When input comes from RIGHT, we need to turn LEFT (use CornerLeft model)
         let new_shape = if output_count >= 2 && !has_left_input && !has_right_input {
             // Splitter mode: multiple outputs and no side inputs
             ConveyorShape::Splitter
         } else {
             match (has_left_input, has_right_input) {
                 (false, false) => ConveyorShape::Straight,
-                (true, false) => ConveyorShape::CornerLeft,
-                (false, true) => ConveyorShape::CornerRight,
+                (true, false) => ConveyorShape::CornerRight, // Input from left -> turn right
+                (false, true) => ConveyorShape::CornerLeft,  // Input from right -> turn left
                 (true, true) => ConveyorShape::TJunction,
             }
         };
 
         // Only update if shape changed
         if conveyor.shape != new_shape {
-            let _old_shape = conveyor.shape;
             conveyor.shape = new_shape;
 
             // Check if using glTF model (has SceneRoot component)

@@ -143,6 +143,7 @@ fn main() {
         .init_resource::<ConveyorRotationOffset>()
         .init_resource::<save::AutoSaveTimer>()
         .init_resource::<SaveLoadState>()
+        .init_resource::<ItemSprites>()
         .add_event::<SaveGameEvent>()
         .add_event::<LoadGameEvent>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models))

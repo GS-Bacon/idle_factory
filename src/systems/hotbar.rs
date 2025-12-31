@@ -2,14 +2,15 @@
 
 use crate::components::*;
 use crate::player::Inventory;
-use crate::BlockType;
 use bevy::prelude::*;
 
 /// Update hotbar UI display
 pub fn update_hotbar_ui(
     inventory: Res<Inventory>,
+    item_sprites: Res<ItemSprites>,
     mut slot_query: Query<(&HotbarSlot, &mut BackgroundColor, &mut BorderColor)>,
     mut count_query: Query<(&HotbarSlotCount, &mut Text)>,
+    mut image_query: Query<(&HotbarSlotImage, &mut ImageNode)>,
 ) {
     if !inventory.is_changed() {
         return;
@@ -35,25 +36,28 @@ pub fn update_hotbar_ui(
         }
     }
 
-    // Update slot counts
+    // Update slot sprite images
+    for (slot_image, mut image_node) in image_query.iter_mut() {
+        if let Some(block_type) = inventory.get_slot(slot_image.0) {
+            if let Some(sprite_handle) = item_sprites.get(block_type) {
+                image_node.image = sprite_handle;
+            } else {
+                image_node.image = Handle::default();
+            }
+        } else {
+            image_node.image = Handle::default();
+        }
+    }
+
+    // Update slot counts (only show number when count > 1)
     for (slot_count, mut text) in count_query.iter_mut() {
-        if let Some(block_type) = inventory.get_slot(slot_count.0) {
+        if let Some(_block_type) = inventory.get_slot(slot_count.0) {
             let count = inventory.get_slot_count(slot_count.0);
-            // Show abbreviated name and count
-            let name = match block_type {
-                BlockType::Grass => "Grs",
-                BlockType::Stone => "Stn",
-                BlockType::IronOre => "Fe",
-                BlockType::Coal => "C",
-                BlockType::IronIngot => "FeI",
-                BlockType::MinerBlock => "Min",
-                BlockType::ConveyorBlock => "Cnv",
-                BlockType::CopperOre => "Cu",
-                BlockType::CopperIngot => "CuI",
-                BlockType::CrusherBlock => "Cru",
-                BlockType::FurnaceBlock => "Fur",
-            };
-            **text = format!("{}\n{}", name, count);
+            if count > 1 {
+                **text = count.to_string();
+            } else {
+                **text = String::new();
+            }
         } else {
             **text = String::new();
         }

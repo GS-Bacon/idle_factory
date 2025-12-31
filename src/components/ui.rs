@@ -63,6 +63,10 @@ pub struct HotbarSlotCount(pub usize);
 #[derive(Component)]
 pub struct HotbarItemNameText;
 
+/// Marker for hotbar slot sprite image
+#[derive(Component)]
+pub struct HotbarSlotImage(pub usize);
+
 // === Machine UI ===
 
 /// Currently interacting furnace entity

@@ -737,24 +737,43 @@ pub fn block_place(
                 // Machines are spawned as separate entities, no need to modify world data
                 // (they don't occlude terrain blocks)
 
-                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                let material = materials.add(StandardMaterial {
-                    base_color: selected_type.color(),
-                    ..default()
-                });
-                commands.spawn((
-                    Mesh3d(cube_mesh),
-                    MeshMaterial3d(material),
-                    Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    )),
-                    Miner {
-                        position: place_pos,
-                        ..default()
-                    },
+                let transform = Transform::from_translation(Vec3::new(
+                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                    place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
                 ));
+
+                if let Some(model) = machine_models.miner.clone() {
+                    // Use GLB model
+                    commands.spawn((
+                        SceneRoot(model),
+                        transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Miner {
+                            position: place_pos,
+                            ..default()
+                        },
+                    ));
+                } else {
+                    // Fallback to cube
+                    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = materials.add(StandardMaterial {
+                        base_color: selected_type.color(),
+                        ..default()
+                    });
+                    commands.spawn((
+                        Mesh3d(cube_mesh),
+                        MeshMaterial3d(material),
+                        transform,
+                        Miner {
+                            position: place_pos,
+                            ..default()
+                        },
+                    ));
+                }
             }
             BlockType::ConveyorBlock => {
                 // Machines are spawned as separate entities, no need to modify world data
@@ -871,47 +890,87 @@ pub fn block_place(
                 // Machines are spawned as separate entities, no need to modify world data
                 // (they don't occlude terrain blocks)
 
-                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                let material = materials.add(StandardMaterial {
-                    base_color: selected_type.color(),
-                    ..default()
-                });
-                commands.spawn((
-                    Mesh3d(cube_mesh),
-                    MeshMaterial3d(material),
-                    Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    )),
-                    Crusher {
-                        position: place_pos,
-                        input_type: None,
-                        input_count: 0,
-                        output_type: None,
-                        output_count: 0,
-                        progress: 0.0,
-                    },
+                let transform = Transform::from_translation(Vec3::new(
+                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                    place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
                 ));
+
+                if let Some(model) = machine_models.crusher.clone() {
+                    // Use GLB model
+                    commands.spawn((
+                        SceneRoot(model),
+                        transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Crusher {
+                            position: place_pos,
+                            input_type: None,
+                            input_count: 0,
+                            output_type: None,
+                            output_count: 0,
+                            progress: 0.0,
+                        },
+                    ));
+                } else {
+                    // Fallback to cube
+                    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = materials.add(StandardMaterial {
+                        base_color: selected_type.color(),
+                        ..default()
+                    });
+                    commands.spawn((
+                        Mesh3d(cube_mesh),
+                        MeshMaterial3d(material),
+                        transform,
+                        Crusher {
+                            position: place_pos,
+                            input_type: None,
+                            input_count: 0,
+                            output_type: None,
+                            output_count: 0,
+                            progress: 0.0,
+                        },
+                    ));
+                }
             }
             BlockType::FurnaceBlock => {
                 info!(category = "MACHINE", action = "place", machine = "furnace", ?place_pos, "Furnace placed");
                 // Furnace - similar to crusher, spawns entity with Furnace component
-                let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                let material = materials.add(StandardMaterial {
-                    base_color: selected_type.color(),
-                    ..default()
-                });
-                commands.spawn((
-                    Mesh3d(cube_mesh),
-                    MeshMaterial3d(material),
-                    Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    )),
-                    Furnace::default(),
+
+                let transform = Transform::from_translation(Vec3::new(
+                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                    place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
                 ));
+
+                if let Some(model) = machine_models.furnace.clone() {
+                    // Use GLB model
+                    commands.spawn((
+                        SceneRoot(model),
+                        transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Furnace::default(),
+                    ));
+                } else {
+                    // Fallback to cube
+                    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = materials.add(StandardMaterial {
+                        base_color: selected_type.color(),
+                        ..default()
+                    });
+                    commands.spawn((
+                        Mesh3d(cube_mesh),
+                        MeshMaterial3d(material),
+                        transform,
+                        Furnace::default(),
+                    ));
+                }
             }
             _ => {
                 // Regular block - add to world data and regenerate chunk mesh

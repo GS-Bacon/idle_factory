@@ -179,15 +179,31 @@ pub fn setup_ui(mut commands: Commands) {
                                 ..default()
                             },
                         ));
+                        // Item sprite image
+                        slot.spawn((
+                            HotbarSlotImage(i),
+                            ImageNode::default(),
+                            Node {
+                                width: Val::Px(32.0),
+                                height: Val::Px(32.0),
+                                ..default()
+                            },
+                        ));
                         // Item count
                         slot.spawn((
                             HotbarSlotCount(i),
                             Text::new(""),
                             TextFont {
-                                font_size: 14.0,
+                                font_size: 12.0,
                                 ..default()
                             },
                             TextColor(Color::WHITE),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                bottom: Val::Px(2.0),
+                                right: Val::Px(4.0),
+                                ..default()
+                            },
                         ));
                     });
             }

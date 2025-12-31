@@ -172,3 +172,16 @@ pub struct SaveLoadState {
     #[allow(dead_code)]
     pub last_message: Option<String>,
 }
+
+/// Resource to hold item sprite textures for UI
+#[derive(Resource, Default)]
+pub struct ItemSprites {
+    pub textures: HashMap<BlockType, Handle<Image>>,
+}
+
+impl ItemSprites {
+    /// Get sprite handle for a block type, returns None if not loaded
+    pub fn get(&self, block_type: BlockType) -> Option<Handle<Image>> {
+        self.textures.get(&block_type).cloned()
+    }
+}

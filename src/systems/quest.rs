@@ -230,6 +230,7 @@ pub fn update_delivery_ui(
 pub fn load_machine_models(
     asset_server: Res<AssetServer>,
     mut models: ResMut<MachineModels>,
+    mut item_sprites: ResMut<ItemSprites>,
 ) {
     // Try to load conveyor models
     models.conveyor_straight = Some(asset_server.load("models/machines/conveyor/straight.glb#Scene0"));
@@ -253,4 +254,17 @@ pub fn load_machine_models(
 
     // Will check if loaded in update system
     models.loaded = false;
+
+    // Load item sprites for UI
+    use crate::BlockType;
+    item_sprites.textures.insert(BlockType::IronOre, asset_server.load("textures/items/iron_ore.png"));
+    item_sprites.textures.insert(BlockType::CopperOre, asset_server.load("textures/items/copper_ore.png"));
+    item_sprites.textures.insert(BlockType::Coal, asset_server.load("textures/items/coal.png"));
+    item_sprites.textures.insert(BlockType::Stone, asset_server.load("textures/items/stone.png"));
+    item_sprites.textures.insert(BlockType::IronIngot, asset_server.load("textures/items/iron_ingot.png"));
+    item_sprites.textures.insert(BlockType::CopperIngot, asset_server.load("textures/items/copper_ingot.png"));
+    item_sprites.textures.insert(BlockType::MinerBlock, asset_server.load("textures/items/miner.png"));
+    item_sprites.textures.insert(BlockType::ConveyorBlock, asset_server.load("textures/items/conveyor.png"));
+    item_sprites.textures.insert(BlockType::FurnaceBlock, asset_server.load("textures/items/furnace.png"));
+    item_sprites.textures.insert(BlockType::CrusherBlock, asset_server.load("textures/items/crusher.png"));
 }

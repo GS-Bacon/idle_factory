@@ -321,7 +321,7 @@ def create_conveyor_straight() -> VoxelModel:
 
     特徴:
     - 先端にストッパーなし（連結時に一直線）
-    - 山形パターン（^）で進行方向を示す
+    - 山形パターン（^）で進行方向を示す（ベルト面と同じ高さでフラット）
     - 低いサイドレールで連結感
     """
     model = VoxelModel(16, 16, 2)  # 高さ2に変更（より低く）
@@ -334,17 +334,18 @@ def create_conveyor_straight() -> VoxelModel:
     model.fill_box(15, 0, 0, 15, 15, 1, "frame") # 右レール
 
     # 山形パターン（^）を複数配置 - 進行方向（+Y）を示す
+    # Z=0でベルト面と同じ高さに配置（フラットな模様として見える）
     def draw_chevron(y_center: int):
         """中央に山形を描画"""
         # 山形の頂点から両側に広がる
-        model.set_voxel_named(7, y_center, 1, "arrow")
-        model.set_voxel_named(8, y_center, 1, "arrow")
-        model.set_voxel_named(6, y_center - 1, 1, "arrow")
-        model.set_voxel_named(9, y_center - 1, 1, "arrow")
-        model.set_voxel_named(5, y_center - 2, 1, "arrow")
-        model.set_voxel_named(10, y_center - 2, 1, "arrow")
-        model.set_voxel_named(4, y_center - 3, 1, "arrow")
-        model.set_voxel_named(11, y_center - 3, 1, "arrow")
+        model.set_voxel_named(7, y_center, 0, "arrow")
+        model.set_voxel_named(8, y_center, 0, "arrow")
+        model.set_voxel_named(6, y_center - 1, 0, "arrow")
+        model.set_voxel_named(9, y_center - 1, 0, "arrow")
+        model.set_voxel_named(5, y_center - 2, 0, "arrow")
+        model.set_voxel_named(10, y_center - 2, 0, "arrow")
+        model.set_voxel_named(4, y_center - 3, 0, "arrow")
+        model.set_voxel_named(11, y_center - 3, 0, "arrow")
 
     # 3つの山形を等間隔に配置
     draw_chevron(4)
@@ -373,22 +374,22 @@ def create_conveyor_corner_left() -> VoxelModel:
     # 内側レール（L字の内角）- コーナー部分は開ける
     model.fill_box(0, 0, 0, 0, 0, 1, "frame")    # 入力左端
 
-    # 曲がり矢印（カーブを示す山形）
+    # 曲がり矢印（カーブを示す山形）- Z=0でフラット
     # 入力側の山形
-    model.set_voxel_named(7, 3, 1, "arrow")
-    model.set_voxel_named(8, 3, 1, "arrow")
-    model.set_voxel_named(6, 2, 1, "arrow")
-    model.set_voxel_named(9, 2, 1, "arrow")
-    model.set_voxel_named(5, 1, 1, "arrow")
-    model.set_voxel_named(10, 1, 1, "arrow")
+    model.set_voxel_named(7, 3, 0, "arrow")
+    model.set_voxel_named(8, 3, 0, "arrow")
+    model.set_voxel_named(6, 2, 0, "arrow")
+    model.set_voxel_named(9, 2, 0, "arrow")
+    model.set_voxel_named(5, 1, 0, "arrow")
+    model.set_voxel_named(10, 1, 0, "arrow")
 
     # 出力側の山形（-X方向）
-    model.set_voxel_named(3, 7, 1, "arrow")
-    model.set_voxel_named(3, 8, 1, "arrow")
-    model.set_voxel_named(2, 6, 1, "arrow")
-    model.set_voxel_named(2, 9, 1, "arrow")
-    model.set_voxel_named(1, 5, 1, "arrow")
-    model.set_voxel_named(1, 10, 1, "arrow")
+    model.set_voxel_named(3, 7, 0, "arrow")
+    model.set_voxel_named(3, 8, 0, "arrow")
+    model.set_voxel_named(2, 6, 0, "arrow")
+    model.set_voxel_named(2, 9, 0, "arrow")
+    model.set_voxel_named(1, 5, 0, "arrow")
+    model.set_voxel_named(1, 10, 0, "arrow")
 
     return model
 
@@ -412,22 +413,22 @@ def create_conveyor_corner_right() -> VoxelModel:
     # 内側レール - コーナー部分は開ける
     model.fill_box(15, 0, 0, 15, 0, 1, "frame")  # 入力右端
 
-    # 曲がり矢印（カーブを示す山形）
+    # 曲がり矢印（カーブを示す山形）- Z=0でフラット
     # 入力側の山形
-    model.set_voxel_named(7, 3, 1, "arrow")
-    model.set_voxel_named(8, 3, 1, "arrow")
-    model.set_voxel_named(6, 2, 1, "arrow")
-    model.set_voxel_named(9, 2, 1, "arrow")
-    model.set_voxel_named(5, 1, 1, "arrow")
-    model.set_voxel_named(10, 1, 1, "arrow")
+    model.set_voxel_named(7, 3, 0, "arrow")
+    model.set_voxel_named(8, 3, 0, "arrow")
+    model.set_voxel_named(6, 2, 0, "arrow")
+    model.set_voxel_named(9, 2, 0, "arrow")
+    model.set_voxel_named(5, 1, 0, "arrow")
+    model.set_voxel_named(10, 1, 0, "arrow")
 
     # 出力側の山形（+X方向）
-    model.set_voxel_named(12, 7, 1, "arrow")
-    model.set_voxel_named(12, 8, 1, "arrow")
-    model.set_voxel_named(13, 6, 1, "arrow")
-    model.set_voxel_named(13, 9, 1, "arrow")
-    model.set_voxel_named(14, 5, 1, "arrow")
-    model.set_voxel_named(14, 10, 1, "arrow")
+    model.set_voxel_named(12, 7, 0, "arrow")
+    model.set_voxel_named(12, 8, 0, "arrow")
+    model.set_voxel_named(13, 6, 0, "arrow")
+    model.set_voxel_named(13, 9, 0, "arrow")
+    model.set_voxel_named(14, 5, 0, "arrow")
+    model.set_voxel_named(14, 10, 0, "arrow")
 
     return model
 
@@ -444,13 +445,13 @@ def create_conveyor_t_junction() -> VoxelModel:
     model.fill_box(1, 1, 0, 14, 15, 0, "belt")   # 縦（出力側）
     model.fill_box(0, 1, 0, 15, 14, 0, "belt")   # 横（入力側）
 
-    # 出力方向の山形
-    model.set_voxel_named(7, 13, 1, "arrow")
-    model.set_voxel_named(8, 13, 1, "arrow")
-    model.set_voxel_named(6, 12, 1, "arrow")
-    model.set_voxel_named(9, 12, 1, "arrow")
-    model.set_voxel_named(5, 11, 1, "arrow")
-    model.set_voxel_named(10, 11, 1, "arrow")
+    # 出力方向の山形 - Z=0でフラット
+    model.set_voxel_named(7, 13, 0, "arrow")
+    model.set_voxel_named(8, 13, 0, "arrow")
+    model.set_voxel_named(6, 12, 0, "arrow")
+    model.set_voxel_named(9, 12, 0, "arrow")
+    model.set_voxel_named(5, 11, 0, "arrow")
+    model.set_voxel_named(10, 11, 0, "arrow")
 
     return model
 
@@ -473,10 +474,10 @@ def create_conveyor_splitter() -> VoxelModel:
     model.fill_box(0, 15, 0, 0, 15, 1, "frame")  # 出力前左
     model.fill_box(15, 15, 0, 15, 15, 1, "frame") # 出力前右
 
-    # 中央分岐マーカー
-    model.fill_box(7, 7, 1, 8, 8, 1, "warning")
-    model.set_voxel_named(7, 8, 1, "arrow")
-    model.set_voxel_named(8, 8, 1, "arrow")
+    # 中央分岐マーカー - Z=0でフラット
+    model.fill_box(7, 7, 0, 8, 8, 0, "warning")
+    model.set_voxel_named(7, 8, 0, "arrow")
+    model.set_voxel_named(8, 8, 0, "arrow")
 
     return model
 
