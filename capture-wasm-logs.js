@@ -18,9 +18,10 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const GAME_URL = 'http://localhost:8080';
+const GAME_URL = 'http://10.13.1.1:8080';
 const DEFAULT_DURATION = 30; // seconds
 const LOGS_DIR = path.join(__dirname, 'logs');
+const FREEZE_THRESHOLD_MS = 3000; // 3 seconds without requestAnimationFrame = freeze
 
 async function captureWasmLogs(durationSeconds, outputFile) {
     // Ensure logs directory exists
@@ -32,6 +33,9 @@ async function captureWasmLogs(durationSeconds, outputFile) {
     const logFile = outputFile || path.join(LOGS_DIR, `wasm_${timestamp}.log`);
 
     const logs = [];
+    let lastFrameTime = Date.now();
+    let freezeCount = 0;
+    let panicDetected = false;
 
     console.log(`🎮 Starting WASM log capture`);
     console.log(`   URL: ${GAME_URL}`);
@@ -59,8 +63,17 @@ async function captureWasmLogs(durationSeconds, outputFile) {
             const entry = `[${timestamp}] [${type}] ${text}`;
             logs.push(entry);
 
+            // Detect WASM panic
+            if (text.includes('panicked at') || text.includes('wasm-bindgen') && text.includes('error')) {
+                panicDetected = true;
+                console.log(`\n💀 WASM PANIC: ${text}`);
+            }
+            // Detect memory issues
+            else if (text.includes('out of memory') || text.includes('OOM') || text.includes('memory access')) {
+                console.log(`\n🧠 MEMORY ERROR: ${text}`);
+            }
             // Also print to stdout for real-time monitoring
-            if (type === 'ERROR') {
+            else if (type === 'ERROR') {
                 console.log(`❌ ${text}`);
             } else if (type === 'WARNING') {
                 console.log(`⚠️  ${text}`);
@@ -97,15 +110,81 @@ async function captureWasmLogs(durationSeconds, outputFile) {
         console.log('✅ Connected! Capturing logs...');
         console.log('');
 
-        // Wait for the specified duration
+        // Inject frame monitoring script
+        await page.evaluate(() => {
+            window.__frameTimestamps = [];
+            window.__lastFrameTime = Date.now();
+            window.__freezeEvents = [];
+
+            const originalRAF = window.requestAnimationFrame;
+            window.requestAnimationFrame = function(callback) {
+                const now = Date.now();
+                const delta = now - window.__lastFrameTime;
+
+                // Detect freeze (>3 seconds between frames)
+                if (delta > 3000) {
+                    window.__freezeEvents.push({
+                        timestamp: new Date().toISOString(),
+                        duration: delta,
+                        type: 'FREEZE'
+                    });
+                    console.warn(`FREEZE DETECTED: ${delta}ms between frames`);
+                }
+
+                window.__lastFrameTime = now;
+                window.__frameTimestamps.push(now);
+
+                // Keep only last 60 timestamps for FPS calculation
+                if (window.__frameTimestamps.length > 60) {
+                    window.__frameTimestamps.shift();
+                }
+
+                return originalRAF.call(window, callback);
+            };
+        });
+
+        // Wait for the specified duration, checking for issues periodically
         const startTime = Date.now();
         const endTime = startTime + (durationSeconds * 1000);
 
         while (Date.now() < endTime) {
             const remaining = Math.ceil((endTime - Date.now()) / 1000);
-            process.stdout.write(`\r⏱️  ${remaining}s remaining... (${logs.length} logs captured)`);
+
+            // Check for freeze events and FPS
+            const stats = await page.evaluate(() => {
+                const freezes = window.__freezeEvents || [];
+                const timestamps = window.__frameTimestamps || [];
+                let fps = 0;
+
+                if (timestamps.length >= 2) {
+                    const duration = (timestamps[timestamps.length - 1] - timestamps[0]) / 1000;
+                    if (duration > 0) {
+                        fps = Math.round((timestamps.length - 1) / duration);
+                    }
+                }
+
+                // Clear freeze events after reporting
+                window.__freezeEvents = [];
+
+                return { freezes, fps, frameCount: timestamps.length };
+            });
+
+            // Log any freeze events
+            for (const freeze of stats.freezes) {
+                const entry = `[${freeze.timestamp}] [FREEZE] Duration: ${freeze.duration}ms`;
+                logs.push(entry);
+                freezeCount++;
+                console.log(`\n🥶 FREEZE DETECTED: ${freeze.duration}ms`);
+            }
+
+            process.stdout.write(`\r⏱️  ${remaining}s remaining... (${logs.length} logs, FPS: ${stats.fps}, freezes: ${freezeCount})`);
             await new Promise(r => setTimeout(r, 1000));
         }
+
+        // Final stats
+        const finalStats = await page.evaluate(() => ({
+            totalFrames: window.__frameTimestamps?.length || 0
+        }));
 
         console.log('\n');
 
@@ -146,17 +225,31 @@ async function captureWasmLogs(durationSeconds, outputFile) {
     // Summary
     const errors = logs.filter(l => l.includes('[ERROR]') || l.includes('[PAGEERROR]')).length;
     const warnings = logs.filter(l => l.includes('[WARNING]')).length;
+    const freezes = logs.filter(l => l.includes('[FREEZE]')).length;
     const gameEvents = logs.filter(l =>
         l.includes('BLOCK') || l.includes('MACHINE') || l.includes('QUEST')
     ).length;
 
     console.log('');
-    console.log('📊 Summary:');
-    console.log(`   Errors: ${errors}`);
-    console.log(`   Warnings: ${warnings}`);
-    console.log(`   Game events: ${gameEvents}`);
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('📊 WASM Diagnostics Summary:');
+    console.log('───────────────────────────────────────────────────────');
+    console.log(`   Total logs:    ${logs.length}`);
+    console.log(`   Errors:        ${errors}`);
+    console.log(`   Warnings:      ${warnings}`);
+    console.log(`   Freezes:       ${freezes}`);
+    console.log(`   Game events:   ${gameEvents}`);
+    console.log(`   Panic detected: ${panicDetected ? '❌ YES' : '✅ No'}`);
+    console.log('═══════════════════════════════════════════════════════');
 
-    return { logFile, logs, errors, warnings };
+    if (panicDetected) {
+        console.log('\n⚠️  WASM panic was detected! Check the log file for details.');
+    }
+    if (freezes > 0) {
+        console.log(`\n⚠️  ${freezes} freeze event(s) detected! Game may have performance issues.`);
+    }
+
+    return { logFile, logs, errors, warnings, freezes, panicDetected };
 }
 
 // Main

@@ -1,51 +1,82 @@
-# modeling-rules (AI compressed)
+# modeling-rules (VOX方式)
 
-ref:modeling-compact.md(detailed)|research:lowpoly-style-research.md
+## 概要
 
-## style
+ボクセルベースで3Dモデルを生成。グリーディメッシングで自動最適化。
 
-base:mc/unturned-block+astroneer-textureless|shade:flat+vertex-edge-dark
-palette:material-color-only(no-uv)|tri-budget:tool50-200,machine200-1500
+## スタイル
 
-## tool-ratio
+- **形状**: Minecraft/Unturned風ブロック感
+- **カラー**: テクスチャレス、マテリアルカラーのみ（Astroneer風）
+- **単位**: 16ボクセル = 1ゲームブロック
 
-handle:60-70%total|head-h:30-40%|head-w:4-6×handle-dia|grip:handle+15%
-total-h:0.18-0.25|validate:print-ratios,check-connect
+## ツール
 
-## primitives
+| ファイル | 役割 |
+|----------|------|
+| `tools/voxel_generator.py` | .voxファイル生成 |
+| `tools/vox_to_gltf.py` | .vox → .glb変換（グリーディメッシング） |
 
-use:octagon,chamfered-cube,hexagon,trapezoid|禁止:vertex-move
-hierarchy:root-empty→parts-relative|origin:bottom-center(0,0,0)
+## パレット
 
-## _base.py
+```
+基本: iron, copper, brass, dark_steel, wood, stone
+コンベア: frame, belt, roller, arrow
+機械: furnace_body, furnace_glow, crusher_body, miner_body
+アクセント: danger, warning, power, active
+```
 
-primitive:create_octagon,octagonal_prism,chamfered_cube,hexagon,trapezoid
-part:gear,shaft,pipe,bolt,piston,roller,conveyor_belt,support_leg
-high-level:tool_handle,ingot,ore_chunk,plate,machine_frame,corner_bolts
-material:iron,copper,brass,dark_steel,wood,stone
-finish:finalize_model,export_gltf,validate_model
+## サイズガイド
 
-## connection-face
+| カテゴリ | サイズ |
+|----------|--------|
+| item | 8x8x16 |
+| machine | 16x16x16 |
+| conveyor | 16x16x4 |
+| structure | 32x32x32 |
 
-dir:front(+Z),back(-Z),left(-X),right(+X),top(+Y),bottom(-Y)
-flange:pipe-dia×1.2-1.4,thick0.02-0.03,bolt4-6
-pos:block-boundary(±0.5)|meta:extras-json
+## 出力先
 
-## done-models
+```
+assets/models/
+├── items/{name}.glb
+├── machines/{name}.glb
+└── machines/conveyor/{shape}.glb
+```
 
-item:pickaxe,hammer,axe,wrench,shovel,drill,pal_sphere
-machine:furnace,conveyor,crusher,press,pump,tank,miner,assembler,mixer,centrifuge,generator,chemical_reactor,solar_panel,coal_gen,fuel_gen,nuclear,color_router,signal_tx/rx,creature_feeder/breed/transport,train_engine,cargo_wagon
-structure:train_station,creature_pen
+## 完成済みモデル
 
-## todo
+### コンベア（VOX方式）
+- straight.glb (8.9KB, 232頂点)
+- corner_left.glb (8.2KB, 208頂点)
+- corner_right.glb (8.2KB, 208頂点)
+- t_junction.glb (8.5KB, 220頂点)
+- splitter.glb (13.4KB, 404頂点)
 
-priority1:pipe-straight/L/T/cross
-priority2:chest,shaft,gearbox
-priority3:wire,cable,circuit_board
+### Blender方式（バックアップ）
+- *_blender.glb として保存
 
-## workflow
+## ワークフロー
 
-1.subagent(general-purpose)+prompt:_base.py-read,model-name,category,principles
-2.blender-mcp:execute→preview→fix
-3.validate:ratio,connect,tri-count
-4.export:assets/models/{cat}/{name}.gltf
+```
+1. voxel_generator.pyでモデル定義
+2. .voxファイル生成
+3. vox_to_gltf.pyでglb変換
+4. Blenderでプレビュー確認
+5. ゲームで使用
+```
+
+## コマンド
+
+```bash
+# vox生成
+python3 tools/voxel_generator.py
+
+# glb変換
+blender --background --python tools/vox_to_gltf.py -- input.vox output.glb
+
+# 一括変換
+for vox in assets/models/**/*.vox; do
+    blender --background --python tools/vox_to_gltf.py -- "$vox" "${vox%.vox}.glb"
+done
+```

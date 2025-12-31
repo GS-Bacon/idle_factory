@@ -4777,6 +4777,7 @@ fn miner_interact(
 }
 
 /// Handle miner UI button clicks (take buffer, discard buffer)
+#[allow(clippy::type_complexity)]
 fn miner_ui_input(
     interacting: Res<InteractingMiner>,
     mut miner_query: Query<&mut Miner>,
@@ -6381,6 +6382,7 @@ fn rotate_conveyor_placement(
 /// Update conveyor shapes based on adjacent conveyor connections
 /// Adds visual extensions for side inputs (L-shape, T-shape)
 /// Detects splitter mode when multiple outputs are available
+#[allow(clippy::type_complexity)]
 fn update_conveyor_shapes(
     mut commands: Commands,
     mut conveyors: Query<(Entity, &mut Conveyor, Option<&mut Mesh3d>, Option<&SceneRoot>, &Transform)>,

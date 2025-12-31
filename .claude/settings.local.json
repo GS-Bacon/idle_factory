@@ -247,7 +247,17 @@
       "Bash(# Check if WASM build is available ls -la /home/bacon/idle_factory/web/)",
       "Bash(npm init:*)",
       "Bash(DISPLAY=:10 npm test:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(# Quick check if the game ran okay ls -la /home/bacon/idle_factory/screenshots/verify/ || echo \"\"No verify screenshots\"\" # Check logs ls -la /home/bacon/idle_factory/logs/)",
+      "Bash(# Check if MagicaVoxel is installed or if there''s a vox-to-gltf converter which MagicaVoxel || which magicavoxel || pip3 show pyvox || echo \"\"No vox tools found\"\" # Check for py-vox-io or similar pip3 list)",
+      "Bash(__NEW_LINE__ cp /tmp/straight_greedy_preview.png /home/bacon/idle_factory/screenshots/verify/)",
+      "Bash(__NEW_LINE__ echo \"\")",
+      "Bash(__NEW_LINE__ cp /tmp/miner_preview.png /home/bacon/idle_factory/screenshots/verify/)",
+      "Bash(./show-logs.sh:*)",
+      "Bash(for vox in assets/models/machines/conveyor/straight.vox assets/models/machines/conveyor/corner_left.vox assets/models/machines/conveyor/corner_right.vox assets/models/machines/conveyor/t_junction.vox assets/models/machines/conveyor/splitter.vox)",
+      "Bash(node capture-wasm-logs.js:*)",
+      "Bash(fuser:*)",
+      "Bash(simple-http-server --version)"
     ]
   },
   "enableAllProjectMcpServers": true,
