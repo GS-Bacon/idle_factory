@@ -3610,15 +3610,12 @@ fn block_place(
 
                 // Try to use glTF model, fallback to procedural mesh
                 if let Some(model_handle) = machine_models.get_conveyor_model(ConveyorShape::Straight) {
-                    // Spawn with glTF model
-                    // Note: Need GlobalTransform for child transforms to work properly
+                    // Spawn with glTF model as SceneRoot (not as child)
+                    // SceneRoot handles its own Transform propagation
                     commands.spawn((
+                        SceneRoot(model_handle),
                         Transform::from_translation(conveyor_pos)
                             .with_rotation(facing_direction.to_rotation()),
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
                         Conveyor {
                             position: place_pos,
                             direction: facing_direction,
@@ -3627,14 +3624,8 @@ fn block_place(
                             last_input_source: 0,
                             shape: ConveyorShape::Straight,
                         },
-                    )).with_children(|parent| {
-                        // Spawn glTF scene as child
-                        parent.spawn((
-                            SceneRoot(model_handle),
-                            Transform::default(),
-                            ConveyorVisual,
-                        ));
-                    });
+                        ConveyorVisual,
+                    ));
                 } else {
                     // Fallback: procedural mesh
                     let conveyor_mesh = meshes.add(Cuboid::new(
@@ -5950,17 +5941,16 @@ fn rotate_conveyor_placement(
 /// Detects splitter mode when multiple outputs are available
 fn update_conveyor_shapes(
     mut commands: Commands,
-    mut conveyors: Query<(Entity, &mut Conveyor, Option<&mut Mesh3d>, Option<&Children>)>,
-    visual_query: Query<Entity, With<ConveyorVisual>>,
+    mut conveyors: Query<(Entity, &mut Conveyor, Option<&mut Mesh3d>, Option<&SceneRoot>, &Transform)>,
     mut meshes: ResMut<Assets<Mesh>>,
     machine_models: Res<MachineModels>,
-    furnace_query: Query<&Transform, With<Furnace>>,
+    furnace_query: Query<&Transform, (With<Furnace>, Without<Conveyor>)>,
     crusher_query: Query<&Crusher>,
 ) {
     // Collect all conveyor positions and directions first (read-only pass)
     let conveyor_data: Vec<(IVec3, Direction)> = conveyors
         .iter()
-        .map(|(_, c, _, _)| (c.position, c.direction))
+        .map(|(_, c, _, _, _)| (c.position, c.direction))
         .collect();
 
     // Collect positions that can accept items (conveyors, furnaces, crushers)
@@ -5978,7 +5968,7 @@ fn update_conveyor_shapes(
         .map(|c| c.position)
         .collect();
 
-    for (entity, mut conveyor, mesh3d_opt, children) in conveyors.iter_mut() {
+    for (entity, mut conveyor, mesh3d_opt, scene_root_opt, transform) in conveyors.iter_mut() {
         // Calculate inputs from adjacent conveyors
         let mut has_left_input = false;
         let mut has_right_input = false;
@@ -6044,33 +6034,36 @@ fn update_conveyor_shapes(
 
         // Only update if shape changed
         if conveyor.shape != new_shape {
+            let _old_shape = conveyor.shape;
             conveyor.shape = new_shape;
 
-            // Check if using glTF model (has ConveyorVisual child with SceneRoot)
-            let has_gltf_visual = children
-                .as_ref()
-                .map(|c| c.iter().any(|child| visual_query.get(*child).is_ok()))
-                .unwrap_or(false);
+            // Check if using glTF model (has SceneRoot component)
+            let uses_gltf = scene_root_opt.is_some();
 
-            if has_gltf_visual {
-                // Using glTF models - despawn old visual and spawn new one
+            if uses_gltf {
+                // Using glTF models - need to despawn and respawn with new model
                 if let Some(new_model) = machine_models.get_conveyor_model(new_shape) {
-                    // Despawn old ConveyorVisual children
-                    if let Some(c) = &children {
-                        for child in c.iter() {
-                            if visual_query.get(*child).is_ok() {
-                                commands.entity(*child).despawn_recursive();
-                            }
-                        }
-                    }
-                    // Spawn new glTF visual as child
-                    commands.entity(entity).with_children(|parent| {
-                        parent.spawn((
-                            SceneRoot(new_model),
-                            Transform::default(),
-                            ConveyorVisual,
-                        ));
-                    });
+                    // Store conveyor data before despawn
+                    let conv_data = Conveyor {
+                        position: conveyor.position,
+                        direction: conveyor.direction,
+                        items: std::mem::take(&mut conveyor.items),
+                        last_output_index: conveyor.last_output_index,
+                        last_input_source: conveyor.last_input_source,
+                        shape: new_shape,
+                    };
+                    let conv_transform = *transform;
+
+                    // Despawn old entity
+                    commands.entity(entity).despawn_recursive();
+
+                    // Spawn new entity with new model
+                    commands.spawn((
+                        SceneRoot(new_model),
+                        conv_transform,
+                        conv_data,
+                        ConveyorVisual,
+                    ));
                 }
             } else if let Some(mut mesh3d) = mesh3d_opt {
                 // Using procedural mesh - just swap the mesh
