@@ -913,9 +913,6 @@ impl Conveyor {
 #[derive(Component)]
 struct ConveyorItemVisual;
 
-/// Marker for conveyor input extension (visual indicator for side inputs)
-#[derive(Component)]
-struct ConveyorInputMarker;
 
 /// Crusher component - doubles ore output
 #[derive(Component)]
@@ -5797,19 +5794,16 @@ fn rotate_conveyor_placement(
 /// Update conveyor shapes based on adjacent conveyor connections
 /// Adds visual extensions for side inputs (L-shape, T-shape)
 fn update_conveyor_shapes(
-    mut commands: Commands,
-    mut conveyors: Query<(Entity, &mut Conveyor, Option<&Children>)>,
-    input_markers: Query<Entity, With<ConveyorInputMarker>>,
+    mut conveyors: Query<(&mut Conveyor, &mut Mesh3d)>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Collect all conveyor positions and directions first (read-only pass)
     let conveyor_data: Vec<(IVec3, Direction)> = conveyors
         .iter()
-        .map(|(_, c, _)| (c.position, c.direction))
+        .map(|(c, _)| (c.position, c.direction))
         .collect();
 
-    for (entity, mut conveyor, children) in conveyors.iter_mut() {
+    for (mut conveyor, mut mesh3d) in conveyors.iter_mut() {
         // Calculate inputs from adjacent conveyors
         let mut has_left_input = false;
         let mut has_right_input = false;
@@ -5841,70 +5835,208 @@ fn update_conveyor_shapes(
         if conveyor.shape != new_shape {
             conveyor.shape = new_shape;
 
-            // Remove old input markers
-            if let Some(children) = children {
-                for child in children.iter() {
-                    if input_markers.get(*child).is_ok() {
-                        commands.entity(*child).despawn_recursive();
-                    }
-                }
-            }
-
-            // Add new input markers based on shape
-            let marker_mesh = meshes.add(Cuboid::new(
-                BLOCK_SIZE * 0.3,  // Width
-                BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
-                BLOCK_SIZE * 0.5   // Length (half block)
-            ));
-            let marker_material = materials.add(StandardMaterial {
-                base_color: Color::srgb(0.4, 0.4, 0.5), // Slightly different color
-                ..default()
-            });
-
-            match new_shape {
-                ConveyorShape::Straight => {}
-                ConveyorShape::CornerLeft => {
-                    // Add left input extension
-                    commands.entity(entity).with_children(|parent| {
-                        parent.spawn((
-                            Mesh3d(marker_mesh.clone()),
-                            MeshMaterial3d(marker_material.clone()),
-                            Transform::from_translation(Vec3::new(-0.35, 0.0, 0.25)),
-                            ConveyorInputMarker,
-                        ));
-                    });
-                }
-                ConveyorShape::CornerRight => {
-                    // Add right input extension
-                    commands.entity(entity).with_children(|parent| {
-                        parent.spawn((
-                            Mesh3d(marker_mesh.clone()),
-                            MeshMaterial3d(marker_material.clone()),
-                            Transform::from_translation(Vec3::new(0.35, 0.0, 0.25)),
-                            ConveyorInputMarker,
-                        ));
-                    });
-                }
-                ConveyorShape::TJunction => {
-                    // Add both input extensions
-                    commands.entity(entity).with_children(|parent| {
-                        parent.spawn((
-                            Mesh3d(marker_mesh.clone()),
-                            MeshMaterial3d(marker_material.clone()),
-                            Transform::from_translation(Vec3::new(-0.35, 0.0, 0.25)),
-                            ConveyorInputMarker,
-                        ));
-                        parent.spawn((
-                            Mesh3d(marker_mesh),
-                            MeshMaterial3d(marker_material),
-                            Transform::from_translation(Vec3::new(0.35, 0.0, 0.25)),
-                            ConveyorInputMarker,
-                        ));
-                    });
-                }
-            }
+            // Generate new mesh based on shape
+            let new_mesh = create_conveyor_mesh(new_shape);
+            *mesh3d = Mesh3d(meshes.add(new_mesh));
         }
     }
+}
+
+/// Create conveyor mesh based on connection shape
+fn create_conveyor_mesh(shape: ConveyorShape) -> Mesh {
+    let width = BLOCK_SIZE * CONVEYOR_BELT_WIDTH;
+    let height = BLOCK_SIZE * CONVEYOR_BELT_HEIGHT;
+    let half_width = width / 2.0;
+    let half_height = height / 2.0;
+    let half_block = BLOCK_SIZE / 2.0;
+
+    match shape {
+        ConveyorShape::Straight => {
+            // Simple rectangular belt
+            Cuboid::new(width, height, BLOCK_SIZE).into()
+        }
+        ConveyorShape::CornerLeft => {
+            // L-shaped: main belt + left extension
+            create_l_shaped_mesh(half_width, half_height, half_block, true)
+        }
+        ConveyorShape::CornerRight => {
+            // L-shaped: main belt + right extension
+            create_l_shaped_mesh(half_width, half_height, half_block, false)
+        }
+        ConveyorShape::TJunction => {
+            // T-shaped: main belt + both side extensions
+            create_t_shaped_mesh(half_width, half_height, half_block)
+        }
+    }
+}
+
+/// Create L-shaped conveyor mesh
+fn create_l_shaped_mesh(half_width: f32, half_height: f32, half_block: f32, is_left: bool) -> Mesh {
+    // The conveyor faces -Z, so:
+    // - Left is +X direction
+    // - Right is -X direction
+    let side_sign = if is_left { 1.0 } else { -1.0 };
+
+    // Main belt vertices (along Z axis, width along X)
+    // Side extension vertices (along X axis from the back half)
+    let positions: Vec<[f32; 3]> = vec![
+        // Main belt (8 vertices) - full length along Z
+        [-half_width, -half_height, -half_block], // 0
+        [half_width, -half_height, -half_block],  // 1
+        [half_width, half_height, -half_block],   // 2
+        [-half_width, half_height, -half_block],  // 3
+        [-half_width, -half_height, half_block],  // 4
+        [half_width, -half_height, half_block],   // 5
+        [half_width, half_height, half_block],    // 6
+        [-half_width, half_height, half_block],   // 7
+
+        // Side extension (8 vertices) - extends from side at back half
+        // Inner edge at half_width (or -half_width), outer edge at half_block
+        [side_sign * half_width, -half_height, 0.0],       // 8 - inner front
+        [side_sign * half_block, -half_height, 0.0],       // 9 - outer front
+        [side_sign * half_block, half_height, 0.0],        // 10 - outer front top
+        [side_sign * half_width, half_height, 0.0],        // 11 - inner front top
+        [side_sign * half_width, -half_height, half_block], // 12 - inner back
+        [side_sign * half_block, -half_height, half_block], // 13 - outer back
+        [side_sign * half_block, half_height, half_block],  // 14 - outer back top
+        [side_sign * half_width, half_height, half_block],  // 15 - inner back top
+    ];
+
+    // Normals for each vertex
+    let normals: Vec<[f32; 3]> = vec![
+        // Main belt
+        [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], // front
+        [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0],     // back
+        // Side extension (simplified - all outward)
+        [0.0, 0.0, -1.0], [side_sign, 0.0, 0.0], [side_sign, 0.0, 0.0], [0.0, 0.0, -1.0],
+        [0.0, 0.0, 1.0], [side_sign, 0.0, 0.0], [side_sign, 0.0, 0.0], [0.0, 0.0, 1.0],
+    ];
+
+    let uvs: Vec<[f32; 2]> = vec![[0.0; 2]; 16];
+
+    // Indices - each face needs to be wound correctly for back-face culling
+    let indices = if is_left {
+        vec![
+            // Main belt faces
+            0, 2, 1, 0, 3, 2,       // front
+            4, 5, 6, 4, 6, 7,       // back
+            0, 1, 5, 0, 5, 4,       // bottom
+            3, 6, 2, 3, 7, 6,       // top
+            0, 4, 7, 0, 7, 3,       // left (closed since extension is on right/+X)
+            1, 2, 6, 1, 6, 5,       // right - open where extension connects
+
+            // Side extension faces
+            8, 10, 9, 8, 11, 10,    // front
+            12, 13, 14, 12, 14, 15, // back
+            8, 9, 13, 8, 13, 12,    // bottom
+            11, 14, 10, 11, 15, 14, // top
+            9, 10, 14, 9, 14, 13,   // outer side
+        ]
+    } else {
+        vec![
+            // Main belt faces
+            0, 2, 1, 0, 3, 2,       // front
+            4, 5, 6, 4, 6, 7,       // back
+            0, 1, 5, 0, 5, 4,       // bottom
+            3, 6, 2, 3, 7, 6,       // top
+            1, 2, 6, 1, 6, 5,       // right (closed since extension is on left/-X)
+            0, 4, 7, 0, 7, 3,       // left - open where extension connects
+
+            // Side extension faces (reversed winding for -X side)
+            8, 9, 10, 8, 10, 11,    // front
+            12, 14, 13, 12, 15, 14, // back
+            8, 13, 9, 8, 12, 13,    // bottom
+            11, 10, 14, 11, 14, 15, // top
+            9, 14, 10, 9, 13, 14,   // outer side
+        ]
+    };
+
+    let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList, default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh
+}
+
+/// Create T-shaped conveyor mesh (both sides)
+fn create_t_shaped_mesh(half_width: f32, half_height: f32, half_block: f32) -> Mesh {
+    // Main belt + extensions on both sides
+    let positions: Vec<[f32; 3]> = vec![
+        // Main belt (8 vertices)
+        [-half_width, -half_height, -half_block], // 0
+        [half_width, -half_height, -half_block],  // 1
+        [half_width, half_height, -half_block],   // 2
+        [-half_width, half_height, -half_block],  // 3
+        [-half_width, -half_height, half_block],  // 4
+        [half_width, -half_height, half_block],   // 5
+        [half_width, half_height, half_block],    // 6
+        [-half_width, half_height, half_block],   // 7
+
+        // Left extension (+X side, 8 vertices)
+        [half_width, -half_height, 0.0],          // 8
+        [half_block, -half_height, 0.0],          // 9
+        [half_block, half_height, 0.0],           // 10
+        [half_width, half_height, 0.0],           // 11
+        [half_width, -half_height, half_block],   // 12
+        [half_block, -half_height, half_block],   // 13
+        [half_block, half_height, half_block],    // 14
+        [half_width, half_height, half_block],    // 15
+
+        // Right extension (-X side, 8 vertices)
+        [-half_width, -half_height, 0.0],         // 16
+        [-half_block, -half_height, 0.0],         // 17
+        [-half_block, half_height, 0.0],          // 18
+        [-half_width, half_height, 0.0],          // 19
+        [-half_width, -half_height, half_block],  // 20
+        [-half_block, -half_height, half_block],  // 21
+        [-half_block, half_height, half_block],   // 22
+        [-half_width, half_height, half_block],   // 23
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+        // Main belt
+        [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+        [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0],
+        // Left extension
+        [0.0, 0.0, -1.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0],
+        [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0],
+        // Right extension
+        [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0],
+        [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0],
+    ];
+
+    let uvs: Vec<[f32; 2]> = vec![[0.0; 2]; 24];
+
+    let indices: Vec<u32> = vec![
+        // Main belt faces
+        0, 2, 1, 0, 3, 2,       // front
+        4, 5, 6, 4, 6, 7,       // back
+        0, 1, 5, 0, 5, 4,       // bottom
+        3, 6, 2, 3, 7, 6,       // top
+        // Left and right main sides are open for extensions
+
+        // Left extension (+X)
+        8, 10, 9, 8, 11, 10,    // front
+        12, 13, 14, 12, 14, 15, // back
+        8, 9, 13, 8, 13, 12,    // bottom
+        11, 14, 10, 11, 15, 14, // top
+        9, 10, 14, 9, 14, 13,   // outer side (+X face)
+
+        // Right extension (-X)
+        16, 17, 18, 16, 18, 19, // front
+        20, 22, 21, 20, 23, 22, // back
+        16, 21, 17, 16, 20, 21, // bottom
+        19, 18, 22, 19, 22, 23, // top
+        17, 22, 18, 17, 21, 22, // outer side (-X face)
+    ];
+
+    let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList, default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh
 }
 
 /// Update guide markers based on selected item
