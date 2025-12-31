@@ -1,0 +1,100 @@
+{
+  "version": "0.1.0",
+  "timestamp": 1767182416431,
+  "player": {
+    "position": {
+      "x": 8.0,
+      "y": 12.0,
+      "z": 20.0
+    },
+    "rotation": {
+      "pitch": 0.0,
+      "yaw": 0.0
+    }
+  },
+  "inventory": {
+    "selected_slot": 0,
+    "slots": [
+      {
+        "item_type": "MinerBlock",
+        "count": 3
+      },
+      {
+        "item_type": "ConveyorBlock",
+        "count": 10
+      },
+      {
+        "item_type": "CrusherBlock",
+        "count": 2
+      },
+      {
+        "item_type": "FurnaceBlock",
+        "count": 2
+      },
+      {
+        "item_type": "IronOre",
+        "count": 5
+      },
+      {
+        "item_type": "Coal",
+        "count": 5
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "world": {
+    "modified_blocks": {}
+  },
+  "machines": [
+    {
+      "type": "Furnace",
+      "position": {
+        "x": 10,
+        "y": 8,
+        "z": 18
+      },
+      "fuel": 0,
+      "input": null,
+      "output": null,
+      "progress": 0.0
+    }
+  ],
+  "quests": {
+    "current_index": 0,
+    "completed": false,
+    "rewards_claimed": false,
+    "delivered": {}
+  },
+  "mode": {
+    "creative": false
+  }
+}

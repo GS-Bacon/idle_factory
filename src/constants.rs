@@ -35,7 +35,7 @@ pub const CONVEYOR_SPEED: f32 = 1.0;
 pub const CONVEYOR_MAX_ITEMS: usize = 3; // Maximum items per conveyor
 pub const CONVEYOR_ITEM_SPACING: f32 = 0.4; // Minimum spacing between items (0.0-1.0)
 pub const CONVEYOR_ITEM_SIZE: f32 = 0.25; // Item visual size (fraction of BLOCK_SIZE)
-pub const CONVEYOR_BELT_WIDTH: f32 = 0.6; // Belt width (fraction of BLOCK_SIZE)
+pub const CONVEYOR_BELT_WIDTH: f32 = 0.8; // Belt width (fraction of BLOCK_SIZE, 8/10)
 pub const CONVEYOR_BELT_HEIGHT: f32 = 0.2; // Belt height (fraction of BLOCK_SIZE)
 
 /// Delivery platform

@@ -4,6 +4,7 @@ use crate::block_type::BlockType;
 use crate::constants::*;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::tasks::Task;
 use std::collections::HashMap;
 
@@ -11,13 +12,6 @@ use std::collections::HashMap;
 #[derive(Component)]
 pub(crate) struct ChunkMesh {
     pub coord: IVec2,
-}
-
-/// Resource to track pending chunk mesh generation tasks
-#[derive(Resource, Default)]
-pub(crate) struct ChunkMeshTasks {
-    /// Tasks generating chunk meshes (coord -> task)
-    pub tasks: HashMap<IVec2, Task<ChunkMeshData>>,
 }
 
 /// Data for a generated chunk mesh (sent from async task)
@@ -28,6 +22,31 @@ pub(crate) struct ChunkMeshData {
     pub mesh: Mesh,
     /// Block positions for this chunk (for raycasting/breaking)
     pub blocks: HashMap<IVec3, BlockType>,
+}
+
+impl Default for ChunkMeshData {
+    fn default() -> Self {
+        Self {
+            coord: IVec2::ZERO,
+            mesh: Mesh::new(PrimitiveTopology::TriangleList, default()),
+            blocks: HashMap::new(),
+        }
+    }
+}
+
+/// Pending chunk state - either async task (Native) or ready data (WASM)
+#[allow(dead_code)]
+pub enum PendingChunk {
+    #[cfg(not(target_arch = "wasm32"))]
+    Task(Task<ChunkMeshData>),
+    Ready(ChunkMeshData),
+}
+
+/// Resource to track pending chunk mesh generation
+#[derive(Resource, Default)]
+pub(crate) struct ChunkMeshTasks {
+    /// Pending chunk generation (coord -> state)
+    pub pending: HashMap<IVec2, PendingChunk>,
 }
 
 /// Single chunk data - blocks stored in a flat array for fast access

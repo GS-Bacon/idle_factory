@@ -757,8 +757,41 @@ pub fn block_place(
                 ));
             }
             BlockType::ConveyorBlock => {
-                info!(category = "MACHINE", action = "place", machine = "conveyor", ?place_pos, ?facing_direction, "Conveyor placed");
                 // Machines are spawned as separate entities, no need to modify world data
+
+                // Check for auto-curve: if there's a conveyor in front pointing a different direction
+                let front_pos = place_pos + facing_direction.to_ivec3();
+                let mut final_shape = ConveyorShape::Straight;
+                let final_direction = facing_direction;
+
+                // Find conveyor at front position
+                for conv in machines.conveyor.iter() {
+                    if conv.position == front_pos {
+                        // There's a conveyor in front
+                        let front_dir = conv.direction;
+
+                        // If front conveyor points different direction, we need to curve
+                        if front_dir != facing_direction {
+                            // Determine curve direction based on front conveyor's direction
+                            // We want to output in the same direction as the front conveyor
+                            let left_of_facing = facing_direction.left();
+                            let right_of_facing = facing_direction.right();
+
+                            if front_dir == left_of_facing {
+                                // Front conveyor goes left, so we curve left
+                                final_shape = ConveyorShape::CornerLeft;
+                                // Keep our input direction, but visually we curve left
+                            } else if front_dir == right_of_facing {
+                                // Front conveyor goes right, so we curve right
+                                final_shape = ConveyorShape::CornerRight;
+                            }
+                            // If front_dir is opposite, keep straight (odd but valid)
+                        }
+                        break;
+                    }
+                }
+
+                info!(category = "MACHINE", action = "place", machine = "conveyor", ?place_pos, ?final_direction, ?final_shape, "Conveyor placed");
 
                 let conveyor_pos = Vec3::new(
                     place_pos.x as f32 * BLOCK_SIZE + 0.5,
@@ -767,24 +800,24 @@ pub fn block_place(
                 );
 
                 // Try to use glTF model, fallback to procedural mesh
-                if let Some(model_handle) = machine_models.get_conveyor_model(ConveyorShape::Straight) {
+                if let Some(model_handle) = machine_models.get_conveyor_model(final_shape) {
                     // Spawn with glTF model
                     // Note: GlobalTransform and Visibility are required for rendering
                     commands.spawn((
                         SceneRoot(model_handle),
                         Transform::from_translation(conveyor_pos)
-                            .with_rotation(facing_direction.to_rotation()),
+                            .with_rotation(final_direction.to_rotation()),
                         GlobalTransform::default(),
                         Visibility::default(),
                         InheritedVisibility::default(),
                         ViewVisibility::default(),
                         Conveyor {
                             position: place_pos,
-                            direction: facing_direction,
+                            direction: final_direction,
                             items: Vec::new(),
                             last_output_index: 0,
                             last_input_source: 0,
-                            shape: ConveyorShape::Straight,
+                            shape: final_shape,
                         },
                         ConveyorVisual,
                     ));
@@ -812,14 +845,14 @@ pub fn block_place(
                             place_pos.x as f32 * BLOCK_SIZE + 0.5,
                             belt_y,
                             place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                        )).with_rotation(facing_direction.to_rotation()),
+                        )).with_rotation(final_direction.to_rotation()),
                         Conveyor {
                             position: place_pos,
-                            direction: facing_direction,
+                            direction: final_direction,
                             items: Vec::new(),
                             last_output_index: 0,
                             last_input_source: 0,
-                            shape: ConveyorShape::Straight,
+                            shape: final_shape,
                         },
                         ConveyorVisual,
                     )).with_children(|parent| {

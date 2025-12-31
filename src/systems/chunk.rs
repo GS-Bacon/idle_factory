@@ -4,11 +4,32 @@ use crate::components::Player;
 use crate::world::{ChunkData, ChunkMesh, ChunkMeshData, ChunkMeshTasks, WorldData};
 use crate::VIEW_DISTANCE;
 use bevy::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::tasks::AsyncComputeTaskPool;
+#[cfg(not(target_arch = "wasm32"))]
 use futures_lite::future;
 use std::collections::HashMap;
 
-/// Spawn async tasks for chunk generation (runs on background threads)
+/// Generate chunk data synchronously (shared between native and WASM)
+fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
+    let chunk_data = ChunkData::generate(chunk_coord);
+    let mesh = chunk_data.generate_mesh(chunk_coord);
+
+    // Convert local positions to world positions for the blocks map
+    let mut world_blocks = HashMap::new();
+    for (&local_pos, &block_type) in &chunk_data.blocks_map {
+        let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
+        world_blocks.insert(world_pos, block_type);
+    }
+
+    ChunkMeshData {
+        coord: chunk_coord,
+        mesh,
+        blocks: world_blocks,
+    }
+}
+
+/// Spawn async tasks for chunk generation (Native: background threads, WASM: synchronous)
 pub fn spawn_chunk_tasks(
     mut tasks: ResMut<ChunkMeshTasks>,
     world_data: Res<WorldData>,
@@ -25,43 +46,43 @@ pub fn spawn_chunk_tasks(
     );
     let player_chunk = WorldData::world_to_chunk(player_world_pos);
 
-    // Find chunks that need loading (limit to 4 new tasks per frame for faster loading)
+    // Limit chunks per frame: Native=4 (async), WASM=1 (sync, avoid freeze)
+    #[cfg(not(target_arch = "wasm32"))]
+    const MAX_SPAWN_PER_FRAME: i32 = 4;
+    #[cfg(target_arch = "wasm32")]
+    const MAX_SPAWN_PER_FRAME: i32 = 1;
+
     let mut spawned = 0;
     for dx in -VIEW_DISTANCE..=VIEW_DISTANCE {
         for dz in -VIEW_DISTANCE..=VIEW_DISTANCE {
-            if spawned >= 4 {
+            if spawned >= MAX_SPAWN_PER_FRAME {
                 return;
             }
 
             let chunk_coord = IVec2::new(player_chunk.x + dx, player_chunk.y + dz);
 
             // Skip if already loaded or being generated
-            if world_data.chunks.contains_key(&chunk_coord) || tasks.tasks.contains_key(&chunk_coord)
+            if world_data.chunks.contains_key(&chunk_coord)
+                || tasks.pending.contains_key(&chunk_coord)
             {
                 continue;
             }
 
-            // Spawn async task for this chunk
-            let task_pool = AsyncComputeTaskPool::get();
-            let task = task_pool.spawn(async move {
-                let chunk_data = ChunkData::generate(chunk_coord);
-                let mesh = chunk_data.generate_mesh(chunk_coord);
+            // Native: spawn async task
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let task_pool = AsyncComputeTaskPool::get();
+                let task = task_pool.spawn(async move { generate_chunk_sync(chunk_coord) });
+                tasks.pending.insert(chunk_coord, PendingChunk::Task(task));
+            }
 
-                // Convert local positions to world positions for the blocks map
-                let mut world_blocks = HashMap::new();
-                for (&local_pos, &block_type) in &chunk_data.blocks_map {
-                    let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
-                    world_blocks.insert(world_pos, block_type);
-                }
+            // WASM: generate synchronously and store result
+            #[cfg(target_arch = "wasm32")]
+            {
+                let data = generate_chunk_sync(chunk_coord);
+                tasks.pending.insert(chunk_coord, PendingChunk::Ready(data));
+            }
 
-                ChunkMeshData {
-                    coord: chunk_coord,
-                    mesh,
-                    blocks: world_blocks,
-                }
-            });
-
-            tasks.tasks.insert(chunk_coord, task);
             spawned += 1;
         }
     }
@@ -75,17 +96,38 @@ pub fn receive_chunk_meshes(
     mut world_data: ResMut<WorldData>,
     mut tasks: ResMut<ChunkMeshTasks>,
 ) {
-    // Check for completed tasks (limit processing to avoid frame spikes)
-    // BUG-7 fix: Limit to 2 chunks per frame to prevent freeze
+    // Limit chunks processed per frame to avoid frame spikes
+    #[cfg(not(target_arch = "wasm32"))]
     const MAX_CHUNKS_PER_FRAME: usize = 2;
-    let mut completed = Vec::new();
+    #[cfg(target_arch = "wasm32")]
+    const MAX_CHUNKS_PER_FRAME: usize = 1;
 
-    for (&coord, task) in tasks.tasks.iter_mut() {
-        if completed.len() >= MAX_CHUNKS_PER_FRAME {
-            break;
+    let mut completed: Vec<(IVec2, ChunkMeshData)> = Vec::new();
+
+    // Collect completed chunks
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        for (&coord, pending) in tasks.pending.iter_mut() {
+            if completed.len() >= MAX_CHUNKS_PER_FRAME {
+                break;
+            }
+            if let PendingChunk::Task(task) = pending {
+                if let Some(data) = future::block_on(future::poll_once(task)) {
+                    completed.push((coord, data));
+                }
+            }
         }
-        if let Some(chunk_mesh_data) = future::block_on(future::poll_once(task)) {
-            completed.push((coord, chunk_mesh_data));
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        // WASM: all pending chunks are already Ready
+        for (&coord, _) in tasks.pending.iter() {
+            if completed.len() >= MAX_CHUNKS_PER_FRAME {
+                break;
+            }
+            // Mark for extraction (we'll remove and extract below)
+            completed.push((coord, ChunkMeshData::default()));
         }
     }
 
@@ -93,8 +135,17 @@ pub fn receive_chunk_meshes(
     let mut coords_needing_neighbor_update: Vec<IVec2> = Vec::new();
 
     // Process completed chunks
-    for (coord, chunk_mesh_data) in completed {
-        tasks.tasks.remove(&coord);
+    for (coord, _placeholder) in completed {
+        // Extract the actual data
+        let chunk_mesh_data = match tasks.pending.remove(&coord) {
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(PendingChunk::Task(_)) => continue, // Should not happen
+            #[cfg(target_arch = "wasm32")]
+            Some(PendingChunk::Ready(data)) => data,
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(PendingChunk::Ready(data)) => data,
+            None => continue,
+        };
 
         // Skip if chunk already exists (player may have modified it)
         if world_data.chunks.contains_key(&coord) {
@@ -141,8 +192,8 @@ pub fn receive_chunk_meshes(
 
     // Now regenerate meshes for new chunks and their neighbors (with proper neighbor data)
     for coord in &coords_needing_neighbor_update {
-        let coord = *coord; // Dereference for use
-                            // Regenerate this chunk's mesh with neighbor awareness
+        let coord = *coord;
+        // Regenerate this chunk's mesh with neighbor awareness
         if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
             let mesh_handle = meshes.add(new_mesh);
             let material = materials.add(StandardMaterial {
@@ -151,7 +202,7 @@ pub fn receive_chunk_meshes(
                 ..default()
             });
 
-            // Find and despawn old mesh entity if exists (from initial async generation)
+            // Find and despawn old mesh entity if exists
             if let Some(entities) = world_data.chunk_entities.remove(&coord) {
                 for entity in entities {
                     commands.entity(entity).try_despawn_recursive();
@@ -170,8 +221,7 @@ pub fn receive_chunk_meshes(
             world_data.chunk_entities.insert(coord, vec![entity]);
         }
 
-        // Also regenerate neighboring chunks' meshes (they may now have hidden faces at boundary)
-        // BUG-7 fix: Collect unique neighbors to avoid redundant regeneration
+        // Also regenerate neighboring chunks' meshes
         let neighbors = [
             IVec2::new(coord.x - 1, coord.y),
             IVec2::new(coord.x + 1, coord.y),
@@ -180,11 +230,9 @@ pub fn receive_chunk_meshes(
         ];
 
         for neighbor_coord in neighbors {
-            // Only regenerate if the neighbor chunk exists and wasn't just created
             if !world_data.chunks.contains_key(&neighbor_coord) {
                 continue;
             }
-            // Skip if this neighbor was also just loaded (it will regenerate itself)
             if coords_needing_neighbor_update.contains(&neighbor_coord) {
                 continue;
             }
@@ -197,7 +245,6 @@ pub fn receive_chunk_meshes(
                     ..default()
                 });
 
-                // Find and despawn old mesh entity
                 if let Some(entities) = world_data.chunk_entities.remove(&neighbor_coord) {
                     for entity in entities {
                         commands.entity(entity).try_despawn_recursive();
@@ -250,7 +297,6 @@ pub fn unload_distant_chunks(
 
     // Unload chunks
     for chunk_coord in chunks_to_unload {
-        // Despawn chunk mesh entity
         for (entity, chunk_mesh) in chunk_mesh_query.iter() {
             if chunk_mesh.coord == chunk_coord {
                 commands.entity(entity).despawn();
@@ -259,6 +305,9 @@ pub fn unload_distant_chunks(
 
         world_data.chunks.remove(&chunk_coord);
         world_data.chunk_entities.remove(&chunk_coord);
-        tasks.tasks.remove(&chunk_coord);
+        tasks.pending.remove(&chunk_coord);
     }
 }
+
+// Re-export PendingChunk from world module
+pub use crate::world::PendingChunk;
