@@ -3611,10 +3611,14 @@ fn block_place(
                 // Try to use glTF model, fallback to procedural mesh
                 if let Some(model_handle) = machine_models.get_conveyor_model(ConveyorShape::Straight) {
                     // Spawn with glTF model
+                    // Note: Need GlobalTransform for child transforms to work properly
                     commands.spawn((
                         Transform::from_translation(conveyor_pos)
                             .with_rotation(facing_direction.to_rotation()),
+                        GlobalTransform::default(),
                         Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
                         Conveyor {
                             position: place_pos,
                             direction: facing_direction,
@@ -5946,7 +5950,7 @@ fn rotate_conveyor_placement(
 /// Detects splitter mode when multiple outputs are available
 fn update_conveyor_shapes(
     mut commands: Commands,
-    mut conveyors: Query<(Entity, &mut Conveyor, Option<&mut Mesh3d>, &Children)>,
+    mut conveyors: Query<(Entity, &mut Conveyor, Option<&mut Mesh3d>, Option<&Children>)>,
     visual_query: Query<Entity, With<ConveyorVisual>>,
     mut meshes: ResMut<Assets<Mesh>>,
     machine_models: Res<MachineModels>,
@@ -6043,15 +6047,20 @@ fn update_conveyor_shapes(
             conveyor.shape = new_shape;
 
             // Check if using glTF model (has ConveyorVisual child with SceneRoot)
-            let has_gltf_visual = children.iter().any(|child| visual_query.get(*child).is_ok());
+            let has_gltf_visual = children
+                .as_ref()
+                .map(|c| c.iter().any(|child| visual_query.get(*child).is_ok()))
+                .unwrap_or(false);
 
             if has_gltf_visual {
                 // Using glTF models - despawn old visual and spawn new one
                 if let Some(new_model) = machine_models.get_conveyor_model(new_shape) {
                     // Despawn old ConveyorVisual children
-                    for child in children.iter() {
-                        if visual_query.get(*child).is_ok() {
-                            commands.entity(*child).despawn_recursive();
+                    if let Some(c) = &children {
+                        for child in c.iter() {
+                            if visual_query.get(*child).is_ok() {
+                                commands.entity(*child).despawn_recursive();
+                            }
                         }
                     }
                     // Spawn new glTF visual as child

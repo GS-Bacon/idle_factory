@@ -236,7 +236,12 @@
       "Bash(/usr/share/blender/scripts/../../../bin/blender --version)",
       "Bash(apt-cache policy:*)",
       "Bash(for script in corner_left corner_right t_junction splitter)",
-      "Bash(DISPLAY=:10 timeout 5 cargo run:*)"
+      "Bash(DISPLAY=:10 timeout 5 cargo run:*)",
+      "Bash(# Run game in background and take screenshot after startup pkill -f idle_factory || true sleep 1 cd /home/bacon/idle_factory DISPLAY=:10 cargo run & GAME_PID=$! sleep 10 # Take screenshot DISPLAY=:10 scrot screenshots/game_check.png echo \"\"Screenshot taken, game PID: $GAME_PID\"\" # Check if game is running ps aux)",
+      "Bash(sort:*)",
+      "Bash(# Maybe the game is crashing. Check for core dumps or errors cd /home/bacon/idle_factory pkill -f idle_factory || true sleep 1 # Run with full error output DISPLAY=:10 cargo run 2>&1)",
+      "Bash(# Check for running game process pgrep -fa idle_factory # List all windows on display :10 DISPLAY=:10 xdotool search --name \"\"\"\")",
+      "Bash(DISPLAY=:10 cargo run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
