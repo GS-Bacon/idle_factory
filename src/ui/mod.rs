@@ -1,11 +1,15 @@
 //! UI components and systems
+//!
+//! This module will contain UI definitions and logic
+//! when main.rs is fully split.
+//!
+//! Currently, all implementations remain in main.rs.
+//! This module exists as a placeholder for future refactoring.
 
-mod components;
-mod hotbar;
-mod inventory;
+// Future submodules:
+// mod components;
+// mod hotbar;
+// mod inventory;
+// mod machine_ui;
 
-pub use components::*;
-pub use hotbar::*;
-pub use inventory::*;
-
-use bevy::prelude::*;
+// Re-exports will be added when implementations are moved here.
