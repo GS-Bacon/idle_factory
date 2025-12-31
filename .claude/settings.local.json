@@ -258,7 +258,8 @@
       "Bash(node capture-wasm-logs.js:*)",
       "Bash(fuser:*)",
       "Bash(simple-http-server --version)",
-      "Bash(/home/bacon/idle_factory/tools/check_module_sizes.sh)"
+      "Bash(/home/bacon/idle_factory/tools/check_module_sizes.sh)",
+      "Bash(mv:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

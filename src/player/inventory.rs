@@ -186,4 +186,196 @@ impl Inventory {
         }
         0
     }
+
+    /// Get total count of a specific block type across all slots
+    pub fn get_total_count(&self, block_type: BlockType) -> u32 {
+        self.slots.iter()
+            .flatten()
+            .filter(|(bt, _)| *bt == block_type)
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    /// Check if inventory is full (all slots occupied)
+    pub fn is_full(&self) -> bool {
+        self.slots.iter().all(|s| s.is_some())
+    }
+
+    /// Get number of empty slots
+    pub fn empty_slot_count(&self) -> usize {
+        self.slots.iter().filter(|s| s.is_none()).count()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inventory_add_item_to_empty() {
+        let mut inv = Inventory::default();
+        let remaining = inv.add_item(BlockType::Stone, 10);
+        assert_eq!(remaining, 0);
+        assert_eq!(inv.get_slot(0), Some(BlockType::Stone));
+        assert_eq!(inv.get_slot_count(0), 10);
+    }
+
+    #[test]
+    fn test_inventory_add_item_stacks() {
+        let mut inv = Inventory::default();
+        inv.add_item(BlockType::Stone, 50);
+        inv.add_item(BlockType::Stone, 30);
+
+        // Should stack on first slot
+        assert_eq!(inv.get_slot_count(0), 80);
+        assert!(inv.get_slot(1).is_none());
+    }
+
+    #[test]
+    fn test_inventory_add_item_overflow_to_new_slot() {
+        let mut inv = Inventory::default();
+        inv.add_item(BlockType::Stone, MAX_STACK_SIZE - 10);
+        inv.add_item(BlockType::Stone, 50);
+
+        // First slot should be maxed
+        assert_eq!(inv.get_slot_count(0), MAX_STACK_SIZE);
+        // Remaining should go to second slot
+        assert_eq!(inv.get_slot_count(1), 40);
+    }
+
+    #[test]
+    fn test_inventory_different_block_types() {
+        let mut inv = Inventory::default();
+        inv.add_item(BlockType::Stone, 10);
+        inv.add_item(BlockType::IronOre, 20);
+
+        assert_eq!(inv.get_slot(0), Some(BlockType::Stone));
+        assert_eq!(inv.get_slot(1), Some(BlockType::IronOre));
+        assert_eq!(inv.get_slot_count(0), 10);
+        assert_eq!(inv.get_slot_count(1), 20);
+    }
+
+    #[test]
+    fn test_inventory_consume_selected() {
+        let mut inv = Inventory::default();
+        inv.add_item(BlockType::Stone, 5);
+        inv.selected_slot = 0;
+
+        let consumed = inv.consume_selected();
+        assert_eq!(consumed, Some(BlockType::Stone));
+        assert_eq!(inv.get_slot_count(0), 4);
+
+        // Consume until empty
+        for _ in 0..4 {
+            inv.consume_selected();
+        }
+        assert!(inv.get_slot(0).is_none());
+        assert_eq!(inv.consume_selected(), None);
+    }
+
+    #[test]
+    fn test_inventory_consume_item() {
+        let mut inv = Inventory::default();
+        inv.add_item(BlockType::Stone, 10);
+        inv.add_item(BlockType::IronOre, 5);
+
+        assert!(inv.consume_item(BlockType::Stone, 5));
+        assert_eq!(inv.get_slot_count(0), 5);
+
+        assert!(!inv.consume_item(BlockType::Stone, 10)); // Not enough
+        assert_eq!(inv.get_slot_count(0), 5); // Unchanged
+    }
+
+    #[test]
+    fn test_inventory_move_items_swap() {
+        let mut inv = Inventory::default();
+        inv.slots[0] = Some((BlockType::Stone, 10));
+        inv.slots[1] = Some((BlockType::IronOre, 20));
+
+        assert!(inv.move_items(0, 1));
+        assert_eq!(inv.get_slot(0), Some(BlockType::IronOre));
+        assert_eq!(inv.get_slot(1), Some(BlockType::Stone));
+    }
+
+    #[test]
+    fn test_inventory_move_items_to_empty() {
+        let mut inv = Inventory::default();
+        inv.slots[0] = Some((BlockType::Stone, 10));
+
+        assert!(inv.move_items(0, 5));
+        assert!(inv.get_slot(0).is_none());
+        assert_eq!(inv.get_slot(5), Some(BlockType::Stone));
+    }
+
+    #[test]
+    fn test_inventory_move_items_stack_same_type() {
+        let mut inv = Inventory::default();
+        inv.slots[0] = Some((BlockType::Stone, 30));
+        inv.slots[1] = Some((BlockType::Stone, 40));
+
+        assert!(inv.move_items(0, 1));
+        // Should stack: 40 + 30 = 70, within MAX_STACK_SIZE
+        assert_eq!(inv.get_slot_count(1), 70);
+        assert!(inv.get_slot(0).is_none());
+    }
+
+    #[test]
+    fn test_inventory_selected_block() {
+        let mut inv = Inventory::default();
+        inv.add_item(BlockType::Stone, 10);
+        inv.add_item(BlockType::IronOre, 5);
+
+        inv.selected_slot = 0;
+        assert_eq!(inv.selected_block(), Some(BlockType::Stone));
+
+        inv.selected_slot = 1;
+        assert_eq!(inv.selected_block(), Some(BlockType::IronOre));
+
+        inv.selected_slot = 5; // Empty slot
+        assert_eq!(inv.selected_block(), None);
+    }
+
+    #[test]
+    fn test_inventory_is_full() {
+        let mut inv = Inventory::default();
+        assert!(!inv.is_full());
+
+        // Fill all slots
+        for i in 0..NUM_SLOTS {
+            inv.slots[i] = Some((BlockType::Stone, 1));
+        }
+        assert!(inv.is_full());
+    }
+
+    #[test]
+    fn test_inventory_empty_slot_count() {
+        let mut inv = Inventory::default();
+        assert_eq!(inv.empty_slot_count(), NUM_SLOTS);
+
+        inv.add_item(BlockType::Stone, 10);
+        assert_eq!(inv.empty_slot_count(), NUM_SLOTS - 1);
+    }
+
+    #[test]
+    fn test_inventory_get_total_count() {
+        let mut inv = Inventory::default();
+        inv.slots[0] = Some((BlockType::Stone, 50));
+        inv.slots[5] = Some((BlockType::Stone, 30));
+        inv.slots[10] = Some((BlockType::IronOre, 20));
+
+        assert_eq!(inv.get_total_count(BlockType::Stone), 80);
+        assert_eq!(inv.get_total_count(BlockType::IronOre), 20);
+        assert_eq!(inv.get_total_count(BlockType::Coal), 0);
+    }
+
+    #[test]
+    fn test_inventory_hotbar_main_slots() {
+        assert!(Inventory::is_hotbar_slot(0));
+        assert!(Inventory::is_hotbar_slot(8));
+        assert!(!Inventory::is_hotbar_slot(9));
+
+        assert!(!Inventory::is_main_slot(0));
+        assert!(Inventory::is_main_slot(9));
+        assert!(Inventory::is_main_slot(35));
+    }
 }
