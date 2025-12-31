@@ -243,6 +243,14 @@ pub fn load_machine_models(
     models.furnace = Some(asset_server.load("models/machines/furnace.glb#Scene0"));
     models.crusher = Some(asset_server.load("models/machines/crusher.glb#Scene0"));
 
+    // Try to load item models (for conveyor display)
+    models.item_iron_ore = Some(asset_server.load("models/items/iron_ore.glb#Scene0"));
+    models.item_copper_ore = Some(asset_server.load("models/items/copper_ore.glb#Scene0"));
+    models.item_coal = Some(asset_server.load("models/items/coal.glb#Scene0"));
+    models.item_stone = Some(asset_server.load("models/items/stone.glb#Scene0"));
+    models.item_iron_ingot = Some(asset_server.load("models/items/iron_ingot.glb#Scene0"));
+    models.item_copper_ingot = Some(asset_server.load("models/items/copper_ingot.glb#Scene0"));
+
     // Will check if loaded in update system
     models.loaded = false;
 }

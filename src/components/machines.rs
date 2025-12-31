@@ -372,6 +372,13 @@ pub struct MachineModels {
     pub miner: Option<Handle<Scene>>,
     pub furnace: Option<Handle<Scene>>,
     pub crusher: Option<Handle<Scene>>,
+    /// Item models (for conveyor display)
+    pub item_iron_ore: Option<Handle<Scene>>,
+    pub item_copper_ore: Option<Handle<Scene>>,
+    pub item_coal: Option<Handle<Scene>>,
+    pub item_stone: Option<Handle<Scene>>,
+    pub item_iron_ingot: Option<Handle<Scene>>,
+    pub item_copper_ingot: Option<Handle<Scene>>,
     /// Whether models are loaded (fallback to procedural if not)
     pub loaded: bool,
 }
@@ -385,6 +392,19 @@ impl MachineModels {
             ConveyorShape::CornerRight => self.conveyor_corner_right.clone(),
             ConveyorShape::TJunction => self.conveyor_t_junction.clone(),
             ConveyorShape::Splitter => self.conveyor_splitter.clone(),
+        }
+    }
+
+    /// Get item model handle for a given BlockType
+    pub fn get_item_model(&self, block_type: crate::BlockType) -> Option<Handle<Scene>> {
+        match block_type {
+            crate::BlockType::IronOre => self.item_iron_ore.clone(),
+            crate::BlockType::CopperOre => self.item_copper_ore.clone(),
+            crate::BlockType::Coal => self.item_coal.clone(),
+            crate::BlockType::Stone => self.item_stone.clone(),
+            crate::BlockType::IronIngot => self.item_iron_ingot.clone(),
+            crate::BlockType::CopperIngot => self.item_copper_ingot.clone(),
+            _ => None, // Other block types don't have item models
         }
     }
 }

@@ -3,7 +3,7 @@
 use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
 use crate::{
     BlockType, Conveyor, ConveyorItemVisual, ConveyorShape, Crusher, DeliveryPlatform, Direction,
-    Furnace, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
+    Furnace, MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
 };
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -431,18 +431,24 @@ pub fn conveyor_transfer(
 }
 
 /// Update conveyor item visuals - spawn/despawn/move items on conveyors (multiple items)
+/// Uses 3D GLB models when available, falls back to colored cubes
 pub fn update_conveyor_item_visuals(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    models: Res<MachineModels>,
     mut conveyor_query: Query<&mut Conveyor>,
     mut visual_query: Query<&mut Transform, With<ConveyorItemVisual>>,
 ) {
-    let item_mesh = meshes.add(Cuboid::new(
+    // Fallback mesh for items without GLB models
+    let fallback_mesh = meshes.add(Cuboid::new(
         BLOCK_SIZE * CONVEYOR_ITEM_SIZE,
         BLOCK_SIZE * CONVEYOR_ITEM_SIZE,
         BLOCK_SIZE * CONVEYOR_ITEM_SIZE,
     ));
+
+    // Item model scale (GLB models are 8x8x8 voxels = 0.5 blocks, scale down for conveyor)
+    const ITEM_MODEL_SCALE: f32 = 0.5;
 
     for mut conveyor in conveyor_query.iter_mut() {
         // Position items on top of the belt (belt height + item size/2)
@@ -473,19 +479,36 @@ pub fn update_conveyor_item_visuals(
 
             match item.visual_entity {
                 None => {
-                    // Spawn visual
-                    let material = materials.add(StandardMaterial {
-                        base_color: item.block_type.color(),
-                        ..default()
-                    });
-                    let entity = commands
-                        .spawn((
-                            Mesh3d(item_mesh.clone()),
-                            MeshMaterial3d(material),
-                            Transform::from_translation(item_pos),
-                            ConveyorItemVisual,
-                        ))
-                        .id();
+                    // Try to spawn with GLB model, fall back to colored cube
+                    let entity = if let Some(scene_handle) = models.get_item_model(item.block_type) {
+                        // Spawn GLB model
+                        commands
+                            .spawn((
+                                SceneRoot(scene_handle),
+                                Transform::from_translation(item_pos)
+                                    .with_scale(Vec3::splat(ITEM_MODEL_SCALE)),
+                                GlobalTransform::default(),
+                                Visibility::default(),
+                                InheritedVisibility::default(),
+                                ViewVisibility::default(),
+                                ConveyorItemVisual,
+                            ))
+                            .id()
+                    } else {
+                        // Fallback: spawn colored cube
+                        let material = materials.add(StandardMaterial {
+                            base_color: item.block_type.color(),
+                            ..default()
+                        });
+                        commands
+                            .spawn((
+                                Mesh3d(fallback_mesh.clone()),
+                                MeshMaterial3d(material),
+                                Transform::from_translation(item_pos),
+                                ConveyorItemVisual,
+                            ))
+                            .id()
+                    };
                     item.visual_entity = Some(entity);
                 }
                 Some(entity) => {
