@@ -40,7 +40,9 @@ use systems::{
     inventory_continuous_shift_click, inventory_slot_click, inventory_toggle,
     inventory_update_slots, select_block_type, set_ui_open_state, toggle_debug_hud,
     trash_slot_click, update_debug_hud, update_held_item_display, update_hotbar_item_name,
-    update_hotbar_ui, update_inventory_tooltip, update_window_title_fps,
+    update_hotbar_ui, update_inventory_tooltip, update_window_title_fps, export_e2e_state,
+    E2EExportConfig, TeleportEvent, LookEvent, SetBlockEvent, handle_teleport_event,
+    handle_look_event, handle_setblock_event,
     // Quest systems
     load_machine_models, quest_claim_rewards, quest_progress_check, setup_delivery_platform,
     update_delivery_ui, update_quest_ui,
@@ -144,8 +146,12 @@ fn main() {
         .init_resource::<save::AutoSaveTimer>()
         .init_resource::<SaveLoadState>()
         .init_resource::<ItemSprites>()
+        .init_resource::<E2EExportConfig>()
         .add_event::<SaveGameEvent>()
         .add_event::<LoadGameEvent>()
+        .add_event::<TeleportEvent>()
+        .add_event::<LookEvent>()
+        .add_event::<SetBlockEvent>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models))
         .add_systems(
             Update,
@@ -213,6 +219,7 @@ fn main() {
             (
                 // Debug and utility systems
                 update_debug_hud,
+                export_e2e_state,
                 update_target_block,
                 update_target_highlight,
                 rotate_conveyor_placement,
@@ -244,6 +251,10 @@ fn main() {
                 auto_save_system,
                 handle_save_event,
                 handle_load_event,
+                // E2E command handlers
+                handle_teleport_event,
+                handle_look_event,
+                handle_setblock_event,
             ),
         )
         .run();

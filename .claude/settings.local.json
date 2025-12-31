@@ -271,7 +271,11 @@
       "Bash(for vox in /home/bacon/idle_factory/assets/models/items/*.vox)",
       "Bash(glb=\"$vox%.vox.glb\")",
       "Bash(for vox in assets/models/items/*.vox)",
-      "Bash(./tools/convert_all_vox.sh:*)"
+      "Bash(./tools/convert_all_vox.sh:*)",
+      "Bash(DISPLAY=:10 timeout 25 cargo run:*)",
+      "Bash(jq:*)",
+      "Bash(./scripts/e2e-quick.sh:*)",
+      "Bash(xdotool key:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

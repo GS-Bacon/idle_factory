@@ -3,8 +3,11 @@
 # 使い方: ./scripts/e2e-quick.sh [テスト名]
 
 export DISPLAY=${DISPLAY:-:10}
+export E2E_EXPORT=1
+export E2E_EXPORT_PATH="/home/bacon/idle_factory/e2e_state.json"
 SCREENSHOTS_DIR="/home/bacon/idle_factory/screenshots/verify"
 GAME_DIR="/home/bacon/idle_factory"
+E2E_STATE_FILE="/home/bacon/idle_factory/e2e_state.json"
 
 # 色付き出力
 GREEN='\033[0;32m'
@@ -132,6 +135,171 @@ type_text() {
 }
 
 # =============================================================================
+# ゲーム状態取得・検証 (E2E_EXPORT連携)
+# =============================================================================
+
+# ゲーム状態を取得（JSON）
+get_state() {
+    if [ -f "$E2E_STATE_FILE" ]; then
+        cat "$E2E_STATE_FILE"
+    else
+        echo "{}"
+    fi
+}
+
+# JSONから値を取得 (jqが必要)
+get_value() {
+    local key="$1"
+    if command -v jq >/dev/null 2>&1; then
+        get_state | jq -r "$key"
+    else
+        warn "jqがインストールされていません"
+        echo "N/A"
+    fi
+}
+
+# プレイヤー位置を取得
+get_player_pos() {
+    get_value '.player_pos | "\(.[0]|round),\(.[1]|round),\(.[2]|round)"'
+}
+
+# カメラ向きを取得（度）
+get_camera_dir() {
+    get_value '(.camera_pitch * 57.3 | round | tostring) + "," + (.camera_yaw * 57.3 | round | tostring)'
+}
+
+# ターゲットブロック座標を取得
+get_target_break() {
+    get_value '.target_break | if . then "\(.[0]),\(.[1]),\(.[2])" else "None" end'
+}
+
+# ターゲット配置座標を取得
+get_target_place() {
+    get_value '.target_place | if . then "\(.[0]),\(.[1]),\(.[2])" else "None" end'
+}
+
+# 状態ログ出力
+log_state() {
+    local label="$1"
+    sleep 0.2  # 状態更新待ち
+    log "[$label] Pos:$(get_player_pos) Dir:$(get_camera_dir) Target:$(get_target_break) Place:$(get_target_place)"
+}
+
+# 位置検証（許容誤差付き）
+assert_near_pos() {
+    local expected_x="$1"
+    local expected_y="$2"
+    local expected_z="$3"
+    local tolerance="${4:-2}"
+
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jqがないため位置検証をスキップ"
+        return 0
+    fi
+
+    local state=$(get_state)
+    local actual_x=$(echo "$state" | jq -r '.player_pos[0] | round')
+    local actual_y=$(echo "$state" | jq -r '.player_pos[1] | round')
+    local actual_z=$(echo "$state" | jq -r '.player_pos[2] | round')
+
+    local dx=$(( actual_x - expected_x ))
+    local dy=$(( actual_y - expected_y ))
+    local dz=$(( actual_z - expected_z ))
+
+    # 絶対値
+    [ $dx -lt 0 ] && dx=$(( -dx ))
+    [ $dy -lt 0 ] && dy=$(( -dy ))
+    [ $dz -lt 0 ] && dz=$(( -dz ))
+
+    if [ $dx -le $tolerance ] && [ $dy -le $tolerance ] && [ $dz -le $tolerance ]; then
+        log "✅ 位置OK: ($actual_x,$actual_y,$actual_z) ≈ ($expected_x,$expected_y,$expected_z)"
+        return 0
+    else
+        err "❌ 位置NG: ($actual_x,$actual_y,$actual_z) != ($expected_x,$expected_y,$expected_z)"
+        return 1
+    fi
+}
+
+# ターゲットブロック検証
+assert_target() {
+    local expected="$1"
+    local actual=$(get_target_break)
+
+    if [ "$actual" = "$expected" ]; then
+        log "✅ ターゲットOK: $actual"
+        return 0
+    else
+        err "❌ ターゲットNG: $actual != $expected"
+        return 1
+    fi
+}
+
+# カメラが下を向いているか検証
+assert_looking_down() {
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jqがないため向き検証をスキップ"
+        return 0
+    fi
+
+    local pitch=$(get_state | jq -r '.camera_pitch')
+    local pitch_deg=$(echo "$pitch * 57.3" | bc -l 2>/dev/null || echo "0")
+
+    # pitch > 30度 で下を向いていると判定
+    if [ $(echo "$pitch_deg > 30" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then
+        log "✅ カメラは下向き (pitch=${pitch_deg}°)"
+        return 0
+    else
+        warn "⚠ カメラが下を向いていない (pitch=${pitch_deg}°)"
+        return 1
+    fi
+}
+
+# =============================================================================
+# ゲームコマンド送信 (Tキー → 入力 → Enter)
+# =============================================================================
+
+# ゲーム内コマンドを送信
+send_command() {
+    local cmd="$1"
+    log "📤 コマンド送信: $cmd"
+    key "t"  # コマンド入力モードを開く
+    sleep 0.3  # コマンドUIが開くまで待つ
+    xdotool type --delay 80 "$cmd"
+    sleep 0.2
+    key "Return"
+    sleep 0.5
+}
+
+# テレポート
+cmd_tp() {
+    local x="$1"
+    local y="$2"
+    local z="$3"
+    send_command "/tp $x $y $z"
+}
+
+# カメラ向きを設定（度）
+cmd_look() {
+    local pitch="$1"
+    local yaw="$2"
+    send_command "/look $pitch $yaw"
+}
+
+# ブロック配置
+cmd_setblock() {
+    local x="$1"
+    local y="$2"
+    local z="$3"
+    local block="$4"
+    send_command "/setblock $x $y $z $block"
+}
+
+# クリエイティブモード
+cmd_creative() {
+    send_command "/creative"
+}
+
+# =============================================================================
 # テストケース
 # =============================================================================
 
@@ -145,71 +313,108 @@ test_basic() {
     click 640 360
     sleep 0.5
     shot "started"
+    log_state "起動後"
+
     key "e"
     sleep 0.3
     shot "inventory"
     key "Escape"
     sleep 0.3
     shot "closed"
+
     key "F3"
     sleep 0.3
     shot "debug"
+    log_state "デバッグHUD"
+
     key "F3"
     key "2"
     sleep 0.3
     shot "conveyor_mode"
+    log_state "コンベアモード"
+
+    # 状態ファイルの内容を表示
+    log "--- E2E状態ファイル ---"
+    cat "$E2E_STATE_FILE" 2>/dev/null || warn "状態ファイルがありません"
+    log "----------------------"
 
     cleanup
     log "=== 完了: 6枚 ==="
 }
 
 test_conveyor() {
-    log "=== コンベアテスト（8枚） ==="
+    log "=== コンベアテスト（/look + クリック配置） ==="
 
     start_game || return 1
 
     activate_window
+    click 640 360  # ポーズ解除
+    sleep 1
+    shot "cv_initial"
+    log_state "初期状態"
+
+    # ポーズ解除後にもう一度クリックしてフォーカス確保
     click 640 360
     sleep 0.5
 
-    # コンベアモード
-    key "2"
-    shot "cv_mode"
-
-    # 直進コンベア x4
-    click 450 350; click 500 350; click 550 350; click 600 350
-    shot "cv_straight"
-
-    # L字コンベア
-    key "q"; click 650 350
-    key "q"; click 700 350
-    shot "cv_corners"
-
-    # T字 + スプリッター
-    key "q"; click 450 400
-    key "q"; click 500 400
-    shot "cv_t_splitter"
-
-    # 回転して配置
-    key "q"; key "r"; click 550 400
-    shot "cv_rotated"
-
-    # ズームイン
-    for i in {1..12}; do xdotool click 4; sleep 0.03; done
+    # クリエイティブモード（アイテム付与）
+    send_command "/creative"
     sleep 0.3
-    shot "cv_zoomed"
 
-    # 移動して近づく
-    xdotool keydown d; sleep 0.3; xdotool keyup d
-    xdotool keydown s; sleep 0.3; xdotool keyup s
-    shot "cv_closeup"
+    # 地面の近くにテレポート (Y=10 = 地面より少し上)
+    send_command "/tp 8 10 20"
+    sleep 0.3
 
-    # デバッグ表示
+    # コンベアを選択（ホットバー2）
+    key "2"
+    sleep 0.2
+
+    # カメラを下に向ける (70度下向き = ほぼ真下)
+    send_command "/look 70 0"
+    sleep 0.3
+    log_state "look後"
+
+    # デバッグHUD表示
     key "F3"
-    shot "cv_debug"
+    sleep 0.2
+    shot "cv_debug_target"
+    log_state "ターゲット確認"
+
+    # 右クリックでコンベア配置（画面中央 = 十字線の位置）
+    log "右クリックでコンベア配置..."
+    rclick 640 360
+    sleep 0.3
+    shot "cv_placed1"
+    log_state "配置1"
+
+    # 少し向きを変えて2つ目を配置
+    send_command "/look 60 10"
+    sleep 0.2
+    rclick 640 360
+    sleep 0.3
+    shot "cv_placed2"
+    log_state "配置2"
+
+    # 3つ目（L字になるか確認）
+    send_command "/look 60 -30"
+    sleep 0.2
+    rclick 640 360
+    sleep 0.3
+    shot "cv_placed3"
+    log_state "配置3"
+
+    # 俯瞰で確認
+    send_command "/look 80 0"
+    sleep 0.3
+    shot "cv_overview"
+
+    # 状態ファイルの内容を表示
+    log "--- E2E状態ファイル ---"
+    cat "$E2E_STATE_FILE" 2>/dev/null || warn "状態ファイルがありません"
+    log "----------------------"
 
     cleanup
-    log "=== 完了: 8枚 ==="
+    log "=== 完了 ==="
 }
 
 test_machines() {

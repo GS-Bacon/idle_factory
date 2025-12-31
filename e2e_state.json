@@ -1,0 +1,15 @@
+{
+  "player_pos": [
+    8.0,
+    10.0,
+    20.0
+  ],
+  "camera_pitch": 1.3962634,
+  "camera_yaw": 0.0,
+  "target_break": null,
+  "target_place": null,
+  "target_block_type": "None",
+  "creative_mode": true,
+  "paused": false,
+  "fps": 37.149513
+}

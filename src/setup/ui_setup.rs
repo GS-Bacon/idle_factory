@@ -97,11 +97,11 @@ pub fn spawn_crusher_slot(
         });
 }
 
-/// Minecraft-style slot size (18px in MC scaled to 40px for this game)
-const SLOT_SIZE: f32 = 40.0;
-const SLOT_GAP: f32 = 2.0;
+/// Minecraft-style slot size (18px in MC scaled to 50px for this game)
+const SLOT_SIZE: f32 = 50.0;
+const SLOT_GAP: f32 = 3.0;
 const SLOT_BORDER: f32 = 2.0;
-const SPRITE_SIZE: f32 = 32.0;
+const SPRITE_SIZE: f32 = 42.0;
 
 /// Helper to spawn an inventory slot button (Minecraft-style)
 pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
@@ -136,14 +136,14 @@ pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
             btn.spawn((
                 Text::new(""),
                 TextFont {
-                    font_size: 11.0,
+                    font_size: 14.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
                 Node {
                     position_type: PositionType::Absolute,
-                    bottom: Val::Px(1.0),
-                    right: Val::Px(3.0),
+                    bottom: Val::Px(2.0),
+                    right: Val::Px(4.0),
                     ..default()
                 },
             ));

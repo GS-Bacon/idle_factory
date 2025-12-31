@@ -3,10 +3,29 @@
 use crate::components::*;
 use crate::player::Inventory;
 use crate::systems::inventory_ui::set_ui_open_state;
+use crate::world::WorldData;
 use crate::BlockType;
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 use tracing::info;
+
+/// E2E test command events
+#[derive(Event)]
+pub struct TeleportEvent {
+    pub position: Vec3,
+}
+
+#[derive(Event)]
+pub struct LookEvent {
+    pub pitch: f32,
+    pub yaw: f32,
+}
+
+#[derive(Event)]
+pub struct SetBlockEvent {
+    pub position: IVec3,
+    pub block_type: BlockType,
+}
 
 /// Toggle command input with T or / key
 #[allow(clippy::too_many_arguments)]
@@ -31,6 +50,7 @@ pub fn command_input_toggle(
     {
         command_state.open = true;
         command_state.text.clear();
+        command_state.skip_input_frame = true;  // Skip input this frame
 
         // Start with / if opened with slash key
         if key_input.just_pressed(KeyCode::Slash) {
@@ -68,6 +88,9 @@ pub fn command_input_handler(
     mut inventory: ResMut<Inventory>,
     mut save_events: EventWriter<SaveGameEvent>,
     mut load_events: EventWriter<LoadGameEvent>,
+    mut tp_events: EventWriter<TeleportEvent>,
+    mut look_events: EventWriter<LookEvent>,
+    mut setblock_events: EventWriter<SetBlockEvent>,
 ) {
     if !command_state.open {
         return;
@@ -94,6 +117,7 @@ pub fn command_input_handler(
     // Enter to execute command
     if key_input.just_pressed(KeyCode::Enter) {
         let command = command_state.text.clone();
+        println!(">>> ENTER pressed, command: '{}'", command);
         command_state.open = false;
         command_state.text.clear();
 
@@ -109,7 +133,16 @@ pub fn command_input_handler(
         }
 
         // Execute command
-        execute_command(&command, &mut creative_mode, &mut inventory, &mut save_events, &mut load_events);
+        execute_command(
+            &command,
+            &mut creative_mode,
+            &mut inventory,
+            &mut save_events,
+            &mut load_events,
+            &mut tp_events,
+            &mut look_events,
+            &mut setblock_events,
+        );
         return;
     }
 
@@ -118,10 +151,14 @@ pub fn command_input_handler(
         command_state.text.pop();
     }
 
-    // Handle character input
-    for key in key_input.get_just_pressed() {
-        if let Some(c) = keycode_to_char(*key, key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight)) {
-            command_state.text.push(c);
+    // Handle character input (skip if just opened to avoid T/slash being added)
+    if command_state.skip_input_frame {
+        command_state.skip_input_frame = false;
+    } else {
+        for key in key_input.get_just_pressed() {
+            if let Some(c) = keycode_to_char(*key, key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight)) {
+                command_state.text.push(c);
+            }
         }
     }
 
@@ -179,18 +216,25 @@ fn keycode_to_char(key_code: KeyCode, shift: bool) -> Option<char> {
 }
 
 /// Execute a command
+#[allow(clippy::too_many_arguments)]
 fn execute_command(
     command: &str,
     creative_mode: &mut ResMut<CreativeMode>,
     inventory: &mut ResMut<Inventory>,
     save_events: &mut EventWriter<SaveGameEvent>,
     load_events: &mut EventWriter<LoadGameEvent>,
+    tp_events: &mut EventWriter<TeleportEvent>,
+    look_events: &mut EventWriter<LookEvent>,
+    setblock_events: &mut EventWriter<SetBlockEvent>,
 ) {
+    info!("execute_command called with: '{}'", command);
     let parts: Vec<&str> = command.split_whitespace().collect();
     if parts.is_empty() {
+        info!("Command is empty, returning");
         return;
     }
 
+    info!("Command parts: {:?}", parts);
     match parts[0] {
         "/creative" | "creative" => {
             creative_mode.enabled = true;
@@ -246,11 +290,113 @@ fn execute_command(
             load_events.send(LoadGameEvent { filename });
         }
         "/help" | "help" => {
-            info!("Commands: /creative, /survival, /give <item> [count], /clear, /save [name], /load [name]");
+            info!("Commands: /creative, /survival, /give <item> [count], /clear, /save [name], /load [name], /tp x y z, /look pitch yaw, /setblock x y z type");
+        }
+        "/tp" | "tp" => {
+            // /tp x y z - Teleport player
+            if parts.len() >= 4 {
+                let x: f32 = parts[1].parse().unwrap_or(0.0);
+                let y: f32 = parts[2].parse().unwrap_or(12.0);
+                let z: f32 = parts[3].parse().unwrap_or(0.0);
+                tp_events.send(TeleportEvent { position: Vec3::new(x, y, z) });
+                info!("Teleporting to ({}, {}, {})", x, y, z);
+            } else {
+                info!("Usage: /tp x y z");
+            }
+        }
+        "/look" | "look" => {
+            // /look pitch yaw - Set camera direction (in degrees)
+            if parts.len() >= 3 {
+                let pitch_deg: f32 = parts[1].parse().unwrap_or(0.0);
+                let yaw_deg: f32 = parts[2].parse().unwrap_or(0.0);
+                let pitch = pitch_deg.to_radians();
+                let yaw = yaw_deg.to_radians();
+                look_events.send(LookEvent { pitch, yaw });
+                info!("Looking at pitch={:.1}° yaw={:.1}°", pitch_deg, yaw_deg);
+            } else {
+                info!("Usage: /look pitch_deg yaw_deg");
+            }
+        }
+        "/setblock" | "setblock" => {
+            // /setblock x y z blocktype - Place a block
+            if parts.len() >= 5 {
+                let x: i32 = parts[1].parse().unwrap_or(0);
+                let y: i32 = parts[2].parse().unwrap_or(0);
+                let z: i32 = parts[3].parse().unwrap_or(0);
+                let block_name = parts[4].to_lowercase();
+                if let Some(block_type) = parse_item_name(&block_name) {
+                    setblock_events.send(SetBlockEvent {
+                        position: IVec3::new(x, y, z),
+                        block_type,
+                    });
+                    info!("Setting block at ({}, {}, {}) to {}", x, y, z, block_type.name());
+                } else {
+                    info!("Unknown block type: {}", block_name);
+                }
+            } else {
+                info!("Usage: /setblock x y z blocktype");
+            }
         }
         _ => {
             info!("Unknown command: {}", command);
         }
+    }
+}
+
+/// Handle teleport events
+pub fn handle_teleport_event(
+    mut events: EventReader<TeleportEvent>,
+    mut player_query: Query<&mut Transform, With<Player>>,
+) {
+    for event in events.read() {
+        info!("TeleportEvent received: {:?}", event.position);
+        match player_query.get_single_mut() {
+            Ok(mut transform) => {
+                transform.translation = event.position;
+                info!("Teleported to {:?}", event.position);
+            }
+            Err(e) => {
+                info!("Failed to teleport: {:?}", e);
+            }
+        }
+    }
+}
+
+/// Handle look events
+pub fn handle_look_event(
+    mut events: EventReader<LookEvent>,
+    mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
+    mut player_query: Query<&mut Transform, With<Player>>,
+) {
+    for event in events.read() {
+        info!("LookEvent received: pitch={:.2} yaw={:.2}", event.pitch, event.yaw);
+        match camera_query.get_single_mut() {
+            Ok((mut camera_transform, mut camera)) => {
+                camera.pitch = event.pitch;
+                camera.yaw = event.yaw;
+                // Apply rotation immediately to Transform
+                camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
+                // Also update player yaw
+                if let Ok(mut player_transform) = player_query.get_single_mut() {
+                    player_transform.rotation = Quat::from_rotation_y(camera.yaw);
+                }
+                info!("Camera updated: pitch={:.2} yaw={:.2}", event.pitch, event.yaw);
+            }
+            Err(e) => {
+                info!("Failed to get camera: {:?}", e);
+            }
+        }
+    }
+}
+
+/// Handle setblock events
+pub fn handle_setblock_event(
+    mut events: EventReader<SetBlockEvent>,
+    mut world_data: ResMut<WorldData>,
+) {
+    for event in events.read() {
+        world_data.set_block(event.position, event.block_type);
+        info!("Set block at {:?} to {:?}", event.position, event.block_type);
     }
 }
 

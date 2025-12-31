@@ -424,18 +424,17 @@ pub fn update_conveyor_shapes(
             .count();
 
         // Determine new shape
-        // Note: Model naming is by OUTPUT direction (corner_left = outputs left)
-        // But shape detection is by INPUT direction (has_left_input = input from left)
-        // When input comes from LEFT, we need to turn RIGHT (use CornerRight model)
-        // When input comes from RIGHT, we need to turn LEFT (use CornerLeft model)
+        // Model naming is by OUTPUT direction (corner_left = outputs left)
+        // When input comes from LEFT, conveyor curves LEFT to accept it -> CornerLeft
+        // When input comes from RIGHT, conveyor curves RIGHT to accept it -> CornerRight
         let new_shape = if output_count >= 2 && !has_left_input && !has_right_input {
             // Splitter mode: multiple outputs and no side inputs
             ConveyorShape::Splitter
         } else {
             match (has_left_input, has_right_input) {
                 (false, false) => ConveyorShape::Straight,
-                (true, false) => ConveyorShape::CornerRight, // Input from left -> turn right
-                (false, true) => ConveyorShape::CornerLeft,  // Input from right -> turn left
+                (true, false) => ConveyorShape::CornerLeft,  // Input from left -> curve left
+                (false, true) => ConveyorShape::CornerRight, // Input from right -> curve right
                 (true, true) => ConveyorShape::TJunction,
             }
         };

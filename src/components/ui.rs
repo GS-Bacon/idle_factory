@@ -154,6 +154,8 @@ pub struct CommandInputState {
     pub open: bool,
     /// Current text in the command input
     pub text: String,
+    /// Skip input this frame (to avoid T/slash being added when opening)
+    pub skip_input_frame: bool,
 }
 
 /// Marker for command input UI container
