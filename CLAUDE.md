@@ -438,7 +438,8 @@ Task 3: 「精錬炉の3Dモデルを作成。modeling-rules.md参照」
 | ジッパー合流 | 複数入力を交互に受け入れ（last_input_source使用） | ✅ |
 | 設置向き自動判断 | 隣接機械/コンベアを見て向きを決定（auto_conveyor_direction） | ✅ |
 | 方向テクスチャ | 黄色の矢印メッシュで方向表示 | ✅ |
-| 自動スプリッター | 将来機能へ移動（別ブロックとして実装予定） | ⏸️ |
+| 三分岐スプリッター | 出力先が2つ以上あると自動でラウンドロビン分配 | ✅ |
+| glTFモデル | MagicaVoxelで作成→gltf変換 | 次 |
 | レンチ | 将来機能へ移動 | ⏸️ |
 
 ### フェーズ4: インベントリ改善 ✅完了
@@ -578,14 +579,50 @@ enum GameEvent {
 - チェスト（アイテム保管用ブロック）
 - 電力システム
 - 液体・パイプ
+- **テクスチャアトラス方式**: ブロック面にテクスチャを貼るMinecraft方式。アイテム50種以上になったら検討
 
 ### 後回し
-- **コンベア接続形状モデル**: MagicaVoxelで作成（straight, corner_left, corner_right, t_junction）
 - チュートリアルポップアップ
 - ガイドマーカー
 - 資源バイオーム
 
 **原則**: 遊べる状態を維持しながら機能追加
+
+## 3Dモデル構成
+
+### 現在の描画方式
+
+| 対象 | 方式 | 備考 |
+|------|------|------|
+| ブロック（地形） | チャンクメッシュ | プロシージャル生成、色のみ |
+| 機械 | 個別Entity | Cuboid→glTFに移行予定 |
+| コンベア | 個別Entity | 形状別プロシージャル→glTFに移行予定 |
+| アイテム（コンベア上） | 個別Entity | Cuboid |
+
+### モデルディレクトリ構成（予定）
+
+```
+assets/models/
+├── machines/
+│   ├── miner.gltf
+│   ├── furnace.gltf
+│   ├── crusher.gltf
+│   └── conveyor/
+│       ├── straight.gltf
+│       ├── corner_left.gltf
+│       ├── corner_right.gltf
+│       ├── t_junction.gltf
+│       └── splitter.gltf
+└── items/
+    ├── iron_ore.gltf
+    └── iron_ingot.gltf
+```
+
+### 作成パイプライン
+1. MagicaVoxel or Blenderで作成
+2. `.gltf`形式でエクスポート
+3. `assets/models/`に配置
+4. 起動時にAssetServerで読み込み
 
 ## ビルド最適化（80コア環境）
 

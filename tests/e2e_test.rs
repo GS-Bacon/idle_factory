@@ -1960,6 +1960,84 @@ fn test_zipper_merge() {
     }
 }
 
+#[test]
+fn test_splitter_round_robin() {
+    // Simulate splitter: one input distributes to three outputs in round-robin order
+    struct SplitterConveyor {
+        last_output_index: usize,
+    }
+
+    let mut splitter = SplitterConveyor {
+        last_output_index: 0,
+    };
+
+    // 3 outputs: front=0, left=1, right=2
+    let outputs = [0, 1, 2];
+    let mut output_counts = [0_usize; 3];
+    let mut output_sequence: Vec<usize> = Vec::new();
+
+    // Simulate 12 items (should distribute 4 to each output)
+    for _ in 0..12 {
+        // Get next output in round-robin order
+        let output_idx = splitter.last_output_index % 3;
+        let output = outputs[output_idx];
+
+        output_counts[output] += 1;
+        output_sequence.push(output);
+        splitter.last_output_index += 1;
+    }
+
+    // Each output should receive 4 items
+    assert_eq!(output_counts[0], 4, "Front output should receive 4 items");
+    assert_eq!(output_counts[1], 4, "Left output should receive 4 items");
+    assert_eq!(output_counts[2], 4, "Right output should receive 4 items");
+
+    // Verify round-robin pattern: 0,1,2,0,1,2,...
+    for (i, &output) in output_sequence.iter().enumerate() {
+        assert_eq!(output, i % 3, "Round-robin pattern should be 0,1,2,0,1,2,...");
+    }
+}
+
+#[test]
+fn test_splitter_skips_blocked_output() {
+    // Simulate splitter behavior when some outputs are blocked
+    struct SplitterConveyor {
+        last_output_index: usize,
+    }
+
+    let mut splitter = SplitterConveyor {
+        last_output_index: 0,
+    };
+
+    // Outputs: 0=front (available), 1=left (blocked), 2=right (available)
+    let output_available = [true, false, true];
+    let mut output_counts = [0_usize; 3];
+
+    // Simulate 10 items
+    for _ in 0..10 {
+        // Try outputs in round-robin order until one is available
+        let mut found = false;
+        for attempt in 0..3 {
+            let output_idx = (splitter.last_output_index + attempt) % 3;
+            if output_available[output_idx] {
+                output_counts[output_idx] += 1;
+                found = true;
+                break;
+            }
+        }
+        // Always advance the index to maintain fairness
+        splitter.last_output_index += 1;
+        assert!(found, "Should always find an available output");
+    }
+
+    // With output 1 blocked, items should go to 0 and 2
+    assert!(output_counts[0] > 0, "Front output should receive items");
+    assert_eq!(output_counts[1], 0, "Blocked left output should receive 0 items");
+    assert!(output_counts[2] > 0, "Right output should receive items");
+    // Total should be 10
+    assert_eq!(output_counts.iter().sum::<usize>(), 10, "All 10 items should be distributed");
+}
+
 // =====================================================
 // Auto Conveyor Direction Tests
 // =====================================================

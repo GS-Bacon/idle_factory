@@ -232,7 +232,8 @@
       "Bash(sudo systemctl:*)",
       "Bash(sudo systemctl enable:*)",
       "Bash(sudo systemctl start:*)",
-      "Bash(sudo systemctl status:*)"
+      "Bash(sudo systemctl status:*)",
+      "Bash(/usr/share/blender/scripts/../../../bin/blender --version)"
     ]
   },
   "enableAllProjectMcpServers": true,

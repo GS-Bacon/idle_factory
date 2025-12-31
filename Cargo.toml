@@ -12,6 +12,8 @@ bevy = { version = "0.15", default-features = false, features = [
     "bevy_render",
     "bevy_ui",
     "bevy_text",
+    "bevy_gltf",  # glTF model loading
+    "bevy_scene",  # Scene support for glTF
     "default_font",
     "trace",  # Enable tracing for logging
 ] }

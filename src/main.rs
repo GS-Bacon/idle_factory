@@ -27,7 +27,7 @@ use bevy::window::PresentMode;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy::window::CursorGrabMode;
 use futures_lite::future;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
 
 pub use block_type::BlockType;
@@ -119,6 +119,7 @@ fn main() {
         .init_resource::<CurrentQuest>()
         .init_resource::<GameFont>()
         .init_resource::<ChunkMeshTasks>()
+        .init_resource::<MachineModels>()
         .init_resource::<DebugHudState>()
         .init_resource::<TargetBlock>()
         .init_resource::<CreativeMode>()
@@ -129,7 +130,7 @@ fn main() {
         .init_resource::<CommandInputState>()
         .init_resource::<GuideMarkers>()
         .init_resource::<ConveyorRotationOffset>()
-        .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
+        .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models))
         .add_systems(
             Update,
             (
@@ -559,6 +560,23 @@ struct ChunkMeshData {
     blocks: HashMap<IVec3, BlockType>,
 }
 
+/// Resource to hold loaded 3D model handles for machines and conveyors
+#[derive(Resource, Default)]
+struct MachineModels {
+    /// Conveyor models by shape
+    conveyor_straight: Option<Handle<Scene>>,
+    conveyor_corner_left: Option<Handle<Scene>>,
+    conveyor_corner_right: Option<Handle<Scene>>,
+    conveyor_t_junction: Option<Handle<Scene>>,
+    conveyor_splitter: Option<Handle<Scene>>,
+    /// Machine models
+    miner: Option<Handle<Scene>>,
+    furnace: Option<Handle<Scene>>,
+    crusher: Option<Handle<Scene>>,
+    /// Whether models are loaded (fallback to procedural if not)
+    loaded: bool,
+}
+
 #[derive(Component)]
 struct HotbarUI;
 
@@ -767,6 +785,7 @@ enum ConveyorShape {
     CornerLeft,   // Input from left side
     CornerRight,  // Input from right side
     TJunction,    // Input from both sides
+    Splitter,     // Output to front, left, and right (3-way split)
 }
 
 /// Conveyor belt component - moves items in a direction
@@ -778,11 +797,9 @@ struct Conveyor {
     direction: Direction,
     /// Items on this conveyor (sorted by progress, max CONVEYOR_MAX_ITEMS)
     items: Vec<ConveyorItem>,
-    /// Index for round-robin output (splitter mode) - reserved for future use
-    #[allow(dead_code)]
+    /// Index for round-robin output (splitter mode)
     last_output_index: usize,
-    /// Index for alternating input (zipper mode) - reserved for future use
-    #[allow(dead_code)]
+    /// Index for alternating input (zipper mode)
     last_input_source: usize,
     /// Current shape (updated based on adjacent conveyors)
     shape: ConveyorShape,
@@ -906,6 +923,14 @@ impl Conveyor {
                 }
             }
         }
+    }
+
+    /// Get splitter output positions in round-robin order: [front, left, right]
+    fn get_splitter_outputs(&self) -> [IVec3; 3] {
+        let front = self.position + self.direction.to_ivec3();
+        let left = self.position + self.direction.left().to_ivec3();
+        let right = self.position + self.direction.right().to_ivec3();
+        [front, left, right]
     }
 }
 
@@ -4654,55 +4679,105 @@ fn conveyor_transfer(
 
     let mut actions: Vec<TransferAction> = Vec::new();
 
+    // Track splitter output indices for round-robin (entity -> next output index)
+    let mut splitter_indices: HashMap<Entity, usize> = HashMap::new();
+
     // First pass: update progress and collect transfer actions
     for (entity, conveyor) in conveyor_query.iter() {
-        let next_pos = conveyor.position + conveyor.direction.to_ivec3();
-
         for (idx, item) in conveyor.items.iter().enumerate() {
             // Only transfer items that reached the end
             if item.progress < 1.0 {
                 continue;
             }
 
-            // Check if next position is on delivery platform
-            if let Some((min, max)) = platform_bounds {
-                if next_pos.x >= min.x && next_pos.x <= max.x
-                    && next_pos.y >= min.y && next_pos.y <= max.y
-                    && next_pos.z >= min.z && next_pos.z <= max.z
-                {
+            // Determine output position(s) based on shape
+            let output_positions: Vec<IVec3> = if conveyor.shape == ConveyorShape::Splitter {
+                // Splitter: try front, left, right in round-robin order
+                let outputs = conveyor.get_splitter_outputs();
+                let start_idx = *splitter_indices.get(&entity).unwrap_or(&conveyor.last_output_index);
+                // Rotate the array to start from the current index
+                let mut rotated = Vec::with_capacity(3);
+                for i in 0..3 {
+                    rotated.push(outputs[(start_idx + i) % 3]);
+                }
+                rotated
+            } else {
+                // Normal conveyor: front only
+                vec![conveyor.position + conveyor.direction.to_ivec3()]
+            };
+
+            // Try each output position in order
+            let mut found_target = false;
+            for next_pos in output_positions {
+                // Check if next position is on delivery platform
+                if let Some((min, max)) = platform_bounds {
+                    if next_pos.x >= min.x && next_pos.x <= max.x
+                        && next_pos.y >= min.y && next_pos.y <= max.y
+                        && next_pos.z >= min.z && next_pos.z <= max.z
+                    {
+                        actions.push(TransferAction {
+                            source_entity: entity,
+                            source_pos: conveyor.position,
+                            item_index: idx,
+                            target: TransferTarget::Delivery,
+                        });
+                        // Update splitter index for next item
+                        if conveyor.shape == ConveyorShape::Splitter {
+                            let current = splitter_indices.entry(entity).or_insert(conveyor.last_output_index);
+                            *current = (*current + 1) % 3;
+                        }
+                        found_target = true;
+                        break;
+                    }
+                }
+
+                // Check if next position has a conveyor
+                if let Some(&next_entity) = conveyor_positions.get(&next_pos) {
                     actions.push(TransferAction {
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        target: TransferTarget::Delivery,
+                        target: TransferTarget::Conveyor(next_entity),
                     });
-                    continue;
+                    if conveyor.shape == ConveyorShape::Splitter {
+                        let current = splitter_indices.entry(entity).or_insert(conveyor.last_output_index);
+                        *current = (*current + 1) % 3;
+                    }
+                    found_target = true;
+                    break;
+                } else if furnace_positions.contains_key(&next_pos) {
+                    actions.push(TransferAction {
+                        source_entity: entity,
+                        source_pos: conveyor.position,
+                        item_index: idx,
+                        target: TransferTarget::Furnace(next_pos),
+                    });
+                    if conveyor.shape == ConveyorShape::Splitter {
+                        let current = splitter_indices.entry(entity).or_insert(conveyor.last_output_index);
+                        *current = (*current + 1) % 3;
+                    }
+                    found_target = true;
+                    break;
+                } else if crusher_positions.contains_key(&next_pos) {
+                    actions.push(TransferAction {
+                        source_entity: entity,
+                        source_pos: conveyor.position,
+                        item_index: idx,
+                        target: TransferTarget::Crusher(next_pos),
+                    });
+                    if conveyor.shape == ConveyorShape::Splitter {
+                        let current = splitter_indices.entry(entity).or_insert(conveyor.last_output_index);
+                        *current = (*current + 1) % 3;
+                    }
+                    found_target = true;
+                    break;
                 }
             }
 
-            // Check if next position has a conveyor
-            if let Some(&next_entity) = conveyor_positions.get(&next_pos) {
-                // Will check if can accept in apply phase
-                actions.push(TransferAction {
-                    source_entity: entity,
-                    source_pos: conveyor.position,
-                    item_index: idx,
-                    target: TransferTarget::Conveyor(next_entity),
-                });
-            } else if furnace_positions.contains_key(&next_pos) {
-                actions.push(TransferAction {
-                    source_entity: entity,
-                    source_pos: conveyor.position,
-                    item_index: idx,
-                    target: TransferTarget::Furnace(next_pos),
-                });
-            } else if crusher_positions.contains_key(&next_pos) {
-                actions.push(TransferAction {
-                    source_entity: entity,
-                    source_pos: conveyor.position,
-                    item_index: idx,
-                    target: TransferTarget::Crusher(next_pos),
-                });
+            // If no target found for splitter, still advance the index to try next output next time
+            if !found_target && conveyor.shape == ConveyorShape::Splitter {
+                let current = splitter_indices.entry(entity).or_insert(conveyor.last_output_index);
+                *current = (*current + 1) % 3;
             }
         }
     }
@@ -4892,6 +4967,13 @@ fn conveyor_transfer(
     for target_entity in targets_to_update {
         if let Ok((_, mut target_conv)) = conveyor_query.get_mut(target_entity) {
             target_conv.last_input_source += 1;
+        }
+    }
+
+    // Persist splitter output indices
+    for (entity, new_index) in splitter_indices {
+        if let Ok((_, mut conv)) = conveyor_query.get_mut(entity) {
+            conv.last_output_index = new_index;
         }
     }
 
@@ -5210,6 +5292,27 @@ fn setup_delivery_platform(
             )),
         ));
     }
+}
+
+/// Load 3D models for machines and conveyors (if available)
+fn load_machine_models(
+    asset_server: Res<AssetServer>,
+    mut models: ResMut<MachineModels>,
+) {
+    // Try to load conveyor models
+    models.conveyor_straight = Some(asset_server.load("models/machines/conveyor/straight.glb#Scene0"));
+    models.conveyor_corner_left = Some(asset_server.load("models/machines/conveyor/corner_left.glb#Scene0"));
+    models.conveyor_corner_right = Some(asset_server.load("models/machines/conveyor/corner_right.glb#Scene0"));
+    models.conveyor_t_junction = Some(asset_server.load("models/machines/conveyor/t_junction.glb#Scene0"));
+    models.conveyor_splitter = Some(asset_server.load("models/machines/conveyor/splitter.glb#Scene0"));
+
+    // Try to load machine models
+    models.miner = Some(asset_server.load("models/machines/miner.glb#Scene0"));
+    models.furnace = Some(asset_server.load("models/machines/furnace.glb#Scene0"));
+    models.crusher = Some(asset_server.load("models/machines/crusher.glb#Scene0"));
+
+    // Will check if loaded in update system
+    models.loaded = false;
 }
 
 /// Update delivery UI text
@@ -5793,14 +5896,32 @@ fn rotate_conveyor_placement(
 
 /// Update conveyor shapes based on adjacent conveyor connections
 /// Adds visual extensions for side inputs (L-shape, T-shape)
+/// Detects splitter mode when multiple outputs are available
 fn update_conveyor_shapes(
     mut conveyors: Query<(&mut Conveyor, &mut Mesh3d)>,
     mut meshes: ResMut<Assets<Mesh>>,
+    furnace_query: Query<&Transform, With<Furnace>>,
+    crusher_query: Query<&Crusher>,
 ) {
     // Collect all conveyor positions and directions first (read-only pass)
     let conveyor_data: Vec<(IVec3, Direction)> = conveyors
         .iter()
         .map(|(c, _)| (c.position, c.direction))
+        .collect();
+
+    // Collect positions that can accept items (conveyors, furnaces, crushers)
+    let conveyor_positions: HashSet<IVec3> = conveyor_data.iter().map(|(p, _)| *p).collect();
+    let furnace_positions: HashSet<IVec3> = furnace_query
+        .iter()
+        .map(|t| IVec3::new(
+            t.translation.x.floor() as i32,
+            t.translation.y.floor() as i32,
+            t.translation.z.floor() as i32,
+        ))
+        .collect();
+    let crusher_positions: HashSet<IVec3> = crusher_query
+        .iter()
+        .map(|c| c.position)
         .collect();
 
     for (mut conveyor, mut mesh3d) in conveyors.iter_mut() {
@@ -5823,12 +5944,48 @@ fn update_conveyor_shapes(
             }
         }
 
+        // Check for splitter mode: count available outputs
+        let front_pos = conveyor.position + conveyor.direction.to_ivec3();
+        let can_output = |pos: IVec3| -> bool {
+            // Check if position has something that can accept items
+            if conveyor_positions.contains(&pos) {
+                // Check if conveyor at this position can accept from us
+                for (p, dir) in &conveyor_data {
+                    if *p == pos {
+                        // The target conveyor accepts from behind or sides
+                        let from_dir = conveyor.position - pos;
+                        let accepts = match *dir {
+                            Direction::East => from_dir.x == -1 || from_dir.z != 0,
+                            Direction::West => from_dir.x == 1 || from_dir.z != 0,
+                            Direction::South => from_dir.z == -1 || from_dir.x != 0,
+                            Direction::North => from_dir.z == 1 || from_dir.x != 0,
+                        };
+                        return accepts;
+                    }
+                }
+            }
+            furnace_positions.contains(&pos) || crusher_positions.contains(&pos)
+        };
+
+        let has_front_output = can_output(front_pos);
+        let has_left_output = can_output(left_pos);
+        let has_right_output = can_output(right_pos);
+        let output_count = [has_front_output, has_left_output, has_right_output]
+            .iter()
+            .filter(|&&x| x)
+            .count();
+
         // Determine new shape
-        let new_shape = match (has_left_input, has_right_input) {
-            (false, false) => ConveyorShape::Straight,
-            (true, false) => ConveyorShape::CornerLeft,
-            (false, true) => ConveyorShape::CornerRight,
-            (true, true) => ConveyorShape::TJunction,
+        let new_shape = if output_count >= 2 && !has_left_input && !has_right_input {
+            // Splitter mode: multiple outputs and no side inputs
+            ConveyorShape::Splitter
+        } else {
+            match (has_left_input, has_right_input) {
+                (false, false) => ConveyorShape::Straight,
+                (true, false) => ConveyorShape::CornerLeft,
+                (false, true) => ConveyorShape::CornerRight,
+                (true, true) => ConveyorShape::TJunction,
+            }
         };
 
         // Only update if shape changed
@@ -5866,6 +6023,10 @@ fn create_conveyor_mesh(shape: ConveyorShape) -> Mesh {
         ConveyorShape::TJunction => {
             // T-shaped: main belt + both side extensions
             create_t_shaped_mesh(half_width, half_height, half_block)
+        }
+        ConveyorShape::Splitter => {
+            // Splitter: Y-shaped with 3 output directions (front, left, right)
+            create_splitter_mesh(half_width, half_height, half_block)
         }
     }
 }
@@ -6029,6 +6190,103 @@ fn create_t_shaped_mesh(half_width: f32, half_height: f32, half_block: f32) -> M
         16, 21, 17, 16, 20, 21, // bottom
         19, 18, 22, 19, 22, 23, // top
         17, 22, 18, 17, 21, 22, // outer side (-X face)
+    ];
+
+    let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList, default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh
+}
+
+/// Create splitter conveyor mesh (Y-shaped with 3 output directions)
+fn create_splitter_mesh(half_width: f32, half_height: f32, half_block: f32) -> Mesh {
+    // Main belt (short, just the center) + 3 extensions (front, left, right)
+    let positions: Vec<[f32; 3]> = vec![
+        // Center hub (8 vertices) - small cube at center
+        [-half_width, -half_height, -half_width], // 0
+        [half_width, -half_height, -half_width],  // 1
+        [half_width, half_height, -half_width],   // 2
+        [-half_width, half_height, -half_width],  // 3
+        [-half_width, -half_height, half_width],  // 4
+        [half_width, -half_height, half_width],   // 5
+        [half_width, half_height, half_width],    // 6
+        [-half_width, half_height, half_width],   // 7
+
+        // Front extension (-Z direction, 8 vertices)
+        [-half_width, -half_height, -half_block], // 8
+        [half_width, -half_height, -half_block],  // 9
+        [half_width, half_height, -half_block],   // 10
+        [-half_width, half_height, -half_block],  // 11
+        [-half_width, -half_height, -half_width], // 12
+        [half_width, -half_height, -half_width],  // 13
+        [half_width, half_height, -half_width],   // 14
+        [-half_width, half_height, -half_width],  // 15
+
+        // Left extension (+X direction, 8 vertices)
+        [half_width, -half_height, -half_width],  // 16
+        [half_block, -half_height, -half_width],  // 17
+        [half_block, half_height, -half_width],   // 18
+        [half_width, half_height, -half_width],   // 19
+        [half_width, -half_height, half_width],   // 20
+        [half_block, -half_height, half_width],   // 21
+        [half_block, half_height, half_width],    // 22
+        [half_width, half_height, half_width],    // 23
+
+        // Right extension (-X direction, 8 vertices)
+        [-half_block, -half_height, -half_width], // 24
+        [-half_width, -half_height, -half_width], // 25
+        [-half_width, half_height, -half_width],  // 26
+        [-half_block, half_height, -half_width],  // 27
+        [-half_block, -half_height, half_width],  // 28
+        [-half_width, -half_height, half_width],  // 29
+        [-half_width, half_height, half_width],   // 30
+        [-half_block, half_height, half_width],   // 31
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+        // Center hub (simplified normals)
+        [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+        [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0],
+        // Front extension
+        [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, -1.0],
+        // Left extension
+        [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+        // Right extension
+        [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0],
+    ];
+
+    let uvs: Vec<[f32; 2]> = vec![[0.0; 2]; 32];
+
+    let indices: Vec<u32> = vec![
+        // Center hub - top face only (sides connect to extensions)
+        3, 6, 2, 3, 7, 6,       // top
+        0, 1, 5, 0, 5, 4,       // bottom
+
+        // Front extension (-Z)
+        8, 10, 9, 8, 11, 10,    // front face
+        8, 9, 13, 8, 13, 12,    // bottom
+        11, 14, 10, 11, 15, 14, // top
+        8, 12, 15, 8, 15, 11,   // left side
+        9, 10, 14, 9, 14, 13,   // right side
+
+        // Left extension (+X)
+        17, 18, 22, 17, 22, 21, // outer face (+X)
+        16, 17, 21, 16, 21, 20, // bottom
+        19, 22, 18, 19, 23, 22, // top
+        16, 19, 18, 16, 18, 17, // front
+        20, 21, 22, 20, 22, 23, // back
+
+        // Right extension (-X)
+        24, 28, 31, 24, 31, 27, // outer face (-X)
+        24, 25, 29, 24, 29, 28, // bottom
+        27, 31, 30, 27, 30, 26, // top
+        24, 27, 26, 24, 26, 25, // front
+        28, 29, 30, 28, 30, 31, // back
     ];
 
     let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList, default());
