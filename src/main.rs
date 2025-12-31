@@ -5798,16 +5798,15 @@ fn rotate_conveyor_placement(
 /// Adds visual extensions for side inputs (L-shape, T-shape)
 fn update_conveyor_shapes(
     mut commands: Commands,
-    mut conveyors: Query<(Entity, &mut Conveyor, &Children)>,
-    all_conveyors: Query<(&Conveyor, &Transform)>,
+    mut conveyors: Query<(Entity, &mut Conveyor, Option<&Children>)>,
     input_markers: Query<Entity, With<ConveyorInputMarker>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Collect all conveyor positions and directions first
-    let conveyor_data: Vec<(IVec3, Direction)> = all_conveyors
+    // Collect all conveyor positions and directions first (read-only pass)
+    let conveyor_data: Vec<(IVec3, Direction)> = conveyors
         .iter()
-        .map(|(c, _)| (c.position, c.direction))
+        .map(|(_, c, _)| (c.position, c.direction))
         .collect();
 
     for (entity, mut conveyor, children) in conveyors.iter_mut() {
@@ -5843,9 +5842,11 @@ fn update_conveyor_shapes(
             conveyor.shape = new_shape;
 
             // Remove old input markers
-            for child in children.iter() {
-                if input_markers.get(*child).is_ok() {
-                    commands.entity(*child).despawn_recursive();
+            if let Some(children) = children {
+                for child in children.iter() {
+                    if input_markers.get(*child).is_ok() {
+                        commands.entity(*child).despawn_recursive();
+                    }
                 }
             }
 
