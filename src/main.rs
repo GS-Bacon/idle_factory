@@ -128,6 +128,7 @@ fn main() {
         .init_resource::<ContinuousActionTimer>()
         .init_resource::<CommandInputState>()
         .init_resource::<GuideMarkers>()
+        .init_resource::<ConveyorRotationOffset>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform))
         .add_systems(
             Update,
@@ -193,6 +194,7 @@ fn main() {
                 update_debug_hud,
                 update_target_block,
                 update_target_highlight,
+                rotate_conveyor_placement,
                 update_guide_markers,
                 inventory_toggle,
                 inventory_slot_click,
@@ -286,6 +288,14 @@ struct GuideMarker;
 struct GuideMarkers {
     entities: Vec<Entity>,
     last_selected: Option<BlockType>,
+}
+
+/// Conveyor rotation offset (R key cycles through 0-3)
+/// Applied on top of auto_conveyor_direction result
+#[derive(Resource, Default)]
+struct ConveyorRotationOffset {
+    /// Number of 90-degree clockwise rotations (0-3)
+    offset: u8,
 }
 
 /// Creative mode resource for spawning items
@@ -697,6 +707,16 @@ impl Direction {
             Direction::South => Quat::from_rotation_y(PI),
             Direction::East => Quat::from_rotation_y(-PI / 2.0),
             Direction::West => Quat::from_rotation_y(PI / 2.0),
+        }
+    }
+
+    /// Rotate 90 degrees clockwise (when viewed from above)
+    fn rotate_cw(self) -> Self {
+        match self {
+            Direction::North => Direction::East,
+            Direction::East => Direction::South,
+            Direction::South => Direction::West,
+            Direction::West => Direction::North,
         }
     }
 }
@@ -3161,6 +3181,7 @@ fn block_place(
     creative_mode: Res<CreativeMode>,
     input_resources: InputStateResourcesWithCursor,
     mut action_timer: ResMut<ContinuousActionTimer>,
+    rotation: Res<ConveyorRotationOffset>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -3427,7 +3448,12 @@ fn block_place(
                 ));
             }
 
-            auto_conveyor_direction(place_pos, player_facing, &conveyors, &machine_positions)
+            // Apply rotation offset (R key)
+            let mut dir = auto_conveyor_direction(place_pos, player_facing, &conveyors, &machine_positions);
+            for _ in 0..rotation.offset {
+                dir = dir.rotate_cw();
+            }
+            dir
         } else {
             player_facing
         };
@@ -5558,6 +5584,7 @@ fn update_target_highlight(
     crusher_query: Query<&Crusher>,
     furnace_query: Query<&Transform, With<Furnace>>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    rotation: Res<ConveyorRotationOffset>,
 ) {
     // Check if player has a placeable item selected
     let has_placeable_item = inventory.has_selected();
@@ -5597,7 +5624,12 @@ fn update_target_highlight(
                 ));
             }
 
-            Some(auto_conveyor_direction(place_pos, fallback_dir, &conveyors, &machine_positions))
+            // Apply rotation offset (R key)
+            let mut dir = auto_conveyor_direction(place_pos, fallback_dir, &conveyors, &machine_positions);
+            for _ in 0..rotation.offset {
+                dir = dir.rotate_cw();
+            }
+            Some(dir)
         } else {
             player_facing
         }
@@ -5687,6 +5719,33 @@ fn update_target_highlight(
         if place_query.get(entity).is_ok() {
             commands.entity(entity).despawn();
         }
+    }
+}
+
+/// Handle R key to rotate conveyor placement direction
+fn rotate_conveyor_placement(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut rotation: ResMut<ConveyorRotationOffset>,
+    inventory: Res<Inventory>,
+    input_resources: InputStateResourcesWithCursor,
+) {
+    // Only active when placing conveyors
+    let selected = inventory.get_selected_type();
+    if selected != Some(BlockType::ConveyorBlock) {
+        // Reset rotation when not placing conveyor
+        rotation.offset = 0;
+        return;
+    }
+
+    // Check input state allows this action
+    let input_state = input_resources.get_state();
+    if !input_state.allows_block_actions() {
+        return;
+    }
+
+    // R key rotates 90 degrees clockwise
+    if keyboard.just_pressed(KeyCode::KeyR) {
+        rotation.offset = (rotation.offset + 1) % 4;
     }
 }
 
