@@ -1,0 +1,7 @@
+# テスト結果（毎回変わるので除外）
+screenshots/
+test-results/
+playwright-report/
+
+# Node.js
+node_modules/
