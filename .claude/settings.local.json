@@ -243,7 +243,11 @@
       "Bash(# Check for running game process pgrep -fa idle_factory # List all windows on display :10 DISPLAY=:10 xdotool search --name \"\"\"\")",
       "Bash(DISPLAY=:10 cargo run:*)",
       "Bash(# Configure xrdp to use XFCE echo \"\"xfce4-session\"\" chmod +x ~/.xsession # Restart xrdp service sudo systemctl restart xrdp sudo systemctl enable xrdp sudo systemctl status xrdp)",
-      "Bash(head -3 echo \"\" echo \"Tailscale IP \\(if available\\):\" tailscale ip -4)"
+      "Bash(head -3 echo \"\" echo \"Tailscale IP \\(if available\\):\" tailscale ip -4)",
+      "Bash(# Check if WASM build is available ls -la /home/bacon/idle_factory/web/)",
+      "Bash(npm init:*)",
+      "Bash(DISPLAY=:10 npm test:*)",
+      "Bash(git reset:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

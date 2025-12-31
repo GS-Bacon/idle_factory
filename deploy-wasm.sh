@@ -31,6 +31,12 @@ echo "Copying assets..."
 mkdir -p web/assets/fonts
 cp assets/fonts/NotoSansJP-Regular.ttf web/assets/fonts/
 
+# 3Dモデルをコピー
+if [ -d "assets/models" ]; then
+    echo "Copying 3D models..."
+    cp -r assets/models web/assets/
+fi
+
 # サーバー再起動（systemd管理）
 echo "Starting server..."
 sudo systemctl start idle-factory-web

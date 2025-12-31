@@ -3610,12 +3610,16 @@ fn block_place(
 
                 // Try to use glTF model, fallback to procedural mesh
                 if let Some(model_handle) = machine_models.get_conveyor_model(ConveyorShape::Straight) {
-                    // Spawn with glTF model as SceneRoot (not as child)
-                    // SceneRoot handles its own Transform propagation
+                    // Spawn with glTF model
+                    // Note: GlobalTransform and Visibility are required for rendering
                     commands.spawn((
                         SceneRoot(model_handle),
                         Transform::from_translation(conveyor_pos)
                             .with_rotation(facing_direction.to_rotation()),
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
                         Conveyor {
                             position: place_pos,
                             direction: facing_direction,
@@ -6058,9 +6062,14 @@ fn update_conveyor_shapes(
                     commands.entity(entity).despawn_recursive();
 
                     // Spawn new entity with new model
+                    // Note: GlobalTransform and Visibility are required for rendering
                     commands.spawn((
                         SceneRoot(new_model),
                         conv_transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
                         conv_data,
                         ConveyorVisual,
                     ));

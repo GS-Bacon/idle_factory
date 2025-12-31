@@ -2864,3 +2864,50 @@ fn test_chunk_processing_rate_limit() {
 }
 
 // NOTE: test_conveyor_shape_detection moved earlier in file with Splitter support
+
+// ============================================================
+// Asset file existence tests
+// ============================================================
+#[test]
+fn test_conveyor_model_files_exist() {
+    // Conveyor glTF models should exist for all shapes
+    let model_files = [
+        "assets/models/machines/conveyor/straight.glb",
+        "assets/models/machines/conveyor/corner_left.glb",
+        "assets/models/machines/conveyor/corner_right.glb",
+        "assets/models/machines/conveyor/t_junction.glb",
+        "assets/models/machines/conveyor/splitter.glb",
+    ];
+
+    for file in model_files {
+        assert!(
+            std::path::Path::new(file).exists(),
+            "Conveyor model file should exist: {}",
+            file
+        );
+    }
+}
+
+#[test]
+fn test_conveyor_model_file_valid_glb() {
+    // Verify conveyor model files are valid GLB format
+    let model_files = [
+        "assets/models/machines/conveyor/straight.glb",
+        "assets/models/machines/conveyor/corner_left.glb",
+        "assets/models/machines/conveyor/corner_right.glb",
+        "assets/models/machines/conveyor/t_junction.glb",
+        "assets/models/machines/conveyor/splitter.glb",
+    ];
+
+    for file in model_files {
+        let data = std::fs::read(file).expect(&format!("Should read file: {}", file));
+
+        // GLB magic number is "glTF" (0x46546C67)
+        assert!(data.len() >= 12, "GLB file too small: {}", file);
+        assert_eq!(&data[0..4], b"glTF", "Invalid GLB magic for: {}", file);
+
+        // Version should be 2
+        let version = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+        assert_eq!(version, 2, "GLB version should be 2 for: {}", file);
+    }
+}
