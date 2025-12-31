@@ -4,18 +4,30 @@
 
 pub mod block_operations;
 pub mod chunk;
-pub mod machines;
+pub mod command_ui;
+pub mod conveyor;
+pub mod crusher;
+pub mod debug_ui;
+pub mod furnace;
+pub mod hotbar;
+pub mod inventory_ui;
+pub mod miner;
 pub mod player;
 pub mod quest;
 pub mod save_systems;
 pub mod targeting;
-pub mod ui;
 
 pub use block_operations::*;
 pub use chunk::*;
-pub use machines::*;
+pub use command_ui::*;
+pub use conveyor::*;
+pub use crusher::*;
+pub use debug_ui::*;
+pub use furnace::*;
+pub use hotbar::*;
+pub use inventory_ui::*;
+pub use miner::*;
 pub use player::*;
 pub use quest::*;
 pub use save_systems::*;
 pub use targeting::*;
-pub use ui::*;

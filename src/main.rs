@@ -11,7 +11,7 @@ mod machines;
 mod meshes;
 mod player;
 mod save;
-mod setup;
+pub mod setup;
 mod systems;
 mod ui;
 mod utils;
