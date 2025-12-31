@@ -195,6 +195,7 @@ fn main() {
                 update_target_block,
                 update_target_highlight,
                 rotate_conveyor_placement,
+                update_conveyor_shapes,
                 update_guide_markers,
                 inventory_toggle,
                 inventory_slot_click,
@@ -719,6 +720,31 @@ impl Direction {
             Direction::West => Direction::North,
         }
     }
+
+    /// Get the direction to the left (counterclockwise)
+    fn left(self) -> Self {
+        match self {
+            Direction::North => Direction::West,
+            Direction::East => Direction::North,
+            Direction::South => Direction::East,
+            Direction::West => Direction::South,
+        }
+    }
+
+    /// Get the direction to the right (clockwise)
+    fn right(self) -> Self {
+        self.rotate_cw()
+    }
+
+    /// Get the opposite direction
+    fn opposite(self) -> Self {
+        match self {
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::East => Direction::West,
+            Direction::West => Direction::East,
+        }
+    }
 }
 
 /// Single item on a conveyor
@@ -731,6 +757,16 @@ struct ConveyorItem {
     visual_entity: Option<Entity>,
     /// Lateral offset for side-merge animation (-0.5 to 0.5, 0 = centered)
     lateral_offset: f32,
+}
+
+/// Conveyor shape based on input connections
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+enum ConveyorShape {
+    #[default]
+    Straight,
+    CornerLeft,   // Input from left side
+    CornerRight,  // Input from right side
+    TJunction,    // Input from both sides
 }
 
 /// Conveyor belt component - moves items in a direction
@@ -748,6 +784,8 @@ struct Conveyor {
     /// Index for alternating input (zipper mode) - reserved for future use
     #[allow(dead_code)]
     last_input_source: usize,
+    /// Current shape (updated based on adjacent conveyors)
+    shape: ConveyorShape,
 }
 
 impl Conveyor {
@@ -874,6 +912,10 @@ impl Conveyor {
 /// Marker for conveyor item visual
 #[derive(Component)]
 struct ConveyorItemVisual;
+
+/// Marker for conveyor input extension (visual indicator for side inputs)
+#[derive(Component)]
+struct ConveyorInputMarker;
 
 /// Crusher component - doubles ore output
 #[derive(Component)]
@@ -3181,7 +3223,7 @@ fn block_place(
     creative_mode: Res<CreativeMode>,
     input_resources: InputStateResourcesWithCursor,
     mut action_timer: ResMut<ContinuousActionTimer>,
-    rotation: Res<ConveyorRotationOffset>,
+    mut rotation: ResMut<ConveyorRotationOffset>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -3552,6 +3594,7 @@ fn block_place(
                         items: Vec::new(),
                         last_output_index: 0,
                         last_input_source: 0,
+                        shape: ConveyorShape::Straight,
                     },
                 )).with_children(|parent| {
                     // Arrow child pointing in -Z direction (forward in local space)
@@ -3561,6 +3604,8 @@ fn block_place(
                         Transform::from_translation(Vec3::new(0.0, CONVEYOR_BELT_HEIGHT / 2.0 + 0.02, -0.25)),
                     ));
                 });
+                // Reset rotation offset after placing (so next placement uses auto-direction)
+                rotation.offset = 0;
             }
             BlockType::CrusherBlock => {
                 info!(category = "MACHINE", action = "place", machine = "crusher", ?place_pos, "Crusher placed");
@@ -5746,6 +5791,118 @@ fn rotate_conveyor_placement(
     // R key rotates 90 degrees clockwise
     if keyboard.just_pressed(KeyCode::KeyR) {
         rotation.offset = (rotation.offset + 1) % 4;
+    }
+}
+
+/// Update conveyor shapes based on adjacent conveyor connections
+/// Adds visual extensions for side inputs (L-shape, T-shape)
+fn update_conveyor_shapes(
+    mut commands: Commands,
+    mut conveyors: Query<(Entity, &mut Conveyor, &Children)>,
+    all_conveyors: Query<(&Conveyor, &Transform)>,
+    input_markers: Query<Entity, With<ConveyorInputMarker>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Collect all conveyor positions and directions first
+    let conveyor_data: Vec<(IVec3, Direction)> = all_conveyors
+        .iter()
+        .map(|(c, _)| (c.position, c.direction))
+        .collect();
+
+    for (entity, mut conveyor, children) in conveyors.iter_mut() {
+        // Calculate inputs from adjacent conveyors
+        let mut has_left_input = false;
+        let mut has_right_input = false;
+
+        let left_dir = conveyor.direction.left();
+        let right_dir = conveyor.direction.right();
+        let left_pos = conveyor.position + left_dir.to_ivec3();
+        let right_pos = conveyor.position + right_dir.to_ivec3();
+
+        // Check if any conveyor is pointing at us from the side
+        for (pos, dir) in &conveyor_data {
+            if *pos == left_pos && *dir == left_dir.opposite() {
+                has_left_input = true;
+            }
+            if *pos == right_pos && *dir == right_dir.opposite() {
+                has_right_input = true;
+            }
+        }
+
+        // Determine new shape
+        let new_shape = match (has_left_input, has_right_input) {
+            (false, false) => ConveyorShape::Straight,
+            (true, false) => ConveyorShape::CornerLeft,
+            (false, true) => ConveyorShape::CornerRight,
+            (true, true) => ConveyorShape::TJunction,
+        };
+
+        // Only update if shape changed
+        if conveyor.shape != new_shape {
+            conveyor.shape = new_shape;
+
+            // Remove old input markers
+            for child in children.iter() {
+                if input_markers.get(*child).is_ok() {
+                    commands.entity(*child).despawn_recursive();
+                }
+            }
+
+            // Add new input markers based on shape
+            let marker_mesh = meshes.add(Cuboid::new(
+                BLOCK_SIZE * 0.3,  // Width
+                BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
+                BLOCK_SIZE * 0.5   // Length (half block)
+            ));
+            let marker_material = materials.add(StandardMaterial {
+                base_color: Color::srgb(0.4, 0.4, 0.5), // Slightly different color
+                ..default()
+            });
+
+            match new_shape {
+                ConveyorShape::Straight => {}
+                ConveyorShape::CornerLeft => {
+                    // Add left input extension
+                    commands.entity(entity).with_children(|parent| {
+                        parent.spawn((
+                            Mesh3d(marker_mesh.clone()),
+                            MeshMaterial3d(marker_material.clone()),
+                            Transform::from_translation(Vec3::new(-0.35, 0.0, 0.25)),
+                            ConveyorInputMarker,
+                        ));
+                    });
+                }
+                ConveyorShape::CornerRight => {
+                    // Add right input extension
+                    commands.entity(entity).with_children(|parent| {
+                        parent.spawn((
+                            Mesh3d(marker_mesh.clone()),
+                            MeshMaterial3d(marker_material.clone()),
+                            Transform::from_translation(Vec3::new(0.35, 0.0, 0.25)),
+                            ConveyorInputMarker,
+                        ));
+                    });
+                }
+                ConveyorShape::TJunction => {
+                    // Add both input extensions
+                    commands.entity(entity).with_children(|parent| {
+                        parent.spawn((
+                            Mesh3d(marker_mesh.clone()),
+                            MeshMaterial3d(marker_material.clone()),
+                            Transform::from_translation(Vec3::new(-0.35, 0.0, 0.25)),
+                            ConveyorInputMarker,
+                        ));
+                        parent.spawn((
+                            Mesh3d(marker_mesh),
+                            MeshMaterial3d(marker_material),
+                            Transform::from_translation(Vec3::new(0.35, 0.0, 0.25)),
+                            ConveyorInputMarker,
+                        ));
+                    });
+                }
+            }
+        }
     }
 }
 
