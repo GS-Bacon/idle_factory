@@ -580,6 +580,7 @@ enum GameEvent {
 - 液体・パイプ
 
 ### 後回し
+- **コンベア接続形状モデル**: MagicaVoxelで作成（straight, corner_left, corner_right, t_junction）
 - チュートリアルポップアップ
 - ガイドマーカー
 - 資源バイオーム

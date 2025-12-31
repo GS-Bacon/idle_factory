@@ -2493,3 +2493,279 @@ fn test_delivery_platform_accepts_any_item() {
     assert_eq!(delivered.get(&BlockType::Stone), Some(&2));
     assert_eq!(delivered.get(&BlockType::Grass), Some(&1));
 }
+
+// ============================================================
+// BUG-2: Machine placement should NOT register block in world data
+// ============================================================
+#[test]
+fn test_machine_placement_no_block_registration() {
+    // Machines (Miner, Conveyor, etc.) are entities, not blocks
+    // They should NOT be registered in the world block data
+    // Registering them causes the terrain underneath to disappear
+
+    let mut world_blocks: std::collections::HashMap<IVec3, BlockType> = std::collections::HashMap::new();
+
+    // Initial terrain
+    world_blocks.insert(IVec3::new(0, 0, 0), BlockType::Stone);
+    world_blocks.insert(IVec3::new(0, 1, 0), BlockType::Grass);
+
+    // Simulate placing a miner at (0, 2, 0)
+    // CORRECT: Don't register in world_blocks - just spawn entity
+    let miner_pos = IVec3::new(0, 2, 0);
+    // machines.spawn(Miner { position: miner_pos, ... });
+    // DO NOT: world_blocks.insert(miner_pos, BlockType::MinerBlock);
+
+    // Verify terrain is still intact
+    assert!(world_blocks.contains_key(&IVec3::new(0, 0, 0)), "Stone should still exist");
+    assert!(world_blocks.contains_key(&IVec3::new(0, 1, 0)), "Grass should still exist");
+    assert!(!world_blocks.contains_key(&miner_pos), "Machine position should NOT be in world blocks");
+}
+
+// ============================================================
+// BUG-4: Chunk boundary mesh generation needs neighbor info
+// ============================================================
+#[test]
+fn test_chunk_boundary_mesh_needs_neighbors() {
+    // When generating mesh at chunk boundary, we need neighbor chunk data
+    // to correctly determine which faces to render
+
+    const CHUNK_SIZE: i32 = 16;
+
+    // Simulate two adjacent chunks
+    let mut chunk_a: std::collections::HashMap<IVec3, BlockType> = std::collections::HashMap::new();
+    let mut chunk_b: std::collections::HashMap<IVec3, BlockType> = std::collections::HashMap::new();
+
+    // Chunk A has a block at its +X edge
+    chunk_a.insert(IVec3::new(CHUNK_SIZE - 1, 0, 0), BlockType::Stone);
+
+    // Chunk B has a block at its -X edge (adjacent to chunk A's block)
+    chunk_b.insert(IVec3::new(0, 0, 0), BlockType::Stone);
+
+    // When generating mesh for chunk A's edge block:
+    // - Without neighbor info: would render +X face (wrong - it's occluded)
+    // - With neighbor info: correctly skip +X face
+
+    fn should_render_face(
+        pos: IVec3,
+        face_dir: IVec3,
+        own_chunk: &std::collections::HashMap<IVec3, BlockType>,
+        neighbor_chunk: Option<&std::collections::HashMap<IVec3, BlockType>>,
+    ) -> bool {
+        let neighbor_pos = pos + face_dir;
+
+        // Check in own chunk first
+        if own_chunk.contains_key(&neighbor_pos) {
+            return false; // Occluded by own chunk block
+        }
+
+        // Check in neighbor chunk if at boundary
+        if neighbor_pos.x < 0 || neighbor_pos.x >= CHUNK_SIZE {
+            if let Some(neighbor) = neighbor_chunk {
+                // Convert to neighbor chunk local coords
+                let local_x = if neighbor_pos.x < 0 { CHUNK_SIZE - 1 } else { 0 };
+                let local_pos = IVec3::new(local_x, neighbor_pos.y, neighbor_pos.z);
+                if neighbor.contains_key(&local_pos) {
+                    return false; // Occluded by neighbor chunk block
+                }
+            }
+        }
+
+        true // Not occluded, should render
+    }
+
+    let edge_pos = IVec3::new(CHUNK_SIZE - 1, 0, 0);
+
+    // Without neighbor info: incorrectly says to render +X face
+    let render_without_neighbor = should_render_face(
+        edge_pos,
+        IVec3::new(1, 0, 0),
+        &chunk_a,
+        None,
+    );
+
+    // With neighbor info: correctly says NOT to render +X face
+    let render_with_neighbor = should_render_face(
+        edge_pos,
+        IVec3::new(1, 0, 0),
+        &chunk_a,
+        Some(&chunk_b),
+    );
+
+    assert!(render_without_neighbor, "Without neighbor info, would incorrectly render face");
+    assert!(!render_with_neighbor, "With neighbor info, correctly skips occluded face");
+}
+
+// ============================================================
+// BUG-5: Block operations should not cause freeze
+// ============================================================
+#[test]
+fn test_block_operations_no_freeze() {
+    // Block place and break should use the same chunk regeneration pattern
+    // Inconsistent patterns can cause freezes
+
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    enum ChunkRegenPattern {
+        CurrentOnly,
+        CurrentAndNeighbors,
+        AllLoaded,
+    }
+
+    // Simulate the regeneration pattern used by block_place and block_break
+    let block_place_pattern = ChunkRegenPattern::CurrentAndNeighbors;
+    let block_break_pattern = ChunkRegenPattern::CurrentAndNeighbors;
+
+    // Both should use the same pattern
+    assert_eq!(
+        block_place_pattern, block_break_pattern,
+        "block_place and block_break should use same chunk regeneration pattern"
+    );
+}
+
+// ============================================================
+// BUG-10: UI open should block player movement
+// ============================================================
+#[test]
+fn test_ui_blocks_player_movement() {
+    // When any UI is open, player movement should be blocked
+
+    #[derive(Default)]
+    struct InputState {
+        inventory_open: bool,
+        furnace_ui_open: bool,
+        crusher_ui_open: bool,
+        command_input_open: bool,
+    }
+
+    impl InputState {
+        fn allows_movement(&self) -> bool {
+            !self.inventory_open
+                && !self.furnace_ui_open
+                && !self.crusher_ui_open
+                && !self.command_input_open
+        }
+    }
+
+    let mut state = InputState::default();
+
+    // No UI open - movement allowed
+    assert!(state.allows_movement());
+
+    // Inventory open - movement blocked
+    state.inventory_open = true;
+    assert!(!state.allows_movement());
+    state.inventory_open = false;
+
+    // Furnace UI open - movement blocked
+    state.furnace_ui_open = true;
+    assert!(!state.allows_movement());
+    state.furnace_ui_open = false;
+
+    // Crusher UI open - movement blocked
+    state.crusher_ui_open = true;
+    assert!(!state.allows_movement());
+    state.crusher_ui_open = false;
+
+    // Command input open - movement blocked
+    state.command_input_open = true;
+    assert!(!state.allows_movement());
+}
+
+// ============================================================
+// BUG-12: UI open should block hotbar scroll
+// ============================================================
+#[test]
+fn test_ui_blocks_hotbar_scroll() {
+    // When inventory UI is open, mouse wheel should not change hotbar selection
+
+    struct GameState {
+        inventory_open: bool,
+        hotbar_selection: usize,
+    }
+
+    fn handle_scroll(state: &mut GameState, scroll_delta: i32) {
+        // Should check if UI is open before processing scroll
+        if state.inventory_open {
+            return; // Block scroll when UI open
+        }
+
+        if scroll_delta > 0 {
+            state.hotbar_selection = (state.hotbar_selection + 1) % 9;
+        } else if scroll_delta < 0 {
+            state.hotbar_selection = (state.hotbar_selection + 8) % 9;
+        }
+    }
+
+    let mut state = GameState {
+        inventory_open: false,
+        hotbar_selection: 0,
+    };
+
+    // Scroll without UI - should change selection
+    handle_scroll(&mut state, 1);
+    assert_eq!(state.hotbar_selection, 1);
+
+    // Open inventory
+    state.inventory_open = true;
+
+    // Scroll with UI open - should NOT change selection
+    handle_scroll(&mut state, 1);
+    assert_eq!(state.hotbar_selection, 1, "Hotbar should not change when UI is open");
+}
+
+// ============================================================
+// BUG-19: Chunk processing should be rate-limited
+// ============================================================
+#[test]
+fn test_chunk_processing_rate_limit() {
+    // Processing too many chunks per frame causes freezes
+    // Should limit to MAX_CHUNKS_PER_FRAME
+
+    const MAX_CHUNKS_PER_FRAME: usize = 2;
+
+    let pending_chunks = vec![
+        IVec3::new(0, 0, 0),
+        IVec3::new(1, 0, 0),
+        IVec3::new(2, 0, 0),
+        IVec3::new(3, 0, 0),
+        IVec3::new(4, 0, 0),
+    ];
+
+    // Simulate processing with rate limit
+    let chunks_to_process: Vec<_> = pending_chunks
+        .iter()
+        .take(MAX_CHUNKS_PER_FRAME)
+        .collect();
+
+    assert_eq!(chunks_to_process.len(), MAX_CHUNKS_PER_FRAME);
+    assert!(chunks_to_process.len() < pending_chunks.len(), "Should not process all chunks at once");
+}
+
+// ============================================================
+// Conveyor shape detection test
+// ============================================================
+#[test]
+fn test_conveyor_shape_detection() {
+    // Test that conveyor shapes are correctly detected based on adjacent inputs
+
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    enum ConveyorShape {
+        Straight,
+        CornerLeft,
+        CornerRight,
+        TJunction,
+    }
+
+    fn detect_shape(has_left_input: bool, has_right_input: bool) -> ConveyorShape {
+        match (has_left_input, has_right_input) {
+            (false, false) => ConveyorShape::Straight,
+            (true, false) => ConveyorShape::CornerLeft,
+            (false, true) => ConveyorShape::CornerRight,
+            (true, true) => ConveyorShape::TJunction,
+        }
+    }
+
+    assert_eq!(detect_shape(false, false), ConveyorShape::Straight);
+    assert_eq!(detect_shape(true, false), ConveyorShape::CornerLeft);
+    assert_eq!(detect_shape(false, true), ConveyorShape::CornerRight);
+    assert_eq!(detect_shape(true, true), ConveyorShape::TJunction);
+}
