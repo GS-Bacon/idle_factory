@@ -1,114 +1,70 @@
 # E2Eビジュアルテスト
 
-WASMゲームとネイティブ版の自動E2Eテストを実行し、スクリーンショットで視覚的異常を検出する。
+ゲームの自動E2Eテストを実行し、スクリーンショットで視覚的異常を検出する。
 
 ## 引数
 $ARGUMENTS
 
-## 引数の解析
-
-- **--quick**: 基本テストのみ（デフォルト、6テスト）
-- **--full**: 全テスト実行（15テスト）
-- **--native**: ネイティブ版でテスト（xdotool使用、推奨）
-- **--wasm**: WASM版でテスト（Playwright、制限あり）
-- **--skip-build**: ビルドをスキップ
-
----
-
-## テスト方式の選択
-
-### ネイティブ版（--native）推奨 ✅
-
-- xdotoolでキー入力を完全にシミュレート可能
-- Pointer Lock制限なし
-- 全ての操作テストが動作
-
-### WASM版（--wasm）制限あり ⚠️
-
-- Playwrightの制限でPointer Lock取得不可
-- **キー入力テスト不可**（Tキー、Eキー、F3等）
-- 描画確認のみ（初期画面、UI表示）
-
----
-
-## 実行手順
-
-### ネイティブ版テスト（推奨）
+## クイックテスト（推奨）
 
 ```bash
-# 1. 既存プロセスを停止
-pkill -f "idle_factory" || true
+./scripts/e2e-quick.sh [basic|conveyor|machines|full]
+```
 
-# 2. ゲームをバックグラウンドで起動
-DISPLAY=:10 cargo run --release 2>&1 &
-sleep 15
+| オプション | 内容 | 枚数 |
+|-----------|------|------|
+| `basic` (b) | 起動、インベントリ、デバッグHUD | 6枚 |
+| `conveyor` (c) | コンベア配置、L字、T字、スプリッター | 8枚 |
+| `machines` (m) | 機械配置、接続、動作確認 | 6枚 |
+| `full` (f) | 全テスト | 20枚 |
 
-# 3. 初期画面スクリーンショット
-DISPLAY=:10 scrot /home/bacon/idle_factory/screenshots/verify/native_01_initial.png
+## 手動テスト（高速版）
 
-# 4. ウィンドウをアクティブ化
-DISPLAY=:10 xdotool search --name "Idle Factory" windowactivate
+ゲームをバックグラウンドで起動後、連続でスクリーンショットを撮る:
+
+```bash
+# 1. ゲーム起動
+pkill -9 -f idle_factory 2>/dev/null || true
+DISPLAY=:10 cargo run &
+
+# 2. 20秒待機後、連続スクショ
+sleep 20
+
+# 3. スクショ撮影（コピペで一括実行）
+mkdir -p screenshots/verify
+DISPLAY=:10 scrot screenshots/verify/01.png
+DISPLAY=:10 xdotool search --name "Idle" windowactivate
 sleep 0.5
-
-# 5. クリックしてゲーム開始
-DISPLAY=:10 xdotool mousemove --window $(DISPLAY=:10 xdotool search --name "Idle Factory" | head -1) 400 300
 DISPLAY=:10 xdotool click 1
 sleep 0.5
-DISPLAY=:10 scrot /home/bacon/idle_factory/screenshots/verify/native_02_active.png
+DISPLAY=:10 scrot screenshots/verify/02.png
+DISPLAY=:10 xdotool key 2
+DISPLAY=:10 xdotool mousemove 450 350 click 1
+DISPLAY=:10 xdotool mousemove 500 350 click 1
+DISPLAY=:10 xdotool mousemove 550 350 click 1
+DISPLAY=:10 xdotool mousemove 600 350 click 1
+DISPLAY=:10 scrot screenshots/verify/03.png
+DISPLAY=:10 xdotool key q
+DISPLAY=:10 xdotool mousemove 650 350 click 1
+DISPLAY=:10 xdotool key q
+DISPLAY=:10 xdotool mousemove 700 350 click 1
+DISPLAY=:10 scrot screenshots/verify/04.png
+DISPLAY=:10 xdotool key q
+DISPLAY=:10 xdotool mousemove 450 400 click 1
+DISPLAY=:10 xdotool key q
+DISPLAY=:10 xdotool mousemove 500 400 click 1
+DISPLAY=:10 scrot screenshots/verify/05.png
+echo "Done: 5 screenshots"
+ls screenshots/verify/
 
-# 6. Eキーでインベントリを開く
-DISPLAY=:10 xdotool key e
-sleep 0.5
-DISPLAY=:10 scrot /home/bacon/idle_factory/screenshots/verify/native_03_inventory.png
-
-# 7. ESCで閉じる
-DISPLAY=:10 xdotool key Escape
-sleep 0.5
-DISPLAY=:10 scrot /home/bacon/idle_factory/screenshots/verify/native_04_closed.png
-
-# 8. F3でデバッグHUD
-DISPLAY=:10 xdotool key F3
-sleep 0.5
-DISPLAY=:10 scrot /home/bacon/idle_factory/screenshots/verify/native_05_debug.png
-
-# 9. Tキーでコマンド入力
-DISPLAY=:10 xdotool key t
-sleep 0.3
-DISPLAY=:10 xdotool type "/creative"
-DISPLAY=:10 xdotool key Return
-sleep 0.5
-DISPLAY=:10 scrot /home/bacon/idle_factory/screenshots/verify/native_06_creative.png
-
-# 10. ゲーム終了
-pkill -f "idle_factory" || true
+# 4. 終了
+pkill -9 -f idle_factory
 ```
 
-### WASM版テスト（描画確認のみ）
-
-```bash
-# 1. WASMビルド（--skip-buildでスキップ可）
-./deploy-wasm.sh
-
-# 2. テスト実行
-node /home/bacon/idle_factory/test-wasm-interactions.js
-
-# 注意: キー入力はPointer Lock制限で動作しない
-# 描画確認のみ有効
-```
-
-### 3. スクリーンショット確認
-
-テスト完了後、以下のファイルを確認:
+## スクリーンショット保存先
 
 ```
 /home/bacon/idle_factory/screenshots/verify/
-├── native_01_initial.png   # 初期状態
-├── native_02_active.png    # アクティベート後
-├── native_03_inventory.png # インベントリUI（Eキー）
-├── native_04_closed.png    # UI閉じた後（ESC）
-├── native_05_debug.png     # デバッグHUD（F3）
-├── native_06_creative.png  # クリエイティブモード（Tキー+/creative）
-└── test_*.png              # WASM版（参考）
 ```
 
 ### 4. 視覚的異常の検出
