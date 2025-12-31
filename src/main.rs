@@ -577,6 +577,23 @@ struct MachineModels {
     loaded: bool,
 }
 
+impl MachineModels {
+    /// Get conveyor model handle for a given shape
+    fn get_conveyor_model(&self, shape: ConveyorShape) -> Option<Handle<Scene>> {
+        match shape {
+            ConveyorShape::Straight => self.conveyor_straight.clone(),
+            ConveyorShape::CornerLeft => self.conveyor_corner_left.clone(),
+            ConveyorShape::CornerRight => self.conveyor_corner_right.clone(),
+            ConveyorShape::TJunction => self.conveyor_t_junction.clone(),
+            ConveyorShape::Splitter => self.conveyor_splitter.clone(),
+        }
+    }
+}
+
+/// Marker for conveyor's visual model child entity (for model swapping)
+#[derive(Component)]
+struct ConveyorVisual;
+
 #[derive(Component)]
 struct HotbarUI;
 
@@ -3246,6 +3263,7 @@ fn block_place(
     input_resources: InputStateResourcesWithCursor,
     mut action_timer: ResMut<ContinuousActionTimer>,
     mut rotation: ResMut<ConveyorRotationOffset>,
+    machine_models: Res<MachineModels>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -3583,49 +3601,78 @@ fn block_place(
             BlockType::ConveyorBlock => {
                 info!(category = "MACHINE", action = "place", machine = "conveyor", ?place_pos, ?facing_direction, "Conveyor placed");
                 // Machines are spawned as separate entities, no need to modify world data
-                // (they don't occlude terrain blocks)
 
-                // Thin belt mesh (0.6 width x 0.2 height x 1.0 length)
-                let conveyor_mesh = meshes.add(Cuboid::new(
-                    BLOCK_SIZE * CONVEYOR_BELT_WIDTH,
-                    BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
-                    BLOCK_SIZE
-                ));
-                let material = materials.add(StandardMaterial {
-                    base_color: selected_type.color(),
-                    ..default()
-                });
-                // Arrow mesh to indicate direction (small elongated cuboid pointing forward)
-                let arrow_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.12, BLOCK_SIZE * 0.03, BLOCK_SIZE * 0.35));
-                let arrow_material = materials.add(StandardMaterial {
-                    base_color: Color::srgb(0.9, 0.9, 0.2), // Yellow arrow
-                    ..default()
-                });
-                let belt_y = place_pos.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT / 2.0;
-                commands.spawn((
-                    Mesh3d(conveyor_mesh),
-                    MeshMaterial3d(material),
-                    Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        belt_y,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    )).with_rotation(facing_direction.to_rotation()),
-                    Conveyor {
-                        position: place_pos,
-                        direction: facing_direction,
-                        items: Vec::new(),
-                        last_output_index: 0,
-                        last_input_source: 0,
-                        shape: ConveyorShape::Straight,
-                    },
-                )).with_children(|parent| {
-                    // Arrow child pointing in -Z direction (forward in local space)
-                    parent.spawn((
-                        Mesh3d(arrow_mesh),
-                        MeshMaterial3d(arrow_material),
-                        Transform::from_translation(Vec3::new(0.0, CONVEYOR_BELT_HEIGHT / 2.0 + 0.02, -0.25)),
+                let conveyor_pos = Vec3::new(
+                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                    place_pos.y as f32 * BLOCK_SIZE,
+                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                );
+
+                // Try to use glTF model, fallback to procedural mesh
+                if let Some(model_handle) = machine_models.get_conveyor_model(ConveyorShape::Straight) {
+                    // Spawn with glTF model
+                    commands.spawn((
+                        Transform::from_translation(conveyor_pos)
+                            .with_rotation(facing_direction.to_rotation()),
+                        Visibility::default(),
+                        Conveyor {
+                            position: place_pos,
+                            direction: facing_direction,
+                            items: Vec::new(),
+                            last_output_index: 0,
+                            last_input_source: 0,
+                            shape: ConveyorShape::Straight,
+                        },
+                    )).with_children(|parent| {
+                        // Spawn glTF scene as child
+                        parent.spawn((
+                            SceneRoot(model_handle),
+                            Transform::default(),
+                            ConveyorVisual,
+                        ));
+                    });
+                } else {
+                    // Fallback: procedural mesh
+                    let conveyor_mesh = meshes.add(Cuboid::new(
+                        BLOCK_SIZE * CONVEYOR_BELT_WIDTH,
+                        BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
+                        BLOCK_SIZE
                     ));
-                });
+                    let material = materials.add(StandardMaterial {
+                        base_color: selected_type.color(),
+                        ..default()
+                    });
+                    let arrow_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.12, BLOCK_SIZE * 0.03, BLOCK_SIZE * 0.35));
+                    let arrow_material = materials.add(StandardMaterial {
+                        base_color: Color::srgb(0.9, 0.9, 0.2),
+                        ..default()
+                    });
+                    let belt_y = place_pos.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT / 2.0;
+                    commands.spawn((
+                        Mesh3d(conveyor_mesh),
+                        MeshMaterial3d(material),
+                        Transform::from_translation(Vec3::new(
+                            place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                            belt_y,
+                            place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                        )).with_rotation(facing_direction.to_rotation()),
+                        Conveyor {
+                            position: place_pos,
+                            direction: facing_direction,
+                            items: Vec::new(),
+                            last_output_index: 0,
+                            last_input_source: 0,
+                            shape: ConveyorShape::Straight,
+                        },
+                        ConveyorVisual,
+                    )).with_children(|parent| {
+                        parent.spawn((
+                            Mesh3d(arrow_mesh),
+                            MeshMaterial3d(arrow_material),
+                            Transform::from_translation(Vec3::new(0.0, CONVEYOR_BELT_HEIGHT / 2.0 + 0.02, -0.25)),
+                        ));
+                    });
+                }
                 // Reset rotation offset after placing (so next placement uses auto-direction)
                 rotation.offset = 0;
             }
@@ -5898,15 +5945,18 @@ fn rotate_conveyor_placement(
 /// Adds visual extensions for side inputs (L-shape, T-shape)
 /// Detects splitter mode when multiple outputs are available
 fn update_conveyor_shapes(
-    mut conveyors: Query<(&mut Conveyor, &mut Mesh3d)>,
+    mut commands: Commands,
+    mut conveyors: Query<(Entity, &mut Conveyor, Option<&mut Mesh3d>, &Children)>,
+    visual_query: Query<Entity, With<ConveyorVisual>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    machine_models: Res<MachineModels>,
     furnace_query: Query<&Transform, With<Furnace>>,
     crusher_query: Query<&Crusher>,
 ) {
     // Collect all conveyor positions and directions first (read-only pass)
     let conveyor_data: Vec<(IVec3, Direction)> = conveyors
         .iter()
-        .map(|(c, _)| (c.position, c.direction))
+        .map(|(_, c, _, _)| (c.position, c.direction))
         .collect();
 
     // Collect positions that can accept items (conveyors, furnaces, crushers)
@@ -5924,7 +5974,7 @@ fn update_conveyor_shapes(
         .map(|c| c.position)
         .collect();
 
-    for (mut conveyor, mut mesh3d) in conveyors.iter_mut() {
+    for (entity, mut conveyor, mesh3d_opt, children) in conveyors.iter_mut() {
         // Calculate inputs from adjacent conveyors
         let mut has_left_input = false;
         let mut has_right_input = false;
@@ -5992,9 +6042,32 @@ fn update_conveyor_shapes(
         if conveyor.shape != new_shape {
             conveyor.shape = new_shape;
 
-            // Generate new mesh based on shape
-            let new_mesh = create_conveyor_mesh(new_shape);
-            *mesh3d = Mesh3d(meshes.add(new_mesh));
+            // Check if using glTF model (has ConveyorVisual child with SceneRoot)
+            let has_gltf_visual = children.iter().any(|child| visual_query.get(*child).is_ok());
+
+            if has_gltf_visual {
+                // Using glTF models - despawn old visual and spawn new one
+                if let Some(new_model) = machine_models.get_conveyor_model(new_shape) {
+                    // Despawn old ConveyorVisual children
+                    for child in children.iter() {
+                        if visual_query.get(*child).is_ok() {
+                            commands.entity(*child).despawn_recursive();
+                        }
+                    }
+                    // Spawn new glTF visual as child
+                    commands.entity(entity).with_children(|parent| {
+                        parent.spawn((
+                            SceneRoot(new_model),
+                            Transform::default(),
+                            ConveyorVisual,
+                        ));
+                    });
+                }
+            } else if let Some(mut mesh3d) = mesh3d_opt {
+                // Using procedural mesh - just swap the mesh
+                let new_mesh = create_conveyor_mesh(new_shape);
+                *mesh3d = Mesh3d(meshes.add(new_mesh));
+            }
         }
     }
 }
