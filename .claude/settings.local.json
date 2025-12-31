@@ -257,7 +257,8 @@
       "Bash(for vox in assets/models/machines/conveyor/straight.vox assets/models/machines/conveyor/corner_left.vox assets/models/machines/conveyor/corner_right.vox assets/models/machines/conveyor/t_junction.vox assets/models/machines/conveyor/splitter.vox)",
       "Bash(node capture-wasm-logs.js:*)",
       "Bash(fuser:*)",
-      "Bash(simple-http-server --version)"
+      "Bash(simple-http-server --version)",
+      "Bash(/home/bacon/idle_factory/tools/check_module_sizes.sh)"
     ]
   },
   "enableAllProjectMcpServers": true,

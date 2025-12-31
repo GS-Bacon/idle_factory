@@ -2,6 +2,7 @@
 //!
 //! This module contains all Bevy system functions, organized by functionality.
 
+pub mod block_operations;
 pub mod chunk;
 pub mod machines;
 pub mod player;
@@ -10,6 +11,7 @@ pub mod save_systems;
 pub mod targeting;
 pub mod ui;
 
+pub use block_operations::*;
 pub use chunk::*;
 pub use machines::*;
 pub use player::*;
