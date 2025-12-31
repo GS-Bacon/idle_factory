@@ -223,6 +223,55 @@ impl Conveyor {
         let right = self.position + self.direction.right().to_ivec3();
         [front, left, right]
     }
+
+    /// Calculate the shape this conveyor should have based on adjacent conveyors.
+    /// Returns None if shape shouldn't change (e.g., splitter mode).
+    ///
+    /// Shape is determined by which adjacent conveyors are feeding INTO this one:
+    /// - If only back feeds in -> Straight
+    /// - If only left feeds in -> CornerLeft (input from left, output to front)
+    /// - If only right feeds in -> CornerRight (input from right, output to front)
+    /// - If left AND right feed in -> TJunction
+    /// - Splitter is set manually, not auto-detected
+    pub fn calculate_shape<'a>(
+        &self,
+        adjacent_conveyors: impl Iterator<Item = &'a Conveyor>,
+    ) -> ConveyorShape {
+        if self.shape == ConveyorShape::Splitter {
+            return ConveyorShape::Splitter;
+        }
+
+        let back_pos = self.position - self.direction.to_ivec3();
+        let left_pos = self.position + self.direction.left().to_ivec3();
+        let right_pos = self.position + self.direction.right().to_ivec3();
+
+        let mut has_back_input = false;
+        let mut has_left_input = false;
+        let mut has_right_input = false;
+
+        for conv in adjacent_conveyors {
+            // Check if this conveyor is feeding INTO our position
+            let feeds_into_us = conv.position + conv.direction.to_ivec3() == self.position;
+            if !feeds_into_us {
+                continue;
+            }
+
+            if conv.position == back_pos {
+                has_back_input = true;
+            } else if conv.position == left_pos {
+                has_left_input = true;
+            } else if conv.position == right_pos {
+                has_right_input = true;
+            }
+        }
+
+        match (has_back_input, has_left_input, has_right_input) {
+            (_, true, true) => ConveyorShape::TJunction,
+            (false, true, false) => ConveyorShape::CornerLeft,
+            (false, false, true) => ConveyorShape::CornerRight,
+            _ => ConveyorShape::Straight,
+        }
+    }
 }
 
 /// Marker for conveyor's visual model child entity (for model swapping)
@@ -337,5 +386,115 @@ impl MachineModels {
             ConveyorShape::TJunction => self.conveyor_t_junction.clone(),
             ConveyorShape::Splitter => self.conveyor_splitter.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_conveyor(pos: IVec3, dir: Direction) -> Conveyor {
+        Conveyor {
+            position: pos,
+            direction: dir,
+            items: Vec::new(),
+            last_output_index: 0,
+            last_input_source: 0,
+            shape: ConveyorShape::Straight,
+        }
+    }
+
+    #[test]
+    fn test_conveyor_shape_straight_when_no_input() {
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        let others: Vec<Conveyor> = vec![];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::Straight);
+    }
+
+    #[test]
+    fn test_conveyor_shape_straight_when_back_input() {
+        // Target at (5,0,5) facing North
+        // Back is (5,0,6), needs to face North to feed into target
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        let back = make_conveyor(IVec3::new(5, 0, 6), Direction::North);
+        let others = vec![back];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::Straight);
+    }
+
+    #[test]
+    fn test_conveyor_shape_corner_left_when_left_input() {
+        // Target at (5,0,5) facing North (-Z direction)
+        // Left of North is West (-X)
+        // So left position is (4,0,5), and it needs to face East (+X) to feed into target
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        let left = make_conveyor(IVec3::new(4, 0, 5), Direction::East);
+        let others = vec![left];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::CornerLeft);
+    }
+
+    #[test]
+    fn test_conveyor_shape_corner_right_when_right_input() {
+        // Target at (5,0,5) facing North (-Z direction)
+        // Right of North is East (+X)
+        // So right position is (6,0,5), and it needs to face West (-X) to feed into target
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        let right = make_conveyor(IVec3::new(6, 0, 5), Direction::West);
+        let others = vec![right];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::CornerRight);
+    }
+
+    #[test]
+    fn test_conveyor_shape_t_junction_when_both_sides_input() {
+        // Target at (5,0,5) facing North
+        // Left feeds from (4,0,5) facing East
+        // Right feeds from (6,0,5) facing West
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        let left = make_conveyor(IVec3::new(4, 0, 5), Direction::East);
+        let right = make_conveyor(IVec3::new(6, 0, 5), Direction::West);
+        let others = vec![left, right];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::TJunction);
+    }
+
+    #[test]
+    fn test_conveyor_shape_t_junction_with_back_and_sides() {
+        // T-junction should be selected even with back input
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        let back = make_conveyor(IVec3::new(5, 0, 6), Direction::North);
+        let left = make_conveyor(IVec3::new(4, 0, 5), Direction::East);
+        let right = make_conveyor(IVec3::new(6, 0, 5), Direction::West);
+        let others = vec![back, left, right];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::TJunction);
+    }
+
+    #[test]
+    fn test_conveyor_shape_ignores_non_feeding_conveyors() {
+        // Adjacent conveyor that doesn't feed into target should be ignored
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        // Left conveyor facing South (away from target)
+        let left_not_feeding = make_conveyor(IVec3::new(4, 0, 5), Direction::South);
+        let others = vec![left_not_feeding];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::Straight);
+    }
+
+    #[test]
+    fn test_conveyor_shape_preserves_splitter() {
+        // Splitter should not be changed
+        let mut target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        target.shape = ConveyorShape::Splitter;
+        let left = make_conveyor(IVec3::new(4, 0, 5), Direction::East);
+        let others = vec![left];
+        assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::Splitter);
+    }
+
+    #[test]
+    fn test_direction_left_right() {
+        assert_eq!(Direction::North.left(), Direction::West);
+        assert_eq!(Direction::North.right(), Direction::East);
+        assert_eq!(Direction::East.left(), Direction::North);
+        assert_eq!(Direction::East.right(), Direction::South);
+        assert_eq!(Direction::South.left(), Direction::East);
+        assert_eq!(Direction::South.right(), Direction::West);
+        assert_eq!(Direction::West.left(), Direction::South);
+        assert_eq!(Direction::West.right(), Direction::North);
     }
 }

@@ -22,17 +22,29 @@ $ARGUMENTS
 
 ### 全アセット再生成
 ```bash
-# テクスチャ
-DISPLAY=:10 blender --background --python tools/generate_textures.py
+# 全アセット一括生成
+./tools/generate_all_assets.sh
 
-# スプライト
-DISPLAY=:10 blender --background --python tools/generate_item_sprites.py
+# 個別実行
+python3 tools/voxel_generator.py all          # VOXファイル生成
+./tools/convert_all_vox.sh                    # GLB変換
+DISPLAY=:10 blender --background --python tools/generate_textures.py      # テクスチャ
+DISPLAY=:10 blender --background --python tools/generate_item_sprites.py  # スプライト
+```
 
-# 3Dモデル（VOX生成 → GLB変換）
-python3 tools/voxel_generator.py all
-for vox in assets/models/machines/*.vox; do
-  DISPLAY=:10 blender --background --python tools/vox_to_gltf.py -- "$vox" "${vox%.vox}.glb"
-done
+### 部分的な生成
+```bash
+# アイテムモデルのみ
+./tools/convert_all_vox.sh --items
+
+# 機械モデルのみ
+./tools/convert_all_vox.sh --machines
+
+# コンベアモデルのみ
+./tools/convert_all_vox.sh --conveyors
+
+# 単一ファイル
+./tools/convert_all_vox.sh assets/models/machines/miner.vox
 ```
 
 ---

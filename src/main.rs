@@ -188,6 +188,7 @@ fn main() {
                 furnace_output,
                 conveyor_transfer,
                 update_conveyor_item_visuals,
+                systems::targeting::update_conveyor_shapes,
                 quest_progress_check,
                 quest_claim_rewards,
             ),

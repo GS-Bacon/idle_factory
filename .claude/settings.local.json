@@ -265,7 +265,13 @@
       "Bash(/home/bacon/idle_factory/scripts/e2e-quick.sh:*)",
       "Bash(for vox in assets/models/machines/conveyor/*.vox)",
       "Bash(for vox in assets/models/machines/conveyor/straight.vox assets/models/machines/conveyor/splitter.vox assets/models/machines/conveyor/corner_left.vox assets/models/machines/conveyor/corner_right.vox assets/models/machines/conveyor/t_junction.vox)",
-      "Bash(ln:*)"
+      "Bash(ln:*)",
+      "Skill(generate-asset)",
+      "Skill(generate-asset:*)",
+      "Bash(for vox in /home/bacon/idle_factory/assets/models/items/*.vox)",
+      "Bash(glb=\"$vox%.vox.glb\")",
+      "Bash(for vox in assets/models/items/*.vox)",
+      "Bash(./tools/convert_all_vox.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

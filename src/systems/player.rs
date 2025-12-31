@@ -35,17 +35,28 @@ pub fn toggle_cursor_lock(
     }
 
     // Click to lock cursor (when not locked or paused, and no UI open)
+    // Also handle case where browser may have released the lock
     let cursor_not_locked = window.cursor_options.grab_mode == CursorGrabMode::None;
-    if mouse_button.just_pressed(MouseButton::Left)
+
+    // On WASM, also check if we think we should be locked but aren't (browser may have released)
+    #[cfg(target_arch = "wasm32")]
+    let should_relock = cursor_not_locked && !cursor_state.paused && !any_ui_open;
+    #[cfg(not(target_arch = "wasm32"))]
+    let should_relock = false;
+
+    if (mouse_button.just_pressed(MouseButton::Left)
         && (cursor_not_locked || cursor_state.paused)
-        && !any_ui_open
+        && !any_ui_open)
+        || should_relock
     {
         // Use Locked mode - it properly captures relative mouse motion
         // Confined mode causes issues where mouse hits window edge and spins
         window.cursor_options.grab_mode = CursorGrabMode::Locked;
         window.cursor_options.visible = false;
         // Mark that we just locked - skip next block break to avoid accidental destruction
-        cursor_state.just_locked = true;
+        if mouse_button.just_pressed(MouseButton::Left) {
+            cursor_state.just_locked = true;
+        }
         cursor_state.paused = false;
     }
 }
