@@ -2038,6 +2038,51 @@ fn test_splitter_skips_blocked_output() {
     assert_eq!(output_counts.iter().sum::<usize>(), 10, "All 10 items should be distributed");
 }
 
+#[test]
+fn test_conveyor_shape_detection() {
+    // Test that conveyor shape is correctly detected based on inputs/outputs
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum ConveyorShape {
+        Straight,
+        CornerLeft,
+        CornerRight,
+        TJunction,
+        Splitter,
+    }
+
+    // Function to determine shape based on inputs and outputs
+    fn determine_shape(
+        has_left_input: bool,
+        has_right_input: bool,
+        output_count: usize,
+    ) -> ConveyorShape {
+        if output_count >= 2 && !has_left_input && !has_right_input {
+            ConveyorShape::Splitter
+        } else {
+            match (has_left_input, has_right_input) {
+                (false, false) => ConveyorShape::Straight,
+                (true, false) => ConveyorShape::CornerLeft,
+                (false, true) => ConveyorShape::CornerRight,
+                (true, true) => ConveyorShape::TJunction,
+            }
+        }
+    }
+
+    // Test cases
+    assert_eq!(determine_shape(false, false, 1), ConveyorShape::Straight, "No side inputs, 1 output = Straight");
+    assert_eq!(determine_shape(true, false, 1), ConveyorShape::CornerLeft, "Left input only = CornerLeft");
+    assert_eq!(determine_shape(false, true, 1), ConveyorShape::CornerRight, "Right input only = CornerRight");
+    assert_eq!(determine_shape(true, true, 1), ConveyorShape::TJunction, "Both side inputs = TJunction");
+    assert_eq!(determine_shape(false, false, 2), ConveyorShape::Splitter, "No side inputs, 2+ outputs = Splitter");
+    assert_eq!(determine_shape(false, false, 3), ConveyorShape::Splitter, "No side inputs, 3 outputs = Splitter");
+
+    // Side inputs prevent splitter mode even with multiple outputs
+    assert_eq!(determine_shape(true, false, 2), ConveyorShape::CornerLeft, "Left input with 2 outputs = CornerLeft (not Splitter)");
+    assert_eq!(determine_shape(false, true, 3), ConveyorShape::CornerRight, "Right input with 3 outputs = CornerRight (not Splitter)");
+    assert_eq!(determine_shape(true, true, 2), ConveyorShape::TJunction, "Both inputs with 2 outputs = TJunction (not Splitter)");
+}
+
 // =====================================================
 // Auto Conveyor Direction Tests
 // =====================================================
@@ -2818,32 +2863,4 @@ fn test_chunk_processing_rate_limit() {
     assert!(chunks_to_process.len() < pending_chunks.len(), "Should not process all chunks at once");
 }
 
-// ============================================================
-// Conveyor shape detection test
-// ============================================================
-#[test]
-fn test_conveyor_shape_detection() {
-    // Test that conveyor shapes are correctly detected based on adjacent inputs
-
-    #[derive(Debug, Clone, Copy, PartialEq)]
-    enum ConveyorShape {
-        Straight,
-        CornerLeft,
-        CornerRight,
-        TJunction,
-    }
-
-    fn detect_shape(has_left_input: bool, has_right_input: bool) -> ConveyorShape {
-        match (has_left_input, has_right_input) {
-            (false, false) => ConveyorShape::Straight,
-            (true, false) => ConveyorShape::CornerLeft,
-            (false, true) => ConveyorShape::CornerRight,
-            (true, true) => ConveyorShape::TJunction,
-        }
-    }
-
-    assert_eq!(detect_shape(false, false), ConveyorShape::Straight);
-    assert_eq!(detect_shape(true, false), ConveyorShape::CornerLeft);
-    assert_eq!(detect_shape(false, true), ConveyorShape::CornerRight);
-    assert_eq!(detect_shape(true, true), ConveyorShape::TJunction);
-}
+// NOTE: test_conveyor_shape_detection moved earlier in file with Splitter support

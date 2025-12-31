@@ -235,7 +235,8 @@
       "Bash(sudo systemctl status:*)",
       "Bash(/usr/share/blender/scripts/../../../bin/blender --version)",
       "Bash(apt-cache policy:*)",
-      "Bash(for script in corner_left corner_right t_junction splitter)"
+      "Bash(for script in corner_left corner_right t_junction splitter)",
+      "Bash(DISPLAY=:10 timeout 5 cargo run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
