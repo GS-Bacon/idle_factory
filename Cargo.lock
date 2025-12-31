@@ -2099,6 +2099,8 @@ dependencies = [
  "console_error_panic_hook",
  "futures-lite",
  "getrandom 0.3.4",
+ "serde",
+ "serde_json",
  "tracing",
  "tracing-wasm",
  "web-sys",

@@ -2303,6 +2303,53 @@ fn test_chunk_unload_clears_entities() {
 }
 
 #[test]
+fn test_modified_blocks_persist_across_chunk_reload() {
+    // Test that player modifications (placed/destroyed blocks) persist across chunk unload/reload
+    use std::collections::HashMap;
+
+    // Simulated modified_blocks storage (world_pos -> Option<BlockType>)
+    // Some(block) = player placed, None = player destroyed
+    let mut modified_blocks: HashMap<IVec3, Option<u32>> = HashMap::new();
+
+    // Player destroys a grass block at (5, 7, 5)
+    modified_blocks.insert(IVec3::new(5, 7, 5), None);
+    // Player places a stone block at (10, 8, 10)
+    modified_blocks.insert(IVec3::new(10, 8, 10), Some(1)); // 1 = Stone
+
+    // Simulate chunk unload (modified_blocks should NOT be cleared)
+    // In real code, chunks HashMap is cleared but modified_blocks persists
+
+    // Simulate chunk reload - apply modifications
+    fn apply_modifications(
+        chunk_coord: IVec2,
+        generated_blocks: &mut HashMap<IVec3, u32>,
+        modified_blocks: &HashMap<IVec3, Option<u32>>,
+    ) {
+        for (&world_pos, &maybe_block) in modified_blocks {
+            let pos_chunk = IVec2::new(world_pos.x.div_euclid(16), world_pos.z.div_euclid(16));
+            if pos_chunk != chunk_coord {
+                continue;
+            }
+            match maybe_block {
+                Some(block) => { generated_blocks.insert(world_pos, block); }
+                None => { generated_blocks.remove(&world_pos); }
+            }
+        }
+    }
+
+    // Generated chunk at (0, 0) has grass at (5, 7, 5)
+    let mut blocks: HashMap<IVec3, u32> = HashMap::new();
+    blocks.insert(IVec3::new(5, 7, 5), 2); // 2 = Grass
+
+    // Apply modifications
+    apply_modifications(IVec2::new(0, 0), &mut blocks, &modified_blocks);
+
+    // After reload: (5, 7, 5) should be gone (player destroyed), (10, 8, 10) should have stone
+    assert!(!blocks.contains_key(&IVec3::new(5, 7, 5)), "Destroyed block should stay destroyed");
+    assert_eq!(blocks.get(&IVec3::new(10, 8, 10)), Some(&1), "Placed block should persist");
+}
+
+#[test]
 fn test_chunk_boundary_machine_survival() {
     // Machine at chunk boundary should survive if any adjacent chunk is loaded
     struct Machine {

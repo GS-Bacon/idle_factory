@@ -7,6 +7,7 @@ mod events;
 mod game_spec;
 mod logging;
 mod player;
+mod save;
 
 use events::GameEventsPlugin;
 use logging::GameLoggingPlugin;
@@ -116,6 +117,7 @@ fn main() {
         .init_resource::<CursorLockState>()
         .init_resource::<InteractingFurnace>()
         .init_resource::<InteractingCrusher>()
+        .init_resource::<InteractingMiner>()
         .init_resource::<CurrentQuest>()
         .init_resource::<GameFont>()
         .init_resource::<ChunkMeshTasks>()
@@ -130,6 +132,10 @@ fn main() {
         .init_resource::<CommandInputState>()
         .init_resource::<GuideMarkers>()
         .init_resource::<ConveyorRotationOffset>()
+        .init_resource::<save::AutoSaveTimer>()
+        .init_resource::<SaveLoadState>()
+        .add_event::<SaveGameEvent>()
+        .add_event::<LoadGameEvent>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models))
         .add_systems(
             Update,
@@ -157,6 +163,8 @@ fn main() {
                 furnace_smelting,
                 crusher_interact,
                 crusher_ui_input,
+                miner_interact,
+                miner_ui_input,
             ),
         )
         .add_systems(
@@ -182,6 +190,7 @@ fn main() {
                 update_hotbar_ui,
                 update_furnace_ui,
                 update_crusher_ui,
+                update_miner_ui,
                 update_delivery_ui,
                 update_quest_ui,
                 update_window_title_fps,
@@ -215,6 +224,15 @@ fn main() {
                 creative_inventory_click,
                 command_input_toggle,
                 command_input_handler,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                // Save/Load systems
+                auto_save_system,
+                handle_save_event,
+                handle_load_event,
             ),
         )
         .run();
@@ -398,6 +416,31 @@ struct CommandInputState {
     text: String,
 }
 
+/// Event to trigger a save operation
+#[derive(Event)]
+struct SaveGameEvent {
+    /// Filename to save to (without extension)
+    filename: String,
+}
+
+/// Event to trigger a load operation
+#[derive(Event)]
+struct LoadGameEvent {
+    /// Filename to load from (without extension)
+    filename: String,
+}
+
+/// State for save/load operations
+#[derive(Resource, Default)]
+struct SaveLoadState {
+    /// Pending load data (applied on next frame to avoid borrow conflicts)
+    #[allow(dead_code)]
+    pending_load: Option<save::SaveData>,
+    /// Last save/load message for display
+    #[allow(dead_code)]
+    last_message: Option<String>,
+}
+
 /// Marker for command input UI container
 #[derive(Component)]
 struct CommandInputUI;
@@ -418,6 +461,8 @@ enum InputState {
     FurnaceUI,
     /// Crusher UI is open - only machine interactions active
     CrusherUI,
+    /// Miner UI is open - only machine interactions active
+    MinerUI,
     /// Command input is open - only text input active
     Command,
     /// Game is paused (ESC) - only click to resume
@@ -430,6 +475,7 @@ impl InputState {
         inventory_open: &InventoryOpen,
         interacting_furnace: &InteractingFurnace,
         interacting_crusher: &InteractingCrusher,
+        interacting_miner: &InteractingMiner,
         command_state: &CommandInputState,
         cursor_state: &CursorLockState,
     ) -> Self {
@@ -443,6 +489,8 @@ impl InputState {
             InputState::FurnaceUI
         } else if interacting_crusher.0.is_some() {
             InputState::CrusherUI
+        } else if interacting_miner.0.is_some() {
+            InputState::MinerUI
         } else {
             InputState::Gameplay
         }
@@ -471,6 +519,7 @@ struct InputStateResources<'w> {
     inventory_open: Res<'w, InventoryOpen>,
     interacting_furnace: Res<'w, InteractingFurnace>,
     interacting_crusher: Res<'w, InteractingCrusher>,
+    interacting_miner: Res<'w, InteractingMiner>,
     command_state: Res<'w, CommandInputState>,
 }
 
@@ -481,6 +530,7 @@ impl InputStateResources<'_> {
             &self.inventory_open,
             &self.interacting_furnace,
             &self.interacting_crusher,
+            &self.interacting_miner,
             &self.command_state,
             cursor_state,
         )
@@ -493,6 +543,7 @@ struct InputStateResourcesWithCursor<'w> {
     inventory_open: Res<'w, InventoryOpen>,
     interacting_furnace: Res<'w, InteractingFurnace>,
     interacting_crusher: Res<'w, InteractingCrusher>,
+    interacting_miner: Res<'w, InteractingMiner>,
     command_state: Res<'w, CommandInputState>,
     cursor_state: Res<'w, CursorLockState>,
 }
@@ -503,6 +554,7 @@ impl InputStateResourcesWithCursor<'_> {
             &self.inventory_open,
             &self.interacting_furnace,
             &self.interacting_crusher,
+            &self.interacting_miner,
             &self.command_state,
             &self.cursor_state,
         )
@@ -681,6 +733,14 @@ struct InteractingFurnace(Option<Entity>);
 #[derive(Resource, Default)]
 struct InteractingCrusher(Option<Entity>);
 
+/// Currently interacting miner entity
+#[derive(Resource, Default)]
+struct InteractingMiner(Option<Entity>);
+
+/// Marker for miner UI panel
+#[derive(Component)]
+struct MinerUI;
+
 /// Marker for crusher UI panel
 #[derive(Component)]
 struct CrusherUI;
@@ -696,6 +756,18 @@ struct CrusherSlotButton(MachineSlotType);
 /// Crusher UI slot count text
 #[derive(Component)]
 struct CrusherSlotCount(MachineSlotType);
+
+/// Miner UI buffer slot button (take buffer contents)
+#[derive(Component)]
+struct MinerBufferButton;
+
+/// Miner UI clear button (discard buffer)
+#[derive(Component)]
+struct MinerClearButton;
+
+/// Miner UI buffer count text
+#[derive(Component)]
+struct MinerBufferCountText;
 
 /// Miner component - automatically mines blocks below
 #[derive(Component)]
@@ -886,55 +958,62 @@ impl Conveyor {
     /// Calculate join info (progress, lateral_offset) for an item coming from a source position.
     /// Returns Some((progress, lateral_offset)) if valid, None otherwise.
     /// lateral_offset: perpendicular offset from center (-0.5 to +0.5)
+    /// Positive = right side of conveyor direction, Negative = left side
     fn get_join_info(&self, from_pos: IVec3) -> Option<(f32, f32)> {
         let offset = self.position - from_pos;
 
         // Determine if source is behind or to the side of this conveyor
+        // Coordinate system: North=-Z, South=+Z, East=+X, West=-X
+        // left/right are relative to conveyor direction
         match self.direction {
             Direction::East => {
-                // Conveyor going East (+X), perpendicular is Z
+                // Conveyor going East (+X)
+                // left = North (-Z), right = South (+Z)
                 if offset.x == 1 && offset.z == 0 {
                     Some((0.0, 0.0)) // Behind (West), join at entry, centered
                 } else if offset.x == 0 && offset.z == 1 {
-                    Some((0.5, 0.5)) // From North (+Z), join at middle, positive lateral
+                    Some((0.5, 0.5)) // From South (+Z offset = right side), positive lateral
                 } else if offset.x == 0 && offset.z == -1 {
-                    Some((0.5, -0.5)) // From South (-Z), join at middle, negative lateral
+                    Some((0.5, -0.5)) // From North (-Z offset = left side), negative lateral
                 } else {
                     None
                 }
             }
             Direction::West => {
-                // Conveyor going West (-X), perpendicular is Z
+                // Conveyor going West (-X)
+                // left = South (+Z), right = North (-Z)
                 if offset.x == -1 && offset.z == 0 {
                     Some((0.0, 0.0)) // Behind (East), join at entry, centered
                 } else if offset.x == 0 && offset.z == 1 {
-                    Some((0.5, -0.5)) // From North (+Z), negative lateral (reversed)
+                    Some((0.5, -0.5)) // From South (+Z offset = left side), negative lateral
                 } else if offset.x == 0 && offset.z == -1 {
-                    Some((0.5, 0.5)) // From South (-Z), positive lateral (reversed)
+                    Some((0.5, 0.5)) // From North (-Z offset = right side), positive lateral
                 } else {
                     None
                 }
             }
             Direction::South => {
-                // Conveyor going South (+Z), perpendicular is X
+                // Conveyor going South (+Z)
+                // left = East (+X), right = West (-X)
                 if offset.z == 1 && offset.x == 0 {
                     Some((0.0, 0.0)) // Behind (North), join at entry, centered
                 } else if offset.z == 0 && offset.x == 1 {
-                    Some((0.5, -0.5)) // From East (+X), negative lateral
+                    Some((0.5, -0.5)) // From East (+X offset = left side), negative lateral
                 } else if offset.z == 0 && offset.x == -1 {
-                    Some((0.5, 0.5)) // From West (-X), positive lateral
+                    Some((0.5, 0.5)) // From West (-X offset = right side), positive lateral
                 } else {
                     None
                 }
             }
             Direction::North => {
-                // Conveyor going North (-Z), perpendicular is X
+                // Conveyor going North (-Z)
+                // left = West (-X), right = East (+X)
                 if offset.z == -1 && offset.x == 0 {
                     Some((0.0, 0.0)) // Behind (South), join at entry, centered
                 } else if offset.z == 0 && offset.x == 1 {
-                    Some((0.5, 0.5)) // From East (+X), positive lateral
+                    Some((0.5, 0.5)) // From East (+X offset = right side), positive lateral
                 } else if offset.z == 0 && offset.x == -1 {
-                    Some((0.5, -0.5)) // From West (-X), negative lateral
+                    Some((0.5, -0.5)) // From West (-X offset = left side), negative lateral
                 } else {
                     None
                 }
@@ -1365,6 +1444,9 @@ struct WorldData {
     chunks: HashMap<IVec2, ChunkData>,
     /// Block entities for each chunk (for despawning)
     chunk_entities: HashMap<IVec2, Vec<Entity>>,
+    /// Player-modified blocks (persists across chunk unload/reload)
+    /// Key: world position, Value: Some(block_type) for placed, None for removed (air)
+    modified_blocks: HashMap<IVec3, Option<BlockType>>,
 }
 
 impl WorldData {
@@ -1414,6 +1496,8 @@ impl WorldData {
             chunk.blocks[idx] = Some(block_type);
             chunk.blocks_map.insert(local_pos, block_type);
         }
+        // Persist player modification for chunk reload
+        self.modified_blocks.insert(world_pos, Some(block_type));
     }
 
     /// Remove block at world position, returns the removed block type
@@ -1428,6 +1512,8 @@ impl WorldData {
         let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
         let block = chunk.blocks[idx].take();
         chunk.blocks_map.remove(&local_pos);
+        // Persist player modification for chunk reload (None = air/removed)
+        self.modified_blocks.insert(world_pos, None);
         block
     }
 
@@ -1574,6 +1660,29 @@ fn receive_chunk_meshes(
             blocks[idx] = Some(block_type);
             blocks_map.insert(local_pos, block_type);
         }
+
+        // Apply player modifications (placed/destroyed blocks)
+        for (&world_pos, &maybe_block) in &world_data.modified_blocks {
+            // Only apply modifications for this chunk
+            if WorldData::world_to_chunk(world_pos) != coord {
+                continue;
+            }
+            let local_pos = WorldData::world_to_local(world_pos);
+            let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
+            match maybe_block {
+                Some(block_type) => {
+                    // Player placed a block
+                    blocks[idx] = Some(block_type);
+                    blocks_map.insert(local_pos, block_type);
+                }
+                None => {
+                    // Player removed a block (air)
+                    blocks[idx] = None;
+                    blocks_map.remove(&local_pos);
+                }
+            }
+        }
+
         let chunk_data = ChunkData { blocks, blocks_map };
 
         world_data.chunks.insert(coord, chunk_data);
@@ -2134,6 +2243,147 @@ fn setup_ui(mut commands: Commands) {
             // Instructions
             parent.spawn((
                 Text::new("Click to add/take ore | ESC to close"),
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(Color::srgba(0.6, 0.6, 0.6, 1.0)),
+                Node {
+                    margin: UiRect::top(Val::Px(10.0)),
+                    ..default()
+                },
+            ));
+        });
+
+    // Miner UI panel (hidden by default)
+    commands
+        .spawn((
+            MinerUI,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(30.0),
+                left: Val::Percent(50.0),
+                padding: UiRect::all(Val::Px(15.0)),
+                margin: UiRect {
+                    left: Val::Px(-150.0),
+                    ..default()
+                },
+                width: Val::Px(300.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.2, 0.15, 0.1, 0.95)),
+            Visibility::Hidden,
+        ))
+        .with_children(|parent| {
+            // Title
+            parent.spawn((
+                Text::new("Miner"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+
+            // Buffer slot row
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(15.0),
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(5.0)),
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Label
+                    row.spawn((
+                        Text::new("Buffer:"),
+                        TextFont { font_size: 16.0, ..default() },
+                        TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+                    ));
+
+                    // Buffer slot (clickable to take items)
+                    row.spawn((
+                        Button,
+                        MinerBufferButton,
+                        Node {
+                            width: Val::Px(60.0),
+                            height: Val::Px(60.0),
+                            border: UiRect::all(Val::Px(2.0)),
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.5, 0.4, 0.35)),
+                        BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                    ))
+                    .with_children(|slot| {
+                        slot.spawn((
+                            MinerBufferCountText,
+                            Text::new("0"),
+                            TextFont { font_size: 14.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+
+                    // Take all button
+                    row.spawn((
+                        Button,
+                        MinerBufferButton,
+                        Node {
+                            padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.2, 0.5, 0.2)),
+                        BorderColor(Color::srgba(0.3, 0.7, 0.3, 1.0)),
+                    ))
+                    .with_children(|btn| {
+                        btn.spawn((
+                            Text::new("Take All"),
+                            TextFont { font_size: 14.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+                });
+
+            // Clear button row
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.0),
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(5.0)),
+                    ..default()
+                },))
+                .with_children(|row| {
+                    // Clear/Reset button
+                    row.spawn((
+                        Button,
+                        MinerClearButton,
+                        Node {
+                            padding: UiRect::axes(Val::Px(15.0), Val::Px(8.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.6, 0.2, 0.2)),
+                        BorderColor(Color::srgba(0.8, 0.3, 0.3, 1.0)),
+                    ))
+                    .with_children(|btn| {
+                        btn.spawn((
+                            Text::new("Discard Buffer"),
+                            TextFont { font_size: 14.0, ..default() },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+                });
+
+            // Instructions
+            parent.spawn((
+                Text::new("Click buffer to take items | ESC to close"),
                 TextFont {
                     font_size: 12.0,
                     ..default()
@@ -4428,6 +4678,191 @@ fn crusher_ui_input(
     }
 }
 
+/// Handle miner right-click interaction (open/close UI)
+#[allow(clippy::too_many_arguments)]
+fn miner_interact(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    miner_query: Query<(Entity, &Transform), With<Miner>>,
+    mut interacting: ResMut<InteractingMiner>,
+    inventory_open: Res<InventoryOpen>,
+    interacting_furnace: Res<InteractingFurnace>,
+    interacting_crusher: Res<InteractingCrusher>,
+    mut miner_ui_query: Query<&mut Visibility, With<MinerUI>>,
+    mut windows: Query<&mut Window>,
+    command_state: Res<CommandInputState>,
+    cursor_state: Res<CursorLockState>,
+) {
+    // Don't open miner if other UI is open
+    if inventory_open.0 || interacting_furnace.0.is_some() || interacting_crusher.0.is_some()
+        || command_state.open || cursor_state.paused
+    {
+        return;
+    }
+
+    let e_pressed = key_input.just_pressed(KeyCode::KeyE);
+    let esc_pressed = key_input.just_pressed(KeyCode::Escape);
+
+    // If already interacting, close the UI with E or ESC
+    if interacting.0.is_some() && (e_pressed || esc_pressed) {
+        interacting.0 = None;
+        if let Ok(mut vis) = miner_ui_query.get_single_mut() {
+            *vis = Visibility::Hidden;
+        }
+        let mut window = windows.single_mut();
+        if esc_pressed {
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+            set_ui_open_state(false);
+        } else {
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
+            set_ui_open_state(false);
+        }
+        return;
+    }
+
+    // Only open miner UI with right-click
+    if !mouse_button.just_pressed(MouseButton::Right) {
+        return;
+    }
+
+    let window = windows.single();
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    if !cursor_locked {
+        return;
+    }
+
+    let Ok(camera_transform) = camera_query.get_single() else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation();
+    let ray_direction = camera_transform.forward().as_vec3();
+
+    // Find closest miner intersection
+    let mut closest_miner: Option<(Entity, f32)> = None;
+    let half_size = BLOCK_SIZE / 2.0;
+
+    for (entity, miner_transform) in miner_query.iter() {
+        let miner_pos = miner_transform.translation;
+        if let Some(t) = ray_aabb_intersection(
+            ray_origin,
+            ray_direction,
+            miner_pos - Vec3::splat(half_size),
+            miner_pos + Vec3::splat(half_size),
+        ) {
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = closest_miner.is_none_or(|f| t < f.1);
+                if is_closer {
+                    closest_miner = Some((entity, t));
+                }
+            }
+        }
+    }
+
+    // Open miner UI
+    if let Some((entity, _)) = closest_miner {
+        interacting.0 = Some(entity);
+        if let Ok(mut vis) = miner_ui_query.get_single_mut() {
+            *vis = Visibility::Visible;
+        }
+        // Unlock cursor for UI interaction
+        let mut window = windows.single_mut();
+        window.cursor_options.grab_mode = CursorGrabMode::None;
+        window.cursor_options.visible = true;
+        set_ui_open_state(true);
+    }
+}
+
+/// Handle miner UI button clicks (take buffer, discard buffer)
+fn miner_ui_input(
+    interacting: Res<InteractingMiner>,
+    mut miner_query: Query<&mut Miner>,
+    mut inventory: ResMut<Inventory>,
+    mut buffer_btn_query: Query<
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
+        (With<MinerBufferButton>, Changed<Interaction>),
+    >,
+    mut clear_btn_query: Query<
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
+        (With<MinerClearButton>, Without<MinerBufferButton>, Changed<Interaction>),
+    >,
+) {
+    let Some(miner_entity) = interacting.0 else {
+        return;
+    };
+
+    let Ok(mut miner) = miner_query.get_mut(miner_entity) else {
+        return;
+    };
+
+    // Buffer button (take all items)
+    for (interaction, mut bg_color, mut border_color) in buffer_btn_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                // Take all items from buffer to inventory
+                if let Some((block_type, count)) = miner.buffer.take() {
+                    inventory.add_item(block_type, count);
+                }
+                *border_color = BorderColor(Color::srgb(1.0, 1.0, 0.0));
+            }
+            Interaction::Hovered => {
+                *border_color = BorderColor(Color::srgb(0.8, 0.8, 0.8));
+                *bg_color = BackgroundColor(Color::srgb(0.6, 0.5, 0.45));
+            }
+            Interaction::None => {
+                *border_color = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
+                *bg_color = BackgroundColor(Color::srgb(0.5, 0.4, 0.35));
+            }
+        }
+    }
+
+    // Clear button (discard buffer)
+    for (interaction, mut bg_color, mut border_color) in clear_btn_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                // Discard buffer contents
+                miner.buffer = None;
+                *border_color = BorderColor(Color::srgb(1.0, 0.3, 0.3));
+            }
+            Interaction::Hovered => {
+                *border_color = BorderColor(Color::srgb(1.0, 0.5, 0.5));
+                *bg_color = BackgroundColor(Color::srgb(0.7, 0.3, 0.3));
+            }
+            Interaction::None => {
+                *border_color = BorderColor(Color::srgba(0.8, 0.3, 0.3, 1.0));
+                *bg_color = BackgroundColor(Color::srgb(0.6, 0.2, 0.2));
+            }
+        }
+    }
+}
+
+/// Update miner UI buffer count display
+fn update_miner_ui(
+    interacting: Res<InteractingMiner>,
+    miner_query: Query<&Miner>,
+    mut text_query: Query<&mut Text, With<MinerBufferCountText>>,
+) {
+    let Some(miner_entity) = interacting.0 else {
+        return;
+    };
+
+    let Ok(miner) = miner_query.get(miner_entity) else {
+        return;
+    };
+
+    // Update buffer count text
+    for mut text in text_query.iter_mut() {
+        if let Some((block_type, count)) = &miner.buffer {
+            **text = format!("{}\n{}", block_type.name(), count);
+        } else {
+            **text = "Empty".to_string();
+        }
+    }
+}
+
 // === Miner & Conveyor Systems ===
 
 /// Mining logic - automatically mine blocks below the miner
@@ -5078,10 +5513,13 @@ fn update_conveyor_item_visuals(
             conveyor.position.z as f32 * BLOCK_SIZE + 0.5,
         );
         let direction_vec = conveyor.direction.to_ivec3().as_vec3();
-        // Perpendicular vector for lateral offset (BUG-5 fix)
+        // Perpendicular vector for lateral offset (BUG-5 fix, BUG-9 fix)
+        // Positive lateral_offset = right side of conveyor direction
         let lateral_vec = match conveyor.direction {
-            Direction::East | Direction::West => Vec3::new(0.0, 0.0, 1.0),
-            Direction::North | Direction::South => Vec3::new(1.0, 0.0, 0.0),
+            Direction::East => Vec3::new(0.0, 0.0, 1.0),   // Right is +Z (South)
+            Direction::West => Vec3::new(0.0, 0.0, -1.0),  // Right is -Z (North)
+            Direction::South => Vec3::new(-1.0, 0.0, 0.0), // Right is -X (West)
+            Direction::North => Vec3::new(1.0, 0.0, 0.0),  // Right is +X (East)
         };
 
         for item in conveyor.items.iter_mut() {
@@ -7239,6 +7677,8 @@ fn command_input_handler(
     mut windows: Query<&mut Window>,
     mut creative_mode: ResMut<CreativeMode>,
     mut inventory: ResMut<Inventory>,
+    mut save_events: EventWriter<SaveGameEvent>,
+    mut load_events: EventWriter<LoadGameEvent>,
 ) {
     if !command_state.open {
         return;
@@ -7265,7 +7705,7 @@ fn command_input_handler(
     // Enter to execute command
     if key_input.just_pressed(KeyCode::Enter) {
         let command_text = command_state.text.trim().to_lowercase();
-        execute_command(&command_text, &mut creative_mode, &mut inventory);
+        execute_command(&command_text, &mut creative_mode, &mut inventory, &mut save_events, &mut load_events);
 
         command_state.open = false;
         command_state.text.clear();
@@ -7362,6 +7802,8 @@ fn execute_command(
     command: &str,
     creative_mode: &mut ResMut<CreativeMode>,
     inventory: &mut ResMut<Inventory>,
+    save_events: &mut EventWriter<SaveGameEvent>,
+    load_events: &mut EventWriter<LoadGameEvent>,
 ) {
     let parts: Vec<&str> = command.split_whitespace().collect();
     if parts.is_empty() {
@@ -7412,8 +7854,18 @@ fn execute_command(
             }
             info!("Inventory cleared");
         }
+        "/save" | "save" => {
+            // /save [filename]
+            let filename = parts.get(1).unwrap_or(&"quicksave").to_string();
+            save_events.send(SaveGameEvent { filename });
+        }
+        "/load" | "load" => {
+            // /load [filename]
+            let filename = parts.get(1).unwrap_or(&"quicksave").to_string();
+            load_events.send(LoadGameEvent { filename });
+        }
         "/help" | "help" => {
-            info!("Commands: /creative, /survival, /give <item> [count], /clear");
+            info!("Commands: /creative, /survival, /give <item> [count], /clear, /save [name], /load [name]");
         }
         _ => {
             info!("Unknown command: {}", command);
@@ -7436,6 +7888,500 @@ fn parse_item_name(name: &str) -> Option<BlockType> {
         "crusher" => Some(BlockType::CrusherBlock),
         "furnace" => Some(BlockType::FurnaceBlock),
         _ => None,
+    }
+}
+
+// === Save/Load System ===
+
+/// Collect all game state into SaveData
+#[allow(clippy::too_many_arguments)]
+fn collect_save_data(
+    player_query: &Query<&Transform, With<Player>>,
+    camera_query: &Query<&PlayerCamera>,
+    inventory: &Inventory,
+    world_data: &WorldData,
+    miner_query: &Query<&Miner>,
+    conveyor_query: &Query<&Conveyor>,
+    furnace_query: &Query<(&Furnace, &GlobalTransform)>,
+    crusher_query: &Query<&Crusher>,
+    delivery_query: &Query<&DeliveryPlatform>,
+    current_quest: &CurrentQuest,
+    creative_mode: &CreativeMode,
+) -> save::SaveData {
+    use save::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Get current timestamp
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    // Collect player data
+    let player_data = if let Ok(transform) = player_query.get_single() {
+        let rotation = camera_query.get_single()
+            .map(|c| CameraRotation { pitch: c.pitch, yaw: c.yaw })
+            .unwrap_or(CameraRotation { pitch: 0.0, yaw: 0.0 });
+        PlayerSaveData {
+            position: transform.translation.into(),
+            rotation,
+        }
+    } else {
+        PlayerSaveData {
+            position: Vec3Save { x: 8.0, y: 12.0, z: 20.0 },
+            rotation: CameraRotation { pitch: 0.0, yaw: 0.0 },
+        }
+    };
+
+    // Collect inventory data
+    let inventory_data = InventorySaveData {
+        selected_slot: inventory.selected_slot,
+        slots: inventory.slots.iter().map(|slot| {
+            slot.map(|(bt, count)| ItemStack {
+                item_type: bt.into(),
+                count,
+            })
+        }).collect(),
+    };
+
+    // Collect world modifications
+    let modified_blocks: std::collections::HashMap<String, Option<BlockTypeSave>> = world_data
+        .modified_blocks
+        .iter()
+        .map(|(pos, block)| {
+            (WorldSaveData::pos_to_key(*pos), block.map(|b| b.into()))
+        })
+        .collect();
+
+    let world_save = WorldSaveData { modified_blocks };
+
+    // Collect machines
+    let mut machines = Vec::new();
+
+    // Miners
+    for miner in miner_query.iter() {
+        machines.push(MachineSaveData::Miner(MinerSaveData {
+            position: miner.position.into(),
+            progress: miner.progress,
+            buffer: miner.buffer.map(|(bt, count)| ItemStack {
+                item_type: bt.into(),
+                count,
+            }),
+        }));
+    }
+
+    // Conveyors
+    for conveyor in conveyor_query.iter() {
+        let direction = match conveyor.direction {
+            Direction::North => DirectionSave::North,
+            Direction::South => DirectionSave::South,
+            Direction::East => DirectionSave::East,
+            Direction::West => DirectionSave::West,
+        };
+        let shape = match conveyor.shape {
+            ConveyorShape::Straight => ConveyorShapeSave::Straight,
+            ConveyorShape::CornerLeft => ConveyorShapeSave::CornerLeft,
+            ConveyorShape::CornerRight => ConveyorShapeSave::CornerRight,
+            ConveyorShape::TJunction => ConveyorShapeSave::TJunction,
+            ConveyorShape::Splitter => ConveyorShapeSave::Splitter,
+        };
+        let items: Vec<ConveyorItemSave> = conveyor.items.iter().map(|item| {
+            ConveyorItemSave {
+                item_type: item.block_type.into(),
+                progress: item.progress,
+                lateral_offset: item.lateral_offset,
+            }
+        }).collect();
+
+        machines.push(MachineSaveData::Conveyor(ConveyorSaveData {
+            position: conveyor.position.into(),
+            direction,
+            shape,
+            items,
+            last_output_index: conveyor.last_output_index,
+            last_input_source: conveyor.last_input_source,
+        }));
+    }
+
+    // Furnaces
+    for (furnace, transform) in furnace_query.iter() {
+        let pos = IVec3::new(
+            transform.translation().x.floor() as i32,
+            transform.translation().y.floor() as i32,
+            transform.translation().z.floor() as i32,
+        );
+        machines.push(MachineSaveData::Furnace(FurnaceSaveData {
+            position: pos.into(),
+            fuel: furnace.fuel,
+            input: furnace.input_type.map(|bt| ItemStack {
+                item_type: bt.into(),
+                count: furnace.input_count,
+            }),
+            output: furnace.output_type.map(|bt| ItemStack {
+                item_type: bt.into(),
+                count: furnace.output_count,
+            }),
+            progress: furnace.progress,
+        }));
+    }
+
+    // Crushers
+    for crusher in crusher_query.iter() {
+        machines.push(MachineSaveData::Crusher(CrusherSaveData {
+            position: crusher.position.into(),
+            input: crusher.input_type.map(|bt| ItemStack {
+                item_type: bt.into(),
+                count: crusher.input_count,
+            }),
+            output: crusher.output_type.map(|bt| ItemStack {
+                item_type: bt.into(),
+                count: crusher.output_count,
+            }),
+            progress: crusher.progress,
+        }));
+    }
+
+    // Collect quest data
+    let delivered: std::collections::HashMap<BlockTypeSave, u32> = delivery_query
+        .iter()
+        .next()
+        .map(|d| {
+            d.delivered.iter().map(|(bt, count)| ((*bt).into(), *count)).collect()
+        })
+        .unwrap_or_default();
+
+    let quest_data = QuestSaveData {
+        current_index: current_quest.index,
+        completed: current_quest.completed,
+        rewards_claimed: current_quest.rewards_claimed,
+        delivered,
+    };
+
+    // Game mode
+    let mode_data = GameModeSaveData {
+        creative: creative_mode.enabled,
+    };
+
+    SaveData {
+        version: save::SAVE_VERSION.to_string(),
+        timestamp,
+        player: player_data,
+        inventory: inventory_data,
+        world: world_save,
+        machines,
+        quests: quest_data,
+        mode: mode_data,
+    }
+}
+
+/// Convert Direction from save format
+fn direction_from_save(dir: save::DirectionSave) -> Direction {
+    match dir {
+        save::DirectionSave::North => Direction::North,
+        save::DirectionSave::South => Direction::South,
+        save::DirectionSave::East => Direction::East,
+        save::DirectionSave::West => Direction::West,
+    }
+}
+
+/// Convert ConveyorShape from save format
+fn conveyor_shape_from_save(shape: save::ConveyorShapeSave) -> ConveyorShape {
+    match shape {
+        save::ConveyorShapeSave::Straight => ConveyorShape::Straight,
+        save::ConveyorShapeSave::CornerLeft => ConveyorShape::CornerLeft,
+        save::ConveyorShapeSave::CornerRight => ConveyorShape::CornerRight,
+        save::ConveyorShapeSave::TJunction => ConveyorShape::TJunction,
+        save::ConveyorShapeSave::Splitter => ConveyorShape::Splitter,
+    }
+}
+
+/// Auto-save system - saves game every minute
+fn auto_save_system(
+    time: Res<Time>,
+    mut auto_save_timer: ResMut<save::AutoSaveTimer>,
+    mut save_events: EventWriter<SaveGameEvent>,
+) {
+    auto_save_timer.timer.tick(time.delta());
+
+    if auto_save_timer.timer.just_finished() {
+        save_events.send(SaveGameEvent {
+            filename: "autosave".to_string(),
+        });
+        info!("Auto-save triggered");
+    }
+}
+
+/// Handle save game events
+#[allow(clippy::too_many_arguments)]
+fn handle_save_event(
+    mut events: EventReader<SaveGameEvent>,
+    player_query: Query<&Transform, With<Player>>,
+    camera_query: Query<&PlayerCamera>,
+    inventory: Res<Inventory>,
+    world_data: Res<WorldData>,
+    miner_query: Query<&Miner>,
+    conveyor_query: Query<&Conveyor>,
+    furnace_query: Query<(&Furnace, &GlobalTransform)>,
+    crusher_query: Query<&Crusher>,
+    delivery_query: Query<&DeliveryPlatform>,
+    current_quest: Res<CurrentQuest>,
+    creative_mode: Res<CreativeMode>,
+    mut save_load_state: ResMut<SaveLoadState>,
+) {
+    for event in events.read() {
+        let save_data = collect_save_data(
+            &player_query,
+            &camera_query,
+            &inventory,
+            &world_data,
+            &miner_query,
+            &conveyor_query,
+            &furnace_query,
+            &crusher_query,
+            &delivery_query,
+            &current_quest,
+            &creative_mode,
+        );
+
+        match save::save_game(&save_data, &event.filename) {
+            Ok(()) => {
+                let msg = format!("Game saved to '{}'", event.filename);
+                info!("{}", msg);
+                save_load_state.last_message = Some(msg);
+            }
+            Err(e) => {
+                let msg = format!("Failed to save: {}", e);
+                info!("{}", msg);
+                save_load_state.last_message = Some(msg);
+            }
+        }
+    }
+}
+
+/// Handle load game events
+#[allow(clippy::too_many_arguments)]
+fn handle_load_event(
+    mut events: EventReader<LoadGameEvent>,
+    mut save_load_state: ResMut<SaveLoadState>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut player_query: Query<&mut Transform, With<Player>>,
+    mut camera_query: Query<&mut PlayerCamera>,
+    mut inventory: ResMut<Inventory>,
+    mut world_data: ResMut<WorldData>,
+    mut current_quest: ResMut<CurrentQuest>,
+    mut creative_mode: ResMut<CreativeMode>,
+    mut delivery_query: Query<&mut DeliveryPlatform>,
+    // Entities to despawn
+    miner_entities: Query<Entity, With<Miner>>,
+    conveyor_entities: Query<Entity, With<Conveyor>>,
+    furnace_entities: Query<Entity, With<Furnace>>,
+    crusher_entities: Query<Entity, With<Crusher>>,
+) {
+    for event in events.read() {
+        match save::load_game(&event.filename) {
+            Ok(data) => {
+                // Apply player position
+                if let Ok(mut transform) = player_query.get_single_mut() {
+                    transform.translation = data.player.position.into();
+                }
+
+                // Apply camera rotation
+                if let Ok(mut camera) = camera_query.get_single_mut() {
+                    camera.pitch = data.player.rotation.pitch;
+                    camera.yaw = data.player.rotation.yaw;
+                }
+
+                // Apply inventory
+                inventory.selected_slot = data.inventory.selected_slot;
+                for (i, slot) in data.inventory.slots.iter().enumerate() {
+                    if i < inventory.slots.len() {
+                        inventory.slots[i] = slot.as_ref().map(|s| {
+                            (s.item_type.clone().into(), s.count)
+                        });
+                    }
+                }
+
+                // Apply world modifications
+                world_data.modified_blocks.clear();
+                for (key, block_opt) in &data.world.modified_blocks {
+                    if let Some(pos) = save::WorldSaveData::key_to_pos(key) {
+                        world_data.modified_blocks.insert(
+                            pos,
+                            block_opt.as_ref().map(|b| b.clone().into())
+                        );
+                    }
+                }
+
+                // Despawn existing machines
+                for entity in miner_entities.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+                for entity in conveyor_entities.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+                for entity in furnace_entities.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+                for entity in crusher_entities.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+
+                // Spawn machines from save data
+                for machine in &data.machines {
+                    match machine {
+                        save::MachineSaveData::Miner(miner_data) => {
+                            let pos: IVec3 = miner_data.position.into();
+                            let world_pos = Vec3::new(
+                                pos.x as f32 + 0.5,
+                                pos.y as f32 + 0.5,
+                                pos.z as f32 + 0.5,
+                            );
+
+                            let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            commands.spawn((
+                                Miner {
+                                    position: pos,
+                                    progress: miner_data.progress,
+                                    buffer: miner_data.buffer.as_ref().map(|b| {
+                                        (b.item_type.clone().into(), b.count)
+                                    }),
+                                },
+                                Mesh3d(cube_mesh),
+                                MeshMaterial3d(materials.add(StandardMaterial {
+                                    base_color: BlockType::MinerBlock.color(),
+                                    ..default()
+                                })),
+                                Transform::from_translation(world_pos),
+                            ));
+                        }
+                        save::MachineSaveData::Conveyor(conveyor_data) => {
+                            let pos: IVec3 = conveyor_data.position.into();
+                            let direction = direction_from_save(conveyor_data.direction);
+                            let shape = conveyor_shape_from_save(conveyor_data.shape);
+                            let world_pos = Vec3::new(
+                                pos.x as f32 + 0.5,
+                                pos.y as f32 + 0.5,
+                                pos.z as f32 + 0.5,
+                            );
+
+                            let items: Vec<ConveyorItem> = conveyor_data.items.iter().map(|item| {
+                                ConveyorItem {
+                                    block_type: item.item_type.clone().into(),
+                                    progress: item.progress,
+                                    visual_entity: None, // Will be created by update_conveyor_item_visuals
+                                    lateral_offset: item.lateral_offset,
+                                }
+                            }).collect();
+
+                            commands.spawn((
+                                Conveyor {
+                                    position: pos,
+                                    direction,
+                                    items,
+                                    last_output_index: conveyor_data.last_output_index,
+                                    last_input_source: conveyor_data.last_input_source,
+                                    shape,
+                                },
+                                Mesh3d(meshes.add(create_conveyor_mesh(shape))),
+                                MeshMaterial3d(materials.add(StandardMaterial {
+                                    base_color: BlockType::ConveyorBlock.color(),
+                                    ..default()
+                                })),
+                                Transform::from_translation(world_pos)
+                                    .with_rotation(direction.to_rotation()),
+                                GlobalTransform::default(),
+                                Visibility::default(),
+                                InheritedVisibility::default(),
+                                ViewVisibility::default(),
+                            ));
+                        }
+                        save::MachineSaveData::Furnace(furnace_data) => {
+                            let pos: IVec3 = furnace_data.position.into();
+                            let world_pos = Vec3::new(
+                                pos.x as f32 + 0.5,
+                                pos.y as f32 + 0.5,
+                                pos.z as f32 + 0.5,
+                            );
+
+                            let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            commands.spawn((
+                                Furnace {
+                                    fuel: furnace_data.fuel,
+                                    input_type: furnace_data.input.as_ref().map(|s| s.item_type.clone().into()),
+                                    input_count: furnace_data.input.as_ref().map(|s| s.count).unwrap_or(0),
+                                    output_type: furnace_data.output.as_ref().map(|s| s.item_type.clone().into()),
+                                    output_count: furnace_data.output.as_ref().map(|s| s.count).unwrap_or(0),
+                                    progress: furnace_data.progress,
+                                },
+                                Mesh3d(cube_mesh),
+                                MeshMaterial3d(materials.add(StandardMaterial {
+                                    base_color: BlockType::FurnaceBlock.color(),
+                                    ..default()
+                                })),
+                                Transform::from_translation(world_pos),
+                            ));
+                        }
+                        save::MachineSaveData::Crusher(crusher_data) => {
+                            let pos: IVec3 = crusher_data.position.into();
+                            let world_pos = Vec3::new(
+                                pos.x as f32 + 0.5,
+                                pos.y as f32 + 0.5,
+                                pos.z as f32 + 0.5,
+                            );
+
+                            let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            commands.spawn((
+                                Crusher {
+                                    position: pos,
+                                    input_type: crusher_data.input.as_ref().map(|s| s.item_type.clone().into()),
+                                    input_count: crusher_data.input.as_ref().map(|s| s.count).unwrap_or(0),
+                                    output_type: crusher_data.output.as_ref().map(|s| s.item_type.clone().into()),
+                                    output_count: crusher_data.output.as_ref().map(|s| s.count).unwrap_or(0),
+                                    progress: crusher_data.progress,
+                                },
+                                Mesh3d(cube_mesh),
+                                MeshMaterial3d(materials.add(StandardMaterial {
+                                    base_color: BlockType::CrusherBlock.color(),
+                                    ..default()
+                                })),
+                                Transform::from_translation(world_pos),
+                            ));
+                        }
+                    }
+                }
+
+                // Apply quest progress
+                current_quest.index = data.quests.current_index;
+                current_quest.completed = data.quests.completed;
+                current_quest.rewards_claimed = data.quests.rewards_claimed;
+
+                // Apply delivery platform state
+                if let Ok(mut delivery) = delivery_query.get_single_mut() {
+                    delivery.delivered.clear();
+                    for (bt, count) in &data.quests.delivered {
+                        delivery.delivered.insert(bt.clone().into(), *count);
+                    }
+                }
+
+                // Apply game mode
+                creative_mode.enabled = data.mode.creative;
+
+                let msg = format!("Game loaded from '{}'", event.filename);
+                info!("{}", msg);
+                save_load_state.last_message = Some(msg);
+
+                // Force chunk reload by clearing chunks (they will regenerate with modified_blocks applied)
+                // Note: This is a simple approach; a more sophisticated one would only reload affected chunks
+                world_data.chunks.clear();
+            }
+            Err(e) => {
+                let msg = format!("Failed to load: {}", e);
+                info!("{}", msg);
+                save_load_state.last_message = Some(msg);
+            }
+        }
     }
 }
 
@@ -7884,6 +8830,7 @@ mod tests {
             &InventoryOpen(false),
             &InteractingFurnace(None),
             &InteractingCrusher(None),
+            &InteractingMiner(None),
             &CommandInputState::default(),
             &CursorLockState::default(),
         );
@@ -7894,6 +8841,7 @@ mod tests {
             &InventoryOpen(true),
             &InteractingFurnace(Some(Entity::PLACEHOLDER)),
             &InteractingCrusher(Some(Entity::PLACEHOLDER)),
+            &InteractingMiner(Some(Entity::PLACEHOLDER)),
             &CommandInputState { open: true, text: String::new() },
             &CursorLockState { paused: true, ..default() },
         );
@@ -7904,6 +8852,7 @@ mod tests {
             &InventoryOpen(true),
             &InteractingFurnace(Some(Entity::PLACEHOLDER)),
             &InteractingCrusher(None),
+            &InteractingMiner(None),
             &CommandInputState { open: true, text: String::new() },
             &CursorLockState::default(),
         );
@@ -7914,6 +8863,7 @@ mod tests {
             &InventoryOpen(true),
             &InteractingFurnace(Some(Entity::PLACEHOLDER)),
             &InteractingCrusher(None),
+            &InteractingMiner(None),
             &CommandInputState::default(),
             &CursorLockState::default(),
         );
