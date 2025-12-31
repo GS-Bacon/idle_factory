@@ -54,6 +54,23 @@ impl BlockType {
         }
     }
 
+    /// Get a short name for UI display (max 4 chars)
+    pub fn short_name(&self) -> &'static str {
+        match self {
+            BlockType::Stone => "Stn",
+            BlockType::Grass => "Grs",
+            BlockType::IronOre => "FeO",
+            BlockType::Coal => "C",
+            BlockType::IronIngot => "Fe",
+            BlockType::MinerBlock => "Min",
+            BlockType::ConveyorBlock => "Conv",
+            BlockType::CopperOre => "CuO",
+            BlockType::CopperIngot => "Cu",
+            BlockType::CrusherBlock => "Cru",
+            BlockType::FurnaceBlock => "Fur",
+        }
+    }
+
     /// Returns true if this block type is a machine (not a regular block)
     #[allow(dead_code)]
     pub fn is_machine(&self) -> bool {

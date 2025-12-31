@@ -17,6 +17,10 @@ pub struct InventoryUI;
 #[derive(Component)]
 pub struct InventorySlotUI(pub usize);
 
+/// Marker for inventory slot sprite image
+#[derive(Component)]
+pub struct InventorySlotImage(pub usize);
+
 /// Marker for trash slot
 #[derive(Component)]
 pub struct TrashSlot;

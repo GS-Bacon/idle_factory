@@ -8,11 +8,19 @@ use bevy::prelude::*;
 pub fn update_hotbar_ui(
     inventory: Res<Inventory>,
     item_sprites: Res<ItemSprites>,
+    asset_server: Res<AssetServer>,
     mut slot_query: Query<(&HotbarSlot, &mut BackgroundColor, &mut BorderColor)>,
     mut count_query: Query<(&HotbarSlotCount, &mut Text)>,
-    mut image_query: Query<(&HotbarSlotImage, &mut ImageNode)>,
+    mut image_query: Query<(&HotbarSlotImage, &mut ImageNode, &mut Visibility)>,
 ) {
-    if !inventory.is_changed() {
+    // Check if any sprite assets are still loading
+    let sprites_loading = item_sprites.textures.values().any(|h| {
+        !matches!(asset_server.get_load_state(h), Some(bevy::asset::LoadState::Loaded))
+    });
+
+    // Update when inventory changes, sprites resource changes, or sprites are loading
+    // (need to keep checking while loading to catch when they finish)
+    if !inventory.is_changed() && !item_sprites.is_changed() && !sprites_loading {
         return;
     }
 
@@ -36,16 +44,17 @@ pub fn update_hotbar_ui(
         }
     }
 
-    // Update slot sprite images
-    for (slot_image, mut image_node) in image_query.iter_mut() {
+    // Update slot sprite images with visibility control
+    for (slot_image, mut image_node, mut visibility) in image_query.iter_mut() {
         if let Some(block_type) = inventory.get_slot(slot_image.0) {
             if let Some(sprite_handle) = item_sprites.get(block_type) {
-                image_node.image = sprite_handle;
+                image_node.image = sprite_handle.clone();
+                *visibility = Visibility::Inherited;
             } else {
-                image_node.image = Handle::default();
+                *visibility = Visibility::Hidden;
             }
         } else {
-            image_node.image = Handle::default();
+            *visibility = Visibility::Hidden;
         }
     }
 

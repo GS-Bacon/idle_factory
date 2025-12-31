@@ -16,6 +16,7 @@ bevy = { version = "0.15", default-features = false, features = [
     "bevy_scene",  # Scene support for glTF
     "default_font",
     "trace",  # Enable tracing for logging
+    "png",  # PNG image loading for UI sprites
 ] }
 futures-lite = "2.5"
 tracing = "0.1"  # Structured logging

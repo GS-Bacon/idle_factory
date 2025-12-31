@@ -97,32 +97,55 @@ pub fn spawn_crusher_slot(
         });
 }
 
-/// Helper to spawn an inventory slot button
+/// Minecraft-style slot size (18px in MC scaled to 40px for this game)
+const SLOT_SIZE: f32 = 40.0;
+const SLOT_GAP: f32 = 2.0;
+const SLOT_BORDER: f32 = 2.0;
+const SPRITE_SIZE: f32 = 32.0;
+
+/// Helper to spawn an inventory slot button (Minecraft-style)
 pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
     parent
         .spawn((
             Button,
             InventorySlotUI(slot_idx),
             Node {
-                width: Val::Px(36.0),
-                height: Val::Px(36.0),
+                width: Val::Px(SLOT_SIZE),
+                height: Val::Px(SLOT_SIZE),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                border: UiRect::all(Val::Px(2.0)),
+                border: UiRect::all(Val::Px(SLOT_BORDER)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
-            BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+            BackgroundColor(Color::srgba(0.14, 0.14, 0.14, 0.95)), // Darker MC-style
+            BorderColor(Color::srgba(0.25, 0.25, 0.25, 1.0)), // Subtle border
         ))
         .with_children(|btn| {
-            // Slot number (small, top-left)
+            // Item sprite image
+            btn.spawn((
+                InventorySlotImage(slot_idx),
+                ImageNode::default(),
+                Visibility::Hidden, // Hide when no image
+                Node {
+                    width: Val::Px(SPRITE_SIZE),
+                    height: Val::Px(SPRITE_SIZE),
+                    ..default()
+                },
+            ));
+            // Item count (bottom-right)
             btn.spawn((
                 Text::new(""),
                 TextFont {
-                    font_size: 10.0,
+                    font_size: 11.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(1.0),
+                    right: Val::Px(3.0),
+                    ..default()
+                },
             ));
         });
 }
@@ -183,6 +206,7 @@ pub fn setup_ui(mut commands: Commands) {
                         slot.spawn((
                             HotbarSlotImage(i),
                             ImageNode::default(),
+                            Visibility::Hidden, // Hide when no image
                             Node {
                                 width: Val::Px(32.0),
                                 height: Val::Px(32.0),
@@ -759,192 +783,172 @@ fn setup_miner_ui(commands: &mut Commands) {
         });
 }
 
+/// Calculate inventory UI width based on slot size
+fn inventory_ui_width() -> f32 {
+    // 9 slots + 8 gaps + padding
+    SLOT_SIZE * 9.0 + SLOT_GAP * 8.0 + 16.0
+}
+
 fn setup_inventory_ui(commands: &mut Commands) {
+    let ui_width = inventory_ui_width();
+
     commands
         .spawn((
             InventoryUI,
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(20.0),
+                top: Val::Percent(15.0),
                 left: Val::Percent(50.0),
-                padding: UiRect::all(Val::Px(15.0)),
+                padding: UiRect::all(Val::Px(8.0)),
                 margin: UiRect {
-                    left: Val::Px(-250.0),
+                    left: Val::Px(-ui_width / 2.0),
                     ..default()
                 },
-                width: Val::Px(500.0),
-                flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(15.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(4.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.15, 0.15, 0.15, 0.95)),
+            BackgroundColor(Color::srgba(0.12, 0.12, 0.12, 0.96)), // MC-style dark gray
             Visibility::Hidden,
         ))
         .with_children(|parent| {
-            // Left side: Player inventory
-            parent
-                .spawn((Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.0),
-                    ..default()
-                },))
-                .with_children(|left| {
-                    // Title
-                    left.spawn((
-                        Text::new("Inventory"),
-                        TextFont {
-                            font_size: 18.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-
-                    // Main inventory grid (slots 9-35, 3 rows of 9)
-                    left.spawn((Node {
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(2.0),
-                        ..default()
-                    },))
-                    .with_children(|grid| {
-                        for row in 0..3 {
-                            grid.spawn((Node {
-                                flex_direction: FlexDirection::Row,
-                                column_gap: Val::Px(2.0),
-                                ..default()
-                            },))
-                            .with_children(|row_node| {
-                                for col in 0..9 {
-                                    let slot_idx = 9 + row * 9 + col;
-                                    spawn_inventory_slot(row_node, slot_idx);
-                                }
-                            });
-                        }
-                    });
-
-                    // Hotbar slots in inventory (slots 0-8)
-                    left.spawn((
-                        Text::new("Hotbar"),
-                        TextFont {
-                            font_size: 14.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
-                    ));
-
-                    left.spawn((Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(2.0),
-                        ..default()
-                    },))
-                    .with_children(|hotbar_row| {
-                        for slot_idx in 0..9 {
-                            spawn_inventory_slot(hotbar_row, slot_idx);
-                        }
-                    });
-
-                    // Trash slot
-                    left.spawn((Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(10.0),
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },))
-                    .with_children(|trash_row| {
-                        trash_row.spawn((
-                            Text::new("Trash:"),
-                            TextFont {
-                                font_size: 12.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgba(0.8, 0.5, 0.5, 1.0)),
-                        ));
-                        trash_row
-                            .spawn((
-                                Button,
-                                TrashSlot,
-                                Node {
-                                    width: Val::Px(36.0),
-                                    height: Val::Px(36.0),
-                                    justify_content: JustifyContent::Center,
-                                    align_items: AlignItems::Center,
-                                    border: UiRect::all(Val::Px(2.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(Color::srgba(0.4, 0.2, 0.2, 0.9)),
-                                BorderColor(Color::srgba(0.6, 0.3, 0.3, 1.0)),
-                            ))
-                            .with_children(|btn| {
-                                btn.spawn((
-                                    Text::new("🗑"),
-                                    TextFont {
-                                        font_size: 16.0,
-                                        ..default()
-                                    },
-                                    TextColor(Color::WHITE),
-                                ));
-                            });
-                    });
-                });
-
-            // Right side: Creative catalog (visible only in creative mode)
+            // === Creative catalog (top, only visible in creative mode) ===
             parent
                 .spawn((
                     CreativePanel,
                     Node {
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(8.0),
-                        padding: UiRect::all(Val::Px(10.0)),
+                        row_gap: Val::Px(4.0),
+                        padding: UiRect::all(Val::Px(4.0)),
+                        margin: UiRect::bottom(Val::Px(8.0)),
+                        max_height: Val::Px(200.0), // Limit height for scrolling
+                        overflow: Overflow::clip_y(), // Enable vertical scroll
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
+                    BackgroundColor(Color::srgba(0.08, 0.08, 0.08, 0.9)),
                 ))
                 .with_children(|catalog| {
-                    catalog.spawn((
-                        Text::new("Creative Catalog"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.5, 1.0, 0.5)),
-                    ));
-
-                    // Group items by category
-                    let mut current_category = "";
-                    for (block_type, category) in crate::components::CREATIVE_ITEMS.iter() {
-                        if *category != current_category {
-                            current_category = category;
-                            catalog.spawn((
-                                Text::new(*category),
-                                TextFont {
-                                    font_size: 12.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
-                            ));
-                        }
-
+                    // Creative catalog grid (5x9)
+                    let items: Vec<_> = crate::components::CREATIVE_ITEMS.iter().collect();
+                    for row_items in items.chunks(9) {
                         catalog
-                            .spawn((
-                                Button,
-                                CreativeItemButton(*block_type),
-                                Node {
-                                    padding: UiRect::all(Val::Px(5.0)),
-                                    margin: UiRect::left(Val::Px(10.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(Color::srgba(0.2, 0.3, 0.2, 0.9)),
-                            ))
-                            .with_children(|btn| {
-                                btn.spawn((
-                                    Text::new(block_type.name()),
-                                    TextFont {
-                                        font_size: 14.0,
-                                        ..default()
-                                    },
-                                    TextColor(Color::WHITE),
-                                ));
+                            .spawn((Node {
+                                flex_direction: FlexDirection::Row,
+                                column_gap: Val::Px(SLOT_GAP),
+                                ..default()
+                            },))
+                            .with_children(|row| {
+                                for (block_type, _category) in row_items {
+                                    row.spawn((
+                                        Button,
+                                        CreativeItemButton(*block_type),
+                                        Node {
+                                            width: Val::Px(SLOT_SIZE),
+                                            height: Val::Px(SLOT_SIZE),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            border: UiRect::all(Val::Px(SLOT_BORDER)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(block_type.color().with_alpha(0.7)),
+                                        BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0)),
+                                    ))
+                                    .with_children(|btn| {
+                                        btn.spawn((
+                                            Text::new(block_type.short_name()),
+                                            TextFont {
+                                                font_size: 9.0,
+                                                ..default()
+                                            },
+                                            TextColor(Color::WHITE),
+                                        ));
+                                    });
+                                }
                             });
                     }
+                });
+
+            // === Main inventory grid (3x9, slots 9-35) ===
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(SLOT_GAP),
+                    ..default()
+                },))
+                .with_children(|grid| {
+                    for row in 0..3 {
+                        grid.spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(SLOT_GAP),
+                            ..default()
+                        },))
+                        .with_children(|row_node| {
+                            for col in 0..9 {
+                                let slot_idx = 9 + row * 9 + col;
+                                spawn_inventory_slot(row_node, slot_idx);
+                            }
+                        });
+                    }
+                });
+
+            // Separator line
+            parent.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(2.0),
+                    margin: UiRect::vertical(Val::Px(4.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.8)),
+            ));
+
+            // === Hotbar slots (1x9, slots 0-8) ===
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(SLOT_GAP),
+                    ..default()
+                },))
+                .with_children(|hotbar_row| {
+                    for slot_idx in 0..9 {
+                        spawn_inventory_slot(hotbar_row, slot_idx);
+                    }
+                });
+
+            // === Bottom row: Trash slot ===
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::FlexEnd,
+                    margin: UiRect::top(Val::Px(4.0)),
+                    ..default()
+                },))
+                .with_children(|bottom_row| {
+                    bottom_row
+                        .spawn((
+                            Button,
+                            TrashSlot,
+                            Node {
+                                width: Val::Px(SLOT_SIZE),
+                                height: Val::Px(SLOT_SIZE),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                border: UiRect::all(Val::Px(SLOT_BORDER)),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgba(0.35, 0.15, 0.15, 0.95)),
+                            BorderColor(Color::srgba(0.5, 0.25, 0.25, 1.0)),
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new("X"),
+                                TextFont {
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgba(1.0, 0.5, 0.5, 1.0)),
+                            ));
+                        });
                 });
         });
 }

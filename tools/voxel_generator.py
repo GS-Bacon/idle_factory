@@ -360,6 +360,8 @@ def create_conveyor_corner_left() -> VoxelModel:
 
     入力: -Y方向から
     出力: -X方向へ
+
+    矢印はL字カーブで連続的に描画（接続時に繋がって見える）
     """
     model = VoxelModel(16, 16, 2)
 
@@ -374,22 +376,25 @@ def create_conveyor_corner_left() -> VoxelModel:
     # 内側レール（L字の内角）- コーナー部分は開ける
     model.fill_box(0, 0, 0, 0, 0, 1, "frame")    # 入力左端
 
-    # 曲がり矢印（カーブを示す山形）- Z=0でフラット
-    # 入力側の山形
-    model.set_voxel_named(7, 3, 0, "arrow")
-    model.set_voxel_named(8, 3, 0, "arrow")
-    model.set_voxel_named(6, 2, 0, "arrow")
-    model.set_voxel_named(9, 2, 0, "arrow")
-    model.set_voxel_named(5, 1, 0, "arrow")
-    model.set_voxel_named(10, 1, 0, "arrow")
+    # L字カーブ矢印 - 入口から曲がって出口へ連続
+    # 入力側から来る矢印（下から上へ）
+    for y in range(0, 5):
+        model.set_voxel_named(7, y, 0, "arrow")
+        model.set_voxel_named(8, y, 0, "arrow")
 
-    # 出力側の山形（-X方向）
-    model.set_voxel_named(3, 7, 0, "arrow")
-    model.set_voxel_named(3, 8, 0, "arrow")
-    model.set_voxel_named(2, 6, 0, "arrow")
-    model.set_voxel_named(2, 9, 0, "arrow")
-    model.set_voxel_named(1, 5, 0, "arrow")
-    model.set_voxel_named(1, 10, 0, "arrow")
+    # カーブ部分（対角線）
+    model.set_voxel_named(7, 5, 0, "arrow")
+    model.set_voxel_named(8, 5, 0, "arrow")
+    model.set_voxel_named(6, 6, 0, "arrow")
+    model.set_voxel_named(7, 6, 0, "arrow")
+    model.set_voxel_named(5, 7, 0, "arrow")
+    model.set_voxel_named(6, 7, 0, "arrow")
+    model.set_voxel_named(5, 8, 0, "arrow")
+
+    # 出力側へ向かう矢印（右から左へ）
+    for x in range(0, 5):
+        model.set_voxel_named(x, 7, 0, "arrow")
+        model.set_voxel_named(x, 8, 0, "arrow")
 
     return model
 
@@ -399,6 +404,8 @@ def create_conveyor_corner_right() -> VoxelModel:
 
     入力: -Y方向から
     出力: +X方向へ
+
+    矢印はL字カーブで連続的に描画（接続時に繋がって見える）
     """
     model = VoxelModel(16, 16, 2)
 
@@ -413,22 +420,25 @@ def create_conveyor_corner_right() -> VoxelModel:
     # 内側レール - コーナー部分は開ける
     model.fill_box(15, 0, 0, 15, 0, 1, "frame")  # 入力右端
 
-    # 曲がり矢印（カーブを示す山形）- Z=0でフラット
-    # 入力側の山形
-    model.set_voxel_named(7, 3, 0, "arrow")
-    model.set_voxel_named(8, 3, 0, "arrow")
-    model.set_voxel_named(6, 2, 0, "arrow")
-    model.set_voxel_named(9, 2, 0, "arrow")
-    model.set_voxel_named(5, 1, 0, "arrow")
-    model.set_voxel_named(10, 1, 0, "arrow")
+    # L字カーブ矢印 - 入口から曲がって出口へ連続
+    # 入力側から来る矢印（下から上へ）
+    for y in range(0, 5):
+        model.set_voxel_named(7, y, 0, "arrow")
+        model.set_voxel_named(8, y, 0, "arrow")
 
-    # 出力側の山形（+X方向）
-    model.set_voxel_named(12, 7, 0, "arrow")
-    model.set_voxel_named(12, 8, 0, "arrow")
-    model.set_voxel_named(13, 6, 0, "arrow")
-    model.set_voxel_named(13, 9, 0, "arrow")
-    model.set_voxel_named(14, 5, 0, "arrow")
-    model.set_voxel_named(14, 10, 0, "arrow")
+    # カーブ部分（対角線）
+    model.set_voxel_named(7, 5, 0, "arrow")
+    model.set_voxel_named(8, 5, 0, "arrow")
+    model.set_voxel_named(8, 6, 0, "arrow")
+    model.set_voxel_named(9, 6, 0, "arrow")
+    model.set_voxel_named(9, 7, 0, "arrow")
+    model.set_voxel_named(10, 7, 0, "arrow")
+    model.set_voxel_named(10, 8, 0, "arrow")
+
+    # 出力側へ向かう矢印（左から右へ）
+    for x in range(11, 16):
+        model.set_voxel_named(x, 7, 0, "arrow")
+        model.set_voxel_named(x, 8, 0, "arrow")
 
     return model
 

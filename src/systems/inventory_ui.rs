@@ -386,19 +386,42 @@ pub fn inventory_continuous_shift_click(
 pub fn inventory_update_slots(
     inventory_open: Res<InventoryOpen>,
     inventory: Res<Inventory>,
+    item_sprites: Res<ItemSprites>,
     mut slot_query: Query<(&InventorySlotUI, &mut BackgroundColor, &Children)>,
     mut text_query: Query<&mut Text>,
+    mut image_query: Query<(&InventorySlotImage, &mut ImageNode, &mut Visibility)>,
 ) {
     if !inventory_open.0 {
         return;
+    }
+
+    // Update slot sprite images
+    for (slot_image, mut image_node, mut visibility) in image_query.iter_mut() {
+        let slot_idx = slot_image.0;
+        if let Some((block_type, _count)) = inventory.slots[slot_idx] {
+            if let Some(sprite_handle) = item_sprites.get(block_type) {
+                image_node.image = sprite_handle;
+                *visibility = Visibility::Visible;
+            } else {
+                *visibility = Visibility::Hidden;
+            }
+        } else {
+            *visibility = Visibility::Hidden;
+        }
     }
 
     for (slot_ui, mut bg_color, children) in slot_query.iter_mut() {
         let slot_idx = slot_ui.0;
 
         if let Some((block_type, count)) = inventory.slots[slot_idx] {
-            // Show item color and count
-            *bg_color = BackgroundColor(block_type.color());
+            // Show item color as fallback background (semi-transparent)
+            let color = block_type.color();
+            *bg_color = BackgroundColor(Color::srgba(
+                color.to_srgba().red * 0.5,
+                color.to_srgba().green * 0.5,
+                color.to_srgba().blue * 0.5,
+                0.6,
+            ));
 
             // Update text (count)
             for &child in children.iter() {
