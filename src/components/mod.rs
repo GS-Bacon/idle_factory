@@ -94,6 +94,8 @@ pub struct TutorialShown(pub bool);
 pub struct TutorialPopup;
 
 /// Quest definition
+/// Note: systems/quest.rs has its own QuestDef struct
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct QuestDef {
     /// Quest description
@@ -133,6 +135,7 @@ pub struct DeliveryPlatform {
 }
 
 /// Marker for delivery platform UI
+#[allow(dead_code)]
 #[derive(Component)]
 pub struct DeliveryUI;
 
