@@ -25,13 +25,24 @@ pub fn collect_save_data(
     creative_mode: &CreativeMode,
 ) -> save::SaveData {
     use save::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
-    // Get current timestamp
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
+    // Get current timestamp (WASM-compatible)
+    #[cfg(target_arch = "wasm32")]
+    let timestamp = {
+        use web_time::SystemTime;
+        SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let timestamp = {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
+    };
 
     // Collect player data
     let player_data = if let Ok(transform) = player_query.get_single() {

@@ -2138,6 +2138,7 @@ dependencies = [
  "tracing",
  "tracing-wasm",
  "web-sys",
+ "web-time",
 ]
 
 [[package]]
