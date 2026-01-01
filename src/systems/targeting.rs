@@ -373,70 +373,118 @@ pub fn update_conveyor_shapes(
     let crusher_positions: HashSet<IVec3> = crusher_query.iter().map(|c| c.position).collect();
 
     for (entity, mut conveyor, mesh3d_opt, scene_root_opt, transform) in conveyors.iter_mut() {
-        // Calculate inputs from adjacent conveyors
+        // Calculate shape using the new auto-connect logic (2026-01-01)
+        // 1. Check inputs: which neighbors output to this conveyor
+        // 2. Check "waiting": which neighbors can receive input from this conveyor
+        // 3. Determine shape based on input count and waiting count
+
+        let back_pos = conveyor.position - conveyor.direction.to_ivec3();
+        let left_pos = conveyor.position + conveyor.direction.left().to_ivec3();
+        let right_pos = conveyor.position + conveyor.direction.right().to_ivec3();
+        let front_pos = conveyor.position + conveyor.direction.to_ivec3();
+
+        // Check inputs: which neighbors output to this conveyor
+        let mut has_back_input = false;
         let mut has_left_input = false;
         let mut has_right_input = false;
+        let mut has_front_input = false;
 
-        let left_dir = conveyor.direction.left();
-        let right_dir = conveyor.direction.right();
-        let left_pos = conveyor.position + left_dir.to_ivec3();
-        let right_pos = conveyor.position + right_dir.to_ivec3();
-
-        // Check if any conveyor is pointing at us from the side
         for (pos, dir) in &conveyor_data {
-            if *pos == left_pos && *dir == left_dir.opposite() {
-                has_left_input = true;
+            // Check if this conveyor outputs to our position
+            let outputs_to_us = *pos + dir.to_ivec3() == conveyor.position;
+            if !outputs_to_us {
+                continue;
             }
-            if *pos == right_pos && *dir == right_dir.opposite() {
+
+            if *pos == back_pos {
+                has_back_input = true;
+            } else if *pos == left_pos {
+                has_left_input = true;
+            } else if *pos == right_pos {
                 has_right_input = true;
+            } else if *pos == front_pos {
+                has_front_input = true;
             }
         }
 
-        // Check for splitter mode: count available outputs
-        let front_pos = conveyor.position + conveyor.direction.to_ivec3();
-        let can_output = |pos: IVec3| -> bool {
-            // Check if position has something that can accept items
-            if conveyor_positions.contains(&pos) {
-                // Check if conveyor at this position can accept from us
-                for (p, dir) in &conveyor_data {
-                    if *p == pos {
-                        // The target conveyor accepts from behind or sides
-                        let from_dir = conveyor.position - pos;
-                        let accepts = match *dir {
-                            Direction::East => from_dir.x == -1 || from_dir.z != 0,
-                            Direction::West => from_dir.x == 1 || from_dir.z != 0,
-                            Direction::South => from_dir.z == -1 || from_dir.x != 0,
-                            Direction::North => from_dir.z == 1 || from_dir.x != 0,
-                        };
-                        return accepts;
-                    }
+        // Check "waiting": which neighbors can receive input from this conveyor
+        // A neighbor is "waiting" if it can receive from our position (back, left, or right)
+        // and is not already outputting to us
+        let can_receive_from = |neighbor_pos: IVec3, from_pos: IVec3| -> bool {
+            for (pos, dir) in &conveyor_data {
+                if *pos == neighbor_pos {
+                    // A conveyor can receive from back, left, or right (not front)
+                    let nb_back = neighbor_pos - dir.to_ivec3();
+                    let nb_left = neighbor_pos + dir.left().to_ivec3();
+                    let nb_right = neighbor_pos + dir.right().to_ivec3();
+                    return from_pos == nb_back || from_pos == nb_left || from_pos == nb_right;
                 }
             }
-            furnace_positions.contains(&pos) || crusher_positions.contains(&pos)
+            // Also check if furnace or crusher at this position (always accepts)
+            furnace_positions.contains(&neighbor_pos) || crusher_positions.contains(&neighbor_pos)
         };
 
-        let has_front_output = can_output(front_pos);
-        let has_left_output = can_output(left_pos);
-        let has_right_output = can_output(right_pos);
-        let output_count = [has_front_output, has_left_output, has_right_output]
+        let left_waiting = !has_left_input
+            && conveyor_positions.contains(&left_pos)
+            && can_receive_from(left_pos, conveyor.position);
+        let right_waiting = !has_right_input
+            && conveyor_positions.contains(&right_pos)
+            && can_receive_from(right_pos, conveyor.position);
+        let front_waiting = !has_front_input
+            && (conveyor_positions.contains(&front_pos) && can_receive_from(front_pos, conveyor.position)
+                || furnace_positions.contains(&front_pos)
+                || crusher_positions.contains(&front_pos));
+
+        let input_count = [has_back_input, has_left_input, has_right_input, has_front_input]
             .iter()
-            .filter(|&&x| x)
+            .filter(|&&b| b)
+            .count();
+        let wait_count = [left_waiting, right_waiting, front_waiting]
+            .iter()
+            .filter(|&&b| b)
             .count();
 
-        // Determine new shape
-        // Model naming is by OUTPUT direction (corner_left = outputs left)
-        // When input comes from LEFT, conveyor curves LEFT to accept it -> CornerLeft
-        // When input comes from RIGHT, conveyor curves RIGHT to accept it -> CornerRight
-        let new_shape = if output_count >= 2 && !has_left_input && !has_right_input {
-            // Splitter mode: multiple outputs and no side inputs
-            ConveyorShape::Splitter
-        } else {
-            match (has_left_input, has_right_input) {
-                (false, false) => ConveyorShape::Straight,
-                (true, false) => ConveyorShape::CornerLeft,  // Input from left -> curve left
-                (false, true) => ConveyorShape::CornerRight, // Input from right -> curve right
-                (true, true) => ConveyorShape::TJunction,
+        // Determine new shape using the auto-connect logic
+        let new_shape = if input_count >= 2 {
+            // Input 2+: TJunction (merge)
+            ConveyorShape::TJunction
+        } else if input_count == 1 {
+            if has_back_input {
+                // Back input
+                if wait_count >= 2 {
+                    ConveyorShape::Splitter
+                } else if right_waiting && !front_waiting {
+                    ConveyorShape::CornerRight
+                } else if left_waiting && !front_waiting {
+                    ConveyorShape::CornerLeft
+                } else {
+                    ConveyorShape::Straight
+                }
+            } else if has_left_input {
+                // Left input
+                if front_waiting && right_waiting {
+                    ConveyorShape::Splitter
+                } else if right_waiting && !front_waiting {
+                    ConveyorShape::CornerRight // left in, right out
+                } else {
+                    ConveyorShape::CornerLeft // left in, front out
+                }
+            } else if has_right_input {
+                // Right input
+                if front_waiting && left_waiting {
+                    ConveyorShape::Splitter
+                } else if left_waiting && !front_waiting {
+                    ConveyorShape::CornerLeft // right in, left out
+                } else {
+                    ConveyorShape::CornerRight // right in, front out
+                }
+            } else {
+                // Front input (head-on)
+                ConveyorShape::Straight
             }
+        } else {
+            // Input 0: Straight
+            ConveyorShape::Straight
         };
 
         // Only update if shape changed

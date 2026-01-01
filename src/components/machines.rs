@@ -225,34 +225,45 @@ impl Conveyor {
     }
 
     /// Calculate the shape this conveyor should have based on adjacent conveyors.
-    /// Returns None if shape shouldn't change (e.g., splitter mode).
     ///
-    /// Shape is determined by which adjacent conveyors are feeding INTO this one:
-    /// - If only back feeds in -> Straight
-    /// - If only left feeds in -> CornerLeft (input from left, output to front)
-    /// - If only right feeds in -> CornerRight (input from right, output to front)
-    /// - If left AND right feed in -> TJunction
-    /// - Splitter is set manually, not auto-detected
+    /// New auto-connect logic (2026-01-01):
+    /// 1. Check inputs: which neighbors output to this conveyor
+    /// 2. Check "waiting": which neighbors can receive input from this conveyor
+    /// 3. Determine shape based on input count and waiting count
+    ///
+    /// Returns (shape, output_direction)
     pub fn calculate_shape<'a>(
         &self,
         adjacent_conveyors: impl Iterator<Item = &'a Conveyor>,
     ) -> ConveyorShape {
-        if self.shape == ConveyorShape::Splitter {
-            return ConveyorShape::Splitter;
-        }
+        let (shape, _output_dir) = self.calculate_shape_and_output(adjacent_conveyors);
+        shape
+    }
+
+    /// Calculate shape and output direction based on adjacent conveyors.
+    /// Returns (shape, output_direction)
+    pub fn calculate_shape_and_output<'a>(
+        &self,
+        adjacent_conveyors: impl Iterator<Item = &'a Conveyor>,
+    ) -> (ConveyorShape, Direction) {
+        // Collect adjacent conveyors into a vec for multiple passes
+        let neighbors: Vec<&Conveyor> = adjacent_conveyors.collect();
 
         let back_pos = self.position - self.direction.to_ivec3();
         let left_pos = self.position + self.direction.left().to_ivec3();
         let right_pos = self.position + self.direction.right().to_ivec3();
+        let front_pos = self.position + self.direction.to_ivec3();
 
+        // Check inputs: which neighbors output to this conveyor
         let mut has_back_input = false;
         let mut has_left_input = false;
         let mut has_right_input = false;
+        let mut has_front_input = false;
 
-        for conv in adjacent_conveyors {
-            // Check if this conveyor is feeding INTO our position
-            let feeds_into_us = conv.position + conv.direction.to_ivec3() == self.position;
-            if !feeds_into_us {
+        for conv in &neighbors {
+            // Check if this conveyor outputs to our position
+            let outputs_to_us = conv.position + conv.direction.to_ivec3() == self.position;
+            if !outputs_to_us {
                 continue;
             }
 
@@ -262,15 +273,111 @@ impl Conveyor {
                 has_left_input = true;
             } else if conv.position == right_pos {
                 has_right_input = true;
+            } else if conv.position == front_pos {
+                has_front_input = true;
             }
         }
 
-        match (has_back_input, has_left_input, has_right_input) {
-            (_, true, true) => ConveyorShape::TJunction,
-            (false, true, false) => ConveyorShape::CornerLeft,
-            (false, false, true) => ConveyorShape::CornerRight,
-            _ => ConveyorShape::Straight,
+        // Check "waiting": which neighbors can receive input from this conveyor
+        // A neighbor is "waiting" if it can receive from our position (back, left, or right)
+        // and is not already outputting to us
+        let left_waiting = !has_left_input
+            && neighbors.iter().any(|c| {
+                c.position == left_pos && Self::can_receive_from_static(c, self.position)
+            });
+        let right_waiting = !has_right_input
+            && neighbors.iter().any(|c| {
+                c.position == right_pos && Self::can_receive_from_static(c, self.position)
+            });
+        let front_waiting = !has_front_input
+            && neighbors.iter().any(|c| {
+                c.position == front_pos && Self::can_receive_from_static(c, self.position)
+            });
+
+        let input_count =
+            [has_back_input, has_left_input, has_right_input, has_front_input].iter().filter(|&&b| b).count();
+        let wait_count = [left_waiting, right_waiting, front_waiting].iter().filter(|&&b| b).count();
+
+        // Input 2+: TJunction (merge)
+        if input_count >= 2 {
+            // Determine output based on waiting
+            let output_dir = if front_waiting {
+                self.direction
+            } else if right_waiting {
+                self.direction.right()
+            } else if left_waiting {
+                self.direction.left()
+            } else {
+                self.direction // default: front
+            };
+            return (ConveyorShape::TJunction, output_dir);
         }
+
+        // Input 1
+        if input_count == 1 {
+            // Back input
+            if has_back_input {
+                // 2+ waiting -> Splitter
+                if wait_count >= 2 {
+                    return (ConveyorShape::Splitter, self.direction);
+                }
+                // Right waiting only -> CornerRight
+                if right_waiting && !front_waiting {
+                    return (ConveyorShape::CornerRight, self.direction.right());
+                }
+                // Left waiting only -> CornerLeft
+                if left_waiting && !front_waiting {
+                    return (ConveyorShape::CornerLeft, self.direction.left());
+                }
+                // Default: Straight
+                return (ConveyorShape::Straight, self.direction);
+            }
+
+            // Left input
+            if has_left_input {
+                // Front + right waiting -> Splitter
+                if front_waiting && right_waiting {
+                    return (ConveyorShape::Splitter, self.direction);
+                }
+                // Right waiting only -> CornerRight (left in, right out)
+                if right_waiting && !front_waiting {
+                    return (ConveyorShape::CornerRight, self.direction.right());
+                }
+                // Default: CornerLeft (left in, front out)
+                return (ConveyorShape::CornerLeft, self.direction);
+            }
+
+            // Right input
+            if has_right_input {
+                // Front + left waiting -> Splitter
+                if front_waiting && left_waiting {
+                    return (ConveyorShape::Splitter, self.direction);
+                }
+                // Left waiting only -> CornerLeft (right in, left out)
+                if left_waiting && !front_waiting {
+                    return (ConveyorShape::CornerLeft, self.direction.left());
+                }
+                // Default: CornerRight (right in, front out)
+                return (ConveyorShape::CornerRight, self.direction);
+            }
+
+            // Front input (head-on) -> Straight
+            if has_front_input {
+                return (ConveyorShape::Straight, self.direction);
+            }
+        }
+
+        // Input 0: Straight
+        (ConveyorShape::Straight, self.direction)
+    }
+
+    /// Check if a conveyor can receive input from a given position (static version)
+    fn can_receive_from_static(conv: &Conveyor, from_pos: IVec3) -> bool {
+        // A conveyor can receive from back, left, or right (not front)
+        let back_pos = conv.position - conv.direction.to_ivec3();
+        let left_pos = conv.position + conv.direction.left().to_ivec3();
+        let right_pos = conv.position + conv.direction.right().to_ivec3();
+        from_pos == back_pos || from_pos == left_pos || from_pos == right_pos
     }
 }
 
@@ -497,12 +604,16 @@ mod tests {
     }
 
     #[test]
-    fn test_conveyor_shape_preserves_splitter() {
-        // Splitter should not be changed
-        let mut target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
-        target.shape = ConveyorShape::Splitter;
-        let left = make_conveyor(IVec3::new(4, 0, 5), Direction::East);
-        let others = vec![left];
+    fn test_conveyor_shape_splitter_auto_detect() {
+        // Splitter is auto-detected when back input + 2+ waiting neighbors
+        let target = make_conveyor(IVec3::new(5, 0, 5), Direction::North);
+        // Back: conveyor feeding into target
+        let back = make_conveyor(IVec3::new(5, 0, 6), Direction::North);
+        // Left: conveyor waiting for input (its back is at target position)
+        let left = make_conveyor(IVec3::new(4, 0, 5), Direction::West);
+        // Right: conveyor waiting for input (its back is at target position)
+        let right = make_conveyor(IVec3::new(6, 0, 5), Direction::East);
+        let others = vec![back, left, right];
         assert_eq!(target.calculate_shape(others.iter()), ConveyorShape::Splitter);
     }
 
