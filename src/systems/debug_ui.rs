@@ -55,6 +55,7 @@ pub fn toggle_debug_hud(
 }
 
 /// Update debug HUD content
+#[allow(clippy::too_many_arguments)]
 pub fn update_debug_hud(
     debug_state: Res<DebugHudState>,
     mut text_query: Query<&mut Text, With<DebugHudText>>,
@@ -65,6 +66,7 @@ pub fn update_debug_hud(
     creative_mode: Res<CreativeMode>,
     cursor_state: Res<CursorLockState>,
     target_block: Res<TargetBlock>,
+    conveyor_query: Query<&Conveyor>,
 ) {
     if !debug_state.visible {
         return;
@@ -111,13 +113,30 @@ pub fn update_debug_hud(
         "N/A".to_string()
     };
 
+    // Get conveyor info at break target
+    let conveyor_info = if let Some(break_pos) = target_block.break_target {
+        conveyor_query
+            .iter()
+            .find(|conv| conv.position == break_pos)
+            .map(|conv| format!("Shape: {:?}, Dir: {:?}", conv.shape, conv.direction))
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
     let chunk_count = world_data.chunks.len();
     let mode_str = if creative_mode.enabled { "Creative" } else { "Survival" };
     let pause_str = if cursor_state.paused { " [PAUSED]" } else { "" };
 
+    let conveyor_line = if conveyor_info.is_empty() {
+        String::new()
+    } else {
+        format!("\nConveyor: {}", conveyor_info)
+    };
+
     text.0 = format!(
-        "FPS: {:.0}\nPos: {}\nDir: {}\nTarget: {} ({})\nPlace: {}\nChunks: {}\nMode: {}{}",
-        fps, pos_str, dir_str, break_str, block_type_str, place_str, chunk_count, mode_str, pause_str
+        "FPS: {:.0}\nPos: {}\nDir: {}\nTarget: {} ({})\nPlace: {}\nChunks: {}\nMode: {}{}{}",
+        fps, pos_str, dir_str, break_str, block_type_str, place_str, chunk_count, mode_str, pause_str, conveyor_line
     );
 }
 
