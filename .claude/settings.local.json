@@ -283,7 +283,21 @@
       "Bash(git tag:*)",
       "Bash(bash:*)",
       "Bash(DISPLAY=:10 RUST_LOG=debug timeout 15 cargo run:*)",
-      "Bash(DISPLAY=:10 timeout 12 cargo run:*)"
+      "Bash(DISPLAY=:10 timeout 12 cargo run:*)",
+      "Bash(git -C /home/bacon/idle_factory log --oneline -20)",
+      "Bash(git -C /home/bacon/idle_factory log --all --oneline)",
+      "Bash(git -C /home/bacon/idle_factory rev-list --all --count)",
+      "Bash(cargo outdated:*)",
+      "Bash(cargo audit:*)",
+      "Bash(cargo machete:*)",
+      "Bash(gh issue list:*)",
+      "Bash(timeout 15 gemini:*)",
+      "Bash(timeout 20 gemini:*)",
+      "Bash(tmux kill-session:*)",
+      "Bash(tmux new-session:*)",
+      "Bash(tmux send-keys:*)",
+      "Bash(tmux capture-pane:*)",
+      "Bash(./scripts/watch_gemini.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

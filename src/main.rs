@@ -10,6 +10,7 @@ mod logging;
 mod machines;
 mod meshes;
 mod player;
+mod plugins;
 mod save;
 pub mod setup;
 mod systems;
@@ -18,21 +19,18 @@ mod utils;
 mod vox_loader;
 mod world;
 
-use components::*;
+// Re-export components for use by other modules via crate::ComponentName
+pub use components::*;
 use events::GameEventsPlugin;
 #[cfg(target_arch = "wasm32")]
 use logging::GameLoggingPlugin;
 use player::Inventory;
+use plugins::MachineSystemsPlugin;
 use setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
 use utils::ray_aabb_intersection;
 use systems::{
     // Block operation systems
     block_break, block_place,
-    // Machine systems
-    conveyor_transfer, crusher_interact, crusher_output, crusher_processing, crusher_ui_input,
-    furnace_interact, furnace_output, furnace_smelting, furnace_ui_input, miner_interact,
-    miner_mining, miner_output, miner_ui_input, miner_visual_feedback,
-    update_conveyor_item_visuals, update_crusher_ui, update_furnace_ui, update_miner_ui,
     // Player systems
     player_look, player_move, tick_action_timers, toggle_cursor_lock, tutorial_dismiss,
     // Chunk systems
@@ -140,16 +138,13 @@ fn main() {
 
     app
         .add_plugins(GameEventsPlugin)
+        .add_plugins(MachineSystemsPlugin)
         .init_resource::<Inventory>()
         .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
-        .init_resource::<InteractingFurnace>()
-        .init_resource::<InteractingCrusher>()
-        .init_resource::<InteractingMiner>()
         .init_resource::<CurrentQuest>()
         .init_resource::<GameFont>()
         .init_resource::<ChunkMeshTasks>()
-        .init_resource::<MachineModels>()
         .init_resource::<DebugHudState>()
         .init_resource::<TargetBlock>()
         .init_resource::<CreativeMode>()
@@ -159,7 +154,6 @@ fn main() {
         .init_resource::<ContinuousActionTimer>()
         .init_resource::<CommandInputState>()
         .init_resource::<GuideMarkers>()
-        .init_resource::<ConveyorRotationOffset>()
         .init_resource::<save::AutoSaveTimer>()
         .init_resource::<SaveLoadState>()
         .init_resource::<ItemSprites>()
@@ -191,28 +185,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Machine interaction systems
-                furnace_interact,
-                furnace_ui_input,
-                furnace_smelting,
-                crusher_interact,
-                crusher_ui_input,
-                miner_interact,
-                miner_ui_input,
-            ),
-        )
-        .add_systems(
-            Update,
-            (
-                // Machine systems
-                miner_mining,
-                miner_visual_feedback,
-                miner_output,
-                crusher_processing,
-                crusher_output,
-                furnace_output,
-                conveyor_transfer,
-                update_conveyor_item_visuals,
+                // Quest systems
                 systems::targeting::update_conveyor_shapes,
                 quest_progress_check,
                 quest_claim_rewards,
@@ -223,9 +196,6 @@ fn main() {
             (
                 // UI update systems
                 update_hotbar_ui,
-                update_furnace_ui,
-                update_crusher_ui,
-                update_miner_ui,
                 update_delivery_ui,
                 update_quest_ui,
                 update_window_title_fps,

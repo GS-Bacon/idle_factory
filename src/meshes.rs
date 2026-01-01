@@ -6,8 +6,8 @@ use bevy::prelude::*;
 use bevy::render::mesh::PrimitiveTopology;
 use bevy::render::render_asset::RenderAssetUsages;
 
-use crate::constants::{BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH};
 use crate::{ConveyorShape, Direction};
+use crate::constants::{BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH};
 
 /// Create a wireframe mesh for conveyor preview (green outline with direction arrow)
 pub fn create_conveyor_wireframe_mesh(direction: Direction) -> Mesh {

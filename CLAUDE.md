@@ -52,6 +52,7 @@
 | `.claude/coding-rules.md` | コーディング規約、命名規則 |
 | `.claude/bugs.md` | よくあるバグと対策、チェックリスト |
 | `.claude/build.md` | ビルド最適化、プロファイル設定 |
+| `.claude/refactoring-tasks.md` | リファクタリングタスク（2026-01-01レビュー） |
 | `.specify/memory/input-rules.md` | 入力マトリクス |
 | `.specify/memory/modeling-rules.md` | 3Dモデル作成ルール |
 
@@ -66,6 +67,16 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 - テスト: 91件通過
 
 ## タスクリスト
+
+### 🔴 リファクタリング（高優先度）
+
+詳細は `.claude/refactoring-tasks.md` 参照
+
+| タスク | 状態 | 効果 |
+|--------|------|------|
+| block_operations.rs 分割 | ⬜ | 1001行→3ファイル |
+| ui_setup.rs 分割 | ⬜ | 977行→3ファイル |
+| MachineSystemsPlugin 作成 | ⬜ | main.rs 300行削減 |
 
 ### バグ修正・クリーンアップ
 - [ ] vox_loader.rs:290 - unwrap()をOptionハンドリングに修正
