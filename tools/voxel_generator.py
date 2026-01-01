@@ -356,91 +356,87 @@ def create_conveyor_straight() -> VoxelModel:
 
 
 def create_conveyor_corner_left() -> VoxelModel:
-    """左折コンベアを生成（左側から入力、前方へ出力）- Kenney風シームレス
+    """左折コンベアを生成（後ろから入力、左へ出力）
 
-    ゲーム座標系（North向き時）:
-    - 入力: -X方向（左側）から
-    - 出力: +Y方向（前方）へ
-
-    VOX座標系では+Yが前方なので、左(-X)から入力して前(+Y)へ出力するL字。
+    ゲームロジック:
+    - 入力: 後ろ（-Y）から
+    - 出力: 左（-X）へ
     """
     model = VoxelModel(16, 16, 2)
 
-    # L字ベルト面（左から入って前へ出る）
-    model.fill_box(0, 1, 0, 14, 14, 0, "belt")   # 入力側（横、左から）
-    model.fill_box(1, 1, 0, 14, 15, 0, "belt")   # 出力側（縦、前へ）
+    # L字ベルト面（後ろから入って左へ出る）
+    model.fill_box(1, 0, 0, 14, 14, 0, "belt")   # 入力側（縦、後ろから）
+    model.fill_box(0, 1, 0, 14, 14, 0, "belt")   # 出力側（横、左へ）
 
     # 外側レール（L字の外角）
-    model.fill_box(0, 0, 0, 15, 0, 1, "frame")   # 後ろ（入力反対側）
     model.fill_box(15, 0, 0, 15, 15, 1, "frame") # 右側（外角）
+    model.fill_box(0, 15, 0, 15, 15, 1, "frame") # 前側（外角）
 
     # 内側レール - コーナー部分は開ける
-    model.fill_box(0, 15, 0, 0, 15, 1, "frame")  # 出力端左
+    model.fill_box(0, 0, 0, 0, 0, 1, "frame")    # 入力端左
 
-    # L字カーブ矢印 - 左から入って前へ出る
-    # 入力側から来る矢印（左から右へ）
+    # L字カーブ矢印 - 後ろから入って左へ出る
+    # 入力側から来る矢印（下から上へ）
+    for y in range(0, 5):
+        model.set_voxel_named(7, y, 0, "arrow")
+        model.set_voxel_named(8, y, 0, "arrow")
+
+    # カーブ部分（対角線）
+    model.set_voxel_named(7, 5, 0, "arrow")
+    model.set_voxel_named(8, 5, 0, "arrow")
+    model.set_voxel_named(7, 6, 0, "arrow")
+    model.set_voxel_named(6, 6, 0, "arrow")
+    model.set_voxel_named(6, 7, 0, "arrow")
+    model.set_voxel_named(5, 7, 0, "arrow")
+    model.set_voxel_named(5, 8, 0, "arrow")
+
+    # 出力側へ向かう矢印（右から左へ）
     for x in range(0, 5):
         model.set_voxel_named(x, 7, 0, "arrow")
         model.set_voxel_named(x, 8, 0, "arrow")
-
-    # カーブ部分（対角線）
-    model.set_voxel_named(5, 7, 0, "arrow")
-    model.set_voxel_named(5, 8, 0, "arrow")
-    model.set_voxel_named(6, 8, 0, "arrow")
-    model.set_voxel_named(6, 9, 0, "arrow")
-    model.set_voxel_named(7, 9, 0, "arrow")
-    model.set_voxel_named(7, 10, 0, "arrow")
-    model.set_voxel_named(8, 10, 0, "arrow")
-
-    # 出力側へ向かう矢印（下から上へ）
-    for y in range(11, 16):
-        model.set_voxel_named(7, y, 0, "arrow")
-        model.set_voxel_named(8, y, 0, "arrow")
 
     return model
 
 
 def create_conveyor_corner_right() -> VoxelModel:
-    """右折コンベアを生成（右側から入力、前方へ出力）- Kenney風シームレス
+    """右折コンベアを生成（後ろから入力、右へ出力）
 
-    ゲーム座標系（North向き時）:
-    - 入力: +X方向（右側）から
-    - 出力: +Y方向（前方）へ
-
-    VOX座標系では+Yが前方なので、右(+X)から入力して前(+Y)へ出力するL字。
+    ゲームロジック:
+    - 入力: 後ろ（-Y）から
+    - 出力: 右（+X）へ
     """
     model = VoxelModel(16, 16, 2)
 
-    # L字ベルト面（右から入って前へ出る）
-    model.fill_box(1, 1, 0, 15, 14, 0, "belt")   # 入力側（横、右から）
-    model.fill_box(1, 1, 0, 14, 15, 0, "belt")   # 出力側（縦、前へ）
+    # L字ベルト面（後ろから入って右へ出る）
+    model.fill_box(1, 0, 0, 14, 14, 0, "belt")   # 入力側（縦、後ろから）
+    model.fill_box(1, 1, 0, 15, 14, 0, "belt")   # 出力側（横、右へ）
 
     # 外側レール（L字の外角）
-    model.fill_box(0, 0, 0, 15, 0, 1, "frame")   # 後ろ（入力反対側）
     model.fill_box(0, 0, 0, 0, 15, 1, "frame")   # 左側（外角）
+    model.fill_box(0, 15, 0, 15, 15, 1, "frame") # 前側（外角）
 
     # 内側レール - コーナー部分は開ける
-    model.fill_box(15, 15, 0, 15, 15, 1, "frame")  # 出力端右
+    model.fill_box(15, 0, 0, 15, 0, 1, "frame")  # 入力端右
 
-    # L字カーブ矢印 - 右から入って前へ出る
-    # 入力側から来る矢印（右から左へ）
+    # L字カーブ矢印 - 後ろから入って右へ出る
+    # 入力側から来る矢印（下から上へ）
+    for y in range(0, 5):
+        model.set_voxel_named(7, y, 0, "arrow")
+        model.set_voxel_named(8, y, 0, "arrow")
+
+    # カーブ部分（対角線）
+    model.set_voxel_named(7, 5, 0, "arrow")
+    model.set_voxel_named(8, 5, 0, "arrow")
+    model.set_voxel_named(8, 6, 0, "arrow")
+    model.set_voxel_named(9, 6, 0, "arrow")
+    model.set_voxel_named(9, 7, 0, "arrow")
+    model.set_voxel_named(10, 7, 0, "arrow")
+    model.set_voxel_named(10, 8, 0, "arrow")
+
+    # 出力側へ向かう矢印（左から右へ）
     for x in range(11, 16):
         model.set_voxel_named(x, 7, 0, "arrow")
         model.set_voxel_named(x, 8, 0, "arrow")
-
-    # カーブ部分（対角線）
-    model.set_voxel_named(10, 7, 0, "arrow")
-    model.set_voxel_named(10, 8, 0, "arrow")
-    model.set_voxel_named(9, 8, 0, "arrow")
-    model.set_voxel_named(9, 9, 0, "arrow")
-    model.set_voxel_named(8, 9, 0, "arrow")
-    model.set_voxel_named(8, 10, 0, "arrow")
-    model.set_voxel_named(7, 10, 0, "arrow")
-
-    # 出力側へ向かう矢印（下から上へ）
-    for y in range(11, 16):
-        model.set_voxel_named(7, y, 0, "arrow")
-        model.set_voxel_named(8, y, 0, "arrow")
 
     return model
 
