@@ -356,59 +356,16 @@ def create_conveyor_straight() -> VoxelModel:
 
 
 def create_conveyor_corner_left() -> VoxelModel:
-    """左折コンベアを生成（後ろから入力、左へ出力）
+    """CornerLeftモデル（後ろから入力、右へ曲がる形状）
 
-    ゲームロジック:
-    - 入力: 後ろ（-Y）から
-    - 出力: 左（-X）へ
+    ゲームでの使用:
+    - CornerLeft shapeとして使用される
+    - 実際の入出力方向はコンベアのdirectionで回転される
     """
     model = VoxelModel(16, 16, 2)
 
-    # L字ベルト面（後ろから入って左へ出る）
-    model.fill_box(1, 0, 0, 14, 14, 0, "belt")   # 入力側（縦、後ろから）
-    model.fill_box(0, 1, 0, 14, 14, 0, "belt")   # 出力側（横、左へ）
-
-    # 外側レール（L字の外角）
-    model.fill_box(15, 0, 0, 15, 15, 1, "frame") # 右側（外角）
-    model.fill_box(0, 15, 0, 15, 15, 1, "frame") # 前側（外角）
-
-    # 内側レール - コーナー部分は開ける
-    model.fill_box(0, 0, 0, 0, 0, 1, "frame")    # 入力端左
-
-    # L字カーブ矢印 - 後ろから入って左へ出る
-    # 入力側から来る矢印（下から上へ）
-    for y in range(0, 5):
-        model.set_voxel_named(7, y, 0, "arrow")
-        model.set_voxel_named(8, y, 0, "arrow")
-
-    # カーブ部分（対角線）
-    model.set_voxel_named(7, 5, 0, "arrow")
-    model.set_voxel_named(8, 5, 0, "arrow")
-    model.set_voxel_named(7, 6, 0, "arrow")
-    model.set_voxel_named(6, 6, 0, "arrow")
-    model.set_voxel_named(6, 7, 0, "arrow")
-    model.set_voxel_named(5, 7, 0, "arrow")
-    model.set_voxel_named(5, 8, 0, "arrow")
-
-    # 出力側へ向かう矢印（右から左へ）
-    for x in range(0, 5):
-        model.set_voxel_named(x, 7, 0, "arrow")
-        model.set_voxel_named(x, 8, 0, "arrow")
-
-    return model
-
-
-def create_conveyor_corner_right() -> VoxelModel:
-    """右折コンベアを生成（後ろから入力、右へ出力）
-
-    ゲームロジック:
-    - 入力: 後ろ（-Y）から
-    - 出力: 右（+X）へ
-    """
-    model = VoxelModel(16, 16, 2)
-
-    # L字ベルト面（後ろから入って右へ出る）
-    model.fill_box(1, 0, 0, 14, 14, 0, "belt")   # 入力側（縦、後ろから）
+    # L字ベルト面（後ろから入って右へ出る形状）
+    model.fill_box(1, 0, 0, 14, 14, 0, "belt")   # 入力側（縦）
     model.fill_box(1, 1, 0, 15, 14, 0, "belt")   # 出力側（横、右へ）
 
     # 外側レール（L字の外角）
@@ -435,6 +392,49 @@ def create_conveyor_corner_right() -> VoxelModel:
 
     # 出力側へ向かう矢印（左から右へ）
     for x in range(11, 16):
+        model.set_voxel_named(x, 7, 0, "arrow")
+        model.set_voxel_named(x, 8, 0, "arrow")
+
+    return model
+
+
+def create_conveyor_corner_right() -> VoxelModel:
+    """CornerRightモデル（後ろから入力、左へ曲がる形状）
+
+    ゲームでの使用:
+    - CornerRight shapeとして使用される
+    - 実際の入出力方向はコンベアのdirectionで回転される
+    """
+    model = VoxelModel(16, 16, 2)
+
+    # L字ベルト面（後ろから入って左へ出る形状）
+    model.fill_box(1, 0, 0, 14, 14, 0, "belt")   # 入力側（縦）
+    model.fill_box(0, 1, 0, 14, 14, 0, "belt")   # 出力側（横、左へ）
+
+    # 外側レール（L字の外角）
+    model.fill_box(15, 0, 0, 15, 15, 1, "frame") # 右側（外角）
+    model.fill_box(0, 15, 0, 15, 15, 1, "frame") # 前側（外角）
+
+    # 内側レール - コーナー部分は開ける
+    model.fill_box(0, 0, 0, 0, 0, 1, "frame")    # 入力端左
+
+    # L字カーブ矢印 - 後ろから入って左へ出る
+    # 入力側から来る矢印（下から上へ）
+    for y in range(0, 5):
+        model.set_voxel_named(7, y, 0, "arrow")
+        model.set_voxel_named(8, y, 0, "arrow")
+
+    # カーブ部分（対角線）
+    model.set_voxel_named(7, 5, 0, "arrow")
+    model.set_voxel_named(8, 5, 0, "arrow")
+    model.set_voxel_named(7, 6, 0, "arrow")
+    model.set_voxel_named(6, 6, 0, "arrow")
+    model.set_voxel_named(6, 7, 0, "arrow")
+    model.set_voxel_named(5, 7, 0, "arrow")
+    model.set_voxel_named(5, 8, 0, "arrow")
+
+    # 出力側へ向かう矢印（右から左へ）
+    for x in range(0, 5):
         model.set_voxel_named(x, 7, 0, "arrow")
         model.set_voxel_named(x, 8, 0, "arrow")
 
