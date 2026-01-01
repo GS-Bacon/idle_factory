@@ -25,6 +25,12 @@ tracing-appender = "0.2"  # File logging for native builds
 chrono = "0.4"  # Timestamp for log files
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+dot_vox = "5.1"  # MagicaVoxel .vox file loader
+
+# Native-only dependencies (file watching)
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+notify = "8.0"  # File system watcher for hot reload
+crossbeam-channel = "0.5"  # Thread-safe channel for file watcher
 
 # Linux-specific features
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "linux"))'.dependencies]

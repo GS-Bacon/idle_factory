@@ -15,6 +15,7 @@ pub mod setup;
 mod systems;
 mod ui;
 mod utils;
+mod vox_loader;
 mod world;
 
 use components::*;
@@ -131,6 +132,10 @@ fn main() {
     // WASM: Add logging plugin (Native logging is initialized above)
     #[cfg(target_arch = "wasm32")]
     app.add_plugins(GameLoggingPlugin);
+
+    // Add VOX loader plugin for hot reload (native only)
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(vox_loader::VoxLoaderPlugin);
 
     app
         .add_plugins(GameEventsPlugin)

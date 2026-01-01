@@ -469,13 +469,13 @@ impl Crusher {
 /// Resource to hold loaded 3D model handles for machines and conveyors
 #[derive(Resource, Default)]
 pub struct MachineModels {
-    /// Conveyor models by shape
+    /// Conveyor models by shape (glTF scenes)
     pub conveyor_straight: Option<Handle<Scene>>,
     pub conveyor_corner_left: Option<Handle<Scene>>,
     pub conveyor_corner_right: Option<Handle<Scene>>,
     pub conveyor_t_junction: Option<Handle<Scene>>,
     pub conveyor_splitter: Option<Handle<Scene>>,
-    /// Machine models
+    /// Machine models (glTF scenes)
     pub miner: Option<Handle<Scene>>,
     pub furnace: Option<Handle<Scene>>,
     pub crusher: Option<Handle<Scene>>,
@@ -488,6 +488,11 @@ pub struct MachineModels {
     pub item_copper_ingot: Option<Handle<Scene>>,
     /// Whether models are loaded (fallback to procedural if not)
     pub loaded: bool,
+    /// VOX mesh handles (direct mesh, for hot reload)
+    pub vox_miner: Option<Handle<Mesh>>,
+    pub vox_conveyor_straight: Option<Handle<Mesh>>,
+    /// Generation counter for hot reload (increment to trigger respawn)
+    pub vox_generation: u32,
 }
 
 impl MachineModels {
