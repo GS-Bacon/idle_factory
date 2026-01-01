@@ -45,6 +45,76 @@ pub struct CreativeItemButton(pub BlockType);
 #[derive(Component)]
 pub struct CreativePanel;
 
+/// Creative mode view mode (catalog vs inventory)
+#[derive(Resource, Default, PartialEq, Eq, Clone, Copy, Debug)]
+pub enum CreativeViewMode {
+    #[default]
+    Catalog,   // Show item catalog
+    Inventory, // Show player inventory
+}
+
+/// Selected category tab in creative mode
+#[derive(Resource, Default, PartialEq, Eq, Clone, Copy, Debug)]
+pub enum CreativeCategory {
+    Building,
+    Natural,
+    Functional,
+    Machines,
+    #[default]
+    All,
+}
+
+impl CreativeCategory {
+    /// Get display name for this category
+    pub fn name(&self) -> &'static str {
+        match self {
+            CreativeCategory::Building => "Building",
+            CreativeCategory::Natural => "Natural",
+            CreativeCategory::Functional => "Functional",
+            CreativeCategory::Machines => "Machines",
+            CreativeCategory::All => "All",
+        }
+    }
+
+    /// Get representative color for this category tab
+    pub fn color(&self) -> Color {
+        match self {
+            CreativeCategory::Building => Color::srgb(0.5, 0.5, 0.5),   // Stone gray
+            CreativeCategory::Natural => Color::srgb(0.6, 0.5, 0.4),    // IronOre brown
+            CreativeCategory::Functional => Color::srgb(0.8, 0.8, 0.85), // IronIngot silver
+            CreativeCategory::Machines => Color::srgb(0.8, 0.6, 0.2),   // MinerBlock yellow-brown
+            CreativeCategory::All => Color::srgb(0.9, 0.9, 0.9),        // White
+        }
+    }
+
+    /// Get all categories for iteration
+    pub fn all() -> &'static [CreativeCategory] {
+        &[
+            CreativeCategory::Building,
+            CreativeCategory::Natural,
+            CreativeCategory::Functional,
+            CreativeCategory::Machines,
+            CreativeCategory::All,
+        ]
+    }
+}
+
+/// Category tab button component
+#[derive(Component)]
+pub struct CategoryTab(pub CreativeCategory);
+
+/// View mode toggle button (Survival Inventory / Creative Items)
+#[derive(Component)]
+pub struct ViewModeToggleButton;
+
+/// Marker for the creative catalog grid container
+#[derive(Component)]
+pub struct CreativeCatalogGrid;
+
+/// Marker for the survival inventory view panel
+#[derive(Component)]
+pub struct InventoryViewPanel;
+
 /// Marker for inventory tooltip (shown when hovering over slots)
 #[derive(Component)]
 pub struct InventoryTooltip;

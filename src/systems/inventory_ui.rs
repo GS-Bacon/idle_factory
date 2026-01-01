@@ -387,7 +387,7 @@ pub fn inventory_update_slots(
     inventory_open: Res<InventoryOpen>,
     inventory: Res<Inventory>,
     item_sprites: Res<ItemSprites>,
-    mut slot_query: Query<(&InventorySlotUI, &mut BackgroundColor, &Children)>,
+    mut slot_query: Query<(&InventorySlotUI, &mut BackgroundColor, &Children, &Interaction)>,
     mut text_query: Query<&mut Text>,
     mut image_query: Query<(&InventorySlotImage, &mut ImageNode, &mut Visibility)>,
 ) {
@@ -414,7 +414,7 @@ pub fn inventory_update_slots(
         }
     }
 
-    for (slot_ui, mut bg_color, children) in slot_query.iter_mut() {
+    for (slot_ui, mut bg_color, children, interaction) in slot_query.iter_mut() {
         let slot_idx = slot_ui.0;
 
         if let Some((block_type, count)) = inventory.slots[slot_idx] {
@@ -438,8 +438,12 @@ pub fn inventory_update_slots(
                 }
             }
         } else {
-            // Empty slot
-            *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9));
+            // Empty slot - respect hover state
+            *bg_color = BackgroundColor(match interaction {
+                Interaction::Hovered => Color::srgba(0.35, 0.35, 0.35, 0.9),
+                Interaction::Pressed => Color::srgba(0.25, 0.25, 0.25, 0.9),
+                Interaction::None => Color::srgba(0.2, 0.2, 0.2, 0.9),
+            });
 
             for &child in children.iter() {
                 if let Ok(mut text) = text_query.get_mut(child) {
