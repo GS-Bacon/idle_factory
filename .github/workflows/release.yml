@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libxkbcommon-dev libwayland-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mkdir -p dist/idle_factory_${VERSION}_linux/assets
+          cp target/release/idle_factory dist/idle_factory_${VERSION}_linux/
+          cp -r assets/data assets/fonts assets/locales assets/models assets/shaders assets/sounds assets/textures dist/idle_factory_${VERSION}_linux/assets/ 2>/dev/null || true
+          find dist -name "*.vox" -delete
+          find dist -name ".gitkeep" -delete
+          echo '#!/bin/bash' > dist/idle_factory_${VERSION}_linux/run.sh
+          echo 'cd "$(dirname "$0")"' >> dist/idle_factory_${VERSION}_linux/run.sh
+          echo './idle_factory "$@"' >> dist/idle_factory_${VERSION}_linux/run.sh
+          chmod +x dist/idle_factory_${VERSION}_linux/run.sh
+          chmod +x dist/idle_factory_${VERSION}_linux/idle_factory
+          cd dist && tar -czvf idle_factory_${VERSION}_linux.tar.gz idle_factory_${VERSION}_linux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: dist/*.tar.gz
+
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Add Windows target
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: Build
+        run: cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: Package
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mkdir -p dist/idle_factory_${VERSION}_windows/assets
+          cp target/x86_64-pc-windows-gnu/release/idle_factory.exe dist/idle_factory_${VERSION}_windows/
+          cp -r assets/data assets/fonts assets/locales assets/models assets/shaders assets/sounds assets/textures dist/idle_factory_${VERSION}_windows/assets/ 2>/dev/null || true
+          find dist -name "*.vox" -delete
+          find dist -name ".gitkeep" -delete
+          cd dist && zip -r idle_factory_${VERSION}_windows.zip idle_factory_${VERSION}_windows
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/*.zip
+
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: dist
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+          generate_release_notes: true
