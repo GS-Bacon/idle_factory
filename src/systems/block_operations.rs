@@ -444,10 +444,9 @@ pub fn block_place(
     }
 
     // Check if we have a selected block type with items
-    if !inventory.has_selected() {
+    let Some(selected_type) = inventory.selected_block() else {
         return;
-    }
-    let selected_type = inventory.selected_block().unwrap();
+    };
 
     let Ok((camera_transform, player_camera)) = camera_query.get_single() else {
         return;

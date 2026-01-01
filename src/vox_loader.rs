@@ -282,12 +282,15 @@ fn check_file_changes(
 pub fn load_vox_mesh(path: &Path) -> Option<(Mesh, Vec<Color>)> {
     let data = std::fs::read(path).ok()?;
     let vox = dot_vox::load_bytes(&data).ok()?;
-    Some(vox_to_mesh(&vox))
+    vox_to_mesh(&vox)
 }
 
 /// Convert VOX data to Bevy Mesh with greedy meshing
-fn vox_to_mesh(vox: &DotVoxData) -> (Mesh, Vec<Color>) {
-    let model = vox.models.first().unwrap();
+fn vox_to_mesh(vox: &DotVoxData) -> Option<(Mesh, Vec<Color>)> {
+    let Some(model) = vox.models.first() else {
+        tracing::warn!("VOXファイルにモデルが含まれていません");
+        return None;
+    };
     let palette = &vox.palette;
 
     let mut positions: Vec<[f32; 3]> = Vec::new();
@@ -400,7 +403,7 @@ fn vox_to_mesh(vox: &DotVoxData) -> (Mesh, Vec<Color>) {
         .map(|c| Color::srgba(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0))
         .collect();
 
-    (mesh, unique_colors)
+    Some((mesh, unique_colors))
 }
 
 /// Load all VOX files from assets/models and convert them
