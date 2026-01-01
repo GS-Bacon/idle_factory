@@ -4,7 +4,7 @@
 
 pub mod block_operations;
 pub mod chunk;
-pub mod command_ui;
+pub mod command;
 pub mod conveyor;
 pub mod crusher;
 pub mod debug_ui;
@@ -19,7 +19,7 @@ pub mod targeting;
 
 pub use block_operations::*;
 pub use chunk::*;
-pub use command_ui::*;
+pub use command::*;
 pub use conveyor::*;
 pub use crusher::*;
 pub use debug_ui::*;
