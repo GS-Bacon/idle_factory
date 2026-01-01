@@ -224,30 +224,40 @@ pub struct ConveyorVisual;
 #[derive(Component)]
 pub struct ConveyorItemVisual;
 
-/// Miner component - automatically mines blocks below
+/// Miner component - automatically mines based on biome
 #[derive(Component)]
 pub struct Miner {
     /// World position of this miner
     pub position: IVec3,
+    /// Facing direction (output goes to facing direction)
+    pub facing: Direction,
     /// Mining progress (0.0-1.0)
     pub progress: f32,
     /// Buffer of mined items (block type, count)
     pub buffer: Option<(BlockType, u32)>,
+    /// Tick counter for randomizing mining output
+    pub tick_count: u32,
 }
 
 impl Default for Miner {
     fn default() -> Self {
         Self {
             position: IVec3::ZERO,
+            facing: Direction::North,
             progress: 0.0,
             buffer: None,
+            tick_count: 0,
         }
     }
 }
 
 /// Furnace component for smelting
-#[derive(Component, Default)]
+#[derive(Component)]
 pub struct Furnace {
+    /// World position of this furnace
+    pub position: IVec3,
+    /// Facing direction (input from back, output to front)
+    pub facing: Direction,
     /// Fuel slot (coal)
     pub fuel: u32,
     /// Input slot - stores ore type and count
@@ -258,6 +268,21 @@ pub struct Furnace {
     pub output_count: u32,
     /// Smelting progress (0.0-1.0)
     pub progress: f32,
+}
+
+impl Default for Furnace {
+    fn default() -> Self {
+        Self {
+            position: IVec3::ZERO,
+            facing: Direction::North,
+            fuel: 0,
+            input_type: None,
+            input_count: 0,
+            output_type: None,
+            output_count: 0,
+            progress: 0.0,
+        }
+    }
 }
 
 impl Furnace {
@@ -284,6 +309,8 @@ impl Furnace {
 pub struct Crusher {
     /// World position of this crusher
     pub position: IVec3,
+    /// Facing direction (input from back, output to front)
+    pub facing: Direction,
     /// Input ore type and count
     pub input_type: Option<BlockType>,
     pub input_count: u32,
@@ -292,6 +319,20 @@ pub struct Crusher {
     pub output_count: u32,
     /// Processing progress (0.0-1.0)
     pub progress: f32,
+}
+
+impl Default for Crusher {
+    fn default() -> Self {
+        Self {
+            position: IVec3::ZERO,
+            facing: Direction::North,
+            input_type: None,
+            input_count: 0,
+            output_type: None,
+            output_count: 0,
+            progress: 0.0,
+        }
+    }
 }
 
 impl Crusher {

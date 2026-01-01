@@ -8,8 +8,8 @@ use crate::systems::{
     command_input_handler, command_input_toggle, creative_inventory_click,
     inventory_continuous_shift_click, inventory_slot_click, inventory_toggle,
     inventory_update_slots, toggle_debug_hud, trash_slot_click, update_creative_catalog_sprites,
-    update_debug_hud, update_held_item_display, update_hotbar_item_name, update_hotbar_ui,
-    update_inventory_tooltip,
+    update_debug_hud, update_global_inventory_ui, update_held_item_display,
+    update_hotbar_item_name, update_hotbar_ui, update_inventory_tooltip,
 };
 use crate::{
     CommandInputState, DebugHudState, GuideMarkers, HeldItem, InventoryOpen, ItemSprites,
@@ -52,6 +52,7 @@ impl Plugin for UIPlugin {
                 update_hotbar_item_name,
                 update_inventory_tooltip,
                 update_creative_catalog_sprites,
+                update_global_inventory_ui,
                 trash_slot_click,
                 creative_inventory_click,
             ),

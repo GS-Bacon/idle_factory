@@ -227,11 +227,8 @@ pub fn handle_spawn_machine_event(
                         ViewVisibility::default(),
                         Crusher {
                             position: pos,
-                            input_type: None,
-                            input_count: 0,
-                            output_type: None,
-                            output_count: 0,
-                            progress: 0.0,
+                            facing: Direction::North, // Default for spawned machines
+                            ..default()
                         },
                     ));
                 } else {
@@ -246,11 +243,8 @@ pub fn handle_spawn_machine_event(
                         transform,
                         Crusher {
                             position: pos,
-                            input_type: None,
-                            input_count: 0,
-                            output_type: None,
-                            output_count: 0,
-                            progress: 0.0,
+                            facing: Direction::North, // Default for spawned machines
+                            ..default()
                         },
                     ));
                 }

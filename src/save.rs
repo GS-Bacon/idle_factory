@@ -26,6 +26,9 @@ pub struct SaveData {
     pub player: PlayerSaveData,
     /// Inventory state
     pub inventory: InventorySaveData,
+    /// Global inventory (machines and items) - v0.2 feature
+    #[serde(default)]
+    pub global_inventory: GlobalInventorySaveData,
     /// World modifications
     pub world: WorldSaveData,
     /// All machines in the world
@@ -95,6 +98,13 @@ pub struct CameraRotation {
 pub struct InventorySaveData {
     pub selected_slot: usize,
     pub slots: Vec<Option<ItemStack>>,
+}
+
+/// Global inventory save data (v0.2)
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct GlobalInventorySaveData {
+    /// Items stored in global inventory: BlockType -> count
+    pub items: HashMap<BlockTypeSave, u32>,
 }
 
 /// Single item stack
@@ -586,6 +596,7 @@ mod tests {
                     None,
                 ],
             },
+            global_inventory: GlobalInventorySaveData::default(),
             world: WorldSaveData {
                 modified_blocks: HashMap::new(),
             },

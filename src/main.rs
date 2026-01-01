@@ -23,7 +23,7 @@ pub use components::*;
 use events::GameEventsPlugin;
 #[cfg(target_arch = "wasm32")]
 use logging::GameLoggingPlugin;
-use player::Inventory;
+use player::{GlobalInventory, Inventory};
 use plugins::{MachineSystemsPlugin, SavePlugin, UIPlugin};
 use setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
 use utils::ray_aabb_intersection;
@@ -40,13 +40,13 @@ use systems::{
     handle_look_event, handle_setblock_event, handle_spawn_machine_event, handle_debug_conveyor_event,
     DebugConveyorEvent,
     // Quest systems
-    load_machine_models, quest_claim_rewards, quest_progress_check, setup_delivery_platform,
-    update_delivery_ui, update_quest_ui,
+    load_machine_models, quest_claim_rewards, quest_deliver_button, quest_progress_check,
+    setup_delivery_platform, update_delivery_ui, update_quest_ui,
     // Targeting systems
     rotate_conveyor_placement, update_conveyor_shapes, update_guide_markers,
     update_target_block, update_target_highlight,
 };
-use world::{ChunkMesh, ChunkMeshTasks, WorldData};
+use world::{BiomeMap, ChunkMesh, ChunkMeshTasks, WorldData};
 
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
@@ -135,7 +135,9 @@ fn main() {
         .add_plugins(UIPlugin)
         .add_plugins(SavePlugin)
         .init_resource::<Inventory>()
+        .insert_resource(GlobalInventory::with_initial_items(game_spec::INITIAL_EQUIPMENT))
         .init_resource::<WorldData>()
+        .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
         .init_resource::<CursorLockState>()
         .init_resource::<CurrentQuest>()
         .init_resource::<GameFont>()
@@ -187,6 +189,7 @@ fn main() {
                 // Quest UI systems
                 update_delivery_ui,
                 update_quest_ui,
+                quest_deliver_button,
                 update_window_title_fps,
             ),
         )

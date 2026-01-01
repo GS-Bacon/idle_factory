@@ -1,9 +1,18 @@
 //! Inventory UI setup
 
 use crate::components::*;
+use crate::BlockType;
 use bevy::prelude::*;
 
 use super::{spawn_inventory_slot, SLOT_BORDER, SLOT_GAP, SLOT_SIZE, SPRITE_SIZE};
+
+/// Machine types to display in GlobalInventory panel
+const GLOBAL_INVENTORY_ITEMS: &[BlockType] = &[
+    BlockType::MinerBlock,
+    BlockType::ConveyorBlock,
+    BlockType::CrusherBlock,
+    BlockType::FurnaceBlock,
+];
 
 /// Calculate inventory UI width based on slot size
 fn inventory_ui_width() -> f32 {
@@ -148,6 +157,105 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                     for slot_idx in 0..9 {
                         spawn_inventory_slot(hotbar_row, slot_idx);
                     }
+                });
+
+            // Separator line
+            parent.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(2.0),
+                    margin: UiRect::vertical(Val::Px(4.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.8)),
+            ));
+
+            // === GlobalInventory panel (machine storage) ===
+            parent
+                .spawn((
+                    GlobalInventoryPanel,
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(2.0),
+                        padding: UiRect::all(Val::Px(4.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.15, 0.12, 0.1, 0.9)),
+                ))
+                .with_children(|panel| {
+                    // Title
+                    panel.spawn((
+                        Text::new("機械ストレージ"),
+                        TextFont {
+                            font_size: 12.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.9, 0.8, 0.6, 1.0)),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(4.0)),
+                            ..default()
+                        },
+                    ));
+
+                    // Item rows (2x2 grid)
+                    panel
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            flex_wrap: FlexWrap::Wrap,
+                            column_gap: Val::Px(8.0),
+                            row_gap: Val::Px(2.0),
+                            ..default()
+                        },))
+                        .with_children(|grid| {
+                            for &block_type in GLOBAL_INVENTORY_ITEMS {
+                                grid.spawn((
+                                    GlobalInventoryRow(block_type),
+                                    Node {
+                                        flex_direction: FlexDirection::Row,
+                                        align_items: AlignItems::Center,
+                                        column_gap: Val::Px(4.0),
+                                        min_width: Val::Px(100.0),
+                                        ..default()
+                                    },
+                                ))
+                                .with_children(|row| {
+                                    // Slot-like icon background
+                                    row.spawn((
+                                        Node {
+                                            width: Val::Px(SLOT_SIZE * 0.6),
+                                            height: Val::Px(SLOT_SIZE * 0.6),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            border: UiRect::all(Val::Px(SLOT_BORDER)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(Color::srgba(0.2, 0.18, 0.15, 0.95)),
+                                        BorderColor(Color::srgba(0.4, 0.35, 0.3, 1.0)),
+                                    ))
+                                    .with_children(|slot| {
+                                        slot.spawn((
+                                            Text::new(block_type.short_name()),
+                                            TextFont {
+                                                font_size: 8.0,
+                                                ..default()
+                                            },
+                                            TextColor(Color::WHITE),
+                                        ));
+                                    });
+
+                                    // Item name and count
+                                    row.spawn((
+                                        GlobalInventoryCountText(block_type),
+                                        Text::new(format!("{}: 0", block_type.name())),
+                                        TextFont {
+                                            font_size: 11.0,
+                                            ..default()
+                                        },
+                                        TextColor(Color::srgba(0.8, 0.8, 0.7, 1.0)),
+                                    ));
+                                });
+                            }
+                        });
                 });
 
             // === Bottom row: Trash slot ===

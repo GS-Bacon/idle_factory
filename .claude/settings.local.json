@@ -301,7 +301,8 @@
       "Bash(# unwrap\\(\\)カウント再確認 grep -c \"\"\\\\.unwrap\\(\\)\"\" src/*.rs src/**/*.rs || grep -r \"\"\\\\.unwrap\\(\\)\"\" src/)",
       "Bash(# Geminiの状態を直接確認 tmux capture-pane -t ai_gemini -p)",
       "Bash(# Geminiセッションの全出力を取得 tmux capture-pane -t ai_gemini -p -S -500)",
-      "Bash(# Geminiの回答を確認 tmux capture-pane -t ai_gemini -p -S -150)"
+      "Bash(# Geminiの回答を確認 tmux capture-pane -t ai_gemini -p -S -150)",
+      "Bash(./scripts/ask_gemini.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

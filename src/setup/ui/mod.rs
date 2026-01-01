@@ -383,6 +383,34 @@ pub fn setup_ui(mut commands: Commands) {
                 },
                 TextColor(Color::WHITE),
             ));
+            // Deliver button (shown when quest is completable)
+            parent
+                .spawn((
+                    Button,
+                    QuestDeliverButton,
+                    Node {
+                        width: Val::Px(100.0),
+                        height: Val::Px(30.0),
+                        margin: UiRect::top(Val::Px(8.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        border: UiRect::all(Val::Px(2.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.2, 0.4, 0.2, 0.9)),
+                    BorderColor(Color::srgba(0.3, 0.6, 0.3, 1.0)),
+                    Visibility::Hidden,
+                ))
+                .with_children(|btn| {
+                    btn.spawn((
+                        Text::new("納品"),
+                        TextFont {
+                            font_size: 14.0,
+                            ..default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
 
     // Command input UI (hidden by default)

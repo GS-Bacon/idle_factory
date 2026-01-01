@@ -2,10 +2,10 @@
 
 use crate::components::*;
 use crate::components::{Furnace, LoadGameEvent, SaveGameEvent};
-use crate::player::Inventory;
+use crate::player::{GlobalInventory, Inventory};
 use crate::save;
 use crate::world::WorldData;
-use crate::{BlockType, Direction, BLOCK_SIZE};
+use crate::{game_spec, BlockType, Direction, BLOCK_SIZE};
 use bevy::prelude::*;
 use tracing::info;
 
@@ -15,6 +15,7 @@ pub fn collect_save_data(
     player_query: &Query<&Transform, With<Player>>,
     camera_query: &Query<&PlayerCamera>,
     inventory: &Inventory,
+    global_inventory: &GlobalInventory,
     world_data: &WorldData,
     miner_query: &Query<&Miner>,
     conveyor_query: &Query<&Conveyor>,
@@ -189,11 +190,19 @@ pub fn collect_save_data(
         creative: creative_mode.enabled,
     };
 
+    // Collect global inventory
+    let global_inventory_data = GlobalInventorySaveData {
+        items: global_inventory.iter()
+            .map(|(bt, count)| ((*bt).into(), *count))
+            .collect(),
+    };
+
     SaveData {
         version: save::SAVE_VERSION.to_string(),
         timestamp,
         player: player_data,
         inventory: inventory_data,
+        global_inventory: global_inventory_data,
         world: world_save,
         machines,
         quests: quest_data,
@@ -245,6 +254,7 @@ pub fn handle_save_event(
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
     inventory: Res<Inventory>,
+    global_inventory: Res<GlobalInventory>,
     world_data: Res<WorldData>,
     miner_query: Query<&Miner>,
     conveyor_query: Query<&Conveyor>,
@@ -260,6 +270,7 @@ pub fn handle_save_event(
             &player_query,
             &camera_query,
             &inventory,
+            &global_inventory,
             &world_data,
             &miner_query,
             &conveyor_query,
@@ -298,15 +309,13 @@ pub fn handle_load_event(
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<&mut PlayerCamera>,
     mut inventory: ResMut<Inventory>,
+    mut global_inventory: ResMut<GlobalInventory>,
     mut world_data: ResMut<WorldData>,
     mut current_quest: ResMut<CurrentQuest>,
     mut creative_mode: ResMut<CreativeMode>,
     mut delivery_query: Query<&mut DeliveryPlatform>,
-    // Entities to despawn
-    miner_entities: Query<Entity, With<Miner>>,
-    conveyor_entities: Query<Entity, With<Conveyor>>,
-    furnace_entities: Query<Entity, With<Furnace>>,
-    crusher_entities: Query<Entity, With<Crusher>>,
+    // All machine entities to despawn (combined query)
+    machine_entities: Query<Entity, Or<(With<Miner>, With<Conveyor>, With<Furnace>, With<Crusher>)>>,
 ) {
     for event in events.read() {
         match save::load_game(&event.filename) {
@@ -332,6 +341,20 @@ pub fn handle_load_event(
                     }
                 }
 
+                // Apply global inventory (v0.2)
+                // If save has global_inventory, use it; otherwise migrate from old inventory or use defaults
+                if !data.global_inventory.items.is_empty() {
+                    global_inventory.clear();
+                    for (bt_save, count) in &data.global_inventory.items {
+                        let bt: BlockType = bt_save.clone().into();
+                        global_inventory.add_item(bt, *count);
+                    }
+                } else {
+                    // Old save without global_inventory - restore defaults
+                    info!("[SAVE] Migrating old save: restoring default global inventory");
+                    *global_inventory = GlobalInventory::with_initial_items(game_spec::INITIAL_EQUIPMENT);
+                }
+
                 // Apply world modifications
                 world_data.modified_blocks.clear();
                 for (key, block_opt) in &data.world.modified_blocks {
@@ -344,16 +367,7 @@ pub fn handle_load_event(
                 }
 
                 // Despawn existing machines
-                for entity in miner_entities.iter() {
-                    commands.entity(entity).despawn_recursive();
-                }
-                for entity in conveyor_entities.iter() {
-                    commands.entity(entity).despawn_recursive();
-                }
-                for entity in furnace_entities.iter() {
-                    commands.entity(entity).despawn_recursive();
-                }
-                for entity in crusher_entities.iter() {
+                for entity in machine_entities.iter() {
                     commands.entity(entity).despawn_recursive();
                 }
 
@@ -372,10 +386,12 @@ pub fn handle_load_event(
                             commands.spawn((
                                 Miner {
                                     position: pos,
+                                    facing: Direction::North, // Default for old saves
                                     progress: miner_data.progress,
                                     buffer: miner_data.buffer.as_ref().map(|b| {
                                         (b.item_type.clone().into(), b.count)
                                     }),
+                                    tick_count: 0,
                                 },
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
@@ -440,6 +456,8 @@ pub fn handle_load_event(
                             let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                             commands.spawn((
                                 Furnace {
+                                    position: pos,
+                                    facing: Direction::North, // Default for old saves
                                     fuel: furnace_data.fuel,
                                     input_type: furnace_data.input.as_ref().map(|s| s.item_type.clone().into()),
                                     input_count: furnace_data.input.as_ref().map(|s| s.count).unwrap_or(0),
@@ -467,6 +485,7 @@ pub fn handle_load_event(
                             commands.spawn((
                                 Crusher {
                                     position: pos,
+                                    facing: Direction::North, // Default for old saves
                                     input_type: crusher_data.input.as_ref().map(|s| s.item_type.clone().into()),
                                     input_count: crusher_data.input.as_ref().map(|s| s.count).unwrap_or(0),
                                     output_type: crusher_data.output.as_ref().map(|s| s.item_type.clone().into()),

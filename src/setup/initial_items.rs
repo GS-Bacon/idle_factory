@@ -1,24 +1,21 @@
 //! Initial items setup
+//!
+//! NOTE: Initial equipment is now managed by GlobalInventory (see main.rs).
+//! This file only handles spawning initial world objects (like the starter furnace).
 
 use crate::components::Furnace;
-use crate::game_spec::INITIAL_EQUIPMENT;
-use crate::player::Inventory;
 use crate::BLOCK_SIZE;
 use bevy::prelude::*;
 
-/// Give player initial items
+/// Setup initial world objects
+///
+/// Initial equipment (machines) is added to GlobalInventory in main.rs.
+/// This function spawns the starter furnace near the player spawn point.
 pub fn setup_initial_items(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut inventory: ResMut<Inventory>,
 ) {
-    // Give initial equipment from game spec
-    for (block_type, count) in INITIAL_EQUIPMENT.iter() {
-        inventory.add_item(*block_type, *count);
-    }
-    inventory.selected_slot = 0; // First slot
-
     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
 
     // Spawn a furnace near player spawn point (8, 8, 18)

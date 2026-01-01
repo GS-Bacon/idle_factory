@@ -127,6 +127,10 @@ pub struct QuestUI;
 #[derive(Component)]
 pub struct QuestUIText;
 
+/// Marker for quest deliver button
+#[derive(Component)]
+pub struct QuestDeliverButton;
+
 /// Delivery platform - accepts items for delivery quests
 #[derive(Component, Default)]
 pub struct DeliveryPlatform {

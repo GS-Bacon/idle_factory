@@ -3,6 +3,16 @@
 
 set -e
 
+# Auto-clean if disk usage exceeds threshold
+DISK_THRESHOLD=85
+CURRENT_USAGE=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
+
+if [ "$CURRENT_USAGE" -ge "$DISK_THRESHOLD" ]; then
+    echo "Disk usage ${CURRENT_USAGE}% >= ${DISK_THRESHOLD}%. Running cargo clean..."
+    cargo clean
+    echo "Cleaned. New usage: $(df / | tail -1 | awk '{print $5}')"
+fi
+
 # Create logs directory if it doesn't exist
 mkdir -p /home/bacon/idle_factory/logs
 

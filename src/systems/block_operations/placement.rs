@@ -10,6 +10,7 @@ use crate::{
     BLOCK_SIZE, CHUNK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE,
     REACH_DISTANCE,
 };
+use crate::player::GlobalInventory;
 use crate::utils::{
     auto_conveyor_direction, ray_aabb_intersection, ray_aabb_intersection_with_normal,
     yaw_to_direction,
@@ -34,6 +35,7 @@ pub fn block_place(
     mut action_timer: ResMut<ContinuousActionTimer>,
     mut rotation: ResMut<ConveyorRotationOffset>,
     machine_models: Res<MachineModels>,
+    mut global_inventory: ResMut<GlobalInventory>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -285,9 +287,24 @@ pub fn block_place(
             }
         }
 
-        // Consume from inventory (unless in creative mode)
+        // Check if this is a machine block (uses GlobalInventory) or regular block (uses Inventory)
+        let is_machine = matches!(
+            selected_type,
+            BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock | BlockType::FurnaceBlock
+        );
+
+        // Consume from appropriate inventory (unless in creative mode)
         if !creative_mode.enabled {
-            inventory.consume_selected();
+            if is_machine {
+                // Machine blocks: consume from GlobalInventory
+                if !global_inventory.remove_item(selected_type, 1) {
+                    // Not enough in global inventory
+                    return;
+                }
+            } else {
+                // Regular blocks: consume from slot-based Inventory
+                inventory.consume_selected();
+            }
         }
 
         let chunk_coord = WorldData::world_to_chunk(place_pos);
@@ -366,13 +383,14 @@ pub fn block_place(
                 if let Some(model) = machine_models.miner.clone() {
                     commands.spawn((
                         SceneRoot(model),
-                        transform,
+                        transform.with_rotation(player_facing.to_rotation()),
                         GlobalTransform::default(),
                         Visibility::default(),
                         InheritedVisibility::default(),
                         ViewVisibility::default(),
                         Miner {
                             position: place_pos,
+                            facing: player_facing,
                             ..default()
                         },
                     ));
@@ -385,9 +403,10 @@ pub fn block_place(
                     commands.spawn((
                         Mesh3d(cube_mesh),
                         MeshMaterial3d(material),
-                        transform,
+                        transform.with_rotation(player_facing.to_rotation()),
                         Miner {
                             position: place_pos,
+                            facing: player_facing,
                             ..default()
                         },
                     ));
@@ -498,18 +517,15 @@ pub fn block_place(
                 if let Some(model) = machine_models.crusher.clone() {
                     commands.spawn((
                         SceneRoot(model),
-                        transform,
+                        transform.with_rotation(player_facing.to_rotation()),
                         GlobalTransform::default(),
                         Visibility::default(),
                         InheritedVisibility::default(),
                         ViewVisibility::default(),
                         Crusher {
                             position: place_pos,
-                            input_type: None,
-                            input_count: 0,
-                            output_type: None,
-                            output_count: 0,
-                            progress: 0.0,
+                            facing: player_facing,
+                            ..default()
                         },
                     ));
                 } else {
@@ -521,14 +537,11 @@ pub fn block_place(
                     commands.spawn((
                         Mesh3d(cube_mesh),
                         MeshMaterial3d(material),
-                        transform,
+                        transform.with_rotation(player_facing.to_rotation()),
                         Crusher {
                             position: place_pos,
-                            input_type: None,
-                            input_count: 0,
-                            output_type: None,
-                            output_count: 0,
-                            progress: 0.0,
+                            facing: player_facing,
+                            ..default()
                         },
                     ));
                 }
@@ -545,12 +558,16 @@ pub fn block_place(
                 if let Some(model) = machine_models.furnace.clone() {
                     commands.spawn((
                         SceneRoot(model),
-                        transform,
+                        transform.with_rotation(player_facing.to_rotation()),
                         GlobalTransform::default(),
                         Visibility::default(),
                         InheritedVisibility::default(),
                         ViewVisibility::default(),
-                        Furnace::default(),
+                        Furnace {
+                            position: place_pos,
+                            facing: player_facing,
+                            ..default()
+                        },
                     ));
                 } else {
                     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -561,8 +578,12 @@ pub fn block_place(
                     commands.spawn((
                         Mesh3d(cube_mesh),
                         MeshMaterial3d(material),
-                        transform,
-                        Furnace::default(),
+                        transform.with_rotation(player_facing.to_rotation()),
+                        Furnace {
+                            position: place_pos,
+                            facing: player_facing,
+                            ..default()
+                        },
                     ));
                 }
             }

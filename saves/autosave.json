@@ -1,14 +1,14 @@
 {
   "version": "0.1.0",
-  "timestamp": 1767273323118,
+  "timestamp": 1767276464726,
   "player": {
     "position": {
-      "x": 8.0,
+      "x": 0.0,
       "y": 12.0,
-      "z": 20.0
+      "z": 0.0
     },
     "rotation": {
-      "pitch": 0.0,
+      "pitch": 1.0471976,
       "yaw": 0.0
     }
   },
@@ -16,23 +16,41 @@
     "selected_slot": 0,
     "slots": [
       {
+        "item_type": "Stone",
+        "count": 64
+      },
+      {
+        "item_type": "Grass",
+        "count": 64
+      },
+      {
+        "item_type": "IronOre",
+        "count": 64
+      },
+      {
+        "item_type": "Coal",
+        "count": 64
+      },
+      {
+        "item_type": "IronIngot",
+        "count": 64
+      },
+      {
+        "item_type": "CopperOre",
+        "count": 64
+      },
+      {
+        "item_type": "CopperIngot",
+        "count": 64
+      },
+      {
         "item_type": "MinerBlock",
-        "count": 1
+        "count": 64
       },
       {
         "item_type": "ConveyorBlock",
-        "count": 10
+        "count": 64
       },
-      {
-        "item_type": "FurnaceBlock",
-        "count": 1
-      },
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       null,
       null,
       null,
@@ -63,9 +81,24 @@
     ]
   },
   "world": {
-    "modified_blocks": {}
+    "modified_blocks": {
+      "0,9,0": "Stone"
+    }
   },
   "machines": [
+    {
+      "type": "Conveyor",
+      "position": {
+        "x": 0,
+        "y": 8,
+        "z": 0
+      },
+      "direction": "North",
+      "shape": "Straight",
+      "items": [],
+      "last_output_index": 0,
+      "last_input_source": 0
+    },
     {
       "type": "Furnace",
       "position": {
@@ -86,6 +119,6 @@
     "delivered": {}
   },
   "mode": {
-    "creative": false
+    "creative": true
   }
 }

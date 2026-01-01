@@ -1,7 +1,7 @@
 //! Quest and delivery platform systems
 
 use crate::components::*;
-use crate::player::Inventory;
+use crate::player::GlobalInventory;
 use crate::{game_spec, BlockType, BLOCK_SIZE, PLATFORM_SIZE};
 use bevy::prelude::*;
 
@@ -84,7 +84,7 @@ pub fn quest_progress_check(
 pub fn quest_claim_rewards(
     key_input: Res<ButtonInput<KeyCode>>,
     mut current_quest: ResMut<CurrentQuest>,
-    mut inventory: ResMut<Inventory>,
+    mut global_inventory: ResMut<GlobalInventory>,
     command_state: Res<CommandInputState>,
 ) {
     // Don't process while command input is open
@@ -105,9 +105,9 @@ pub fn quest_claim_rewards(
         return;
     };
 
-    // Add rewards to inventory
+    // Add rewards to GlobalInventory (machines and items)
     for (block_type, amount) in &quest.rewards {
-        inventory.add_item(*block_type, *amount);
+        global_inventory.add_item(*block_type, *amount);
     }
 
     current_quest.rewards_claimed = true;
@@ -120,11 +120,32 @@ pub fn quest_claim_rewards(
     }
 }
 
+/// Check if GlobalInventory has enough items to deliver for the current quest
+fn can_deliver_from_inventory(
+    global_inventory: &GlobalInventory,
+    quest: &QuestDef,
+    platform: Option<&DeliveryPlatform>,
+) -> bool {
+    for (item, required) in &quest.required_items {
+        let already_delivered = platform
+            .map(|p| p.delivered.get(item).copied().unwrap_or(0))
+            .unwrap_or(0);
+        let remaining = required.saturating_sub(already_delivered);
+        if remaining > 0 && global_inventory.get_count(*item) < remaining {
+            return false;
+        }
+    }
+    true
+}
+
 /// Update quest UI (supports multiple required items)
+#[allow(clippy::type_complexity)]
 pub fn update_quest_ui(
     current_quest: Res<CurrentQuest>,
     platform_query: Query<&DeliveryPlatform>,
+    global_inventory: Res<GlobalInventory>,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
+    mut button_query: Query<(&mut Visibility, &mut BackgroundColor), With<QuestDeliverButton>>,
 ) {
     let Ok(mut text) = text_query.get_single_mut() else {
         return;
@@ -134,6 +155,10 @@ pub fn update_quest_ui(
 
     if current_quest.index >= quests.len() {
         **text = "=== Quest ===\nAll quests completed!".to_string();
+        // Hide deliver button
+        for (mut vis, _) in button_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
         return;
     }
 
@@ -150,13 +175,18 @@ pub fn update_quest_ui(
             quest.description,
             rewards.join("\n")
         );
+        // Hide deliver button when completed
+        for (mut vis, _) in button_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
     } else {
         // Show progress for each required item
         let progress: Vec<String> = quest.required_items.iter().map(|(item, amount)| {
             let delivered = platform
                 .map(|p| p.delivered.get(item).copied().unwrap_or(0))
                 .unwrap_or(0);
-            format!("{}: {}/{}", item.name(), delivered.min(*amount), amount)
+            let in_inventory = global_inventory.get_count(*item);
+            format!("{}: {}/{} (在庫: {})", item.name(), delivered.min(*amount), amount, in_inventory)
         }).collect();
 
         **text = format!(
@@ -164,6 +194,84 @@ pub fn update_quest_ui(
             quest.description,
             progress.join("\n")
         );
+
+        // Show deliver button if can deliver
+        let can_deliver = can_deliver_from_inventory(&global_inventory, quest, platform);
+        for (mut vis, mut bg) in button_query.iter_mut() {
+            if can_deliver {
+                *vis = Visibility::Visible;
+                *bg = BackgroundColor(Color::srgba(0.2, 0.5, 0.2, 0.95));
+            } else {
+                *vis = Visibility::Hidden;
+            }
+        }
+    }
+}
+
+/// Handle deliver button click - consume from GlobalInventory and deliver to platform
+#[allow(clippy::type_complexity)]
+pub fn quest_deliver_button(
+    mut current_quest: ResMut<CurrentQuest>,
+    mut global_inventory: ResMut<GlobalInventory>,
+    mut platform_query: Query<&mut DeliveryPlatform>,
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
+        (Changed<Interaction>, With<QuestDeliverButton>),
+    >,
+) {
+    if current_quest.completed {
+        return;
+    }
+
+    let quests = get_main_quests();
+    let Some(quest) = quests.get(current_quest.index) else {
+        return;
+    };
+
+    let Ok(mut platform) = platform_query.get_single_mut() else {
+        return;
+    };
+
+    for (interaction, mut bg_color, mut border_color) in button_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                // Consume items from GlobalInventory and deliver to platform
+                let mut success = true;
+                for (item, required) in &quest.required_items {
+                    let already_delivered = platform.delivered.get(item).copied().unwrap_or(0);
+                    let remaining = required.saturating_sub(already_delivered);
+                    if remaining > 0 {
+                        if global_inventory.remove_item(*item, remaining) {
+                            *platform.delivered.entry(*item).or_insert(0) += remaining;
+                        } else {
+                            success = false;
+                            break;
+                        }
+                    }
+                }
+
+                if success {
+                    // Check if quest is now complete
+                    let all_satisfied = quest.required_items.iter().all(|(item, amount)| {
+                        let delivered = platform.delivered.get(item).copied().unwrap_or(0);
+                        delivered >= *amount
+                    });
+                    if all_satisfied {
+                        current_quest.completed = true;
+                    }
+                }
+
+                *border_color = BorderColor(Color::srgb(0.5, 1.0, 0.5));
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(Color::srgba(0.3, 0.6, 0.3, 0.95));
+                *border_color = BorderColor(Color::srgba(0.4, 0.8, 0.4, 1.0));
+            }
+            Interaction::None => {
+                *bg_color = BackgroundColor(Color::srgba(0.2, 0.5, 0.2, 0.95));
+                *border_color = BorderColor(Color::srgba(0.3, 0.6, 0.3, 1.0));
+            }
+        }
     }
 }
 

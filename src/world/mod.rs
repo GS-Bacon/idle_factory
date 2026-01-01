@@ -1,5 +1,9 @@
 //! World and chunk management system
 
+pub mod biome;
+
+pub use biome::{BiomeMap, mining_random};
+
 use crate::block_type::BlockType;
 use crate::constants::*;
 use bevy::prelude::*;

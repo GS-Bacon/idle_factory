@@ -1,9 +1,10 @@
 //! Block type definitions
 
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Types of blocks in the game
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub enum BlockType {
     #[default]
     Stone,

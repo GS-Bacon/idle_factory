@@ -6,8 +6,8 @@ use crate::components::{
     PlayerCamera,
 };
 use crate::player::Inventory;
-use crate::world::WorldData;
-use crate::{ray_aabb_intersection, set_ui_open_state, BlockType, Conveyor, Miner, BLOCK_SIZE, MINE_TIME, REACH_DISTANCE};
+use crate::world::{BiomeMap, mining_random};
+use crate::{ray_aabb_intersection, set_ui_open_state, Conveyor, Miner, BLOCK_SIZE, MINE_TIME, REACH_DISTANCE};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
@@ -204,47 +204,52 @@ pub fn update_miner_ui(
     }
 }
 
-/// Mining logic - automatically mine blocks below the miner
-pub fn miner_mining(time: Res<Time>, mut miner_query: Query<&mut Miner>, world_data: Res<WorldData>) {
+/// Mining logic - automatically mine based on biome at miner's position
+///
+/// Miners now produce resources based on the biome they're placed in,
+/// not the block below them. This allows infinite mining with varied output.
+pub fn miner_mining(
+    time: Res<Time>,
+    mut miner_query: Query<&mut Miner>,
+    biome_map: Res<BiomeMap>,
+) {
     for mut miner in miner_query.iter_mut() {
-        // Skip if buffer is full
+        // Skip if buffer is full (max 64)
         if let Some((_, count)) = miner.buffer {
             if count >= 64 {
                 continue;
             }
         }
 
-        // Find block below miner to determine resource type
-        let below_pos = miner.position + IVec3::new(0, -1, 0);
-        let Some(&block_type) = world_data.get_block(below_pos) else {
+        // Get biome at miner's position
+        let biome = biome_map.get_biome(miner.position);
+
+        // Check if mining is possible in this biome
+        if !biome_map.can_mine(miner.position) {
             miner.progress = 0.0;
             continue;
-        };
-
-        // Only mine resource blocks (not grass/stone)
-        let resource_type = match block_type {
-            BlockType::IronOre => BlockType::IronOre,
-            BlockType::Coal => BlockType::Coal,
-            BlockType::CopperOre => BlockType::CopperOre,
-            BlockType::Stone => BlockType::Stone,
-            _ => {
-                // Can't mine this block type, skip
-                miner.progress = 0.0;
-                continue;
-            }
-        };
+        }
 
         // Mine progress
         miner.progress += time.delta_secs() / MINE_TIME;
 
         if miner.progress >= 1.0 {
             miner.progress = 0.0;
+            miner.tick_count = miner.tick_count.wrapping_add(1);
 
-            // Generate resource infinitely (don't remove block)
-            // Add to buffer
+            // Sample resource from biome's probability table
+            let random_value = mining_random(miner.position, miner.tick_count, biome_map.seed);
+            let Some(resource_type) = biome.sample_resource(random_value) else {
+                continue; // Unmailable biome
+            };
+
+            // Add to buffer (stack same type, or start new stack)
             if let Some((buf_type, ref mut count)) = miner.buffer {
                 if buf_type == resource_type {
                     *count += 1;
+                } else {
+                    // Different type - only replace if buffer is empty (shouldn't happen normally)
+                    // In practice, we should wait for buffer to empty
                 }
             } else {
                 miner.buffer = Some((resource_type, 1));

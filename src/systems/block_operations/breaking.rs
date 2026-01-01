@@ -7,6 +7,7 @@ use crate::{
     BlockType, ChunkMesh, ContinuousActionTimer, ConveyorItemVisual, CursorLockState,
     InputStateResources, Inventory, WorldData, BLOCK_SIZE, CHUNK_SIZE, REACH_DISTANCE,
 };
+use crate::player::GlobalInventory;
 use crate::utils::ray_aabb_intersection;
 
 use super::MachineBreakQueries;
@@ -26,6 +27,7 @@ pub fn block_break(
     mut cursor_state: ResMut<CursorLockState>,
     input_resources: InputStateResources,
     mut action_timer: ResMut<ContinuousActionTimer>,
+    mut global_inventory: ResMut<GlobalInventory>,
 ) {
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
@@ -302,56 +304,63 @@ pub fn block_break(
                                 commands.entity(visual_entity).despawn();
                             }
                         }
-                        inventory.add_item(item.block_type, 1);
+                        // Items on conveyor go to GlobalInventory
+                        global_inventory.add_item(item.block_type, 1);
                     }
                     info!(category = "MACHINE", action = "break", machine = "conveyor", ?pos, items_returned = count, "Conveyor broken");
                     count
                 } else { 0 };
                 let _ = item_count;
                 commands.entity(entity).despawn_recursive();
-                inventory.add_item(BlockType::ConveyorBlock, 1);
+                // Machine block goes to GlobalInventory
+                global_inventory.add_item(BlockType::ConveyorBlock, 1);
             }
             HitType::Miner(entity) => {
                 info!(category = "MACHINE", action = "break", machine = "miner", "Miner broken");
                 commands.entity(entity).despawn_recursive();
-                inventory.add_item(BlockType::MinerBlock, 1);
+                // Machine block goes to GlobalInventory
+                global_inventory.add_item(BlockType::MinerBlock, 1);
             }
             HitType::Crusher(entity) => {
                 if let Ok((_, crusher, _)) = machines.crusher.get(entity) {
                     if let Some(input_type) = crusher.input_type {
                         if crusher.input_count > 0 {
-                            inventory.add_item(input_type, crusher.input_count);
+                            // Items inside machine go to GlobalInventory
+                            global_inventory.add_item(input_type, crusher.input_count);
                         }
                     }
                     if let Some(output_type) = crusher.output_type {
                         if crusher.output_count > 0 {
-                            inventory.add_item(output_type, crusher.output_count);
+                            global_inventory.add_item(output_type, crusher.output_count);
                         }
                     }
                 }
                 info!(category = "MACHINE", action = "break", machine = "crusher", "Crusher broken");
                 commands.entity(entity).despawn_recursive();
-                inventory.add_item(BlockType::CrusherBlock, 1);
+                // Machine block goes to GlobalInventory
+                global_inventory.add_item(BlockType::CrusherBlock, 1);
             }
             HitType::Furnace(entity) => {
                 if let Ok((_, furnace, _)) = machines.furnace.get(entity) {
                     if furnace.fuel > 0 {
-                        inventory.add_item(BlockType::Coal, furnace.fuel);
+                        // Fuel goes to GlobalInventory
+                        global_inventory.add_item(BlockType::Coal, furnace.fuel);
                     }
                     if let Some(input_type) = furnace.input_type {
                         if furnace.input_count > 0 {
-                            inventory.add_item(input_type, furnace.input_count);
+                            global_inventory.add_item(input_type, furnace.input_count);
                         }
                     }
                     if let Some(output_type) = furnace.output_type {
                         if furnace.output_count > 0 {
-                            inventory.add_item(output_type, furnace.output_count);
+                            global_inventory.add_item(output_type, furnace.output_count);
                         }
                     }
                 }
                 info!(category = "MACHINE", action = "break", machine = "furnace", "Furnace broken");
                 commands.entity(entity).despawn_recursive();
-                inventory.add_item(BlockType::FurnaceBlock, 1);
+                // Machine block goes to GlobalInventory
+                global_inventory.add_item(BlockType::FurnaceBlock, 1);
             }
         }
     }
