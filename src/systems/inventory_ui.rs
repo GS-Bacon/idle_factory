@@ -459,6 +459,7 @@ pub fn inventory_update_slots(
 }
 
 /// Update held item display to follow cursor and show held item
+#[allow(clippy::type_complexity)]
 pub fn update_held_item_display(
     inventory_open: Res<InventoryOpen>,
     held_item: Res<HeldItem>,

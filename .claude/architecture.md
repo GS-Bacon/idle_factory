@@ -10,7 +10,11 @@ src/
 ├── game_spec.rs         # ゲーム仕様（初期装備、クエスト定義）
 │
 ├── components/          # ECSコンポーネント定義
-│   └── mod.rs
+│   ├── mod.rs
+│   ├── machines.rs      # Miner, Conveyor, Furnace, Crusher, Direction
+│   ├── ui.rs            # UI関連コンポーネント
+│   ├── input.rs         # InputState, InputStateResources
+│   └── player.rs        # CursorLockState
 │
 ├── events/              # ゲームイベント（マルチプレイ準備）
 │   └── mod.rs
@@ -24,10 +28,9 @@ src/
 │   ├── chunk.rs         # ChunkData, ChunkMesh
 │   └── terrain.rs       # 地形生成
 │
-├── machines/            # 機械コンポーネント
+├── plugins/             # Bevyプラグイン
 │   ├── mod.rs
-│   ├── components.rs    # Miner, Conveyor, Furnace, Crusher
-│   └── conveyor.rs      # コンベア専用ロジック
+│   └── machines.rs      # MachineSystemsPlugin
 │
 ├── systems/             # Bevyシステム（Update毎に実行）
 │   ├── mod.rs

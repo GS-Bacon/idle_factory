@@ -217,6 +217,7 @@ impl Default for E2EExportConfig {
 /// Export game state to JSON file for E2E testing
 /// Enable with E2E_EXPORT=1 environment variable
 /// Customize path with E2E_EXPORT_PATH environment variable
+#[allow(clippy::too_many_arguments)]
 pub fn export_e2e_state(
     config: Res<E2EExportConfig>,
     diagnostics: Res<DiagnosticsStore>,

@@ -1,3 +1,33 @@
+# Idle Factory - コードレビュー依頼
+
+## プロジェクト概要
+Bevy (Rust) で作成したボクセルゲーム。Minecraft風の採掘・工場建設ゲーム。
+
+## 現在の統計
+- 総コード行数: 約12,000行
+- テスト: 91件通過
+- モジュール数: 約30
+
+## アーキテクチャ
+- ECS (Entity Component System) パターン
+- プラグインベース (MachineSystemsPlugin, UIPlugin, SavePlugin)
+- チャンクベースのワールド生成
+
+## レビュー対象
+以下のmain.rsと、プロジェクト全体の設計についてレビューしてください。
+
+### 評価基準
+1. コード品質 (可読性、保守性)
+2. アーキテクチャ設計
+3. Bevy/ECSのベストプラクティス準拠
+4. パフォーマンス考慮
+5. テスト網羅性
+6. 改善提案
+
+### 10点満点で総合評価もお願いします。
+
+---
+## main.rs (384行)
 //! Idle Factory - Milestone 1: Minimal Voxel Game
 //! Goal: Walk, mine blocks, collect in inventory
 
@@ -382,3 +412,64 @@ mod tests {
         assert_eq!(biome1, biome2);
     }
 }
+
+---
+## プロジェクト構造
+/home/bacon/idle_factory/src/world/mod.rs
+/home/bacon/idle_factory/src/components/machines.rs
+/home/bacon/idle_factory/src/components/player.rs
+/home/bacon/idle_factory/src/components/mod.rs
+/home/bacon/idle_factory/src/components/input.rs
+/home/bacon/idle_factory/src/components/ui.rs
+/home/bacon/idle_factory/src/game_spec.rs
+/home/bacon/idle_factory/src/main.rs
+/home/bacon/idle_factory/src/plugins/machines.rs
+/home/bacon/idle_factory/src/plugins/mod.rs
+/home/bacon/idle_factory/src/plugins/save.rs
+/home/bacon/idle_factory/src/plugins/ui.rs
+/home/bacon/idle_factory/src/utils.rs
+/home/bacon/idle_factory/src/block_type.rs
+/home/bacon/idle_factory/src/constants.rs
+/home/bacon/idle_factory/src/logging.rs
+/home/bacon/idle_factory/src/player/inventory.rs
+/home/bacon/idle_factory/src/player/mod.rs
+/home/bacon/idle_factory/src/ui/mod.rs
+/home/bacon/idle_factory/src/setup/initial_items.rs
+/home/bacon/idle_factory/src/setup/lighting.rs
+/home/bacon/idle_factory/src/setup/player.rs
+/home/bacon/idle_factory/src/setup/mod.rs
+/home/bacon/idle_factory/src/events/mod.rs
+/home/bacon/idle_factory/src/systems/crusher.rs
+/home/bacon/idle_factory/src/systems/inventory_ui.rs
+/home/bacon/idle_factory/src/systems/conveyor.rs
+/home/bacon/idle_factory/src/systems/furnace.rs
+/home/bacon/idle_factory/src/systems/hotbar.rs
+/home/bacon/idle_factory/src/systems/debug_ui.rs
+/home/bacon/idle_factory/src/systems/save_systems.rs
+/home/bacon/idle_factory/src/systems/player.rs
+/home/bacon/idle_factory/src/systems/chunk.rs
+/home/bacon/idle_factory/src/systems/miner.rs
+/home/bacon/idle_factory/src/systems/mod.rs
+/home/bacon/idle_factory/src/systems/quest.rs
+/home/bacon/idle_factory/src/systems/command_ui.rs
+/home/bacon/idle_factory/src/vox_loader.rs
+/home/bacon/idle_factory/src/save.rs
+/home/bacon/idle_factory/src/meshes.rs
+
+---
+## ファイルサイズ一覧（上位15）
+  7279 total
+   826 /home/bacon/idle_factory/src/systems/command_ui.rs
+   648 /home/bacon/idle_factory/src/systems/inventory_ui.rs
+   627 /home/bacon/idle_factory/src/world/mod.rs
+   524 /home/bacon/idle_factory/src/systems/conveyor.rs
+   518 /home/bacon/idle_factory/src/systems/save_systems.rs
+   400 /home/bacon/idle_factory/src/systems/debug_ui.rs
+   381 /home/bacon/idle_factory/src/player/inventory.rs
+   374 /home/bacon/idle_factory/src/components/machines.rs
+   324 /home/bacon/idle_factory/src/systems/miner.rs
+   319 /home/bacon/idle_factory/src/systems/furnace.rs
+   316 /home/bacon/idle_factory/src/systems/crusher.rs
+   312 /home/bacon/idle_factory/src/systems/chunk.rs
+   270 /home/bacon/idle_factory/src/systems/quest.rs
+   270 /home/bacon/idle_factory/src/systems/player.rs

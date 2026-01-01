@@ -17,6 +17,7 @@ use crossbeam_channel::{unbounded, Receiver};
 use notify::{recommended_watcher, Event, RecommendedWatcher, RecursiveMode, Watcher};
 
 /// Resource to store loaded VOX meshes
+#[allow(dead_code)]
 #[derive(Resource, Default)]
 pub struct VoxMeshes {
     pub meshes: HashMap<String, Handle<Mesh>>,
@@ -24,7 +25,7 @@ pub struct VoxMeshes {
 }
 
 /// Resource to store the current block texture atlas
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct BlockTextureAtlas {
     /// Handle to the current atlas texture
     pub texture: Handle<Image>,
@@ -32,16 +33,6 @@ pub struct BlockTextureAtlas {
     pub current_path: String,
     /// Generation counter for hot reload
     pub generation: u32,
-}
-
-impl Default for BlockTextureAtlas {
-    fn default() -> Self {
-        Self {
-            texture: Handle::default(),
-            current_path: String::new(),
-            generation: 0,
-        }
-    }
 }
 
 /// Resource to track file changes
@@ -286,6 +277,7 @@ pub fn load_vox_mesh(path: &Path) -> Option<(Mesh, Vec<Color>)> {
 }
 
 /// Convert VOX data to Bevy Mesh with greedy meshing
+#[allow(clippy::type_complexity)]
 fn vox_to_mesh(vox: &DotVoxData) -> Option<(Mesh, Vec<Color>)> {
     let Some(model) = vox.models.first() else {
         tracing::warn!("VOXファイルにモデルが含まれていません");
@@ -407,6 +399,7 @@ fn vox_to_mesh(vox: &DotVoxData) -> Option<(Mesh, Vec<Color>)> {
 }
 
 /// Load all VOX files from assets/models and convert them
+#[allow(dead_code)]
 pub fn load_all_vox_models(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
@@ -421,6 +414,7 @@ pub fn load_all_vox_models(
     load_vox_recursive(models_path, meshes, materials, vox_meshes);
 }
 
+#[allow(dead_code)]
 fn load_vox_recursive(
     dir: &Path,
     meshes: &mut Assets<Mesh>,
@@ -435,7 +429,7 @@ fn load_vox_recursive(
         let path = entry.path();
         if path.is_dir() {
             load_vox_recursive(&path, meshes, materials, vox_meshes);
-        } else if path.extension().map_or(false, |ext| ext == "vox") {
+        } else if path.extension().is_some_and(|ext| ext == "vox") {
             if let Some((mesh, _colors)) = load_vox_mesh(&path) {
                 let key = path.to_string_lossy().to_string();
                 let mesh_handle = meshes.add(mesh);
