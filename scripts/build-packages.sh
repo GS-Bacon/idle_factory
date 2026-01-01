@@ -80,8 +80,7 @@ EOF
     chmod +x "$LINUX_DIR/idle_factory"
 
     # tarball作成
-    cd "$DIST_DIR"
-    tar -czvf "idle_factory_${VERSION}_linux.tar.gz" "idle_factory_${VERSION}_linux"
+    (cd "$DIST_DIR" && tar -czvf "idle_factory_${VERSION}_linux.tar.gz" "idle_factory_${VERSION}_linux")
     rm -rf "$LINUX_DIR"
 
     info "Linux用パッケージ完了: dist/idle_factory_${VERSION}_linux.tar.gz"
@@ -102,8 +101,7 @@ if [ "$BUILD_WINDOWS" = true ]; then
     copy_assets "$WINDOWS_DIR"
 
     # zip作成
-    cd "$DIST_DIR"
-    zip -r "idle_factory_${VERSION}_windows.zip" "idle_factory_${VERSION}_windows"
+    (cd "$DIST_DIR" && zip -r "idle_factory_${VERSION}_windows.zip" "idle_factory_${VERSION}_windows")
     rm -rf "$WINDOWS_DIR"
 
     info "Windows用パッケージ完了: dist/idle_factory_${VERSION}_windows.zip"
