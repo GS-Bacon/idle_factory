@@ -85,3 +85,11 @@ overflow-checks = true  # Enable overflow checks even in release
 inherits = "release"
 lto = false
 opt-level = 2
+
+# WASM optimized build
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"  # Optimize for size
+lto = true
+codegen-units = 1
+panic = "abort"

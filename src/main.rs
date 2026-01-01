@@ -151,10 +151,16 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Core gameplay systems - chunk loading
+                // Chunk systems: spawn → receive (ordered)
                 spawn_chunk_tasks,
                 receive_chunk_meshes,
                 unload_distant_chunks,
+            ).chain(),
+        )
+        .add_systems(
+            Update,
+            (
+                // Player systems: look → move (camera affects movement direction)
                 toggle_cursor_lock,
                 player_look,
                 player_move,
@@ -162,8 +168,9 @@ fn main() {
             ),
         )
         .add_systems(Update, tutorial_dismiss)
-        .add_systems(Update, block_break)
-        .add_systems(Update, block_place)
+        // Targeting must run before block operations
+        .add_systems(Update, update_target_block)
+        .add_systems(Update, (block_break, block_place).after(update_target_block))
         .add_systems(Update, select_block_type)
         .add_systems(
             Update,
@@ -186,15 +193,14 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Debug and targeting systems
-                export_e2e_state,
-                update_target_block,
+                // Targeting highlight (after target_block update)
                 update_target_highlight,
                 rotate_conveyor_placement,
                 update_conveyor_shapes,
                 update_guide_markers,
-            ),
+            ).after(update_target_block),
         )
+        .add_systems(Update, export_e2e_state)
         .add_systems(
             Update,
             (
@@ -380,5 +386,122 @@ mod tests {
         let biome1 = ChunkData::get_biome(0, 0);
         let biome2 = ChunkData::get_biome(0, 0);
         assert_eq!(biome1, biome2);
+    }
+
+    #[test]
+    fn test_conveyor_can_accept_item() {
+        let conveyor = Conveyor {
+            position: IVec3::ZERO,
+            direction: Direction::North,
+            items: vec![],
+            last_output_index: 0,
+            last_input_source: 0,
+            shape: ConveyorShape::Straight,
+        };
+        assert!(conveyor.can_accept_item(0.0));
+        assert!(conveyor.can_accept_item(0.5));
+    }
+
+    #[test]
+    fn test_conveyor_item_spacing() {
+        let mut conveyor = Conveyor {
+            position: IVec3::ZERO,
+            direction: Direction::North,
+            items: vec![],
+            last_output_index: 0,
+            last_input_source: 0,
+            shape: ConveyorShape::Straight,
+        };
+        conveyor.add_item(BlockType::IronOre, 0.5);
+        // Item at 0.5, so 0.4 and 0.6 should be too close
+        assert!(!conveyor.can_accept_item(0.5));
+        assert!(!conveyor.can_accept_item(0.45));
+        // But 0.0 should be far enough
+        assert!(conveyor.can_accept_item(0.0));
+    }
+
+    #[test]
+    fn test_furnace_smelt_output() {
+        assert_eq!(Furnace::get_smelt_output(BlockType::IronOre), Some(BlockType::IronIngot));
+        assert_eq!(Furnace::get_smelt_output(BlockType::CopperOre), Some(BlockType::CopperIngot));
+        assert_eq!(Furnace::get_smelt_output(BlockType::Stone), None);
+    }
+
+    #[test]
+    fn test_furnace_can_add_input() {
+        let mut furnace = Furnace::default();
+        assert!(furnace.can_add_input(BlockType::IronOre));
+        furnace.input_type = Some(BlockType::IronOre);
+        furnace.input_count = 1;
+        assert!(furnace.can_add_input(BlockType::IronOre));
+        // Different ore type should be rejected
+        assert!(!furnace.can_add_input(BlockType::CopperOre));
+    }
+
+    #[test]
+    fn test_crusher_can_crush() {
+        assert!(Crusher::can_crush(BlockType::IronOre));
+        assert!(Crusher::can_crush(BlockType::CopperOre));
+        assert!(!Crusher::can_crush(BlockType::Stone));
+        assert!(!Crusher::can_crush(BlockType::IronIngot));
+    }
+
+    #[test]
+    fn test_creative_mode_toggle() {
+        let mut creative = CreativeMode::default();
+        assert!(!creative.enabled);
+        creative.enabled = true;
+        assert!(creative.enabled);
+    }
+
+    #[test]
+    fn test_quest_structure() {
+        let quests = get_quests();
+        for quest in &quests {
+            assert!(!quest.description.is_empty());
+            assert!(quest.required_amount > 0);
+            assert!(!quest.rewards.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_direction_conversions() {
+        // Test all directions have valid ivec3
+        assert_eq!(Direction::North.to_ivec3(), IVec3::new(0, 0, -1));
+        assert_eq!(Direction::South.to_ivec3(), IVec3::new(0, 0, 1));
+        assert_eq!(Direction::East.to_ivec3(), IVec3::new(1, 0, 0));
+        assert_eq!(Direction::West.to_ivec3(), IVec3::new(-1, 0, 0));
+
+        // Test rotation consistency
+        let mut dir = Direction::North;
+        for _ in 0..4 {
+            dir = dir.rotate_cw();
+        }
+        assert_eq!(dir, Direction::North);
+    }
+
+    #[test]
+    fn test_conveyor_splitter_outputs() {
+        let conveyor = Conveyor {
+            position: IVec3::new(5, 0, 5),
+            direction: Direction::North,
+            items: vec![],
+            last_output_index: 0,
+            last_input_source: 0,
+            shape: ConveyorShape::Splitter,
+        };
+        let outputs = conveyor.get_splitter_outputs();
+        // front, left, right
+        assert_eq!(outputs[0], IVec3::new(5, 0, 4)); // North (front)
+        assert_eq!(outputs[1], IVec3::new(4, 0, 5)); // West (left)
+        assert_eq!(outputs[2], IVec3::new(6, 0, 5)); // East (right)
+    }
+
+    #[test]
+    fn test_miner_default() {
+        let miner = Miner::default();
+        assert_eq!(miner.position, IVec3::ZERO);
+        assert_eq!(miner.progress, 0.0);
+        assert!(miner.buffer.is_none());
     }
 }

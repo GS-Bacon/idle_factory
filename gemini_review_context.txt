@@ -1,33 +1,30 @@
 # Idle Factory - コードレビュー依頼
 
 ## プロジェクト概要
-Bevy (Rust) で作成したボクセルゲーム。Minecraft風の採掘・工場建設ゲーム。
+Bevy (Rust) を使用したMinecraft風の工場建設ボクセルゲーム。
+採掘機→コンベア→精錬炉のような機械チェーンで自動化する。
 
-## 現在の統計
-- 総コード行数: 約12,000行
-- テスト: 91件通過
-- モジュール数: 約30
+## 現在の状態
+- テスト: 103件全通過
+- Clippy警告: 0
+- コード行数: 約10,000行
 
-## アーキテクチャ
-- ECS (Entity Component System) パターン
-- プラグインベース (MachineSystemsPlugin, UIPlugin, SavePlugin)
-- チャンクベースのワールド生成
+## 最近のリファクタリング（直近5コミット）
+1. block_operations.rs (1001行) → block_operations/mod.rs, placement.rs, breaking.rs に分割
+2. ui_setup.rs (977行) → setup/ui/mod.rs, machine_ui.rs, inventory_ui.rs に分割
+3. targeting.rs (759行) → targeting/mod.rs, raycast.rs, highlight.rs, guide.rs, conveyor.rs に分割
+4. MachineSystemsPlugin, UIPlugin, SavePlugin を plugins/ に作成
+5. E2Eテスト用コマンド追加
 
-## レビュー対象
-以下のmain.rsと、プロジェクト全体の設計についてレビューしてください。
+## レビュー観点
+1. **アーキテクチャ**: モジュール分割は適切か？依存関係は健全か？
+2. **コード品質**: 可読性、命名規則、重複コード
+3. **Bevy パターン**: ECSの使い方、Plugin構成、リソース管理
+4. **パフォーマンス**: 明らかなボトルネック、非効率なパターン
+5. **安全性**: unwrap()の使い方、エラーハンドリング
+6. **将来性**: 拡張しやすい設計か？
 
-### 評価基準
-1. コード品質 (可読性、保守性)
-2. アーキテクチャ設計
-3. Bevy/ECSのベストプラクティス準拠
-4. パフォーマンス考慮
-5. テスト網羅性
-6. 改善提案
-
-### 10点満点で総合評価もお願いします。
-
----
-## main.rs (384行)
+## main.rs の構造
 //! Idle Factory - Milestone 1: Minimal Voxel Game
 //! Goal: Walk, mine blocks, collect in inventory
 
@@ -413,63 +410,53 @@ mod tests {
     }
 }
 
----
-## プロジェクト構造
-/home/bacon/idle_factory/src/world/mod.rs
-/home/bacon/idle_factory/src/components/machines.rs
-/home/bacon/idle_factory/src/components/player.rs
-/home/bacon/idle_factory/src/components/mod.rs
-/home/bacon/idle_factory/src/components/input.rs
-/home/bacon/idle_factory/src/components/ui.rs
-/home/bacon/idle_factory/src/game_spec.rs
-/home/bacon/idle_factory/src/main.rs
-/home/bacon/idle_factory/src/plugins/machines.rs
-/home/bacon/idle_factory/src/plugins/mod.rs
-/home/bacon/idle_factory/src/plugins/save.rs
-/home/bacon/idle_factory/src/plugins/ui.rs
-/home/bacon/idle_factory/src/utils.rs
-/home/bacon/idle_factory/src/block_type.rs
-/home/bacon/idle_factory/src/constants.rs
-/home/bacon/idle_factory/src/logging.rs
-/home/bacon/idle_factory/src/player/inventory.rs
-/home/bacon/idle_factory/src/player/mod.rs
-/home/bacon/idle_factory/src/ui/mod.rs
-/home/bacon/idle_factory/src/setup/initial_items.rs
-/home/bacon/idle_factory/src/setup/lighting.rs
-/home/bacon/idle_factory/src/setup/player.rs
-/home/bacon/idle_factory/src/setup/mod.rs
-/home/bacon/idle_factory/src/events/mod.rs
-/home/bacon/idle_factory/src/systems/crusher.rs
-/home/bacon/idle_factory/src/systems/inventory_ui.rs
-/home/bacon/idle_factory/src/systems/conveyor.rs
-/home/bacon/idle_factory/src/systems/furnace.rs
-/home/bacon/idle_factory/src/systems/hotbar.rs
-/home/bacon/idle_factory/src/systems/debug_ui.rs
-/home/bacon/idle_factory/src/systems/save_systems.rs
-/home/bacon/idle_factory/src/systems/player.rs
-/home/bacon/idle_factory/src/systems/chunk.rs
-/home/bacon/idle_factory/src/systems/miner.rs
-/home/bacon/idle_factory/src/systems/mod.rs
-/home/bacon/idle_factory/src/systems/quest.rs
-/home/bacon/idle_factory/src/systems/command_ui.rs
-/home/bacon/idle_factory/src/vox_loader.rs
-/home/bacon/idle_factory/src/save.rs
-/home/bacon/idle_factory/src/meshes.rs
 
----
-## ファイルサイズ一覧（上位15）
-  7279 total
-   826 /home/bacon/idle_factory/src/systems/command_ui.rs
-   648 /home/bacon/idle_factory/src/systems/inventory_ui.rs
-   627 /home/bacon/idle_factory/src/world/mod.rs
-   524 /home/bacon/idle_factory/src/systems/conveyor.rs
-   518 /home/bacon/idle_factory/src/systems/save_systems.rs
-   400 /home/bacon/idle_factory/src/systems/debug_ui.rs
-   381 /home/bacon/idle_factory/src/player/inventory.rs
-   374 /home/bacon/idle_factory/src/components/machines.rs
-   324 /home/bacon/idle_factory/src/systems/miner.rs
-   319 /home/bacon/idle_factory/src/systems/furnace.rs
-   316 /home/bacon/idle_factory/src/systems/crusher.rs
-   312 /home/bacon/idle_factory/src/systems/chunk.rs
-   270 /home/bacon/idle_factory/src/systems/quest.rs
-   270 /home/bacon/idle_factory/src/systems/player.rs
+## plugins/mod.rs
+//! Game plugins
+//!
+//! Plugins organize systems, resources, and events into logical groups.
+
+mod machines;
+mod save;
+mod ui;
+
+pub use machines::MachineSystemsPlugin;
+pub use save::SavePlugin;
+pub use ui::UIPlugin;
+
+
+## block_operations/mod.rs
+//! Block placement and breaking systems
+//!
+//! This module contains the core block interaction systems:
+//! - block_break: Breaking world blocks and machines
+//! - block_place: Placing blocks and machines
+
+mod breaking;
+mod placement;
+
+pub use breaking::block_break;
+pub use placement::block_place;
+
+use bevy::ecs::system::SystemParam;
+use bevy::prelude::*;
+
+use crate::{Conveyor, Crusher, Furnace, Miner};
+
+/// Bundled machine queries for block_break system (reduces parameter count)
+#[derive(SystemParam)]
+pub struct MachineBreakQueries<'w, 's> {
+    pub conveyor: Query<'w, 's, (Entity, &'static Conveyor, &'static GlobalTransform)>,
+    pub miner: Query<'w, 's, (Entity, &'static Miner, &'static GlobalTransform)>,
+    pub crusher: Query<'w, 's, (Entity, &'static Crusher, &'static GlobalTransform)>,
+    pub furnace: Query<'w, 's, (Entity, &'static Furnace, &'static GlobalTransform)>,
+}
+
+/// Bundled machine queries for block_place system (reduces parameter count)
+#[derive(SystemParam)]
+pub struct MachinePlaceQueries<'w, 's> {
+    pub conveyor: Query<'w, 's, &'static Conveyor>,
+    pub miner: Query<'w, 's, &'static Miner>,
+    pub crusher: Query<'w, 's, (&'static Crusher, &'static Transform)>,
+    pub furnace: Query<'w, 's, &'static Transform, With<Furnace>>,
+}

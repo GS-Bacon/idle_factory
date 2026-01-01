@@ -297,7 +297,10 @@
       "Bash(tmux new-session:*)",
       "Bash(tmux send-keys:*)",
       "Bash(tmux capture-pane:*)",
-      "Bash(./scripts/watch_gemini.sh:*)"
+      "Bash(./scripts/watch_gemini.sh:*)",
+      "Bash(# unwrap\\(\\)カウント再確認 grep -c \"\"\\\\.unwrap\\(\\)\"\" src/*.rs src/**/*.rs || grep -r \"\"\\\\.unwrap\\(\\)\"\" src/)",
+      "Bash(# Geminiの状態を直接確認 tmux capture-pane -t ai_gemini -p)",
+      "Bash(# Geminiセッションの全出力を取得 tmux capture-pane -t ai_gemini -p -S -500)"
     ]
   },
   "enableAllProjectMcpServers": true,
