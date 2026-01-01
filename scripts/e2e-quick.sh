@@ -128,9 +128,29 @@ rclick() {
     sleep 0.15
 }
 
+# 1文字ずつ入力 (xdotool typeの文字化け対策)
+type_char() {
+    local char="$1"
+    case "$char" in
+        [a-z]) xdotool key "$char" ;;
+        [A-Z]) xdotool key "shift+${char,,}" ;;
+        [0-9]) xdotool key "$char" ;;
+        " ") xdotool key space ;;
+        "/") xdotool key slash ;;
+        "_") xdotool key "shift+minus" ;;
+        "-") xdotool key minus ;;
+        ".") xdotool key period ;;
+        ",") xdotool key comma ;;
+        *) xdotool key "$char" 2>/dev/null || true ;;
+    esac
+    sleep 0.03
+}
+
 # テキスト入力
 type_text() {
-    xdotool type --delay 50 "$1"
+    for ((i=0; i<${#1}; i++)); do
+        type_char "${1:$i:1}"
+    done
     sleep 0.1
 }
 
@@ -264,7 +284,7 @@ send_command() {
     log "📤 コマンド送信: $cmd"
     key "t"  # コマンド入力モードを開く
     sleep 0.3  # コマンドUIが開くまで待つ
-    xdotool type --delay 80 "$cmd"
+    type_text "$cmd"
     sleep 0.2
     key "Return"
     sleep 0.5

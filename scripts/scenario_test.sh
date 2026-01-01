@@ -21,12 +21,31 @@ cleanup() {
     sleep 1
 }
 
+type_char() {
+    local char="$1"
+    case "$char" in
+        [a-z]) xdotool key "$char" ;;
+        [A-Z]) xdotool key "shift+${char,,}" ;;
+        [0-9]) xdotool key "$char" ;;
+        " ") xdotool key space ;;
+        "/") xdotool key slash ;;
+        "_") xdotool key "shift+minus" ;;
+        "-") xdotool key minus ;;
+        ".") xdotool key period ;;
+        ",") xdotool key comma ;;
+        *) xdotool key "$char" 2>/dev/null || true ;;
+    esac
+    sleep 0.03
+}
+
 send_cmd() {
     local cmd="$1"
     log "CMD: $cmd"
     xdotool key t
     sleep 0.2
-    xdotool type --delay 20 "$cmd"
+    for ((i=0; i<${#cmd}; i++)); do
+        type_char "${cmd:$i:1}"
+    done
     sleep 0.1
     xdotool key Return
     sleep 0.5

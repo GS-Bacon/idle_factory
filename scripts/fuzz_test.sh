@@ -48,19 +48,40 @@ COMMANDS=(
 CMD_COUNT=0
 KEY_COUNT=0
 
+type_char() {
+    local char="$1"
+    case "$char" in
+        [a-z]) DISPLAY=:10 xdotool key "$char" ;;
+        [A-Z]) DISPLAY=:10 xdotool key "shift+${char,,}" ;;
+        [0-9]) DISPLAY=:10 xdotool key "$char" ;;
+        " ") DISPLAY=:10 xdotool key space ;;
+        "/") DISPLAY=:10 xdotool key slash ;;
+        "_") DISPLAY=:10 xdotool key "shift+minus" ;;
+        "-") DISPLAY=:10 xdotool key minus ;;
+        *) DISPLAY=:10 xdotool key "$char" 2>/dev/null || true ;;
+    esac
+    sleep 0.02
+}
+
+send_cmd_chars() {
+    local cmd="$1"
+    DISPLAY=:10 xdotool key t
+    sleep 0.1
+    for ((i=0; i<${#cmd}; i++)); do
+        type_char "${cmd:$i:1}"
+    done
+    sleep 0.1
+    DISPLAY=:10 xdotool key Return
+    sleep 0.2
+}
+
 echo "Starting fuzz..." | tee -a "$LOG_FILE"
 for i in $(seq 1 $ITERATIONS); do
     # 20% commands, 80% keys/clicks
     if [ $((RANDOM % 5)) -eq 0 ]; then
         CMD="${COMMANDS[$RANDOM % ${#COMMANDS[@]}]}"
         echo "[$i] CMD: $CMD" >> "$LOG_FILE"
-
-        DISPLAY=:10 xdotool key t
-        sleep 0.1
-        DISPLAY=:10 xdotool type --delay 15 "$CMD"
-        sleep 0.1
-        DISPLAY=:10 xdotool key Return
-        sleep 0.2
+        send_cmd_chars "$CMD"
         CMD_COUNT=$((CMD_COUNT + 1))
     else
         KEY=${KEYS[$RANDOM % ${#KEYS[@]}]}

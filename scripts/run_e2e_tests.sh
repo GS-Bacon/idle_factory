@@ -148,9 +148,27 @@ test_move_camera() {
     sleep 0.1
 }
 
+# 1文字ずつ入力 (xdotool typeの文字化け対策)
+type_char() {
+    local char="$1"
+    case "$char" in
+        [a-z]) xdotool key --window $WINDOW_ID "$char" ;;
+        [A-Z]) xdotool key --window $WINDOW_ID "shift+${char,,}" ;;
+        [0-9]) xdotool key --window $WINDOW_ID "$char" ;;
+        " ") xdotool key --window $WINDOW_ID space ;;
+        "/") xdotool key --window $WINDOW_ID slash ;;
+        "_") xdotool key --window $WINDOW_ID "shift+minus" ;;
+        "-") xdotool key --window $WINDOW_ID minus ;;
+        *) xdotool key --window $WINDOW_ID "$char" 2>/dev/null || true ;;
+    esac
+    sleep 0.02
+}
+
 test_enter_command() {
     local CMD="$1"
-    xdotool type --window $WINDOW_ID "$CMD"
+    for ((i=0; i<${#CMD}; i++)); do
+        type_char "${CMD:$i:1}"
+    done
     sleep 0.2
     xdotool key --window $WINDOW_ID Return
     sleep 0.5
