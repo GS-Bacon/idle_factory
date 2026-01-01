@@ -65,6 +65,34 @@ pub fn block_place(
     let ray_direction = camera_transform.forward().as_vec3();
     let half_size = BLOCK_SIZE / 2.0;
 
+    // Check conveyors for raycast hit - allow placing on top of them
+    let mut conveyor_hit: Option<(IVec3, Vec3, f32)> = None;
+    for conveyor in machines.conveyor.iter() {
+        let conveyor_center = Vec3::new(
+            conveyor.position.x as f32 * BLOCK_SIZE + 0.5,
+            conveyor.position.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT / 2.0,
+            conveyor.position.z as f32 * BLOCK_SIZE + 0.5,
+        );
+        let conveyor_half = Vec3::new(
+            BLOCK_SIZE * CONVEYOR_BELT_WIDTH / 2.0,
+            CONVEYOR_BELT_HEIGHT / 2.0,
+            BLOCK_SIZE / 2.0,
+        );
+        if let Some((t, normal)) = ray_aabb_intersection_with_normal(
+            ray_origin,
+            ray_direction,
+            conveyor_center - conveyor_half,
+            conveyor_center + conveyor_half,
+        ) {
+            if t > 0.0 && t < REACH_DISTANCE {
+                let is_closer = conveyor_hit.is_none_or(|h| t < h.2);
+                if is_closer {
+                    conveyor_hit = Some((conveyor.position, normal, t));
+                }
+            }
+        }
+    }
+
     // Check if looking at a furnace or crusher - if so, don't place
     for furnace_transform in machines.furnace.iter() {
         let furnace_pos = furnace_transform.translation;
@@ -208,6 +236,14 @@ pub fn block_place(
                     closest_hit = Some((hit_block_pos, normal, hit_t));
                 }
             }
+        }
+    }
+
+    // Include conveyor hit if it's closer
+    if let Some((conv_pos, conv_normal, conv_t)) = conveyor_hit {
+        let is_closer = closest_hit.is_none_or(|h| conv_t < h.2);
+        if is_closer {
+            closest_hit = Some((conv_pos, conv_normal, conv_t));
         }
     }
 

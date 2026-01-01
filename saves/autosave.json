@@ -1,11 +1,11 @@
 {
   "version": "0.1.0",
-  "timestamp": 1767248395483,
+  "timestamp": 1767273323118,
   "player": {
     "position": {
-      "x": 4.785255,
+      "x": 8.0,
       "y": 12.0,
-      "z": 3.185357
+      "z": 20.0
     },
     "rotation": {
       "pitch": 0.0,
@@ -13,32 +13,23 @@
     }
   },
   "inventory": {
-    "selected_slot": 2,
+    "selected_slot": 0,
     "slots": [
       {
         "item_type": "MinerBlock",
-        "count": 3
+        "count": 1
       },
       {
         "item_type": "ConveyorBlock",
         "count": 10
       },
       {
-        "item_type": "CrusherBlock",
-        "count": 2
-      },
-      {
         "item_type": "FurnaceBlock",
-        "count": 2
+        "count": 1
       },
-      {
-        "item_type": "IronOre",
-        "count": 5
-      },
-      {
-        "item_type": "Coal",
-        "count": 5
-      },
+      null,
+      null,
+      null,
       null,
       null,
       null,

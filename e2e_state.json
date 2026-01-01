@@ -10,16 +10,16 @@
   "target_place": null,
   "target_block_type": "None",
   "creative_mode": false,
-  "paused": false,
-  "fps": 28.64168,
+  "paused": true,
+  "fps": 10.562361,
   "quest": {
     "index": 0,
     "completed": false,
     "rewards_claimed": false,
-    "description": "Deliver 3 Iron Ingots",
-    "required_item": "IronIngot",
-    "required_amount": 3,
-    "delivered_amount": 0
+    "description": "鉄インゴットを10個納品せよ",
+    "required_items": [
+      "Iron Ingot:0/10"
+    ]
   },
   "conveyors": [],
   "machines": [
@@ -29,7 +29,12 @@
         8,
         18
       ],
-      "machine_type": "Furnace"
+      "machine_type": "Furnace",
+      "progress": 0.0,
+      "input": null,
+      "output": null,
+      "fuel": 0,
+      "buffer": null
     }
   ],
   "floating_blocks": []

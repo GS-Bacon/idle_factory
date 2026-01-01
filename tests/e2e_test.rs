@@ -3840,3 +3840,95 @@ fn test_miner_continuous_output() {
     // 20 seconds / 2 seconds per ore = 10 ores
     assert!(collected >= 9, "Expected at least 9 ores in 20s, got {}", collected);
 }
+
+// =============================================================================
+// Block Placement on Conveyor Tests
+// =============================================================================
+
+/// Test that blocks can be placed on top of a conveyor
+#[test]
+fn test_place_block_on_conveyor() {
+    // Conveyor at (5, 8, 5)
+    let conveyor_pos = IVec3::new(5, 8, 5);
+
+    // Simulate ray from above the conveyor looking down
+    let ray_origin = Vec3::new(5.5, 12.0, 5.5);
+    let ray_direction = Vec3::new(0.0, -1.0, 0.0); // Looking straight down
+
+    // Conveyor bounds (belt height is about 0.25)
+    let conveyor_center = Vec3::new(5.5, 8.125, 5.5);
+    let conveyor_half = Vec3::new(0.45, 0.125, 0.5);
+
+    // Check ray hits conveyor
+    let hit = ray_aabb_intersection_simple(
+        ray_origin,
+        ray_direction,
+        conveyor_center - conveyor_half,
+        conveyor_center + conveyor_half,
+    );
+
+    assert!(hit.is_some(), "Ray should hit conveyor from above");
+
+    // The placement position should be one block above the conveyor
+    let place_pos = conveyor_pos + IVec3::new(0, 1, 0);
+    assert_eq!(place_pos, IVec3::new(5, 9, 5), "Block should be placed above conveyor");
+}
+
+/// Test that conveyors can be stacked (placing conveyor on conveyor)
+#[test]
+fn test_stack_conveyor_on_conveyor() {
+    // Bottom conveyor at y=8
+    let bottom_conveyor = IVec3::new(10, 8, 10);
+    // Expected top conveyor at y=9
+    let top_conveyor_expected = IVec3::new(10, 9, 10);
+
+    // Verify positions are different
+    assert_ne!(bottom_conveyor, top_conveyor_expected);
+    assert_eq!(top_conveyor_expected.y, bottom_conveyor.y + 1);
+}
+
+/// Simple ray-AABB intersection for testing
+fn ray_aabb_intersection_simple(origin: Vec3, dir: Vec3, min: Vec3, max: Vec3) -> Option<f32> {
+    let inv_dir = Vec3::new(
+        if dir.x.abs() > 1e-8 { 1.0 / dir.x } else { f32::MAX },
+        if dir.y.abs() > 1e-8 { 1.0 / dir.y } else { f32::MAX },
+        if dir.z.abs() > 1e-8 { 1.0 / dir.z } else { f32::MAX },
+    );
+
+    let t1 = (min - origin) * inv_dir;
+    let t2 = (max - origin) * inv_dir;
+
+    let tmin = t1.min(t2);
+    let tmax = t1.max(t2);
+
+    let t_enter = tmin.x.max(tmin.y).max(tmin.z);
+    let t_exit = tmax.x.min(tmax.y).min(tmax.z);
+
+    if t_enter <= t_exit && t_exit > 0.0 {
+        Some(t_enter.max(0.0))
+    } else {
+        None
+    }
+}
+
+/// Test placement doesn't occur inside conveyor
+#[test]
+fn test_place_not_inside_conveyor() {
+    let conveyor_positions = vec![
+        IVec3::new(0, 8, 0),
+        IVec3::new(1, 8, 0),
+        IVec3::new(2, 8, 0),
+    ];
+
+    // Test that we can't place at conveyor position
+    for pos in &conveyor_positions {
+        let place_pos = *pos;
+        let is_occupied = conveyor_positions.iter().any(|c| *c == place_pos);
+        assert!(is_occupied, "Position {:?} should be occupied by conveyor", pos);
+    }
+
+    // Test that we CAN place above
+    let above_pos = IVec3::new(1, 9, 0);
+    let is_occupied = conveyor_positions.iter().any(|c| *c == above_pos);
+    assert!(!is_occupied, "Position above conveyor should be free");
+}

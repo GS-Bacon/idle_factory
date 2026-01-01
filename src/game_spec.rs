@@ -123,15 +123,94 @@ pub mod ui_spec {
     pub const CATEGORIES: &[&str] = &["全て", "素材", "機械", "部品"];
 }
 
+/// # バイオーム採掘システム仕様
+///
+/// 採掘機は設置場所のバイオームに応じた確率テーブルで鉱石を生成する。
+/// 真下のブロックは無視し、バイオームの特性で産出物が決まる。
+///
+/// ## 仕様
+/// - 採掘機は座標からバイオームを判定
+/// - バイオームごとに確率テーブルが存在
+/// - 1回の採掘で1種類のアイテムを確率で選択
+/// - レア鉱石（金など）は低確率で出現
+/// - 一部バイオームは採掘不可（海、溶岩など）
+///
+/// ## スポーン地点保証
+/// - 初期納品プラットフォーム周辺（半径15ブロック以内）に
+///   鉄鉱石、石炭、銅鉱石バイオームが必ず生成される
+/// - 初期コンベア10本で到達可能な範囲に配置
+#[allow(dead_code)]
+pub mod biome_mining_spec {
+    use crate::BlockType;
+
+    /// 採掘確率エントリ（鉱石タイプ, 確率%）
+    pub type MiningProbability = (BlockType, u32);
+
+    /// 鉄鉱石バイオームの確率テーブル
+    /// 合計100%
+    pub const IRON_BIOME: &[MiningProbability] = &[
+        (BlockType::IronOre, 70),   // 70% 鉄鉱石
+        (BlockType::Stone, 20),     // 20% 石
+        (BlockType::Coal, 8),       // 8% 石炭
+        // (BlockType::GoldOre, 2), // 2% 金（将来追加）
+    ];
+
+    /// 銅鉱石バイオームの確率テーブル
+    pub const COPPER_BIOME: &[MiningProbability] = &[
+        (BlockType::CopperOre, 70), // 70% 銅鉱石
+        (BlockType::Stone, 20),     // 20% 石
+        (BlockType::IronOre, 8),    // 8% 鉄鉱石
+        // (BlockType::GoldOre, 2), // 2% 金（将来追加）
+    ];
+
+    /// 石炭バイオームの確率テーブル
+    pub const COAL_BIOME: &[MiningProbability] = &[
+        (BlockType::Coal, 75),      // 75% 石炭
+        (BlockType::Stone, 20),     // 20% 石
+        (BlockType::IronOre, 5),    // 5% 鉄鉱石
+    ];
+
+    /// 石バイオームの確率テーブル（貧鉱地帯）
+    pub const STONE_BIOME: &[MiningProbability] = &[
+        (BlockType::Stone, 85),     // 85% 石
+        (BlockType::Coal, 10),      // 10% 石炭
+        (BlockType::IronOre, 5),    // 5% 鉄鉱石
+    ];
+
+    /// 混合バイオームの確率テーブル（バランス型）
+    pub const MIXED_BIOME: &[MiningProbability] = &[
+        (BlockType::IronOre, 30),   // 30% 鉄鉱石
+        (BlockType::CopperOre, 25), // 25% 銅鉱石
+        (BlockType::Coal, 25),      // 25% 石炭
+        (BlockType::Stone, 20),     // 20% 石
+    ];
+
+    /// スポーン地点の保証半径（ブロック単位）
+    pub const SPAWN_GUARANTEE_RADIUS: u32 = 15;
+
+    /// スポーン地点で保証されるバイオーム
+    /// これらが必ずSPAWN_GUARANTEE_RADIUS内に生成される
+    pub const GUARANTEED_SPAWN_BIOMES: &[&str] = &["iron", "coal", "copper"];
+
+    /// 採掘不可バイオーム
+    pub const UNMAILABLE_BIOMES: &[&str] = &["ocean", "lava", "void"];
+}
+
 /// # 初期支給（全体在庫に追加）
 ///
 /// v0.2 新仕様:
-/// - 採掘機×1, コンベア×10, 精錬炉×1 を全体在庫に支給
+/// - 採掘機×2, コンベア×30, 精錬炉×1 を全体在庫に支給
 /// - 納品プラットフォームはワールドに設置済み
 /// - 組立機はクエスト報酬でアンロック
+///
+/// ## 設計意図
+/// - コンベア30本: 納品PFから各鉱石バイオーム（半径15以内）に
+///   往復ラインを敷設可能（片道約10本×3ライン）
+/// - 採掘機2台: 鉄と石炭（または銅）を同時に採掘開始可能
+/// - 精錬炉1台: インゴット生成でクエスト1をクリア可能
 pub const INITIAL_EQUIPMENT: &[(BlockType, u32)] = &[
-    (BlockType::MinerBlock, 1),
-    (BlockType::ConveyorBlock, 10),
+    (BlockType::MinerBlock, 2),
+    (BlockType::ConveyorBlock, 30),
     (BlockType::FurnaceBlock, 1),
 ];
 
