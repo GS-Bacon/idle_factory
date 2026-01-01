@@ -1,19 +1,19 @@
 {
   "version": "0.1.0",
-  "timestamp": 1767194775125,
+  "timestamp": 1767248395483,
   "player": {
     "position": {
-      "x": 8.0,
+      "x": 4.785255,
       "y": 12.0,
-      "z": 19.86366
+      "z": 3.185357
     },
     "rotation": {
-      "pitch": -0.2,
+      "pitch": 0.0,
       "yaw": 0.0
     }
   },
   "inventory": {
-    "selected_slot": 1,
+    "selected_slot": 2,
     "slots": [
       {
         "item_type": "MinerBlock",

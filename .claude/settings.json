@@ -7,6 +7,10 @@
           {
             "type": "command",
             "command": "bash -c 'if echo \"$CLAUDE_TOOL_INPUT\" | grep -q \"git commit\"; then cd \"$CLAUDE_PROJECT_DIR\" && ./discord-notify.sh \"[idle_factory] $(git log -1 --format=%s)\"; fi'"
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if echo \"$CLAUDE_TOOL_INPUT\" | grep -q \"deploy-wasm\"; then cd \"$CLAUDE_PROJECT_DIR\" && ./discord-notify.sh \"[idle_factory] WASM deployed!\\nLocal: http://10.13.1.1:8080\\nTailscale: http://100.84.170.32:8080\\nPublic: https://serversmith.tail1b7bff.ts.net\"; fi'"
           }
         ]
       }

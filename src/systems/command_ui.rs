@@ -76,6 +76,9 @@ pub fn command_input_toggle(
     }
 }
 
+/// Event for spawning machines
+pub use crate::events::SpawnMachineEvent;
+
 /// Handle command input text entry
 #[allow(clippy::too_many_arguments)]
 pub fn command_input_handler(
@@ -91,6 +94,7 @@ pub fn command_input_handler(
     mut tp_events: EventWriter<TeleportEvent>,
     mut look_events: EventWriter<LookEvent>,
     mut setblock_events: EventWriter<SetBlockEvent>,
+    mut spawn_machine_events: EventWriter<SpawnMachineEvent>,
 ) {
     if !command_state.open {
         return;
@@ -142,6 +146,7 @@ pub fn command_input_handler(
             &mut tp_events,
             &mut look_events,
             &mut setblock_events,
+            &mut spawn_machine_events,
         );
         return;
     }
@@ -226,6 +231,7 @@ fn execute_command(
     tp_events: &mut EventWriter<TeleportEvent>,
     look_events: &mut EventWriter<LookEvent>,
     setblock_events: &mut EventWriter<SetBlockEvent>,
+    spawn_machine_events: &mut EventWriter<SpawnMachineEvent>,
 ) {
     info!("execute_command called with: '{}'", command);
     let parts: Vec<&str> = command.split_whitespace().collect();
@@ -337,6 +343,30 @@ fn execute_command(
                 info!("Usage: /setblock x y z blocktype");
             }
         }
+        "/spawn" | "spawn" => {
+            // /spawn x y z machine [direction] - Spawn a machine entity (E2E testing)
+            // direction: 0=North, 1=East, 2=South, 3=West (for conveyors)
+            if parts.len() >= 5 {
+                let x: i32 = parts[1].parse().unwrap_or(0);
+                let y: i32 = parts[2].parse().unwrap_or(0);
+                let z: i32 = parts[3].parse().unwrap_or(0);
+                let machine_name = parts[4].to_lowercase();
+                let direction: Option<u8> = parts.get(5).and_then(|s| s.parse().ok());
+
+                if let Some(machine_type) = parse_item_name(&machine_name) {
+                    spawn_machine_events.send(SpawnMachineEvent {
+                        position: IVec3::new(x, y, z),
+                        machine_type,
+                        direction,
+                    });
+                    info!("Spawning {} at ({}, {}, {})", machine_type.name(), x, y, z);
+                } else {
+                    info!("Unknown machine type: {}", machine_name);
+                }
+            } else {
+                info!("Usage: /spawn x y z machine [direction]");
+            }
+        }
         _ => {
             info!("Unknown command: {}", command);
         }
@@ -415,5 +445,199 @@ fn parse_item_name(name: &str) -> Option<BlockType> {
         "crusher" => Some(BlockType::CrusherBlock),
         "furnace" => Some(BlockType::FurnaceBlock),
         _ => None,
+    }
+}
+
+use crate::{
+    Conveyor, ConveyorShape, ConveyorVisual, Crusher, Direction, Furnace, Miner,
+    MachineModels, BLOCK_SIZE,
+};
+
+/// Handle spawn machine events - creates machine entities directly (for E2E testing)
+#[allow(clippy::too_many_arguments)]
+pub fn handle_spawn_machine_event(
+    mut commands: Commands,
+    mut events: EventReader<SpawnMachineEvent>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    machine_models: Res<MachineModels>,
+) {
+    for event in events.read() {
+        let pos = event.position;
+        let world_pos = Vec3::new(
+            pos.x as f32 * BLOCK_SIZE + 0.5,
+            pos.y as f32 * BLOCK_SIZE + 0.5,
+            pos.z as f32 * BLOCK_SIZE + 0.5,
+        );
+
+        match event.machine_type {
+            BlockType::ConveyorBlock => {
+                // Direction from event or default to North
+                let direction = match event.direction.unwrap_or(0) {
+                    0 => Direction::North,
+                    1 => Direction::East,
+                    2 => Direction::South,
+                    3 => Direction::West,
+                    _ => Direction::North,
+                };
+
+                let conveyor_pos = Vec3::new(
+                    pos.x as f32 * BLOCK_SIZE + 0.5,
+                    pos.y as f32 * BLOCK_SIZE, // Conveyor sits on top of block
+                    pos.z as f32 * BLOCK_SIZE + 0.5,
+                );
+
+                if let Some(model_handle) = machine_models.get_conveyor_model(ConveyorShape::Straight) {
+                    commands.spawn((
+                        SceneRoot(model_handle),
+                        Transform::from_translation(conveyor_pos)
+                            .with_rotation(direction.to_rotation()),
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Conveyor {
+                            position: pos,
+                            direction,
+                            items: Vec::new(),
+                            last_output_index: 0,
+                            last_input_source: 0,
+                            shape: ConveyorShape::Straight,
+                        },
+                        ConveyorVisual,
+                    ));
+                } else {
+                    // Fallback to procedural mesh
+                    let mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.9, BLOCK_SIZE * 0.15, BLOCK_SIZE));
+                    let material = materials.add(StandardMaterial {
+                        base_color: BlockType::ConveyorBlock.color(),
+                        ..default()
+                    });
+                    commands.spawn((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        Transform::from_translation(conveyor_pos)
+                            .with_rotation(direction.to_rotation()),
+                        Conveyor {
+                            position: pos,
+                            direction,
+                            items: Vec::new(),
+                            last_output_index: 0,
+                            last_input_source: 0,
+                            shape: ConveyorShape::Straight,
+                        },
+                        ConveyorVisual,
+                    ));
+                }
+                info!("Spawned conveyor at {:?} facing {:?}", pos, direction);
+            }
+            BlockType::MinerBlock => {
+                let transform = Transform::from_translation(world_pos);
+
+                if let Some(model) = machine_models.miner.clone() {
+                    commands.spawn((
+                        SceneRoot(model),
+                        transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Miner {
+                            position: pos,
+                            ..default()
+                        },
+                    ));
+                } else {
+                    let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = materials.add(StandardMaterial {
+                        base_color: BlockType::MinerBlock.color(),
+                        ..default()
+                    });
+                    commands.spawn((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        transform,
+                        Miner {
+                            position: pos,
+                            ..default()
+                        },
+                    ));
+                }
+                info!("Spawned miner at {:?}", pos);
+            }
+            BlockType::FurnaceBlock => {
+                let transform = Transform::from_translation(world_pos);
+
+                if let Some(model) = machine_models.furnace.clone() {
+                    commands.spawn((
+                        SceneRoot(model),
+                        transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Furnace::default(),
+                    ));
+                } else {
+                    let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = materials.add(StandardMaterial {
+                        base_color: BlockType::FurnaceBlock.color(),
+                        ..default()
+                    });
+                    commands.spawn((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        transform,
+                        Furnace::default(),
+                    ));
+                }
+                info!("Spawned furnace at {:?}", pos);
+            }
+            BlockType::CrusherBlock => {
+                let transform = Transform::from_translation(world_pos);
+
+                if let Some(model) = machine_models.crusher.clone() {
+                    commands.spawn((
+                        SceneRoot(model),
+                        transform,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
+                        Crusher {
+                            position: pos,
+                            input_type: None,
+                            input_count: 0,
+                            output_type: None,
+                            output_count: 0,
+                            progress: 0.0,
+                        },
+                    ));
+                } else {
+                    let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = materials.add(StandardMaterial {
+                        base_color: BlockType::CrusherBlock.color(),
+                        ..default()
+                    });
+                    commands.spawn((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        transform,
+                        Crusher {
+                            position: pos,
+                            input_type: None,
+                            input_count: 0,
+                            output_type: None,
+                            output_count: 0,
+                            progress: 0.0,
+                        },
+                    ));
+                }
+                info!("Spawned crusher at {:?}", pos);
+            }
+            _ => {
+                info!("Cannot spawn {:?} as machine", event.machine_type);
+            }
+        }
     }
 }

@@ -54,6 +54,14 @@ pub struct QuestProgressEvent {
     pub amount: u32,
 }
 
+/// Event for spawning machines via E2E commands
+#[derive(Event, Clone, Debug)]
+pub struct SpawnMachineEvent {
+    pub position: IVec3,
+    pub machine_type: BlockType,
+    pub direction: Option<u8>, // For conveyors: 0=North, 1=East, 2=South, 3=West
+}
+
 /// Plugin for game events
 pub struct GameEventsPlugin;
 
@@ -63,6 +71,7 @@ impl Plugin for GameEventsPlugin {
             .add_event::<BlockBreakEvent>()
             .add_event::<MachineInteractEvent>()
             .add_event::<ItemTransferEvent>()
-            .add_event::<QuestProgressEvent>();
+            .add_event::<QuestProgressEvent>()
+            .add_event::<SpawnMachineEvent>();
     }
 }

@@ -42,7 +42,7 @@ use systems::{
     trash_slot_click, update_debug_hud, update_held_item_display, update_hotbar_item_name,
     update_hotbar_ui, update_inventory_tooltip, update_window_title_fps, export_e2e_state,
     E2EExportConfig, TeleportEvent, LookEvent, SetBlockEvent, handle_teleport_event,
-    handle_look_event, handle_setblock_event,
+    handle_look_event, handle_setblock_event, handle_spawn_machine_event,
     // Quest systems
     load_machine_models, quest_claim_rewards, quest_progress_check, setup_delivery_platform,
     update_delivery_ui, update_quest_ui,
@@ -255,6 +255,7 @@ fn main() {
                 handle_teleport_event,
                 handle_look_event,
                 handle_setblock_event,
+                handle_spawn_machine_event,
             ),
         )
         .run();

@@ -133,6 +133,39 @@ pub struct E2EGameState {
     pub creative_mode: bool,
     pub paused: bool,
     pub fps: f32,
+    // Extended fields for comprehensive E2E testing
+    pub quest: E2EQuestState,
+    pub conveyors: Vec<E2EConveyorInfo>,
+    pub machines: Vec<E2EMachineInfo>,
+    pub floating_blocks: Vec<[i32; 3]>,
+}
+
+/// Quest state for E2E testing
+#[derive(Serialize, Default)]
+pub struct E2EQuestState {
+    pub index: usize,
+    pub completed: bool,
+    pub rewards_claimed: bool,
+    pub description: String,
+    pub required_item: String,
+    pub required_amount: u32,
+    pub delivered_amount: u32,
+}
+
+/// Conveyor info for E2E testing
+#[derive(Serialize)]
+pub struct E2EConveyorInfo {
+    pub position: [i32; 3],
+    pub direction: String,
+    pub shape: String,
+    pub item_count: usize,
+}
+
+/// Machine info for E2E testing
+#[derive(Serialize)]
+pub struct E2EMachineInfo {
+    pub position: [i32; 3],
+    pub machine_type: String,
 }
 
 /// Resource to control E2E state export
@@ -164,6 +197,12 @@ pub fn export_e2e_state(
     creative_mode: Res<CreativeMode>,
     cursor_state: Res<CursorLockState>,
     target_block: Res<TargetBlock>,
+    current_quest: Res<CurrentQuest>,
+    platform_query: Query<&DeliveryPlatform>,
+    conveyor_query: Query<&Conveyor>,
+    miner_query: Query<&Miner>,
+    furnace_query: Query<(&Furnace, &Transform)>,
+    crusher_query: Query<&Crusher>,
 ) {
     if !config.enabled {
         return;
@@ -198,6 +237,63 @@ pub fn export_e2e_state(
         "None".to_string()
     };
 
+    // Collect quest state
+    let quests = crate::systems::quest::get_quests();
+    let quest = if current_quest.index < quests.len() {
+        let q = &quests[current_quest.index];
+        let delivered = platform_query
+            .get_single()
+            .map(|p| p.delivered.get(&q.required_item).copied().unwrap_or(0))
+            .unwrap_or(0);
+        E2EQuestState {
+            index: current_quest.index,
+            completed: current_quest.completed,
+            rewards_claimed: current_quest.rewards_claimed,
+            description: q.description.to_string(),
+            required_item: format!("{:?}", q.required_item),
+            required_amount: q.required_amount,
+            delivered_amount: delivered,
+        }
+    } else {
+        E2EQuestState::default()
+    };
+
+    // Collect conveyor info
+    let conveyors: Vec<E2EConveyorInfo> = conveyor_query
+        .iter()
+        .map(|c| E2EConveyorInfo {
+            position: [c.position.x, c.position.y, c.position.z],
+            direction: format!("{:?}", c.direction),
+            shape: format!("{:?}", c.shape),
+            item_count: c.items.len(),
+        })
+        .collect();
+
+    // Collect machine info
+    let mut machines: Vec<E2EMachineInfo> = Vec::new();
+    for miner in miner_query.iter() {
+        machines.push(E2EMachineInfo {
+            position: [miner.position.x, miner.position.y, miner.position.z],
+            machine_type: "Miner".to_string(),
+        });
+    }
+    for (_, transform) in furnace_query.iter() {
+        let pos = transform.translation / crate::BLOCK_SIZE;
+        machines.push(E2EMachineInfo {
+            position: [pos.x as i32, pos.y as i32, pos.z as i32],
+            machine_type: "Furnace".to_string(),
+        });
+    }
+    for crusher in crusher_query.iter() {
+        machines.push(E2EMachineInfo {
+            position: [crusher.position.x, crusher.position.y, crusher.position.z],
+            machine_type: "Crusher".to_string(),
+        });
+    }
+
+    // Check for floating blocks (machines not on solid ground)
+    let floating_blocks = check_floating_blocks(&conveyors, &machines, &world_data);
+
     let state = E2EGameState {
         player_pos,
         camera_pitch,
@@ -208,9 +304,53 @@ pub fn export_e2e_state(
         creative_mode: creative_mode.enabled,
         paused: cursor_state.paused,
         fps,
+        quest,
+        conveyors,
+        machines,
+        floating_blocks,
     };
 
     if let Ok(json) = serde_json::to_string_pretty(&state) {
         let _ = fs::write(&config.path, json);
     }
+}
+
+/// Check if blocks are floating (not supported by anything below)
+fn check_floating_blocks(
+    conveyors: &[E2EConveyorInfo],
+    machines: &[E2EMachineInfo],
+    world_data: &WorldData,
+) -> Vec<[i32; 3]> {
+    let mut floating = Vec::new();
+
+    // Check conveyors
+    for c in conveyors {
+        let pos = IVec3::new(c.position[0], c.position[1], c.position[2]);
+        let below = pos - IVec3::Y;
+        if !is_supported(below, world_data) {
+            floating.push(c.position);
+        }
+    }
+
+    // Check machines
+    for m in machines {
+        let pos = IVec3::new(m.position[0], m.position[1], m.position[2]);
+        let below = pos - IVec3::Y;
+        if !is_supported(below, world_data) {
+            floating.push(m.position);
+        }
+    }
+
+    floating
+}
+
+/// Check if a position is supported (has a solid block or is on terrain)
+fn is_supported(pos: IVec3, world_data: &WorldData) -> bool {
+    // Y=0 or below is always supported (ground level)
+    if pos.y <= 8 {
+        return true;
+    }
+    // Check if there's a solid block at this position
+    // If get_block returns Some, there's a block (all block types are solid)
+    world_data.get_block(pos).is_some()
 }

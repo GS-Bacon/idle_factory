@@ -1,15 +1,36 @@
 {
   "player_pos": [
     8.0,
-    10.0,
+    12.0,
     20.0
   ],
-  "camera_pitch": 1.3962634,
+  "camera_pitch": 0.0,
   "camera_yaw": 0.0,
   "target_break": null,
   "target_place": null,
   "target_block_type": "None",
-  "creative_mode": true,
+  "creative_mode": false,
   "paused": false,
-  "fps": 37.149513
+  "fps": 28.64168,
+  "quest": {
+    "index": 0,
+    "completed": false,
+    "rewards_claimed": false,
+    "description": "Deliver 3 Iron Ingots",
+    "required_item": "IronIngot",
+    "required_amount": 3,
+    "delivered_amount": 0
+  },
+  "conveyors": [],
+  "machines": [
+    {
+      "position": [
+        10,
+        8,
+        18
+      ],
+      "machine_type": "Furnace"
+    }
+  ],
+  "floating_blocks": []
 }

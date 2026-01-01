@@ -275,7 +275,8 @@
       "Bash(DISPLAY=:10 timeout 25 cargo run:*)",
       "Bash(jq:*)",
       "Bash(./scripts/e2e-quick.sh:*)",
-      "Bash(xdotool key:*)"
+      "Bash(xdotool key:*)",
+      "Bash(git show:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

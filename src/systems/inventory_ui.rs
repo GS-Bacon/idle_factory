@@ -131,10 +131,10 @@ pub fn inventory_toggle(
             *vis = Visibility::Hidden;
         }
 
-        // Unlock cursor - JS will auto-relock via data-ui-open observer (BUG-6 fix)
+        // Re-lock cursor after closing inventory
         if let Ok(mut window) = windows.get_single_mut() {
-            window.cursor_options.grab_mode = CursorGrabMode::None;
-            window.cursor_options.visible = true;
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
             set_ui_open_state(false);
         }
     }
@@ -392,6 +392,10 @@ pub fn inventory_update_slots(
     mut image_query: Query<(&InventorySlotImage, &mut ImageNode, &mut Visibility)>,
 ) {
     if !inventory_open.0 {
+        // Hide all slot images when inventory is closed
+        for (_slot_image, _image_node, mut visibility) in image_query.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
         return;
     }
 
