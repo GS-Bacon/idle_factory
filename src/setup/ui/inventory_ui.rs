@@ -171,26 +171,27 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
             ));
 
             // === GlobalInventory panel (machine storage) ===
+            // Industrial dark theme (Gemini review suggestion)
             parent
                 .spawn((
                     GlobalInventoryPanel,
                     Node {
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(2.0),
-                        padding: UiRect::all(Val::Px(4.0)),
+                        row_gap: Val::Px(4.0),
+                        padding: UiRect::all(Val::Px(6.0)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.15, 0.12, 0.1, 0.9)),
+                    BackgroundColor(Color::srgba(0.2, 0.22, 0.25, 0.95)), // Industrial dark gray
                 ))
                 .with_children(|panel| {
-                    // Title
+                    // Title with accent color
                     panel.spawn((
                         Text::new("機械ストレージ"),
                         TextFont {
-                            font_size: 12.0,
+                            font_size: 14.0, // Increased from 12.0
                             ..default()
                         },
-                        TextColor(Color::srgba(0.9, 0.8, 0.6, 1.0)),
+                        TextColor(Color::srgba(1.0, 0.6, 0.2, 1.0)), // Orange accent
                         Node {
                             margin: UiRect::bottom(Val::Px(4.0)),
                             ..default()
@@ -202,8 +203,8 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
                             flex_wrap: FlexWrap::Wrap,
-                            column_gap: Val::Px(8.0),
-                            row_gap: Val::Px(2.0),
+                            column_gap: Val::Px(12.0),
+                            row_gap: Val::Px(4.0),
                             ..default()
                         },))
                         .with_children(|grid| {
@@ -213,30 +214,30 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                                     Node {
                                         flex_direction: FlexDirection::Row,
                                         align_items: AlignItems::Center,
-                                        column_gap: Val::Px(4.0),
-                                        min_width: Val::Px(100.0),
+                                        column_gap: Val::Px(6.0),
+                                        min_width: Val::Px(110.0),
                                         ..default()
                                     },
                                 ))
                                 .with_children(|row| {
-                                    // Slot-like icon background
+                                    // Slot-like icon background (darker)
                                     row.spawn((
                                         Node {
-                                            width: Val::Px(SLOT_SIZE * 0.6),
-                                            height: Val::Px(SLOT_SIZE * 0.6),
+                                            width: Val::Px(SLOT_SIZE * 0.65),
+                                            height: Val::Px(SLOT_SIZE * 0.65),
                                             justify_content: JustifyContent::Center,
                                             align_items: AlignItems::Center,
                                             border: UiRect::all(Val::Px(SLOT_BORDER)),
                                             ..default()
                                         },
-                                        BackgroundColor(Color::srgba(0.2, 0.18, 0.15, 0.95)),
-                                        BorderColor(Color::srgba(0.4, 0.35, 0.3, 1.0)),
+                                        BackgroundColor(Color::srgba(0.1, 0.1, 0.12, 0.9)), // Dark slot
+                                        BorderColor(Color::srgba(0.35, 0.35, 0.4, 1.0)), // Subtle gray border
                                     ))
                                     .with_children(|slot| {
                                         slot.spawn((
                                             Text::new(block_type.short_name()),
                                             TextFont {
-                                                font_size: 8.0,
+                                                font_size: 10.0, // Increased from 8.0
                                                 ..default()
                                             },
                                             TextColor(Color::WHITE),
@@ -248,10 +249,10 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                                         GlobalInventoryCountText(block_type),
                                         Text::new(format!("{}: 0", block_type.name())),
                                         TextFont {
-                                            font_size: 11.0,
+                                            font_size: 13.0, // Increased from 11.0
                                             ..default()
                                         },
-                                        TextColor(Color::srgba(0.8, 0.8, 0.7, 1.0)),
+                                        TextColor(Color::srgba(0.9, 0.9, 0.95, 1.0)), // Bright text
                                     ));
                                 });
                             }
