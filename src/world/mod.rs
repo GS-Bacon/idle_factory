@@ -96,6 +96,7 @@ impl ChunkData {
 
     /// Generate a chunk at the given chunk coordinate
     pub fn generate(chunk_coord: IVec2) -> Self {
+        tracing::debug!("Generating chunk at {:?}", chunk_coord);
         let mut blocks = vec![None; Self::ARRAY_SIZE];
         let mut blocks_map = HashMap::new();
 
@@ -186,6 +187,7 @@ impl ChunkData {
                 }
             }
         }
+        tracing::debug!("Chunk {:?} generated with {} blocks", chunk_coord, blocks_map.len());
         Self { blocks, blocks_map }
     }
 
@@ -362,6 +364,13 @@ impl ChunkData {
                 }
             }
         }
+
+        tracing::debug!(
+            "Mesh for chunk {:?}: {} vertices, {} indices",
+            chunk_coord,
+            positions.len(),
+            indices.len()
+        );
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, default());
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);

@@ -19,6 +19,7 @@ mod world;
 
 use components::*;
 use events::GameEventsPlugin;
+#[cfg(target_arch = "wasm32")]
 use logging::GameLoggingPlugin;
 use player::Inventory;
 use setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
@@ -69,17 +70,24 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
 
+    // Initialize logging before anything else
+    #[cfg(not(target_arch = "wasm32"))]
+    let _log_guard = logging::init_logging();
+
     let mut app = App::new();
 
     // Configure plugins based on platform
     #[cfg(not(target_arch = "wasm32"))]
     {
         // Native: Disable pipelined rendering for lower input lag
+        // Disable LogPlugin to use custom tracing-subscriber instead
+        use bevy::log::LogPlugin;
         // Use current working directory for assets (not executable path)
         app.add_plugins((
             DefaultPlugins
                 .build()
                 .disable::<PipelinedRenderingPlugin>()
+                .disable::<LogPlugin>()
                 .set(AssetPlugin {
                     file_path: "assets".to_string(),
                     ..default()
@@ -120,9 +128,12 @@ fn main() {
         ));
     }
 
+    // WASM: Add logging plugin (Native logging is initialized above)
+    #[cfg(target_arch = "wasm32")]
+    app.add_plugins(GameLoggingPlugin);
+
     app
         .add_plugins(GameEventsPlugin)
-        .add_plugins(GameLoggingPlugin)
         .init_resource::<Inventory>()
         .init_resource::<WorldData>()
         .init_resource::<CursorLockState>()
