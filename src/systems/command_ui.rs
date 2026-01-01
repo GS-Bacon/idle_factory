@@ -27,6 +27,10 @@ pub struct SetBlockEvent {
     pub block_type: BlockType,
 }
 
+/// Debug conveyor event (for /debug_conveyor command)
+#[derive(Event)]
+pub struct DebugConveyorEvent;
+
 /// Toggle command input with T or / key
 #[allow(clippy::too_many_arguments)]
 pub fn command_input_toggle(
@@ -95,6 +99,7 @@ pub fn command_input_handler(
     mut look_events: EventWriter<LookEvent>,
     mut setblock_events: EventWriter<SetBlockEvent>,
     mut spawn_machine_events: EventWriter<SpawnMachineEvent>,
+    mut debug_conveyor_events: EventWriter<DebugConveyorEvent>,
 ) {
     if !command_state.open {
         return;
@@ -147,6 +152,7 @@ pub fn command_input_handler(
             &mut look_events,
             &mut setblock_events,
             &mut spawn_machine_events,
+            &mut debug_conveyor_events,
         );
         return;
     }
@@ -232,6 +238,7 @@ fn execute_command(
     look_events: &mut EventWriter<LookEvent>,
     setblock_events: &mut EventWriter<SetBlockEvent>,
     spawn_machine_events: &mut EventWriter<SpawnMachineEvent>,
+    debug_conveyor_events: &mut EventWriter<DebugConveyorEvent>,
 ) {
     info!("execute_command called with: '{}'", command);
     let parts: Vec<&str> = command.split_whitespace().collect();
@@ -366,6 +373,149 @@ fn execute_command(
             } else {
                 info!("Usage: /spawn x y z machine [direction]");
             }
+        }
+        "/spawn_line" | "spawn_line" => {
+            // /spawn_line start_x start_z direction count [machine]
+            // Spawn a line of machines for E2E testing
+            if parts.len() >= 5 {
+                let start_x: i32 = parts[1].parse().unwrap_or(0);
+                let start_z: i32 = parts[2].parse().unwrap_or(0);
+                let dir: u8 = parts[3].parse().unwrap_or(0);
+                let count: u32 = parts[4].parse().unwrap_or(5);
+                let machine = parts.get(5).and_then(|s| parse_item_name(&s.to_lowercase())).unwrap_or(BlockType::ConveyorBlock);
+
+                let y = 8; // Default height (surface level)
+                let (dx, dz) = match dir {
+                    0 => (0, -1), // North
+                    1 => (1, 0),  // East
+                    2 => (0, 1),  // South
+                    3 => (-1, 0), // West
+                    _ => (0, -1),
+                };
+
+                for i in 0..count {
+                    let x = start_x + dx * i as i32;
+                    let z = start_z + dz * i as i32;
+                    spawn_machine_events.send(SpawnMachineEvent {
+                        position: IVec3::new(x, y, z),
+                        machine_type: machine,
+                        direction: Some(dir),
+                    });
+                }
+                info!("Spawned {} {} machines starting at ({}, {})", count, machine.name(), start_x, start_z);
+            } else {
+                info!("Usage: /spawn_line start_x start_z direction count [machine]");
+            }
+        }
+        "/test" | "test" => {
+            // /test [scenario] - Run E2E test scenarios
+            match parts.get(1).map(|s| s.as_ref()) {
+                Some("production") => {
+                    // Production line: Miner -> Conveyor x3 -> Furnace
+                    // Place miner on iron ore
+                    spawn_machine_events.send(SpawnMachineEvent {
+                        position: IVec3::new(0, 8, 0),
+                        machine_type: BlockType::MinerBlock,
+                        direction: None,
+                    });
+                    // Conveyors from miner to furnace
+                    for i in 1..4 {
+                        spawn_machine_events.send(SpawnMachineEvent {
+                            position: IVec3::new(i, 8, 0),
+                            machine_type: BlockType::ConveyorBlock,
+                            direction: Some(1), // East
+                        });
+                    }
+                    // Furnace at the end
+                    spawn_machine_events.send(SpawnMachineEvent {
+                        position: IVec3::new(4, 8, 0),
+                        machine_type: BlockType::FurnaceBlock,
+                        direction: None,
+                    });
+                    // Give coal for furnace
+                    inventory.add_item(BlockType::Coal, 16);
+                    info!("Production test: Miner -> 3x Conveyor -> Furnace spawned at y=8");
+                }
+                Some("stress") => {
+                    // Stress test: 10x10 conveyor grid
+                    for x in 0..10 {
+                        for z in 0..10 {
+                            spawn_machine_events.send(SpawnMachineEvent {
+                                position: IVec3::new(x, 8, z),
+                                machine_type: BlockType::ConveyorBlock,
+                                direction: Some(1), // East
+                            });
+                        }
+                    }
+                    info!("Stress test: 100 conveyors spawned");
+                }
+                _ => {
+                    info!("Usage: /test [production|stress]");
+                    info!("  production - Miner + Conveyor + Furnace line");
+                    info!("  stress - 10x10 conveyor grid");
+                }
+            }
+        }
+        "/assert" | "assert" => {
+            // /assert inventory <item> <min_count> - Check inventory
+            // /assert machine working - Check if machines are working
+            match parts.get(1).map(|s| s.as_ref()) {
+                Some("inventory") => {
+                    if parts.len() >= 4 {
+                        let item_name = parts[2].to_lowercase();
+                        let min_count: u32 = parts[3].parse().unwrap_or(1);
+
+                        if let Some(block_type) = parse_item_name(&item_name) {
+                            let actual = inventory.get_item_count(block_type);
+                            if actual >= min_count {
+                                info!("✓ PASS: {} >= {} (actual: {})", block_type.name(), min_count, actual);
+                            } else {
+                                info!("✗ FAIL: {} < {} (actual: {})", block_type.name(), min_count, actual);
+                            }
+                        } else {
+                            info!("Unknown item: {}", item_name);
+                        }
+                    } else {
+                        info!("Usage: /assert inventory <item> <min_count>");
+                    }
+                }
+                Some("slot") => {
+                    // /assert slot <index> <item> <count>
+                    if parts.len() >= 5 {
+                        let slot_idx: usize = parts[2].parse().unwrap_or(0);
+                        let item_name = parts[3].to_lowercase();
+                        let expected_count: u32 = parts[4].parse().unwrap_or(1);
+
+                        if let Some(expected_type) = parse_item_name(&item_name) {
+                            if slot_idx < inventory.slots.len() {
+                                if let Some((actual_type, actual_count)) = inventory.slots[slot_idx] {
+                                    if actual_type == expected_type && actual_count >= expected_count {
+                                        info!("✓ PASS: slot {} = {} x{}", slot_idx, actual_type.name(), actual_count);
+                                    } else {
+                                        info!("✗ FAIL: slot {} = {} x{} (expected {} x{})", slot_idx, actual_type.name(), actual_count, expected_type.name(), expected_count);
+                                    }
+                                } else {
+                                    info!("✗ FAIL: slot {} is empty", slot_idx);
+                                }
+                            } else {
+                                info!("Invalid slot index: {}", slot_idx);
+                            }
+                        }
+                    } else {
+                        info!("Usage: /assert slot <index> <item> <count>");
+                    }
+                }
+                _ => {
+                    info!("Usage: /assert [inventory|slot] ...");
+                    info!("  /assert inventory <item> <min_count>");
+                    info!("  /assert slot <index> <item> <count>");
+                }
+            }
+        }
+        "/debug_conveyor" | "debug_conveyor" => {
+            // Trigger debug conveyor event (handled by separate system with Query access)
+            debug_conveyor_events.send(DebugConveyorEvent);
+            info!("Dumping conveyor debug info...");
         }
         _ => {
             info!("Unknown command: {}", command);
@@ -639,5 +789,38 @@ pub fn handle_spawn_machine_event(
                 info!("Cannot spawn {:?} as machine", event.machine_type);
             }
         }
+    }
+}
+
+/// Handle debug conveyor events - dump all conveyor states
+pub fn handle_debug_conveyor_event(
+    mut events: EventReader<DebugConveyorEvent>,
+    conveyor_query: Query<(Entity, &Conveyor, &GlobalTransform)>,
+) {
+    for _ in events.read() {
+        info!("=== Conveyor Debug Dump ===");
+        let mut count = 0;
+        for (entity, conveyor, transform) in conveyor_query.iter() {
+            info!(
+                "Conveyor {:?}: pos={:?}, dir={:?}, shape={:?}, items={}, last_input={}, world_pos={:.1},{:.1},{:.1}",
+                entity,
+                conveyor.position,
+                conveyor.direction,
+                conveyor.shape,
+                conveyor.items.len(),
+                conveyor.last_input_source,
+                transform.translation().x,
+                transform.translation().y,
+                transform.translation().z,
+            );
+            for (i, item) in conveyor.items.iter().enumerate() {
+                info!(
+                    "  Item {}: {} @ progress={:.2}, lateral={:.2}",
+                    i, item.block_type.name(), item.progress, item.lateral_offset
+                );
+            }
+            count += 1;
+        }
+        info!("=== Total: {} conveyors ===", count);
     }
 }

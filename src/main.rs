@@ -44,7 +44,8 @@ use systems::{
     trash_slot_click, update_creative_catalog_sprites, update_debug_hud, update_held_item_display,
     update_hotbar_item_name, update_hotbar_ui, update_inventory_tooltip, update_window_title_fps, export_e2e_state,
     E2EExportConfig, TeleportEvent, LookEvent, SetBlockEvent, handle_teleport_event,
-    handle_look_event, handle_setblock_event, handle_spawn_machine_event,
+    handle_look_event, handle_setblock_event, handle_spawn_machine_event, handle_debug_conveyor_event,
+    DebugConveyorEvent,
     // Quest systems
     load_machine_models, quest_claim_rewards, quest_progress_check, setup_delivery_platform,
     update_delivery_ui, update_quest_ui,
@@ -168,6 +169,7 @@ fn main() {
         .add_event::<TeleportEvent>()
         .add_event::<LookEvent>()
         .add_event::<SetBlockEvent>()
+        .add_event::<DebugConveyorEvent>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models))
         .add_systems(
             Update,
@@ -273,6 +275,7 @@ fn main() {
                 handle_look_event,
                 handle_setblock_event,
                 handle_spawn_machine_event,
+                handle_debug_conveyor_event,
             ),
         )
         .run();
