@@ -166,9 +166,8 @@ pub struct E2EQuestState {
     pub completed: bool,
     pub rewards_claimed: bool,
     pub description: String,
-    pub required_item: String,
-    pub required_amount: u32,
-    pub delivered_amount: u32,
+    /// Required items as "ItemName:required/delivered" pairs
+    pub required_items: Vec<String>,
 }
 
 /// Conveyor info for E2E testing
@@ -268,21 +267,22 @@ pub fn export_e2e_state(
     };
 
     // Collect quest state
-    let quests = crate::systems::quest::get_quests();
+    let quests = crate::systems::quest::get_main_quests();
     let quest = if current_quest.index < quests.len() {
         let q = &quests[current_quest.index];
-        let delivered = platform_query
-            .get_single()
-            .map(|p| p.delivered.get(&q.required_item).copied().unwrap_or(0))
-            .unwrap_or(0);
+        let platform = platform_query.get_single().ok();
+        let required_items: Vec<String> = q.required_items.iter().map(|(item, amount)| {
+            let delivered = platform
+                .map(|p| p.delivered.get(item).copied().unwrap_or(0))
+                .unwrap_or(0);
+            format!("{}:{}/{}", item.name(), delivered, amount)
+        }).collect();
         E2EQuestState {
             index: current_quest.index,
             completed: current_quest.completed,
             rewards_claimed: current_quest.rewards_claimed,
             description: q.description.to_string(),
-            required_item: format!("{:?}", q.required_item),
-            required_amount: q.required_amount,
-            delivered_amount: delivered,
+            required_items,
         }
     } else {
         E2EQuestState::default()

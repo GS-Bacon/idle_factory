@@ -175,21 +175,19 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 
 ### バグ修正・クリーンアップ
 - [x] unwrap()削減（72箇所→10箇所）
-- [ ] 未使用コード削除: Direction::opposite(), Conveyor::calculate_shape*, CreativeViewMode, CreativeCategory
+- [x] 未使用コード削除（既に削除済み）
 
 ### 自動バグ検出
 - [ ] Lv1: Fuzzingスクリプト作成（ランダム入力でクラッシュ検出）
 - [ ] Lv2: シナリオテスト追加（採掘機→コンベア→精錬炉→インゴット確認）
-- [ ] Lv2: e2e_state.jsonに機械状態・インベントリ内容を追加
-- [ ] Lv2: assert関数追加（assert_inventory_contains, assert_machine_working等）
 
 ### E2E改善（ゲーム内コマンド）
-- [ ] /testコマンド追加（ゲーム内テストシナリオ実行）
-- [ ] /assertコマンド追加（インベントリ・機械状態の検証）
-- [ ] /spawn_lineコマンド追加（機械ラインを一発配置）
+- [x] /testコマンド追加（production, stress）
+- [x] /assertコマンド追加（inventory, slot検証）
+- [x] /spawn_lineコマンド追加（機械ライン配置）
+- [x] /debug_conveyorコマンド追加
 
 ### ログ改善
-- [ ] ゲームイベントログ追加（機械動作、プレイヤー操作、アイテム移動）
 - [ ] 構造化ログ形式（JSON）に変更
 - [ ] チャンク生成ログのノイズ削減（DEBUGレベルに下げる）
 
@@ -198,7 +196,6 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 - [ ] 異常検出ルール追加（機械停止、コンベア詰まり等）
 
 ### コンベア左右逆問題
-- [ ] /debug_conveyorコマンド追加（pos, direction, shape, inputs, outputs, items出力）
 - [ ] L字配置自動テスト（左曲がり/右曲がりのアイテム座標追跡）
 - [ ] 「左」の定義統一（コード/モデル/アニメーションで同じ意味に）
 

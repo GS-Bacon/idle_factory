@@ -5,28 +5,53 @@ use crate::player::Inventory;
 use crate::{game_spec, BlockType, BLOCK_SIZE, PLATFORM_SIZE};
 use bevy::prelude::*;
 
-/// Quest definition structure
+/// Quest definition structure (runtime representation)
 pub struct QuestDef {
+    #[allow(dead_code)]
+    pub id: &'static str,
     pub description: &'static str,
-    pub required_item: BlockType,
-    pub required_amount: u32,
+    pub required_items: Vec<(BlockType, u32)>,
     pub rewards: Vec<(BlockType, u32)>,
+    #[allow(dead_code)]
+    pub unlocks: Vec<BlockType>,
 }
 
-/// Quest definitions from game_spec (Single Source of Truth)
-pub fn get_quests() -> Vec<QuestDef> {
-    game_spec::QUESTS
+/// Get main quests from game_spec (Single Source of Truth)
+pub fn get_main_quests() -> Vec<QuestDef> {
+    game_spec::MAIN_QUESTS
         .iter()
         .map(|spec| QuestDef {
+            id: spec.id,
             description: spec.description,
-            required_item: spec.required_item,
-            required_amount: spec.required_amount,
+            required_items: spec.required_items.to_vec(),
             rewards: spec.rewards.to_vec(),
+            unlocks: spec.unlocks.to_vec(),
         })
         .collect()
 }
 
-/// Check quest progress
+/// Get sub quests from game_spec
+#[allow(dead_code)]
+pub fn get_sub_quests() -> Vec<QuestDef> {
+    game_spec::SUB_QUESTS
+        .iter()
+        .map(|spec| QuestDef {
+            id: spec.id,
+            description: spec.description,
+            required_items: spec.required_items.to_vec(),
+            rewards: spec.rewards.to_vec(),
+            unlocks: spec.unlocks.to_vec(),
+        })
+        .collect()
+}
+
+/// Legacy: backward compatibility
+#[deprecated(note = "Use get_main_quests instead")]
+pub fn get_quests() -> Vec<QuestDef> {
+    get_main_quests()
+}
+
+/// Check quest progress (supports multiple required items)
 pub fn quest_progress_check(
     platform_query: Query<&DeliveryPlatform>,
     mut current_quest: ResMut<CurrentQuest>,
@@ -39,13 +64,18 @@ pub fn quest_progress_check(
         return;
     };
 
-    let quests = get_quests();
+    let quests = get_main_quests();
     let Some(quest) = quests.get(current_quest.index) else {
         return;
     };
 
-    let delivered = platform.delivered.get(&quest.required_item).copied().unwrap_or(0);
-    if delivered >= quest.required_amount {
+    // Check if all required items are delivered
+    let all_satisfied = quest.required_items.iter().all(|(item, amount)| {
+        let delivered = platform.delivered.get(item).copied().unwrap_or(0);
+        delivered >= *amount
+    });
+
+    if all_satisfied {
         current_quest.completed = true;
     }
 }
@@ -70,7 +100,7 @@ pub fn quest_claim_rewards(
         return;
     }
 
-    let quests = get_quests();
+    let quests = get_main_quests();
     let Some(quest) = quests.get(current_quest.index) else {
         return;
     };
@@ -90,7 +120,7 @@ pub fn quest_claim_rewards(
     }
 }
 
-/// Update quest UI
+/// Update quest UI (supports multiple required items)
 pub fn update_quest_ui(
     current_quest: Res<CurrentQuest>,
     platform_query: Query<&DeliveryPlatform>,
@@ -100,7 +130,7 @@ pub fn update_quest_ui(
         return;
     };
 
-    let quests = get_quests();
+    let quests = get_main_quests();
 
     if current_quest.index >= quests.len() {
         **text = "=== Quest ===\nAll quests completed!".to_string();
@@ -108,10 +138,7 @@ pub fn update_quest_ui(
     }
 
     let quest = &quests[current_quest.index];
-    let delivered = platform_query
-        .get_single()
-        .map(|p| p.delivered.get(&quest.required_item).copied().unwrap_or(0))
-        .unwrap_or(0);
+    let platform = platform_query.get_single().ok();
 
     if current_quest.completed && !current_quest.rewards_claimed {
         let rewards: Vec<String> = quest.rewards
@@ -124,11 +151,18 @@ pub fn update_quest_ui(
             rewards.join("\n")
         );
     } else {
+        // Show progress for each required item
+        let progress: Vec<String> = quest.required_items.iter().map(|(item, amount)| {
+            let delivered = platform
+                .map(|p| p.delivered.get(item).copied().unwrap_or(0))
+                .unwrap_or(0);
+            format!("{}: {}/{}", item.name(), delivered.min(*amount), amount)
+        }).collect();
+
         **text = format!(
-            "=== Quest ===\n{}\nProgress: {}/{}",
+            "=== Quest ===\n{}\n{}",
             quest.description,
-            delivered.min(quest.required_amount),
-            quest.required_amount
+            progress.join("\n")
         );
     }
 }

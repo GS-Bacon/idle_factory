@@ -96,7 +96,7 @@ impl ChunkData {
 
     /// Generate a chunk at the given chunk coordinate
     pub fn generate(chunk_coord: IVec2) -> Self {
-        tracing::info!("Generating chunk at {:?}", chunk_coord);
+        tracing::debug!("Generating chunk at {:?}", chunk_coord);
         let mut blocks = vec![None; Self::ARRAY_SIZE];
         let mut blocks_map = HashMap::new();
 
@@ -187,7 +187,7 @@ impl ChunkData {
                 }
             }
         }
-        tracing::info!("Chunk {:?} generated with {} blocks", chunk_coord, blocks_map.len());
+        tracing::debug!("Chunk {:?} generated with {} blocks", chunk_coord, blocks_map.len());
         Self { blocks, blocks_map }
     }
 

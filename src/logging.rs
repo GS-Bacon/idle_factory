@@ -7,10 +7,9 @@
 //! - `debug!("message")` - Debug info (filtered in release)
 //! - `trace!("message")` - Verbose trace (filtered in release)
 //!
-//! Structured logging (for game events):
-//! - `info!(category = "BLOCK", action = "place", ?pos, "Block placed")`
-//! - `info!(category = "MACHINE", action = "break", machine = "conveyor", "Conveyor broken")`
-//! - `info!(category = "QUEST", action = "deliver", item = ?item, "Item delivered")`
+//! Game Event Logging (JSON format):
+//! - Use `EventLogger` resource to log structured game events
+//! - Events are written to `logs/events_YYYYMMDD_HHMMSS.jsonl`
 //!
 //! Log collection:
 //! - Native: Logs are written to `logs/game_YYYYMMDD_HHMMSS.log`
@@ -21,6 +20,7 @@
 //! - scripts/detect_anomalies.sh - Anomaly detection
 
 use bevy::prelude::*;
+use serde::Serialize;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs;
@@ -121,4 +121,131 @@ impl Plugin for GameLoggingPlugin {
     fn build(&self, _app: &mut App) {
         init_logging();
     }
+}
+
+// ============================================================================
+// Game Event Logging (JSON format)
+// ============================================================================
+
+/// Game event categories
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventCategory {
+    Block,
+    Machine,
+    Item,
+    Quest,
+    Player,
+    System,
+}
+
+/// A structured game event for JSON logging
+#[derive(Debug, Clone, Serialize)]
+pub struct GameEvent {
+    pub timestamp: f64,
+    pub category: EventCategory,
+    pub action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<[i32; 3]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+}
+
+/// Resource for logging game events in JSON format
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource)]
+pub struct EventLogger {
+    file: std::sync::Mutex<std::fs::File>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl EventLogger {
+    /// Create a new event logger
+    pub fn new() -> Option<Self> {
+        use std::io::Write;
+
+        let logs_dir = std::path::Path::new("logs");
+        if !logs_dir.exists() {
+            let _ = fs::create_dir_all(logs_dir);
+        }
+
+        let now = chrono::Local::now();
+        let filename = format!("logs/events_{}.jsonl", now.format("%Y%m%d_%H%M%S"));
+
+        match std::fs::File::create(&filename) {
+            Ok(mut file) => {
+                // Write header comment
+                let _ = writeln!(file, "// Game events log - JSON Lines format");
+                tracing::info!("Event log: {}", filename);
+                Some(Self { file: std::sync::Mutex::new(file) })
+            }
+            Err(e) => {
+                tracing::warn!("Failed to create event log: {}", e);
+                None
+            }
+        }
+    }
+
+    /// Log a game event
+    pub fn log(&self, event: GameEvent) {
+        use std::io::Write;
+
+        if let Ok(mut file) = self.file.lock() {
+            if let Ok(json) = serde_json::to_string(&event) {
+                let _ = writeln!(file, "{}", json);
+            }
+        }
+    }
+
+    /// Log a simple event
+    pub fn log_simple(&self, category: EventCategory, action: &str, details: Option<&str>) {
+        self.log(GameEvent {
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0),
+            category,
+            action: action.to_string(),
+            position: None,
+            entity: None,
+            details: details.map(|s| s.to_string()),
+        });
+    }
+
+    /// Log an event with position
+    pub fn log_at(&self, category: EventCategory, action: &str, pos: IVec3, entity: Option<&str>) {
+        self.log(GameEvent {
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0),
+            category,
+            action: action.to_string(),
+            position: Some([pos.x, pos.y, pos.z]),
+            entity: entity.map(|s| s.to_string()),
+            details: None,
+        });
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Default for EventLogger {
+    fn default() -> Self {
+        Self::new().expect("Failed to create event logger")
+    }
+}
+
+/// WASM stub for EventLogger
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Default)]
+pub struct EventLogger;
+
+#[cfg(target_arch = "wasm32")]
+impl EventLogger {
+    pub fn new() -> Option<Self> { Some(Self) }
+    pub fn log(&self, _event: GameEvent) {}
+    pub fn log_simple(&self, _category: EventCategory, _action: &str, _details: Option<&str>) {}
+    pub fn log_at(&self, _category: EventCategory, _action: &str, _pos: IVec3, _entity: Option<&str>) {}
 }

@@ -221,7 +221,7 @@ fn main() {
 mod tests {
     use super::*;
     use world::ChunkData;
-    use crate::systems::get_quests;
+    use crate::systems::quest::get_main_quests;
     use crate::utils::ray_aabb_intersection_with_normal;
 
     #[test]
@@ -343,10 +343,10 @@ mod tests {
 
     #[test]
     fn test_quest_rewards() {
-        let quests = get_quests();
+        let quests = get_main_quests();
         assert!(!quests.is_empty());
         for quest in &quests {
-            assert!(quest.required_amount > 0);
+            assert!(!quest.required_items.is_empty());
         }
     }
 
@@ -456,10 +456,10 @@ mod tests {
 
     #[test]
     fn test_quest_structure() {
-        let quests = get_quests();
+        let quests = get_main_quests();
         for quest in &quests {
             assert!(!quest.description.is_empty());
-            assert!(quest.required_amount > 0);
+            assert!(!quest.required_items.is_empty());
             assert!(!quest.rewards.is_empty());
         }
     }
