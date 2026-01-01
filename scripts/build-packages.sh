@@ -25,10 +25,13 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 BUILD_WINDOWS=true
 BUILD_LINUX=true
 
+UPLOAD=false
+
 for arg in "$@"; do
     case $arg in
         --windows-only) BUILD_LINUX=false ;;
         --linux-only) BUILD_WINDOWS=false ;;
+        --upload) UPLOAD=true ;;
     esac
 done
 
@@ -108,3 +111,18 @@ fi
 
 info "=== 全パッケージビルド完了 ==="
 ls -lh "$DIST_DIR"/*.{tar.gz,zip} 2>/dev/null || true
+
+# --uploadオプションでGitHub Releaseにアップロード
+if [ "$UPLOAD" = true ]; then
+    info "=== GitHub Releaseにアップロード中 ==="
+
+    # latestリリースが存在しない場合は作成
+    if ! gh release view latest &>/dev/null; then
+        gh release create latest --title "Latest Build" --prerelease --notes "Automatically updated latest build."
+    fi
+
+    # アップロード（既存ファイルは上書き）
+    gh release upload latest "$DIST_DIR"/*.tar.gz "$DIST_DIR"/*.zip --clobber
+
+    info "アップロード完了: https://github.com/GS-Bacon/idle_factory/releases/tag/latest"
+fi

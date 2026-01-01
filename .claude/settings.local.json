@@ -276,7 +276,11 @@
       "Bash(jq:*)",
       "Bash(./scripts/e2e-quick.sh:*)",
       "Bash(xdotool key:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(xargs:*)",
+      "Bash(./scripts/build-packages.sh:*)",
+      "Bash(gh release:*)",
+      "Bash(git tag:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
