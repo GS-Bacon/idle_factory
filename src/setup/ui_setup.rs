@@ -101,7 +101,7 @@ pub fn spawn_crusher_slot(
 const SLOT_SIZE: f32 = 50.0;
 const SLOT_GAP: f32 = 3.0;
 const SLOT_BORDER: f32 = 2.0;
-const SPRITE_SIZE: f32 = 42.0;
+const SPRITE_SIZE: f32 = 46.0;
 
 /// Helper to spawn an inventory slot button (Minecraft-style)
 pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
@@ -301,33 +301,43 @@ pub fn setup_ui(mut commands: Commands) {
     ));
 
     // Held item display (follows cursor when dragging)
+    commands
+        .spawn((
+            HeldItemDisplay,
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Px(SPRITE_SIZE),
+                height: Val::Px(SPRITE_SIZE),
+                top: Val::Px(0.0),
+                left: Val::Px(0.0),
+                ..default()
+            },
+            Visibility::Hidden,
+        ))
+        .with_children(|parent| {
+            // Sprite image for held item
+            parent.spawn((
+                HeldItemImage,
+                ImageNode::default(),
+                Node {
+                    width: Val::Px(SPRITE_SIZE),
+                    height: Val::Px(SPRITE_SIZE),
+                    ..default()
+                },
+            ));
+        });
+    // Held item count text (separate entity, follows cursor)
     commands.spawn((
-        HeldItemDisplay,
+        HeldItemText,
         Text::new(""),
         TextFont {
-            font_size: 14.0,
+            font_size: 12.0,
             ..default()
         },
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(0.0),
-            left: Val::Px(0.0),
-            ..default()
-        },
-        Visibility::Hidden,
-    ));
-    commands.spawn((
-        HeldItemText,
-        Text::new(""),
-        TextFont {
-            font_size: 10.0,
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
             left: Val::Px(0.0),
             ..default()
         },
@@ -850,10 +860,23 @@ fn setup_inventory_ui(commands: &mut Commands) {
                                             border: UiRect::all(Val::Px(SLOT_BORDER)),
                                             ..default()
                                         },
-                                        BackgroundColor(block_type.color().with_alpha(0.7)),
+                                        BackgroundColor(Color::srgba(0.14, 0.14, 0.14, 0.95)),
                                         BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0)),
                                     ))
                                     .with_children(|btn| {
+                                        // Sprite image
+                                        btn.spawn((
+                                            CreativeItemImage(*block_type),
+                                            ImageNode::default(),
+                                            Visibility::Hidden,
+                                            Node {
+                                                width: Val::Px(SPRITE_SIZE),
+                                                height: Val::Px(SPRITE_SIZE),
+                                                position_type: PositionType::Absolute,
+                                                ..default()
+                                            },
+                                        ));
+                                        // Text fallback
                                         btn.spawn((
                                             Text::new(block_type.short_name()),
                                             TextFont {

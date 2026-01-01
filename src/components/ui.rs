@@ -37,9 +37,17 @@ pub struct HeldItemDisplay;
 #[derive(Component)]
 pub struct HeldItemText;
 
+/// Marker for held item sprite image
+#[derive(Component)]
+pub struct HeldItemImage;
+
 /// Creative inventory item button - stores the BlockType it represents
 #[derive(Component)]
 pub struct CreativeItemButton(pub BlockType);
+
+/// Marker for creative catalog item sprite image
+#[derive(Component)]
+pub struct CreativeItemImage(pub BlockType);
 
 /// Marker for the creative catalog panel (right side of inventory UI)
 #[derive(Component)]

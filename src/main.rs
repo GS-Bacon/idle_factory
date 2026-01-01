@@ -41,8 +41,8 @@ use systems::{
     command_input_handler, command_input_toggle, creative_inventory_click,
     inventory_continuous_shift_click, inventory_slot_click, inventory_toggle,
     inventory_update_slots, select_block_type, set_ui_open_state, toggle_debug_hud,
-    trash_slot_click, update_debug_hud, update_held_item_display, update_hotbar_item_name,
-    update_hotbar_ui, update_inventory_tooltip, update_window_title_fps, export_e2e_state,
+    trash_slot_click, update_creative_catalog_sprites, update_debug_hud, update_held_item_display,
+    update_hotbar_item_name, update_hotbar_ui, update_inventory_tooltip, update_window_title_fps, export_e2e_state,
     E2EExportConfig, TeleportEvent, LookEvent, SetBlockEvent, handle_teleport_event,
     handle_look_event, handle_setblock_event, handle_spawn_machine_event,
     // Quest systems
@@ -254,6 +254,7 @@ fn main() {
                 update_held_item_display,
                 update_hotbar_item_name,
                 update_inventory_tooltip,
+                update_creative_catalog_sprites,
                 trash_slot_click,
                 creative_inventory_click,
                 command_input_toggle,

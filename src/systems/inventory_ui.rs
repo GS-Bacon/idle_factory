@@ -418,14 +418,18 @@ pub fn inventory_update_slots(
         let slot_idx = slot_ui.0;
 
         if let Some((block_type, count)) = inventory.slots[slot_idx] {
-            // Show item color as fallback background (semi-transparent)
-            let color = block_type.color();
-            *bg_color = BackgroundColor(Color::srgba(
-                color.to_srgba().red * 0.5,
-                color.to_srgba().green * 0.5,
-                color.to_srgba().blue * 0.5,
-                0.6,
-            ));
+            // Use dark background if sprite exists, fallback color otherwise
+            if item_sprites.get(block_type).is_some() {
+                *bg_color = BackgroundColor(Color::srgba(0.14, 0.14, 0.14, 0.95));
+            } else {
+                let color = block_type.color();
+                *bg_color = BackgroundColor(Color::srgba(
+                    color.to_srgba().red * 0.5,
+                    color.to_srgba().green * 0.5,
+                    color.to_srgba().blue * 0.5,
+                    0.6,
+                ));
+            }
 
             // Update text (count)
             for &child in children.iter() {
@@ -440,9 +444,9 @@ pub fn inventory_update_slots(
         } else {
             // Empty slot - respect hover state
             *bg_color = BackgroundColor(match interaction {
-                Interaction::Hovered => Color::srgba(0.35, 0.35, 0.35, 0.9),
-                Interaction::Pressed => Color::srgba(0.25, 0.25, 0.25, 0.9),
-                Interaction::None => Color::srgba(0.2, 0.2, 0.2, 0.9),
+                Interaction::Hovered => Color::srgba(0.25, 0.25, 0.25, 0.9),
+                Interaction::Pressed => Color::srgba(0.2, 0.2, 0.2, 0.9),
+                Interaction::None => Color::srgba(0.14, 0.14, 0.14, 0.95),
             });
 
             for &child in children.iter() {
@@ -458,17 +462,22 @@ pub fn inventory_update_slots(
 pub fn update_held_item_display(
     inventory_open: Res<InventoryOpen>,
     held_item: Res<HeldItem>,
+    item_sprites: Res<ItemSprites>,
     windows: Query<&Window>,
-    mut held_display_query: Query<(&mut Node, &mut BackgroundColor, &mut Visibility), With<HeldItemDisplay>>,
-    mut held_text_query: Query<&mut Text, With<HeldItemText>>,
+    mut held_display_query: Query<(&mut Node, &mut Visibility), With<HeldItemDisplay>>,
+    mut held_image_query: Query<&mut ImageNode, With<HeldItemImage>>,
+    mut held_text_query: Query<(&mut Text, &mut Node, &mut Visibility), (With<HeldItemText>, Without<HeldItemDisplay>)>,
 ) {
-    let Ok((mut node, mut bg_color, mut visibility)) = held_display_query.get_single_mut() else {
+    let Ok((mut node, mut visibility)) = held_display_query.get_single_mut() else {
         return;
     };
 
     // Only show when inventory is open and we're holding something
     if !inventory_open.0 {
         *visibility = Visibility::Hidden;
+        if let Ok((_, _, mut text_vis)) = held_text_query.get_single_mut() {
+            *text_vis = Visibility::Hidden;
+        }
         return;
     }
 
@@ -476,28 +485,46 @@ pub fn update_held_item_display(
         Some((block_type, count)) => {
             // Show the held item
             *visibility = Visibility::Visible;
-            *bg_color = BackgroundColor(block_type.color());
 
-            // Update count text
-            if let Ok(mut text) = held_text_query.get_single_mut() {
-                text.0 = if *count > 1 {
-                    format!("{}", count)
-                } else {
-                    String::new()
-                };
+            // Update sprite image
+            if let Ok(mut image) = held_image_query.get_single_mut() {
+                if let Some(sprite) = item_sprites.get(*block_type) {
+                    image.image = sprite;
+                }
             }
 
             // Position at cursor
             if let Ok(window) = windows.get_single() {
                 if let Some(cursor_pos) = window.cursor_position() {
                     // Offset so item appears slightly below and to the right of cursor
-                    node.left = Val::Px(cursor_pos.x + 8.0);
-                    node.top = Val::Px(cursor_pos.y + 8.0);
+                    let x = cursor_pos.x + 8.0;
+                    let y = cursor_pos.y + 8.0;
+                    node.left = Val::Px(x);
+                    node.top = Val::Px(y);
+
+                    // Update count text position and visibility
+                    if let Ok((mut text, mut text_node, mut text_vis)) = held_text_query.get_single_mut() {
+                        text.0 = if *count > 1 {
+                            format!("{}", count)
+                        } else {
+                            String::new()
+                        };
+                        text_node.left = Val::Px(x + 30.0);
+                        text_node.top = Val::Px(y + 30.0);
+                        *text_vis = if *count > 1 {
+                            Visibility::Visible
+                        } else {
+                            Visibility::Hidden
+                        };
+                    }
                 }
             }
         }
         None => {
             *visibility = Visibility::Hidden;
+            if let Ok((_, _, mut text_vis)) = held_text_query.get_single_mut() {
+                *text_vis = Visibility::Hidden;
+            }
         }
     }
 }
@@ -603,6 +630,19 @@ pub fn trash_slot_click(
                 *border_color = BorderColor(Color::srgb(0.6, 0.2, 0.2));
                 *bg_color = BackgroundColor(Color::srgb(0.4, 0.1, 0.1));
             }
+        }
+    }
+}
+
+/// Update creative catalog item sprites
+pub fn update_creative_catalog_sprites(
+    item_sprites: Res<ItemSprites>,
+    mut query: Query<(&CreativeItemImage, &mut ImageNode, &mut Visibility)>,
+) {
+    for (item, mut image, mut visibility) in query.iter_mut() {
+        if let Some(sprite) = item_sprites.get(item.0) {
+            image.image = sprite;
+            *visibility = Visibility::Visible;
         }
     }
 }
