@@ -113,7 +113,7 @@ pub fn receive_chunk_meshes(
             }
             if let PendingChunk::Task(task) = pending {
                 if let Some(data) = future::block_on(future::poll_once(task)) {
-                    tracing::info!("Task completed for chunk {:?}", coord);
+                    tracing::debug!("Task completed for chunk {:?}", coord);
                     completed.push((coord, data));
                 }
             }
@@ -135,7 +135,9 @@ pub fn receive_chunk_meshes(
     // Collect coords that need neighbor mesh regeneration
     let mut coords_needing_neighbor_update: Vec<IVec2> = Vec::new();
 
-    tracing::info!("Processing {} completed chunks", completed.len());
+    if !completed.is_empty() {
+        tracing::debug!("Processing {} completed chunks", completed.len());
+    }
 
     // Process completed chunks - use the data we already extracted
     for (coord, chunk_mesh_data) in completed {
@@ -183,7 +185,7 @@ pub fn receive_chunk_meshes(
 
         world_data.chunks.insert(coord, chunk_data);
         coords_needing_neighbor_update.push(coord);
-        tracing::info!("Chunk {:?} data inserted into world", coord);
+        tracing::debug!("Chunk {:?} loaded", coord);
     }
 
     // Now regenerate meshes for new chunks and their neighbors (with proper neighbor data)
@@ -215,7 +217,7 @@ pub fn receive_chunk_meshes(
                 .id();
 
             world_data.chunk_entities.insert(coord, vec![entity]);
-            tracing::info!("Chunk {:?} mesh spawned as entity {:?}", coord, entity);
+            tracing::trace!("Chunk {:?} mesh spawned", coord);
         }
 
         // Also regenerate neighboring chunks' meshes

@@ -3370,3 +3370,473 @@ fn test_load_command_parsing() {
     assert_eq!(parse_load_command("/save"), None);
     assert_eq!(parse_load_command("clear"), None);
 }
+
+// =============================================================================
+// B-4: Assert Helper Functions for E2E Testing
+// =============================================================================
+
+/// Check if inventory contains at least the specified amount of an item
+fn assert_inventory_contains(inventory: &HashMap<BlockType, u32>, block_type: BlockType, min_count: u32) -> bool {
+    inventory.get(&block_type).copied().unwrap_or(0) >= min_count
+}
+
+/// Check if a machine is working (has progress or output)
+fn assert_machine_working(progress: f32, output_count: u32) -> bool {
+    progress > 0.0 || output_count > 0
+}
+
+/// Check if conveyor has expected item count
+fn assert_conveyor_has_items(item_count: usize, expected: usize) -> bool {
+    item_count >= expected
+}
+
+/// Check quest progress
+fn assert_quest_progress(delivered: u32, expected: u32) -> bool {
+    delivered >= expected
+}
+
+#[test]
+fn test_assert_inventory_contains() {
+    let mut inventory = HashMap::new();
+    inventory.insert(BlockType::IronOre, 5);
+    inventory.insert(BlockType::Coal, 10);
+
+    assert!(assert_inventory_contains(&inventory, BlockType::IronOre, 3));
+    assert!(assert_inventory_contains(&inventory, BlockType::IronOre, 5));
+    assert!(!assert_inventory_contains(&inventory, BlockType::IronOre, 6));
+    assert!(!assert_inventory_contains(&inventory, BlockType::Stone, 1));
+}
+
+#[test]
+fn test_assert_machine_working() {
+    // Machine with progress
+    assert!(assert_machine_working(0.5, 0));
+    // Machine with output
+    assert!(assert_machine_working(0.0, 1));
+    // Machine idle
+    assert!(!assert_machine_working(0.0, 0));
+}
+
+#[test]
+fn test_assert_conveyor_has_items() {
+    assert!(assert_conveyor_has_items(5, 3));
+    assert!(assert_conveyor_has_items(3, 3));
+    assert!(!assert_conveyor_has_items(2, 3));
+}
+
+#[test]
+fn test_assert_quest_progress() {
+    assert!(assert_quest_progress(5, 3));
+    assert!(assert_quest_progress(3, 3));
+    assert!(!assert_quest_progress(2, 3));
+}
+
+// =============================================================================
+// F-2: L-Shape Conveyor Tests
+// =============================================================================
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ConveyorDirection {
+    North,
+    East,
+    South,
+    West,
+}
+
+impl ConveyorDirection {
+    fn to_vec(&self) -> Vec3 {
+        match self {
+            ConveyorDirection::North => Vec3::new(0.0, 0.0, -1.0),
+            ConveyorDirection::East => Vec3::new(1.0, 0.0, 0.0),
+            ConveyorDirection::South => Vec3::new(0.0, 0.0, 1.0),
+            ConveyorDirection::West => Vec3::new(-1.0, 0.0, 0.0),
+        }
+    }
+
+    fn left(&self) -> ConveyorDirection {
+        match self {
+            ConveyorDirection::North => ConveyorDirection::West,
+            ConveyorDirection::East => ConveyorDirection::North,
+            ConveyorDirection::South => ConveyorDirection::East,
+            ConveyorDirection::West => ConveyorDirection::South,
+        }
+    }
+
+    fn right(&self) -> ConveyorDirection {
+        match self {
+            ConveyorDirection::North => ConveyorDirection::East,
+            ConveyorDirection::East => ConveyorDirection::South,
+            ConveyorDirection::South => ConveyorDirection::West,
+            ConveyorDirection::West => ConveyorDirection::North,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(dead_code)]
+enum ConveyorShape {
+    Straight,
+    CornerLeft,
+    CornerRight,
+}
+
+/// Simulate item movement on L-shape (left corner) conveyor
+fn simulate_corner_left_path(start_pos: Vec3, input_dir: ConveyorDirection, steps: usize) -> Vec<Vec3> {
+    let mut positions = vec![start_pos];
+    let mut current = start_pos;
+    let output_dir = input_dir.left();
+
+    let corner_center = Vec3::new(0.5, 0.0, 0.5);
+
+    for step in 0..steps {
+        let t = step as f32 / steps as f32;
+
+        if t < 0.5 {
+            // First half: move toward corner center along input direction
+            current = start_pos + input_dir.to_vec() * (t * 2.0);
+        } else {
+            // Second half: turn and move along output direction
+            let corner_progress = (t - 0.5) * 2.0;
+            current = corner_center + output_dir.to_vec() * corner_progress;
+        }
+        positions.push(current);
+    }
+
+    positions
+}
+
+/// Simulate item movement on L-shape (right corner) conveyor
+fn simulate_corner_right_path(start_pos: Vec3, input_dir: ConveyorDirection, steps: usize) -> Vec<Vec3> {
+    let mut positions = vec![start_pos];
+    let mut current = start_pos;
+    let output_dir = input_dir.right();
+
+    let corner_center = Vec3::new(0.5, 0.0, 0.5);
+
+    for step in 0..steps {
+        let t = step as f32 / steps as f32;
+
+        if t < 0.5 {
+            current = start_pos + input_dir.to_vec() * (t * 2.0);
+        } else {
+            let corner_progress = (t - 0.5) * 2.0;
+            current = corner_center + output_dir.to_vec() * corner_progress;
+        }
+        positions.push(current);
+    }
+
+    positions
+}
+
+#[test]
+fn test_conveyor_corner_left_item_path() {
+    // Item enters from South (moving North), should exit West
+    let start = Vec3::new(0.5, 0.0, 1.0);
+    let path = simulate_corner_left_path(start, ConveyorDirection::North, 10);
+
+    // Verify item starts at entry point
+    assert_eq!(path[0], start);
+
+    // Verify item ends moving West (negative X)
+    let final_pos = path.last().unwrap();
+    assert!(final_pos.x < 0.5, "Corner left should exit West (negative X), got x={}", final_pos.x);
+
+    // Verify item passed through center area
+    let center_crossed = path.iter().any(|p| (p.x - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3);
+    assert!(center_crossed, "Item should pass through corner center");
+}
+
+#[test]
+fn test_conveyor_corner_right_item_path() {
+    // Item enters from South (moving North), should exit East
+    let start = Vec3::new(0.5, 0.0, 1.0);
+    let path = simulate_corner_right_path(start, ConveyorDirection::North, 10);
+
+    // Verify item starts at entry point
+    assert_eq!(path[0], start);
+
+    // Verify item ends moving East (positive X)
+    let final_pos = path.last().unwrap();
+    assert!(final_pos.x > 0.5, "Corner right should exit East (positive X), got x={}", final_pos.x);
+
+    // Verify item passed through center area
+    let center_crossed = path.iter().any(|p| (p.x - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3);
+    assert!(center_crossed, "Item should pass through corner center");
+}
+
+#[test]
+fn test_corner_left_all_directions() {
+    // Test left corner from all 4 directions
+    let test_cases = [
+        (ConveyorDirection::North, ConveyorDirection::West),   // N -> W
+        (ConveyorDirection::East, ConveyorDirection::North),   // E -> N
+        (ConveyorDirection::South, ConveyorDirection::East),   // S -> E
+        (ConveyorDirection::West, ConveyorDirection::South),   // W -> S
+    ];
+
+    for (input, expected_output) in test_cases {
+        let output = input.left();
+        assert_eq!(output, expected_output,
+            "Left of {:?} should be {:?}, got {:?}", input, expected_output, output);
+    }
+}
+
+#[test]
+fn test_corner_right_all_directions() {
+    // Test right corner from all 4 directions
+    let test_cases = [
+        (ConveyorDirection::North, ConveyorDirection::East),   // N -> E
+        (ConveyorDirection::East, ConveyorDirection::South),   // E -> S
+        (ConveyorDirection::South, ConveyorDirection::West),   // S -> W
+        (ConveyorDirection::West, ConveyorDirection::North),   // W -> N
+    ];
+
+    for (input, expected_output) in test_cases {
+        let output = input.right();
+        assert_eq!(output, expected_output,
+            "Right of {:?} should be {:?}, got {:?}", input, expected_output, output);
+    }
+}
+
+// =============================================================================
+// B-2: Production Chain Scenario Tests
+// =============================================================================
+
+/// Mock Miner for testing
+struct MockMiner {
+    position: IVec3,
+    progress: f32,
+    buffer: Option<(BlockType, u32)>,
+    ore_type: BlockType,
+}
+
+impl MockMiner {
+    fn new(position: IVec3, ore_type: BlockType) -> Self {
+        Self {
+            position,
+            progress: 0.0,
+            buffer: None,
+            ore_type,
+        }
+    }
+
+    fn tick(&mut self, delta: f32) {
+        const MINE_TIME: f32 = 2.0;
+        self.progress += delta / MINE_TIME;
+        if self.progress >= 1.0 {
+            self.progress = 0.0;
+            let (_, count) = self.buffer.get_or_insert((self.ore_type, 0));
+            *count += 1;
+        }
+    }
+
+    fn take_output(&mut self) -> Option<BlockType> {
+        if let Some((item, count)) = &mut self.buffer {
+            if *count > 0 {
+                *count -= 1;
+                let result = Some(*item);
+                if *count == 0 {
+                    self.buffer = None;
+                }
+                return result;
+            }
+        }
+        None
+    }
+}
+
+/// Mock Furnace for testing
+struct MockFurnace {
+    #[allow(dead_code)]
+    position: IVec3,
+    input: Option<(BlockType, u32)>,
+    output: Option<(BlockType, u32)>,
+    fuel: u32,
+    progress: f32,
+}
+
+impl MockFurnace {
+    fn new(position: IVec3) -> Self {
+        Self {
+            position,
+            input: None,
+            output: None,
+            fuel: 0,
+            progress: 0.0,
+        }
+    }
+
+    fn add_input(&mut self, item: BlockType) -> bool {
+        if let Some((existing, count)) = &mut self.input {
+            if *existing == item {
+                *count += 1;
+                return true;
+            }
+            return false;
+        }
+        self.input = Some((item, 1));
+        true
+    }
+
+    fn add_fuel(&mut self, amount: u32) {
+        self.fuel += amount;
+    }
+
+    fn tick(&mut self, delta: f32) -> bool {
+        const SMELT_TIME: f32 = 3.0;
+
+        // Check if we can smelt
+        if self.fuel == 0 {
+            return false;
+        }
+        let Some((input_type, input_count)) = &mut self.input else {
+            return false;
+        };
+        if *input_count == 0 {
+            return false;
+        }
+
+        // Smelt
+        self.progress += delta / SMELT_TIME;
+        if self.progress >= 1.0 {
+            self.progress = 0.0;
+            *input_count -= 1;
+            self.fuel -= 1;
+
+            // Produce output
+            let output_type = match input_type {
+                BlockType::IronOre => BlockType::IronIngot,
+                BlockType::CopperOre => BlockType::CopperIngot,
+                _ => return false,
+            };
+
+            if let Some((_, count)) = &mut self.output {
+                *count += 1;
+            } else {
+                self.output = Some((output_type, 1));
+            }
+
+            if *input_count == 0 {
+                self.input = None;
+            }
+            return true;
+        }
+        false
+    }
+
+    fn take_output(&mut self) -> Option<BlockType> {
+        if let Some((item, count)) = &mut self.output {
+            if *count > 0 {
+                *count -= 1;
+                let result = Some(*item);
+                if *count == 0 {
+                    self.output = None;
+                }
+                return result;
+            }
+        }
+        None
+    }
+}
+
+#[test]
+fn test_full_production_chain() {
+    // Simulate: Miner (IronOre) -> Conveyor -> Furnace -> IronIngot
+
+    let mut miner = MockMiner::new(IVec3::new(0, 8, 0), BlockType::IronOre);
+    let mut furnace = MockFurnace::new(IVec3::new(2, 8, 0));
+    let mut conveyor_buffer: Vec<BlockType> = Vec::new();
+
+    // Add fuel to furnace
+    furnace.add_fuel(5);
+
+    // Simulate 30 seconds of operation
+    let delta = 0.5;
+    let mut produced_ingots = 0u32;
+
+    for _ in 0..60 {
+        // Miner produces ore
+        miner.tick(delta);
+
+        // Transfer from miner to conveyor
+        if let Some(ore) = miner.take_output() {
+            conveyor_buffer.push(ore);
+        }
+
+        // Transfer from conveyor to furnace
+        if let Some(ore) = conveyor_buffer.pop() {
+            furnace.add_input(ore);
+        }
+
+        // Furnace processes
+        furnace.tick(delta);
+
+        // Count output
+        while let Some(_ingot) = furnace.take_output() {
+            produced_ingots += 1;
+        }
+    }
+
+    // Should have produced at least 3 ingots in 30 seconds
+    // (Miner: 2s per ore, Furnace: 3s per ingot, 5 fuel available)
+    assert!(produced_ingots >= 3,
+        "Expected at least 3 ingots, got {}", produced_ingots);
+}
+
+#[test]
+fn test_miner_to_furnace_chain_with_limited_fuel() {
+    let mut miner = MockMiner::new(IVec3::new(0, 8, 0), BlockType::IronOre);
+    let mut furnace = MockFurnace::new(IVec3::new(2, 8, 0));
+
+    // Only 2 fuel
+    furnace.add_fuel(2);
+
+    let delta = 0.5;
+    let mut produced = 0u32;
+
+    for _ in 0..40 {
+        miner.tick(delta);
+        if let Some(ore) = miner.take_output() {
+            furnace.add_input(ore);
+        }
+        furnace.tick(delta);
+        while furnace.take_output().is_some() {
+            produced += 1;
+        }
+    }
+
+    // Should produce exactly 2 ingots (limited by fuel)
+    assert_eq!(produced, 2, "Should produce exactly 2 ingots with 2 fuel");
+}
+
+#[test]
+fn test_furnace_without_fuel() {
+    let mut furnace = MockFurnace::new(IVec3::ZERO);
+    furnace.add_input(BlockType::IronOre);
+
+    // Tick without fuel
+    for _ in 0..20 {
+        furnace.tick(0.5);
+    }
+
+    // Should not produce anything
+    assert!(furnace.take_output().is_none());
+    assert_eq!(furnace.progress, 0.0);
+}
+
+#[test]
+fn test_miner_continuous_output() {
+    let mut miner = MockMiner::new(IVec3::ZERO, BlockType::CopperOre);
+    let mut collected = 0u32;
+
+    // Run for 20 seconds
+    for _ in 0..40 {
+        miner.tick(0.5);
+        while miner.take_output().is_some() {
+            collected += 1;
+        }
+    }
+
+    // 20 seconds / 2 seconds per ore = 10 ores
+    assert!(collected >= 9, "Expected at least 9 ores in 20s, got {}", collected);
+}

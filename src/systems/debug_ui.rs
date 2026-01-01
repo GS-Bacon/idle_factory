@@ -185,6 +185,16 @@ pub struct E2EConveyorInfo {
 pub struct E2EMachineInfo {
     pub position: [i32; 3],
     pub machine_type: String,
+    /// Processing progress (0.0-1.0)
+    pub progress: f32,
+    /// Input slot: (item_name, count)
+    pub input: Option<(String, u32)>,
+    /// Output slot: (item_name, count)
+    pub output: Option<(String, u32)>,
+    /// Fuel count (Furnace only)
+    pub fuel: Option<u32>,
+    /// Buffer info (Miner only)
+    pub buffer: Option<(String, u32)>,
 }
 
 /// Resource to control E2E state export
@@ -288,25 +298,40 @@ pub fn export_e2e_state(
         })
         .collect();
 
-    // Collect machine info
+    // Collect machine info with detailed state
     let mut machines: Vec<E2EMachineInfo> = Vec::new();
     for miner in miner_query.iter() {
         machines.push(E2EMachineInfo {
             position: [miner.position.x, miner.position.y, miner.position.z],
             machine_type: "Miner".to_string(),
+            progress: miner.progress,
+            input: None,
+            output: None,
+            fuel: None,
+            buffer: miner.buffer.map(|(bt, count)| (format!("{:?}", bt), count)),
         });
     }
-    for (_, transform) in furnace_query.iter() {
+    for (furnace, transform) in furnace_query.iter() {
         let pos = transform.translation / crate::BLOCK_SIZE;
         machines.push(E2EMachineInfo {
             position: [pos.x as i32, pos.y as i32, pos.z as i32],
             machine_type: "Furnace".to_string(),
+            progress: furnace.progress,
+            input: furnace.input_type.map(|bt| (format!("{:?}", bt), furnace.input_count)),
+            output: furnace.output_type.map(|bt| (format!("{:?}", bt), furnace.output_count)),
+            fuel: Some(furnace.fuel),
+            buffer: None,
         });
     }
     for crusher in crusher_query.iter() {
         machines.push(E2EMachineInfo {
             position: [crusher.position.x, crusher.position.y, crusher.position.z],
             machine_type: "Crusher".to_string(),
+            progress: crusher.progress,
+            input: crusher.input_type.map(|bt| (format!("{:?}", bt), crusher.input_count)),
+            output: crusher.output_type.map(|bt| (format!("{:?}", bt), crusher.output_count)),
+            fuel: None,
+            buffer: None,
         });
     }
 

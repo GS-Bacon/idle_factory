@@ -7,12 +7,18 @@
 //! - `debug!("message")` - Debug info (filtered in release)
 //! - `trace!("message")` - Verbose trace (filtered in release)
 //!
-//! Structured logging:
+//! Structured logging (for game events):
 //! - `info!(category = "BLOCK", action = "place", ?pos, "Block placed")`
+//! - `info!(category = "MACHINE", action = "break", machine = "conveyor", "Conveyor broken")`
+//! - `info!(category = "QUEST", action = "deliver", item = ?item, "Item delivered")`
 //!
 //! Log collection:
 //! - Native: Logs are written to `logs/game_YYYYMMDD_HHMMSS.log`
 //! - WASM: Logs go to browser console, capture via Playwright
+//!
+//! Log analysis:
+//! - scripts/summarize_log.sh - AI-powered log summary
+//! - scripts/detect_anomalies.sh - Anomaly detection
 
 use bevy::prelude::*;
 
