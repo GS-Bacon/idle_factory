@@ -60,13 +60,13 @@ type_char() {
         "-") DISPLAY=:10 xdotool key minus ;;
         *) DISPLAY=:10 xdotool key "$char" 2>/dev/null || true ;;
     esac
-    sleep 0.02
+    sleep 0.1  # 100ms delay to prevent character scrambling
 }
 
 send_cmd_chars() {
     local cmd="$1"
     DISPLAY=:10 xdotool key t
-    sleep 0.1
+    sleep 0.5
     for ((i=0; i<${#cmd}; i++)); do
         type_char "${cmd:$i:1}"
     done

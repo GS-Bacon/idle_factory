@@ -161,7 +161,7 @@ type_char() {
         "-") xdotool key --window $WINDOW_ID minus ;;
         *) xdotool key --window $WINDOW_ID "$char" 2>/dev/null || true ;;
     esac
-    sleep 0.02
+    sleep 0.1  # 100ms delay to prevent character scrambling
 }
 
 test_enter_command() {
@@ -169,7 +169,7 @@ test_enter_command() {
     for ((i=0; i<${#CMD}; i++)); do
         type_char "${CMD:$i:1}"
     done
-    sleep 0.2
+    sleep 0.3
     xdotool key --window $WINDOW_ID Return
     sleep 0.5
 }

@@ -143,7 +143,7 @@ type_char() {
         ",") xdotool key comma ;;
         *) xdotool key "$char" 2>/dev/null || true ;;
     esac
-    sleep 0.03
+    sleep 0.1  # 100ms delay to prevent character scrambling
 }
 
 # テキスト入力
@@ -151,7 +151,7 @@ type_text() {
     for ((i=0; i<${#1}; i++)); do
         type_char "${1:$i:1}"
     done
-    sleep 0.1
+    sleep 0.2
 }
 
 # =============================================================================
