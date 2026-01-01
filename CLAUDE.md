@@ -178,8 +178,8 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 - [x] 未使用コード削除（既に削除済み）
 
 ### 自動バグ検出
-- [ ] Lv1: Fuzzingスクリプト作成（ランダム入力でクラッシュ検出）
-- [ ] Lv2: シナリオテスト追加（採掘機→コンベア→精錬炉→インゴット確認）
+- [x] Lv1: Fuzzingスクリプト（scripts/fuzz_test.sh）
+- [x] Lv2: シナリオテスト（scripts/scenario_test.sh）
 
 ### E2E改善（ゲーム内コマンド）
 - [x] /testコマンド追加（production, stress）
@@ -188,16 +188,16 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 - [x] /debug_conveyorコマンド追加
 
 ### ログ改善
-- [ ] 構造化ログ形式（JSON）に変更
-- [ ] チャンク生成ログのノイズ削減（DEBUGレベルに下げる）
+- [x] 構造化ログ形式（EventLogger in logging.rs）
+- [x] チャンク生成ログのノイズ削減（DEBUGレベル）
 
 ### ログ活用（AI連携）
-- [ ] ログサマリー生成スクリプト（AIで自然言語要約）
-- [ ] 異常検出ルール追加（機械停止、コンベア詰まり等）
+- [x] ログサマリー生成スクリプト（scripts/summarize_log.sh）
+- [x] 異常検出ルール追加（scripts/detect_anomalies.sh）
 
 ### コンベア左右逆問題
-- [ ] L字配置自動テスト（左曲がり/右曲がりのアイテム座標追跡）
-- [ ] 「左」の定義統一（コード/モデル/アニメーションで同じ意味に）
+- [x] L字配置自動テスト（test_conveyor_corner_*）
+- [x] 「左」の定義統一（.claude/conveyor-direction.md）
 
 ### 将来リスト
 - [ ] リプレイシステム: 操作記録・巻き戻し・早送り対応

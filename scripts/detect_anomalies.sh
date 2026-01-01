@@ -74,6 +74,30 @@ FURNACE_COUNT=$(grep -c "Furnace" "$LOG_FILE" 2>/dev/null || echo 0)
 echo "Miner mentions: $MINER_COUNT"
 echo "Conveyor mentions: $CONVEYOR_COUNT"
 echo "Furnace mentions: $FURNACE_COUNT"
+
+# Check for idle machines (machines that haven't produced output)
+echo ""
+echo "=== Machine Activity ==="
+
+# Check for machine spawn without corresponding output
+MINERS_SPAWNED=$(grep -c "Spawned miner\|spawn.*miner" "$LOG_FILE" 2>/dev/null || echo 0)
+ITEMS_MINED=$(grep -c "mined\|ore_output\|item_produce" "$LOG_FILE" 2>/dev/null || echo 0)
+if [ "$MINERS_SPAWNED" -gt 0 ] && [ "$ITEMS_MINED" -eq 0 ]; then
+    echo "⚠️  Miners spawned ($MINERS_SPAWNED) but no mining output detected"
+    ANOMALIES=$((ANOMALIES + 1))
+else
+    echo "✓ Mining activity normal"
+fi
+
+# Check for furnace issues (fuel but no output)
+FURNACE_FUEL=$(grep -c "fuel\|coal.*furnace\|furnace.*coal" "$LOG_FILE" 2>/dev/null || echo 0)
+FURNACE_OUTPUT=$(grep -c "smelt\|ingot.*produce\|furnace.*output" "$LOG_FILE" 2>/dev/null || echo 0)
+if [ "$FURNACE_FUEL" -gt 5 ] && [ "$FURNACE_OUTPUT" -eq 0 ]; then
+    echo "⚠️  Furnace has fuel but no smelting output"
+    ANOMALIES=$((ANOMALIES + 1))
+else
+    echo "✓ Furnace activity normal"
+fi
 echo ""
 
 # 6. Check for chunk issues

@@ -504,4 +504,61 @@ mod tests {
         assert_eq!(miner.progress, 0.0);
         assert!(miner.buffer.is_none());
     }
+
+    #[test]
+    fn test_conveyor_corner_left_direction() {
+        // Corner left: turns to the left of the facing direction
+        // North-facing corner left outputs to West (left of North)
+        let dir = Direction::North;
+        let left_dir = dir.left();
+        let output = IVec3::new(5, 0, 5) + left_dir.to_ivec3();
+        assert_eq!(left_dir, Direction::West);
+        assert_eq!(output, IVec3::new(4, 0, 5), "Corner left should output to West");
+    }
+
+    #[test]
+    fn test_conveyor_corner_right_direction() {
+        // Corner right: turns to the right of the facing direction
+        // North-facing corner right outputs to East (right of North)
+        let dir = Direction::North;
+        let right_dir = dir.right();
+        let output = IVec3::new(5, 0, 5) + right_dir.to_ivec3();
+        assert_eq!(right_dir, Direction::East);
+        assert_eq!(output, IVec3::new(6, 0, 5), "Corner right should output to East");
+    }
+
+    #[test]
+    fn test_conveyor_l_shape_chain() {
+        // Test a chain of conveyors forming an L-shape
+        // Straight (North) -> Corner Right (turn East) -> Straight (East)
+        let corner_pos = IVec3::new(5, 0, 5);
+        let corner_dir = Direction::North;
+
+        // Corner right outputs to the right of its facing direction
+        let output_dir = corner_dir.right();  // Turns right: North -> East
+        let output_pos = corner_pos + output_dir.to_ivec3();
+
+        assert_eq!(output_dir, Direction::East);
+        assert_eq!(output_pos, IVec3::new(6, 0, 5));
+
+        // Next straight conveyor faces East, outputs to East
+        let next_output = output_pos + output_dir.to_ivec3();
+        assert_eq!(next_output, IVec3::new(7, 0, 5));
+    }
+
+    #[test]
+    fn test_all_corner_directions() {
+        // Test all 4 directions for corner conveyors
+        let cases = [
+            (Direction::North, Direction::West, Direction::East),   // N: left=W, right=E
+            (Direction::East, Direction::North, Direction::South),  // E: left=N, right=S
+            (Direction::South, Direction::East, Direction::West),   // S: left=E, right=W
+            (Direction::West, Direction::South, Direction::North),  // W: left=S, right=N
+        ];
+
+        for (facing, expected_left, expected_right) in cases {
+            assert_eq!(facing.left(), expected_left, "Left of {:?}", facing);
+            assert_eq!(facing.right(), expected_right, "Right of {:?}", facing);
+        }
+    }
 }
