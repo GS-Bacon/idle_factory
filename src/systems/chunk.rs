@@ -113,6 +113,7 @@ pub fn receive_chunk_meshes(
             }
             if let PendingChunk::Task(task) = pending {
                 if let Some(data) = future::block_on(future::poll_once(task)) {
+                    tracing::info!("Task completed for chunk {:?}", coord);
                     completed.push((coord, data));
                 }
             }
@@ -134,18 +135,12 @@ pub fn receive_chunk_meshes(
     // Collect coords that need neighbor mesh regeneration
     let mut coords_needing_neighbor_update: Vec<IVec2> = Vec::new();
 
-    // Process completed chunks
-    for (coord, _placeholder) in completed {
-        // Extract the actual data
-        let chunk_mesh_data = match tasks.pending.remove(&coord) {
-            #[cfg(not(target_arch = "wasm32"))]
-            Some(PendingChunk::Task(_)) => continue, // Should not happen
-            #[cfg(target_arch = "wasm32")]
-            Some(PendingChunk::Ready(data)) => data,
-            #[cfg(not(target_arch = "wasm32"))]
-            Some(PendingChunk::Ready(data)) => data,
-            None => continue,
-        };
+    tracing::info!("Processing {} completed chunks", completed.len());
+
+    // Process completed chunks - use the data we already extracted
+    for (coord, chunk_mesh_data) in completed {
+        // Remove from pending (we already have the data)
+        let _ = tasks.pending.remove(&coord);
 
         // Skip if chunk already exists (player may have modified it)
         if world_data.chunks.contains_key(&coord) {
@@ -188,6 +183,7 @@ pub fn receive_chunk_meshes(
 
         world_data.chunks.insert(coord, chunk_data);
         coords_needing_neighbor_update.push(coord);
+        tracing::info!("Chunk {:?} data inserted into world", coord);
     }
 
     // Now regenerate meshes for new chunks and their neighbors (with proper neighbor data)
@@ -219,6 +215,7 @@ pub fn receive_chunk_meshes(
                 .id();
 
             world_data.chunk_entities.insert(coord, vec![entity]);
+            tracing::info!("Chunk {:?} mesh spawned as entity {:?}", coord, entity);
         }
 
         // Also regenerate neighboring chunks' meshes

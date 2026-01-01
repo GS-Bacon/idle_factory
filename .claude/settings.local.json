@@ -280,7 +280,10 @@
       "Bash(xargs:*)",
       "Bash(./scripts/build-packages.sh:*)",
       "Bash(gh release:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(bash:*)",
+      "Bash(DISPLAY=:10 RUST_LOG=debug timeout 15 cargo run:*)",
+      "Bash(DISPLAY=:10 timeout 12 cargo run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

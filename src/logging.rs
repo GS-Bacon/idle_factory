@@ -70,6 +70,9 @@ pub fn init_logging() -> Option<WorkerGuard> {
     tracing::info!("Idle Factory - Logging initialized");
     tracing::info!("Log file: logs/{}", log_filename);
 
+    // Log system information
+    log_system_info();
+
     Some(guard)
 }
 
@@ -78,6 +81,29 @@ pub fn init_logging() {
     // WASM: Send logs to browser console
     tracing_wasm::set_as_global_default();
     tracing::info!("Idle Factory - WASM logging initialized");
+}
+
+/// Log system information at startup
+#[cfg(not(target_arch = "wasm32"))]
+fn log_system_info() {
+    use std::env;
+
+    tracing::info!("=== System Information ===");
+    tracing::info!("OS: {} {}", env::consts::OS, env::consts::ARCH);
+    tracing::info!("Rust version: {}", env!("CARGO_PKG_RUST_VERSION", "unknown"));
+    tracing::info!("Game version: {}", env!("CARGO_PKG_VERSION"));
+
+    // Current working directory
+    if let Ok(cwd) = env::current_dir() {
+        tracing::info!("Working directory: {}", cwd.display());
+    }
+
+    // Number of CPUs
+    tracing::info!("CPU cores: {}", std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1));
+
+    tracing::info!("==========================");
 }
 
 /// Plugin to initialize logging (WASM only)
