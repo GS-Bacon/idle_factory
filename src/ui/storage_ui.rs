@@ -27,6 +27,30 @@ pub const SLOT_SIZE: f32 = 54.0;
 /// Slot spacing
 pub const SLOT_GAP: f32 = 4.0;
 
+// === ハイブリッドダークテーマ色定数 ===
+/// パネル背景（やや明るめのダークグレー）
+const PANEL_BG: Color = Color::srgba(0.12, 0.12, 0.14, 0.97);
+/// スロット背景（空）
+const SLOT_BG_EMPTY: Color = Color::srgb(0.18, 0.18, 0.20);
+/// スロット背景（アイテムあり）
+const SLOT_BG_FILLED: Color = Color::srgb(0.22, 0.22, 0.25);
+/// ボーダー（ハイライト - 上/左）
+const BORDER_HIGHLIGHT: Color = Color::srgb(0.4, 0.4, 0.45);
+/// ボーダー（シャドウ - 下/右）
+const BORDER_SHADOW: Color = Color::srgb(0.08, 0.08, 0.10);
+/// タブ選択時
+const TAB_SELECTED: Color = Color::srgb(0.35, 0.38, 0.50);
+/// タブ非選択
+const TAB_UNSELECTED: Color = Color::srgb(0.20, 0.20, 0.25);
+/// タブホバー
+const TAB_HOVER: Color = Color::srgb(0.28, 0.30, 0.38);
+/// 検索ボックス背景
+const SEARCH_BG: Color = Color::srgb(0.15, 0.15, 0.18);
+/// ページボタン
+const PAGE_BTN_BG: Color = Color::srgb(0.25, 0.25, 0.30);
+/// ページボタンホバー
+const PAGE_BTN_HOVER: Color = Color::srgb(0.35, 0.35, 0.40);
+
 /// Toggle global inventory with Tab key
 #[allow(clippy::too_many_arguments)]
 pub fn global_inventory_toggle(
@@ -114,13 +138,13 @@ pub fn global_inventory_page_nav(
                 } else if page.0 > 0 {
                     page.0 -= 1;
                 }
-                *bg_color = BackgroundColor(Color::srgb(0.5, 0.5, 0.5));
+                *bg_color = BackgroundColor(TAB_SELECTED);
             }
             Interaction::Hovered => {
-                *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.4));
+                *bg_color = BackgroundColor(PAGE_BTN_HOVER);
             }
             Interaction::None => {
-                *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
+                *bg_color = BackgroundColor(PAGE_BTN_BG);
             }
         }
     }
@@ -184,9 +208,9 @@ pub fn update_global_inventory_ui(
     for (slot, mut bg_color) in slot_query.iter_mut() {
         let item_idx = start_idx + slot.0;
         if item_idx < items.len() {
-            *bg_color = BackgroundColor(Color::srgb(0.25, 0.25, 0.25));
+            *bg_color = BackgroundColor(SLOT_BG_FILLED);
         } else {
-            *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.15));
+            *bg_color = BackgroundColor(SLOT_BG_EMPTY);
         }
     }
 
@@ -235,18 +259,18 @@ pub fn global_inventory_category_click(
             Interaction::Pressed => {
                 category.0 = tab.0;
                 page.0 = 0; // Reset to first page when category changes
-                *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.5));
+                *bg_color = BackgroundColor(TAB_SELECTED);
             }
             Interaction::Hovered => {
                 if category.0 != tab.0 {
-                    *bg_color = BackgroundColor(Color::srgb(0.35, 0.35, 0.4));
+                    *bg_color = BackgroundColor(TAB_HOVER);
                 }
             }
             Interaction::None => {
                 if category.0 == tab.0 {
-                    *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.5));
+                    *bg_color = BackgroundColor(TAB_SELECTED);
                 } else {
-                    *bg_color = BackgroundColor(Color::srgb(0.25, 0.25, 0.3));
+                    *bg_color = BackgroundColor(TAB_UNSELECTED);
                 }
             }
         }
@@ -329,7 +353,8 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                 padding: UiRect::all(Val::Px(10.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.1, 0.1, 0.12, 0.95)),
+            BackgroundColor(PANEL_BG),
+            BorderColor(BORDER_HIGHLIGHT),
             GlobalInventoryUI,
             Visibility::Hidden,
         ))
@@ -341,7 +366,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                     font_size: 20.0,
                     ..default()
                 },
-                TextColor(Color::WHITE),
+                TextColor(Color::srgb(0.9, 0.9, 0.95)), // Slightly off-white
                 Node {
                     margin: UiRect::bottom(Val::Px(8.0)),
                     ..default()
@@ -368,12 +393,18 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                             Button,
                             Node {
                                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                                border: UiRect::all(Val::Px(1.0)),
                                 ..default()
                             },
                             BackgroundColor(if is_default {
-                                Color::srgb(0.4, 0.4, 0.5)
+                                TAB_SELECTED
                             } else {
-                                Color::srgb(0.25, 0.25, 0.3)
+                                TAB_UNSELECTED
+                            }),
+                            BorderColor(if is_default {
+                                BORDER_HIGHLIGHT
+                            } else {
+                                BORDER_SHADOW
                             }),
                             GlobalInventoryCategoryTab(cat),
                         ))
@@ -384,7 +415,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                                     font_size: 14.0,
                                     ..default()
                                 },
-                                TextColor(Color::WHITE),
+                                TextColor(Color::srgb(0.85, 0.85, 0.9)),
                             ));
                         });
                     }
@@ -400,9 +431,11 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                         margin: UiRect::bottom(Val::Px(8.0)),
                         justify_content: JustifyContent::FlexStart,
                         align_items: AlignItems::Center,
+                        border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(0.2, 0.2, 0.22)),
+                    BackgroundColor(SEARCH_BG),
+                    BorderColor(BORDER_SHADOW),
                 ))
                 .with_children(|search_box| {
                     search_box.spawn((
@@ -440,8 +473,8 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                                 border: UiRect::all(Val::Px(2.0)),
                                 ..default()
                             },
-                            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                            BorderColor(Color::srgb(0.3, 0.3, 0.3)),
+                            BackgroundColor(SLOT_BG_EMPTY),
+                            BorderColor(BORDER_HIGHLIGHT),
                             GlobalInventorySlot(i),
                         ))
                         .with_children(|slot| {
@@ -498,9 +531,11 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        BackgroundColor(PAGE_BTN_BG),
+                        BorderColor(BORDER_HIGHLIGHT),
                         GlobalInventoryPageButton { next: false },
                     ))
                     .with_children(|btn| {
@@ -533,9 +568,11 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                             height: Val::Px(30.0),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+                        BackgroundColor(PAGE_BTN_BG),
+                        BorderColor(BORDER_HIGHLIGHT),
                         GlobalInventoryPageButton { next: true },
                     ))
                     .with_children(|btn| {
