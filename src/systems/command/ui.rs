@@ -6,14 +6,16 @@
 //! - Command execution on Enter
 
 use crate::components::*;
+use crate::events::SpawnMachineEvent;
 use crate::player::Inventory;
 use crate::systems::inventory_ui::set_ui_open_state;
-use crate::events::SpawnMachineEvent;
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use super::executor::execute_command;
-use super::{TeleportEvent, LookEvent, SetBlockEvent, DebugConveyorEvent, AssertMachineEvent};
+use super::{
+    AssertMachineEvent, DebugEvent, LookEvent, ScreenshotEvent, SetBlockEvent, TeleportEvent,
+};
 
 /// Toggle command input with T or / key
 #[allow(clippy::too_many_arguments)]
@@ -38,7 +40,7 @@ pub fn command_input_toggle(
     {
         command_state.open = true;
         command_state.text.clear();
-        command_state.skip_input_frame = true;  // Skip input this frame
+        command_state.skip_input_frame = true; // Skip input this frame
 
         // Start with / if opened with slash key
         if key_input.just_pressed(KeyCode::Slash) {
@@ -80,8 +82,9 @@ pub fn command_input_handler(
     mut look_events: EventWriter<LookEvent>,
     mut setblock_events: EventWriter<SetBlockEvent>,
     mut spawn_machine_events: EventWriter<SpawnMachineEvent>,
-    mut debug_conveyor_events: EventWriter<DebugConveyorEvent>,
+    mut debug_events: EventWriter<DebugEvent>,
     mut assert_machine_events: EventWriter<AssertMachineEvent>,
+    mut screenshot_events: EventWriter<ScreenshotEvent>,
 ) {
     if !command_state.open {
         return;
@@ -134,8 +137,9 @@ pub fn command_input_handler(
             &mut look_events,
             &mut setblock_events,
             &mut spawn_machine_events,
-            &mut debug_conveyor_events,
+            &mut debug_events,
             &mut assert_machine_events,
+            &mut screenshot_events,
         );
         return;
     }
@@ -150,7 +154,10 @@ pub fn command_input_handler(
         command_state.skip_input_frame = false;
     } else {
         for key in key_input.get_just_pressed() {
-            if let Some(c) = keycode_to_char(*key, key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight)) {
+            if let Some(c) = keycode_to_char(
+                *key,
+                key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight),
+            ) {
                 command_state.text.push(c);
             }
         }

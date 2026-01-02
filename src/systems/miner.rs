@@ -1,15 +1,15 @@
 //! Miner systems: mining, UI interaction, output to conveyor
 
+use super::set_ui_open_state;
 use crate::components::{
     CommandInputState, CursorLockState, InteractingCrusher, InteractingFurnace, InteractingMiner,
     InventoryOpen, MinerBufferButton, MinerBufferCountText, MinerClearButton, MinerUI,
     PlayerCamera,
 };
 use crate::player::Inventory;
-use crate::world::{BiomeMap, mining_random};
 use crate::utils::ray_aabb_intersection;
-use super::set_ui_open_state;
-use crate::{Conveyor, Miner, BLOCK_SIZE, MINE_TIME, REACH_DISTANCE};
+use crate::world::{mining_random, BiomeMap};
+use crate::{Conveyor, Crusher, Furnace, Miner, BLOCK_SIZE, MINE_TIME, REACH_DISTANCE};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
@@ -210,11 +210,7 @@ pub fn update_miner_ui(
 ///
 /// Miners now produce resources based on the biome they're placed in,
 /// not the block below them. This allows infinite mining with varied output.
-pub fn miner_mining(
-    time: Res<Time>,
-    mut miner_query: Query<&mut Miner>,
-    biome_map: Res<BiomeMap>,
-) {
+pub fn miner_mining(time: Res<Time>, mut miner_query: Query<&mut Miner>, biome_map: Res<BiomeMap>) {
     for mut miner in miner_query.iter_mut() {
         // Skip if buffer is full (max 64)
         if let Some((_, count)) = miner.buffer {
@@ -279,10 +275,12 @@ pub fn miner_visual_feedback(time: Res<Time>, mut miner_query: Query<(&Miner, &m
     }
 }
 
-/// Output from miner to conveyor in facing direction only
+/// Output from miner to conveyor or machine in facing direction only
 pub fn miner_output(
     mut miner_query: Query<&mut Miner>,
     mut conveyor_query: Query<&mut Conveyor>,
+    mut furnace_query: Query<&mut Furnace>,
+    mut crusher_query: Query<&mut Crusher>,
 ) {
     for mut miner in miner_query.iter_mut() {
         let Some((block_type, count)) = miner.buffer else {
@@ -294,20 +292,62 @@ pub fn miner_output(
 
         // Output only in facing direction (front of machine)
         let output_pos = miner.position + miner.facing.to_ivec3();
+        let mut transferred = false;
 
+        // Try conveyor first
         for mut conveyor in conveyor_query.iter_mut() {
             if conveyor.position == output_pos {
                 if let Some(progress) = conveyor.get_join_progress(miner.position) {
                     if conveyor.can_accept_item(progress) {
                         conveyor.add_item(block_type, progress);
-                        if let Some((_, ref mut buf_count)) = miner.buffer {
-                            *buf_count -= 1;
-                            if *buf_count == 0 {
-                                miner.buffer = None;
-                            }
-                        }
+                        transferred = true;
                         break;
                     }
+                }
+            }
+        }
+
+        // Try direct furnace connection (machine-to-machine)
+        if !transferred {
+            for mut furnace in furnace_query.iter_mut() {
+                // Check if furnace is at output position AND accepts input from back
+                let furnace_back = furnace.position - furnace.facing.to_ivec3();
+                if furnace.position == output_pos
+                    && furnace_back == miner.position
+                    && furnace.can_add_input(block_type)
+                {
+                    furnace.input_type = Some(block_type);
+                    furnace.input_count += 1;
+                    transferred = true;
+                    break;
+                }
+            }
+        }
+
+        // Try direct crusher connection (machine-to-machine)
+        if !transferred {
+            for mut crusher in crusher_query.iter_mut() {
+                let crusher_back = crusher.position - crusher.facing.to_ivec3();
+                if crusher.position == output_pos
+                    && crusher_back == miner.position
+                    && Crusher::can_crush(block_type)
+                    && (crusher.input_type.is_none() || crusher.input_type == Some(block_type))
+                    && crusher.input_count < 64
+                {
+                    crusher.input_type = Some(block_type);
+                    crusher.input_count += 1;
+                    transferred = true;
+                    break;
+                }
+            }
+        }
+
+        // Update miner buffer if transferred
+        if transferred {
+            if let Some((_, ref mut buf_count)) = miner.buffer {
+                *buf_count -= 1;
+                if *buf_count == 0 {
+                    miner.buffer = None;
                 }
             }
         }

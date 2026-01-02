@@ -1,12 +1,12 @@
 //! Furnace systems: smelting, UI interaction, output to conveyor
 
+use super::set_ui_open_state;
 use crate::components::{
     CommandInputState, CursorLockState, FurnaceUI, InteractingFurnace, InventoryOpen,
     MachineProgressBar, MachineSlotButton, MachineSlotCount, MachineSlotType, PlayerCamera,
 };
 use crate::player::Inventory;
 use crate::utils::ray_aabb_intersection;
-use super::set_ui_open_state;
 use crate::{BlockType, Conveyor, Furnace, BLOCK_SIZE, REACH_DISTANCE, SMELT_TIME};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
@@ -116,7 +116,12 @@ pub fn furnace_ui_input(
     mut furnace_query: Query<&mut Furnace>,
     mut inventory: ResMut<Inventory>,
     mut slot_query: Query<
-        (&Interaction, &MachineSlotButton, &mut BackgroundColor, &mut BorderColor),
+        (
+            &Interaction,
+            &MachineSlotButton,
+            &mut BackgroundColor,
+            &mut BorderColor,
+        ),
         Changed<Interaction>,
     >,
 ) {

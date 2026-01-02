@@ -1,5 +1,6 @@
 //! Crusher systems: processing, UI interaction, output to conveyor
 
+use super::set_ui_open_state;
 use crate::components::{
     CommandInputState, CrusherProgressBar, CrusherSlotButton, CrusherSlotCount, CrusherUI,
     CursorLockState, InteractingCrusher, InteractingFurnace, InventoryOpen, MachineSlotType,
@@ -7,8 +8,7 @@ use crate::components::{
 };
 use crate::player::Inventory;
 use crate::utils::ray_aabb_intersection;
-use super::set_ui_open_state;
-use crate::{BlockType, Conveyor, Crusher, BLOCK_SIZE, CRUSH_TIME, REACH_DISTANCE};
+use crate::{BlockType, Conveyor, Crusher, Furnace, BLOCK_SIZE, CRUSH_TIME, REACH_DISTANCE};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
@@ -239,10 +239,11 @@ pub fn crusher_ui_input(
     }
 }
 
-/// Crusher output to conveyor in facing direction only
+/// Crusher output to conveyor or machine in facing direction only
 pub fn crusher_output(
     mut crusher_query: Query<&mut Crusher>,
     mut conveyor_query: Query<&mut Conveyor>,
+    mut furnace_query: Query<&mut Furnace>,
 ) {
     for mut crusher in crusher_query.iter_mut() {
         let Some(output_type) = crusher.output_type else {
@@ -255,19 +256,42 @@ pub fn crusher_output(
 
         // Output only in facing direction (front of machine)
         let output_pos = crusher.position + crusher.facing.to_ivec3();
+        let mut transferred = false;
 
+        // Try conveyor first
         for mut conveyor in conveyor_query.iter_mut() {
             if conveyor.position == output_pos {
                 if let Some(progress) = conveyor.get_join_progress(crusher.position) {
                     if conveyor.can_accept_item(progress) {
                         conveyor.add_item(output_type, progress);
-                        crusher.output_count -= 1;
-                        if crusher.output_count == 0 {
-                            crusher.output_type = None;
-                        }
+                        transferred = true;
                         break;
                     }
                 }
+            }
+        }
+
+        // Try direct furnace connection (machine-to-machine)
+        if !transferred {
+            for mut furnace in furnace_query.iter_mut() {
+                let furnace_back = furnace.position - furnace.facing.to_ivec3();
+                if furnace.position == output_pos
+                    && furnace_back == crusher.position
+                    && furnace.can_add_input(output_type)
+                {
+                    furnace.input_type = Some(output_type);
+                    furnace.input_count += 1;
+                    transferred = true;
+                    break;
+                }
+            }
+        }
+
+        // Update crusher output if transferred
+        if transferred {
+            crusher.output_count -= 1;
+            if crusher.output_count == 0 {
+                crusher.output_type = None;
             }
         }
     }

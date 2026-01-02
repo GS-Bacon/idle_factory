@@ -3,8 +3,8 @@
 //! A warehouse-style inventory that stores items by type, not by slot.
 //! Used for machines, materials, and crafted items.
 
-use bevy::prelude::*;
 use crate::block_type::BlockType;
+use bevy::prelude::*;
 use std::collections::HashMap;
 
 /// Global inventory - stores items by type (not slot-based)
@@ -78,7 +78,9 @@ impl GlobalInventory {
 
     /// Get all items as a vec for UI display (sorted by BlockType)
     pub fn get_all_items(&self) -> Vec<(BlockType, u32)> {
-        let mut items: Vec<_> = self.items.iter()
+        let mut items: Vec<_> = self
+            .items
+            .iter()
             .filter(|(_, &count)| count > 0)
             .map(|(&bt, &count)| (bt, count))
             .collect();

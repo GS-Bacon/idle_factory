@@ -614,8 +614,103 @@ test_full() {
 }
 
 # =============================================================================
+# ビジュアル比較 (smart_compare)
+# =============================================================================
+
+BASELINE_DIR="/home/bacon/idle_factory/screenshots/baseline"
+SMART_COMPARE="/home/bacon/idle_factory/scripts/vlm_check/smart_compare.py"
+
+# ベースライン保存
+save_baseline() {
+    mkdir -p "$BASELINE_DIR"
+    local count=0
+    for f in "$SCREENSHOTS_DIR"/*.png; do
+        [ -f "$f" ] || continue
+        cp "$f" "$BASELINE_DIR/$(basename "$f")"
+        count=$((count + 1))
+    done
+    log "✅ ベースライン保存: $count 枚 → $BASELINE_DIR"
+}
+
+# スクリーンショット比較
+compare_screenshots() {
+    if [ ! -d "$BASELINE_DIR" ]; then
+        warn "ベースラインがありません: $BASELINE_DIR"
+        warn "先に実行: $0 basic && $0 save-baseline"
+        return 1
+    fi
+
+    if ! command -v python3 >/dev/null 2>&1; then
+        err "python3が見つかりません"
+        return 1
+    fi
+
+    log "=== スクリーンショット比較 ==="
+    local passed=0
+    local failed=0
+    local results=()
+
+    for baseline in "$BASELINE_DIR"/*.png; do
+        [ -f "$baseline" ] || continue
+        local name=$(basename "$baseline")
+        local current="$SCREENSHOTS_DIR/$name"
+
+        if [ ! -f "$current" ]; then
+            warn "⚠ $name: 現在の画像なし"
+            continue
+        fi
+
+        # smart_compare実行
+        local result=$(python3 "$SMART_COMPARE" "$baseline" "$current" --json 2>/dev/null)
+        local severity=$(echo "$result" | jq -r '.severity // "error"')
+        local ssim=$(echo "$result" | jq -r '.metrics.ssim // 0')
+
+        case "$severity" in
+            none)
+                log "✅ $name: identical (SSIM=$ssim)"
+                passed=$((passed + 1))
+                ;;
+            minor)
+                log "⚠ $name: minor diff (SSIM=$ssim)"
+                passed=$((passed + 1))
+                ;;
+            major|critical)
+                err "❌ $name: $severity (SSIM=$ssim)"
+                failed=$((failed + 1))
+                # 詳細表示
+                echo "$result" | jq -r '.issues[]' 2>/dev/null | while read issue; do
+                    echo "     - $issue"
+                done
+                ;;
+            *)
+                warn "⚠ $name: 比較エラー"
+                ;;
+        esac
+    done
+
+    echo ""
+    log "比較結果: ✅ $passed 枚 OK, ❌ $failed 枚 NG"
+
+    if [ $failed -gt 0 ]; then
+        return 1
+    fi
+    return 0
+}
+
+# =============================================================================
 # メイン
 # =============================================================================
+
+case "${1:-basic}" in
+    save-baseline|sb)
+        save_baseline
+        exit 0
+        ;;
+    compare|cmp)
+        compare_screenshots
+        exit $?
+        ;;
+esac
 
 # 古いスクショを削除
 rm -f "$SCREENSHOTS_DIR"/*.png 2>/dev/null || true
@@ -634,12 +729,24 @@ case "${1:-basic}" in
         test_full
         ;;
     *)
-        echo "使い方: $0 [basic|conveyor|machines|full]"
+        echo "使い方: $0 [basic|conveyor|machines|full|compare|save-baseline]"
         echo ""
-        echo "  basic (b)    - 基本テスト（6枚）"
-        echo "  conveyor (c) - コンベアテスト（8枚）"
-        echo "  machines (m) - 機械テスト（6枚）"
-        echo "  full (f)     - 全テスト（20枚）"
+        echo "テスト実行:"
+        echo "  basic (b)         - 基本テスト（6枚）"
+        echo "  conveyor (c)      - コンベアテスト（8枚）"
+        echo "  machines (m)      - 機械テスト（6枚）"
+        echo "  full (f)          - 全テスト（20枚）"
+        echo ""
+        echo "ビジュアル比較:"
+        echo "  save-baseline (sb) - 現在のスクショをベースラインとして保存"
+        echo "  compare (cmp)      - ベースラインと比較（smart_compare使用）"
+        echo ""
+        echo "ワークフロー:"
+        echo "  1. $0 basic           # テスト実行"
+        echo "  2. $0 save-baseline   # OK なら保存"
+        echo "  3. (コード変更後)"
+        echo "  4. $0 basic           # 再テスト"
+        echo "  5. $0 compare         # 差分確認"
         exit 1
         ;;
 esac

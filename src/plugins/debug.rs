@@ -5,13 +5,12 @@
 //! - Debug HUD (F3 toggle)
 //! - E2E state export for automated testing
 
-use bevy::prelude::*;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use bevy::prelude::*;
 
 use crate::components::DebugHudState;
 use crate::systems::{
-    update_window_title_fps, toggle_debug_hud, update_debug_hud,
-    export_e2e_state, E2EExportConfig,
+    export_e2e_state, toggle_debug_hud, update_debug_hud, update_window_title_fps, E2EExportConfig,
 };
 
 /// Plugin that adds debug functionality

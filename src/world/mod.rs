@@ -2,7 +2,7 @@
 
 pub mod biome;
 
-pub use biome::{BiomeMap, mining_random};
+pub use biome::{mining_random, BiomeMap};
 
 use crate::block_type::BlockType;
 use crate::constants::*;
@@ -67,9 +67,32 @@ impl ChunkData {
     pub const ARRAY_SIZE: usize = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT) as usize;
 
     /// Convert local position to array index
+    /// Panics if coordinates are out of bounds in debug mode
     #[inline(always)]
     pub fn pos_to_index(x: i32, y: i32, z: i32) -> usize {
+        debug_assert!(
+            (0..CHUNK_SIZE).contains(&x)
+                && (0..CHUNK_HEIGHT).contains(&y)
+                && (0..CHUNK_SIZE).contains(&z),
+            "pos_to_index out of bounds: ({}, {}, {})",
+            x,
+            y,
+            z
+        );
         (x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE) as usize
+    }
+
+    /// Safe version of pos_to_index that returns None for out-of-bounds coordinates
+    #[inline(always)]
+    pub fn pos_to_index_checked(x: i32, y: i32, z: i32) -> Option<usize> {
+        if (0..CHUNK_SIZE).contains(&x)
+            && (0..CHUNK_HEIGHT).contains(&y)
+            && (0..CHUNK_SIZE).contains(&z)
+        {
+            Some((x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE) as usize)
+        } else {
+            None
+        }
     }
 
     /// Convert array index to local position
@@ -142,9 +165,9 @@ impl ChunkData {
                             1 => {
                                 // Iron biome: higher iron, some coal
                                 if y <= 5 && hash % 8 == 0 {
-                                    BlockType::IronOre  // ~12.5% iron
+                                    BlockType::IronOre // ~12.5% iron
                                 } else if y <= 4 && hash % 20 == 1 {
-                                    BlockType::Coal     // ~5% coal
+                                    BlockType::Coal // ~5% coal
                                 } else {
                                     BlockType::Stone
                                 }
@@ -154,7 +177,7 @@ impl ChunkData {
                                 if y <= 5 && hash % 8 == 0 {
                                     BlockType::CopperOre // ~12.5% copper
                                 } else if y <= 4 && hash % 25 == 1 {
-                                    BlockType::IronOre   // ~4% iron
+                                    BlockType::IronOre // ~4% iron
                                 } else {
                                     BlockType::Stone
                                 }
@@ -162,9 +185,9 @@ impl ChunkData {
                             3 => {
                                 // Coal biome: high coal, some iron/copper
                                 if y <= 6 && hash % 6 == 0 {
-                                    BlockType::Coal      // ~16% coal
+                                    BlockType::Coal // ~16% coal
                                 } else if y <= 3 && hash % 30 == 1 {
-                                    BlockType::IronOre   // ~3% iron
+                                    BlockType::IronOre // ~3% iron
                                 } else if y <= 3 && hash % 30 == 2 {
                                     BlockType::CopperOre // ~3% copper
                                 } else {
@@ -174,11 +197,11 @@ impl ChunkData {
                             _ => {
                                 // Mixed biome: original distribution
                                 if y <= 4 && hash % 20 == 0 {
-                                    BlockType::IronOre   // 5% iron
+                                    BlockType::IronOre // 5% iron
                                 } else if y <= 3 && hash % 25 == 1 {
                                     BlockType::CopperOre // 4% copper
                                 } else if y <= 5 && hash % 15 == 2 {
-                                    BlockType::Coal      // ~7% coal
+                                    BlockType::Coal // ~7% coal
                                 } else {
                                     BlockType::Stone
                                 }
@@ -191,7 +214,11 @@ impl ChunkData {
                 }
             }
         }
-        tracing::debug!("Chunk {:?} generated with {} blocks", chunk_coord, blocks_map.len());
+        tracing::debug!(
+            "Chunk {:?} generated with {} blocks",
+            chunk_coord,
+            blocks_map.len()
+        );
         Self { blocks, blocks_map }
     }
 
@@ -236,7 +263,10 @@ impl ChunkData {
     /// Get block at local position (fast array access)
     #[inline(always)]
     pub fn get_block(&self, x: i32, y: i32, z: i32) -> Option<BlockType> {
-        if !(0..CHUNK_SIZE).contains(&x) || !(0..CHUNK_HEIGHT).contains(&y) || !(0..CHUNK_SIZE).contains(&z) {
+        if !(0..CHUNK_SIZE).contains(&x)
+            || !(0..CHUNK_HEIGHT).contains(&y)
+            || !(0..CHUNK_SIZE).contains(&z)
+        {
             return None;
         }
         self.blocks[Self::pos_to_index(x, y, z)]
@@ -246,7 +276,8 @@ impl ChunkData {
     #[inline(always)]
     #[allow(dead_code)]
     pub fn has_block_at(&self, local_pos: IVec3) -> bool {
-        self.get_block(local_pos.x, local_pos.y, local_pos.z).is_some()
+        self.get_block(local_pos.x, local_pos.y, local_pos.z)
+            .is_some()
     }
 
     /// Generate a combined mesh for the entire chunk with face culling
@@ -268,29 +299,77 @@ impl ChunkData {
         // Triangle indices: 0,1,2 and 0,2,3
         let faces: [(i32, i32, i32, [[f32; 3]; 4]); 6] = [
             // +Y (top): normal = (0,1,0)
-            (0, 1, 0, [
-                [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]
-            ]),
+            (
+                0,
+                1,
+                0,
+                [
+                    [0.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0],
+                    [1.0, 1.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                ],
+            ),
             // -Y (bottom): normal = (0,-1,0)
-            (0, -1, 0, [
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [0.0, 0.0, 1.0]
-            ]),
+            (
+                0,
+                -1,
+                0,
+                [
+                    [0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0],
+                    [1.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0],
+                ],
+            ),
             // +X (east): normal = (1,0,0) - reversed order
-            (1, 0, 0, [
-                [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 0.0, 0.0]
-            ]),
+            (
+                1,
+                0,
+                0,
+                [
+                    [1.0, 1.0, 0.0],
+                    [1.0, 1.0, 1.0],
+                    [1.0, 0.0, 1.0],
+                    [1.0, 0.0, 0.0],
+                ],
+            ),
             // -X (west): normal = (-1,0,0) - reversed order
-            (-1, 0, 0, [
-                [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 1.0]
-            ]),
+            (
+                -1,
+                0,
+                0,
+                [
+                    [0.0, 1.0, 1.0],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0],
+                ],
+            ),
             // +Z (south): normal = (0,0,1) - reversed order
-            (0, 0, 1, [
-                [1.0, 1.0, 1.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0], [1.0, 0.0, 1.0]
-            ]),
+            (
+                0,
+                0,
+                1,
+                [
+                    [1.0, 1.0, 1.0],
+                    [0.0, 1.0, 1.0],
+                    [0.0, 0.0, 1.0],
+                    [1.0, 0.0, 1.0],
+                ],
+            ),
             // -Z (north): normal = (0,0,-1) - reversed order
-            (0, 0, -1, [
-                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]
-            ]),
+            (
+                0,
+                0,
+                -1,
+                [
+                    [0.0, 1.0, 0.0],
+                    [1.0, 1.0, 0.0],
+                    [1.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ],
+            ),
         ];
 
         // Cache chunk world offset
@@ -311,7 +390,12 @@ impl ChunkData {
                     let base_z = chunk_world_z + z as f32;
 
                     let color = block_type.color();
-                    let color_arr = [color.to_srgba().red, color.to_srgba().green, color.to_srgba().blue, 1.0];
+                    let color_arr = [
+                        color.to_srgba().red,
+                        color.to_srgba().green,
+                        color.to_srgba().blue,
+                        1.0,
+                    ];
 
                     for (dx, dy, dz, verts) in &faces {
                         // Fast neighbor check using array
@@ -348,11 +432,7 @@ impl ChunkData {
 
                         // Add 4 vertices for this face
                         for vert in verts {
-                            positions.push([
-                                base_x + vert[0],
-                                base_y + vert[1],
-                                base_z + vert[2],
-                            ]);
+                            positions.push([base_x + vert[0], base_y + vert[1], base_z + vert[2]]);
                             normals.push(normal);
                             uvs.push([0.0, 0.0]);
                             colors.push(color_arr);
@@ -361,8 +441,12 @@ impl ChunkData {
                         // Add 2 triangles (6 indices) for this face
                         // Standard order: vertices are already CCW when viewed from outside
                         indices.extend_from_slice(&[
-                            base_idx, base_idx + 1, base_idx + 2,
-                            base_idx, base_idx + 2, base_idx + 3,
+                            base_idx,
+                            base_idx + 1,
+                            base_idx + 2,
+                            base_idx,
+                            base_idx + 2,
+                            base_idx + 3,
                         ]);
                     }
                 }
@@ -480,9 +564,8 @@ impl WorldData {
     /// Generate mesh for a chunk with proper neighbor checking across chunk boundaries
     pub fn generate_chunk_mesh(&self, chunk_coord: IVec2) -> Option<Mesh> {
         let chunk_data = self.chunks.get(&chunk_coord)?;
-        let mesh = chunk_data.generate_mesh_with_neighbors(chunk_coord, |world_pos| {
-            self.has_block(world_pos)
-        });
+        let mesh = chunk_data
+            .generate_mesh_with_neighbors(chunk_coord, |world_pos| self.has_block(world_pos));
         Some(mesh)
     }
 }
@@ -499,7 +582,14 @@ mod tests {
                 for y in 0..CHUNK_HEIGHT {
                     let idx = ChunkData::pos_to_index(x, y, z);
                     let pos = ChunkData::index_to_pos(idx);
-                    assert_eq!(pos, IVec3::new(x, y, z), "Round trip failed for ({}, {}, {})", x, y, z);
+                    assert_eq!(
+                        pos,
+                        IVec3::new(x, y, z),
+                        "Round trip failed for ({}, {}, {})",
+                        x,
+                        y,
+                        z
+                    );
                 }
             }
         }
@@ -514,8 +604,13 @@ mod tests {
             for z in 0..CHUNK_SIZE {
                 // Skip platform area
                 if !ChunkData::is_platform_area(x, z) {
-                    assert!(chunk.get_block(x, GROUND_LEVEL, z).is_some(),
-                        "Expected block at ground level ({}, {}, {})", x, GROUND_LEVEL, z);
+                    assert!(
+                        chunk.get_block(x, GROUND_LEVEL, z).is_some(),
+                        "Expected block at ground level ({}, {}, {})",
+                        x,
+                        GROUND_LEVEL,
+                        z
+                    );
                 }
             }
         }
@@ -523,8 +618,13 @@ mod tests {
         // Above ground level should be empty
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
-                assert!(chunk.get_block(x, GROUND_LEVEL + 1, z).is_none(),
-                    "Expected no block above ground at ({}, {}, {})", x, GROUND_LEVEL + 1, z);
+                assert!(
+                    chunk.get_block(x, GROUND_LEVEL + 1, z).is_none(),
+                    "Expected no block above ground at ({}, {}, {})",
+                    x,
+                    GROUND_LEVEL + 1,
+                    z
+                );
             }
         }
     }
@@ -558,18 +658,42 @@ mod tests {
     fn test_world_data_coordinate_conversion() {
         // Test world_to_chunk
         assert_eq!(WorldData::world_to_chunk(IVec3::new(0, 0, 0)), IVec2::ZERO);
-        assert_eq!(WorldData::world_to_chunk(IVec3::new(15, 0, 15)), IVec2::ZERO);
-        assert_eq!(WorldData::world_to_chunk(IVec3::new(16, 0, 0)), IVec2::new(1, 0));
-        assert_eq!(WorldData::world_to_chunk(IVec3::new(-1, 0, -1)), IVec2::new(-1, -1));
+        assert_eq!(
+            WorldData::world_to_chunk(IVec3::new(15, 0, 15)),
+            IVec2::ZERO
+        );
+        assert_eq!(
+            WorldData::world_to_chunk(IVec3::new(16, 0, 0)),
+            IVec2::new(1, 0)
+        );
+        assert_eq!(
+            WorldData::world_to_chunk(IVec3::new(-1, 0, -1)),
+            IVec2::new(-1, -1)
+        );
 
         // Test world_to_local
-        assert_eq!(WorldData::world_to_local(IVec3::new(0, 5, 0)), IVec3::new(0, 5, 0));
-        assert_eq!(WorldData::world_to_local(IVec3::new(17, 3, 18)), IVec3::new(1, 3, 2));
-        assert_eq!(WorldData::world_to_local(IVec3::new(-1, 2, -1)), IVec3::new(15, 2, 15));
+        assert_eq!(
+            WorldData::world_to_local(IVec3::new(0, 5, 0)),
+            IVec3::new(0, 5, 0)
+        );
+        assert_eq!(
+            WorldData::world_to_local(IVec3::new(17, 3, 18)),
+            IVec3::new(1, 3, 2)
+        );
+        assert_eq!(
+            WorldData::world_to_local(IVec3::new(-1, 2, -1)),
+            IVec3::new(15, 2, 15)
+        );
 
         // Test local_to_world
-        assert_eq!(WorldData::local_to_world(IVec2::ZERO, IVec3::new(5, 3, 7)), IVec3::new(5, 3, 7));
-        assert_eq!(WorldData::local_to_world(IVec2::new(1, 2), IVec3::new(3, 4, 5)), IVec3::new(19, 4, 37));
+        assert_eq!(
+            WorldData::local_to_world(IVec2::ZERO, IVec3::new(5, 3, 7)),
+            IVec3::new(5, 3, 7)
+        );
+        assert_eq!(
+            WorldData::local_to_world(IVec2::new(1, 2), IVec3::new(3, 4, 5)),
+            IVec3::new(19, 4, 37)
+        );
     }
 
     #[test]
@@ -578,7 +702,9 @@ mod tests {
 
         // Generate a chunk
         let chunk_coord = IVec2::ZERO;
-        world.chunks.insert(chunk_coord, ChunkData::generate(chunk_coord));
+        world
+            .chunks
+            .insert(chunk_coord, ChunkData::generate(chunk_coord));
 
         // Get existing block
         let pos = IVec3::new(5, GROUND_LEVEL, 5);
@@ -602,8 +728,12 @@ mod tests {
         let mut world = WorldData::default();
 
         // Generate two adjacent chunks
-        world.chunks.insert(IVec2::new(0, 0), ChunkData::generate(IVec2::new(0, 0)));
-        world.chunks.insert(IVec2::new(1, 0), ChunkData::generate(IVec2::new(1, 0)));
+        world
+            .chunks
+            .insert(IVec2::new(0, 0), ChunkData::generate(IVec2::new(0, 0)));
+        world
+            .chunks
+            .insert(IVec2::new(1, 0), ChunkData::generate(IVec2::new(1, 0)));
 
         // Query block in first chunk
         assert!(world.has_block(IVec3::new(0, GROUND_LEVEL, 0)));

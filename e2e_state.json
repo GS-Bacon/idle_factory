@@ -1,17 +1,17 @@
 {
   "player_pos": [
     8.0,
-    12.0,
+    10.0,
     20.0
   ],
-  "camera_pitch": 0.0,
+  "camera_pitch": 1.3962634,
   "camera_yaw": 0.0,
   "target_break": null,
   "target_place": null,
   "target_block_type": "None",
-  "creative_mode": false,
-  "paused": true,
-  "fps": 10.380825,
+  "creative_mode": true,
+  "paused": false,
+  "fps": 14.801943,
   "quest": {
     "index": 0,
     "completed": false,

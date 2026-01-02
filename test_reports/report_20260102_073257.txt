@@ -1,0 +1,13 @@
+IDLE FACTORY TEST REPORT
+Timestamp: 20260102_073257
+Overall Status: PASS
+
+Build: pass
+Unit Tests: 74 passed, 0 failed
+E2E Tests: 146 passed, 0 failed
+Property Tests: 8 passed, 0 failed
+Clippy Warnings: 0
+0
+Coverage: N/A
+VLM Issues: 0
+Log Severity: none

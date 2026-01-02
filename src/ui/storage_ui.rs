@@ -15,6 +15,7 @@ use crate::components::{
     GlobalInventorySlotCount, GlobalInventorySlotImage, GlobalInventoryUI, InteractingCrusher,
     InteractingFurnace, InteractingMiner, InventoryOpen, ItemCategory, ItemSprites,
 };
+use crate::constants::ui_colors;
 use crate::player::GlobalInventory;
 use crate::systems::set_ui_open_state;
 
@@ -26,30 +27,6 @@ pub const GRID_COLUMNS: usize = 8;
 pub const SLOT_SIZE: f32 = 54.0;
 /// Slot spacing
 pub const SLOT_GAP: f32 = 4.0;
-
-// === ハイブリッドダークテーマ色定数 ===
-/// パネル背景（やや明るめのダークグレー）
-const PANEL_BG: Color = Color::srgba(0.12, 0.12, 0.14, 0.97);
-/// スロット背景（空）
-const SLOT_BG_EMPTY: Color = Color::srgb(0.18, 0.18, 0.20);
-/// スロット背景（アイテムあり）
-const SLOT_BG_FILLED: Color = Color::srgb(0.22, 0.22, 0.25);
-/// ボーダー（ハイライト - 上/左）
-const BORDER_HIGHLIGHT: Color = Color::srgb(0.4, 0.4, 0.45);
-/// ボーダー（シャドウ - 下/右）
-const BORDER_SHADOW: Color = Color::srgb(0.08, 0.08, 0.10);
-/// タブ選択時
-const TAB_SELECTED: Color = Color::srgb(0.35, 0.38, 0.50);
-/// タブ非選択
-const TAB_UNSELECTED: Color = Color::srgb(0.20, 0.20, 0.25);
-/// タブホバー
-const TAB_HOVER: Color = Color::srgb(0.28, 0.30, 0.38);
-/// 検索ボックス背景
-const SEARCH_BG: Color = Color::srgb(0.15, 0.15, 0.18);
-/// ページボタン
-const PAGE_BTN_BG: Color = Color::srgb(0.25, 0.25, 0.30);
-/// ページボタンホバー
-const PAGE_BTN_HOVER: Color = Color::srgb(0.35, 0.35, 0.40);
 
 /// Toggle global inventory with Tab key
 #[allow(clippy::too_many_arguments)]
@@ -121,7 +98,11 @@ pub fn global_inventory_page_nav(
     mut page: ResMut<GlobalInventoryPage>,
     global_inventory: Res<GlobalInventory>,
     mut button_query: Query<
-        (&Interaction, &GlobalInventoryPageButton, &mut BackgroundColor),
+        (
+            &Interaction,
+            &GlobalInventoryPageButton,
+            &mut BackgroundColor,
+        ),
         Changed<Interaction>,
     >,
 ) {
@@ -138,13 +119,13 @@ pub fn global_inventory_page_nav(
                 } else if page.0 > 0 {
                     page.0 -= 1;
                 }
-                *bg_color = BackgroundColor(TAB_SELECTED);
+                *bg_color = BackgroundColor(ui_colors::TAB_SELECTED);
             }
             Interaction::Hovered => {
-                *bg_color = BackgroundColor(PAGE_BTN_HOVER);
+                *bg_color = BackgroundColor(ui_colors::BTN_HOVER);
             }
             Interaction::None => {
-                *bg_color = BackgroundColor(PAGE_BTN_BG);
+                *bg_color = BackgroundColor(ui_colors::BTN_BG);
             }
         }
     }
@@ -165,7 +146,13 @@ pub fn update_global_inventory_ui(
     >,
     mut slot_image_query: Query<(&GlobalInventorySlotImage, &mut Visibility, &mut ImageNode)>,
     mut slot_count_query: Query<(&GlobalInventorySlotCount, &mut Text)>,
-    mut page_text_query: Query<&mut Text, (With<GlobalInventoryPageText>, Without<GlobalInventorySlotCount>)>,
+    mut page_text_query: Query<
+        &mut Text,
+        (
+            With<GlobalInventoryPageText>,
+            Without<GlobalInventorySlotCount>,
+        ),
+    >,
 ) {
     // Hide all slot images when UI is closed
     if !global_inv_open.0 {
@@ -208,9 +195,9 @@ pub fn update_global_inventory_ui(
     for (slot, mut bg_color) in slot_query.iter_mut() {
         let item_idx = start_idx + slot.0;
         if item_idx < items.len() {
-            *bg_color = BackgroundColor(SLOT_BG_FILLED);
+            *bg_color = BackgroundColor(ui_colors::SLOT_FILLED);
         } else {
-            *bg_color = BackgroundColor(SLOT_BG_EMPTY);
+            *bg_color = BackgroundColor(ui_colors::SLOT_EMPTY);
         }
     }
 
@@ -250,7 +237,11 @@ pub fn global_inventory_category_click(
     mut category: ResMut<GlobalInventoryCategory>,
     mut page: ResMut<GlobalInventoryPage>,
     mut button_query: Query<
-        (&Interaction, &GlobalInventoryCategoryTab, &mut BackgroundColor),
+        (
+            &Interaction,
+            &GlobalInventoryCategoryTab,
+            &mut BackgroundColor,
+        ),
         Changed<Interaction>,
     >,
 ) {
@@ -259,18 +250,18 @@ pub fn global_inventory_category_click(
             Interaction::Pressed => {
                 category.0 = tab.0;
                 page.0 = 0; // Reset to first page when category changes
-                *bg_color = BackgroundColor(TAB_SELECTED);
+                *bg_color = BackgroundColor(ui_colors::TAB_SELECTED);
             }
             Interaction::Hovered => {
                 if category.0 != tab.0 {
-                    *bg_color = BackgroundColor(TAB_HOVER);
+                    *bg_color = BackgroundColor(ui_colors::TAB_HOVER);
                 }
             }
             Interaction::None => {
                 if category.0 == tab.0 {
-                    *bg_color = BackgroundColor(TAB_SELECTED);
+                    *bg_color = BackgroundColor(ui_colors::TAB_SELECTED);
                 } else {
-                    *bg_color = BackgroundColor(TAB_UNSELECTED);
+                    *bg_color = BackgroundColor(ui_colors::TAB_UNSELECTED);
                 }
             }
         }
@@ -299,15 +290,32 @@ pub fn global_inventory_search_input(
 
     // Handle letter keys A-Z
     let letter_keys = [
-        (KeyCode::KeyA, 'a'), (KeyCode::KeyB, 'b'), (KeyCode::KeyC, 'c'),
-        (KeyCode::KeyD, 'd'), (KeyCode::KeyE, 'e'), (KeyCode::KeyF, 'f'),
-        (KeyCode::KeyG, 'g'), (KeyCode::KeyH, 'h'), (KeyCode::KeyI, 'i'),
-        (KeyCode::KeyJ, 'j'), (KeyCode::KeyK, 'k'), (KeyCode::KeyL, 'l'),
-        (KeyCode::KeyM, 'm'), (KeyCode::KeyN, 'n'), (KeyCode::KeyO, 'o'),
-        (KeyCode::KeyP, 'p'), (KeyCode::KeyQ, 'q'), (KeyCode::KeyR, 'r'),
-        (KeyCode::KeyS, 's'), (KeyCode::KeyT, 't'), (KeyCode::KeyU, 'u'),
-        (KeyCode::KeyV, 'v'), (KeyCode::KeyW, 'w'), (KeyCode::KeyX, 'x'),
-        (KeyCode::KeyY, 'y'), (KeyCode::KeyZ, 'z'),
+        (KeyCode::KeyA, 'a'),
+        (KeyCode::KeyB, 'b'),
+        (KeyCode::KeyC, 'c'),
+        (KeyCode::KeyD, 'd'),
+        (KeyCode::KeyE, 'e'),
+        (KeyCode::KeyF, 'f'),
+        (KeyCode::KeyG, 'g'),
+        (KeyCode::KeyH, 'h'),
+        (KeyCode::KeyI, 'i'),
+        (KeyCode::KeyJ, 'j'),
+        (KeyCode::KeyK, 'k'),
+        (KeyCode::KeyL, 'l'),
+        (KeyCode::KeyM, 'm'),
+        (KeyCode::KeyN, 'n'),
+        (KeyCode::KeyO, 'o'),
+        (KeyCode::KeyP, 'p'),
+        (KeyCode::KeyQ, 'q'),
+        (KeyCode::KeyR, 'r'),
+        (KeyCode::KeyS, 's'),
+        (KeyCode::KeyT, 't'),
+        (KeyCode::KeyU, 'u'),
+        (KeyCode::KeyV, 'v'),
+        (KeyCode::KeyW, 'w'),
+        (KeyCode::KeyX, 'x'),
+        (KeyCode::KeyY, 'y'),
+        (KeyCode::KeyZ, 'z'),
     ];
 
     for (key, c) in letter_keys {
@@ -353,8 +361,8 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                 padding: UiRect::all(Val::Px(10.0)),
                 ..default()
             },
-            BackgroundColor(PANEL_BG),
-            BorderColor(BORDER_HIGHLIGHT),
+            BackgroundColor(ui_colors::PANEL_BG),
+            BorderColor(ui_colors::BORDER_HIGHLIGHT),
             GlobalInventoryUI,
             Visibility::Hidden,
         ))
@@ -397,14 +405,14 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                                 ..default()
                             },
                             BackgroundColor(if is_default {
-                                TAB_SELECTED
+                                ui_colors::TAB_SELECTED
                             } else {
-                                TAB_UNSELECTED
+                                ui_colors::TAB_UNSELECTED
                             }),
                             BorderColor(if is_default {
-                                BORDER_HIGHLIGHT
+                                ui_colors::BORDER_HIGHLIGHT
                             } else {
-                                BORDER_SHADOW
+                                ui_colors::BORDER_SHADOW
                             }),
                             GlobalInventoryCategoryTab(cat),
                         ))
@@ -434,8 +442,8 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BackgroundColor(SEARCH_BG),
-                    BorderColor(BORDER_SHADOW),
+                    BackgroundColor(ui_colors::INPUT_BG),
+                    BorderColor(ui_colors::BORDER_SHADOW),
                 ))
                 .with_children(|search_box| {
                     search_box.spawn((
@@ -451,16 +459,14 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
 
             // Grid container
             parent
-                .spawn((
-                    Node {
-                        display: Display::Grid,
-                        grid_template_columns: RepeatedGridTrack::px(GRID_COLUMNS as u16, SLOT_SIZE),
-                        grid_template_rows: RepeatedGridTrack::px(4, SLOT_SIZE),
-                        row_gap: Val::Px(SLOT_GAP),
-                        column_gap: Val::Px(SLOT_GAP),
-                        ..default()
-                    },
-                ))
+                .spawn((Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::px(GRID_COLUMNS as u16, SLOT_SIZE),
+                    grid_template_rows: RepeatedGridTrack::px(4, SLOT_SIZE),
+                    row_gap: Val::Px(SLOT_GAP),
+                    column_gap: Val::Px(SLOT_GAP),
+                    ..default()
+                },))
                 .with_children(|grid| {
                     // Create 32 slots
                     for i in 0..SLOTS_PER_PAGE {
@@ -473,8 +479,8 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                                 border: UiRect::all(Val::Px(2.0)),
                                 ..default()
                             },
-                            BackgroundColor(SLOT_BG_EMPTY),
-                            BorderColor(BORDER_HIGHLIGHT),
+                            BackgroundColor(ui_colors::SLOT_EMPTY),
+                            BorderColor(ui_colors::BORDER_HIGHLIGHT),
                             GlobalInventorySlot(i),
                         ))
                         .with_children(|slot| {
@@ -513,15 +519,13 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
 
             // Page navigation
             parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        margin: UiRect::top(Val::Px(10.0)),
-                        column_gap: Val::Px(10.0),
-                        ..default()
-                    },
-                ))
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(10.0)),
+                    column_gap: Val::Px(10.0),
+                    ..default()
+                },))
                 .with_children(|nav| {
                     // Previous button
                     nav.spawn((
@@ -534,8 +538,8 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(PAGE_BTN_BG),
-                        BorderColor(BORDER_HIGHLIGHT),
+                        BackgroundColor(ui_colors::BTN_BG),
+                        BorderColor(ui_colors::BORDER_HIGHLIGHT),
                         GlobalInventoryPageButton { next: false },
                     ))
                     .with_children(|btn| {
@@ -571,8 +575,8 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(PAGE_BTN_BG),
-                        BorderColor(BORDER_HIGHLIGHT),
+                        BackgroundColor(ui_colors::BTN_BG),
+                        BorderColor(ui_colors::BORDER_HIGHLIGHT),
                         GlobalInventoryPageButton { next: true },
                     ))
                     .with_children(|btn| {

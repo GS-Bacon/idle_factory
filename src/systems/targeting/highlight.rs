@@ -7,8 +7,8 @@ use crate::meshes::{create_conveyor_wireframe_mesh, create_wireframe_cube_mesh};
 use crate::player::Inventory;
 use crate::utils::{auto_conveyor_direction, yaw_to_direction};
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, Crusher, Direction, Furnace, Miner, PlaceHighlight,
-    PlayerCamera, TargetBlock, TargetHighlight,
+    BlockType, Conveyor, ConveyorRotationOffset, Crusher, Direction, Furnace, Miner,
+    PlaceHighlight, PlayerCamera, TargetBlock, TargetHighlight,
 };
 
 /// Cached meshes for highlight wireframes (avoid recreation every frame)
@@ -128,9 +128,12 @@ pub fn update_target_highlight(
     };
 
     // Check if break target is a conveyor and get its direction
-    let break_conveyor_dir = target
-        .break_target
-        .and_then(|pos| conveyor_query.iter().find(|c| c.position == pos).map(|c| c.direction));
+    let break_conveyor_dir = target.break_target.and_then(|pos| {
+        conveyor_query
+            .iter()
+            .find(|c| c.position == pos)
+            .map(|c| c.direction)
+    });
 
     // === Break target (red wireframe) - always show when looking at a block ===
     if let Some(pos) = target.break_target {

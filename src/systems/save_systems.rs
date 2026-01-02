@@ -46,38 +46,54 @@ pub fn collect_save_data(
 
     // Collect player data
     let player_data = if let Ok(transform) = player_query.get_single() {
-        let rotation = camera_query.get_single()
-            .map(|c| CameraRotation { pitch: c.pitch, yaw: c.yaw })
-            .unwrap_or(CameraRotation { pitch: 0.0, yaw: 0.0 });
+        let rotation = camera_query
+            .get_single()
+            .map(|c| CameraRotation {
+                pitch: c.pitch,
+                yaw: c.yaw,
+            })
+            .unwrap_or(CameraRotation {
+                pitch: 0.0,
+                yaw: 0.0,
+            });
         PlayerSaveData {
             position: transform.translation.into(),
             rotation,
         }
     } else {
         PlayerSaveData {
-            position: Vec3Save { x: 8.0, y: 12.0, z: 20.0 },
-            rotation: CameraRotation { pitch: 0.0, yaw: 0.0 },
+            position: Vec3Save {
+                x: 8.0,
+                y: 12.0,
+                z: 20.0,
+            },
+            rotation: CameraRotation {
+                pitch: 0.0,
+                yaw: 0.0,
+            },
         }
     };
 
     // Collect inventory data
     let inventory_data = InventorySaveData {
         selected_slot: inventory.selected_slot,
-        slots: inventory.slots.iter().map(|slot| {
-            slot.map(|(bt, count)| ItemStack {
-                item_type: bt.into(),
-                count,
+        slots: inventory
+            .slots
+            .iter()
+            .map(|slot| {
+                slot.map(|(bt, count)| ItemStack {
+                    item_type: bt.into(),
+                    count,
+                })
             })
-        }).collect(),
+            .collect(),
     };
 
     // Collect world modifications
     let modified_blocks: std::collections::HashMap<String, Option<BlockTypeSave>> = world_data
         .modified_blocks
         .iter()
-        .map(|(pos, block)| {
-            (WorldSaveData::pos_to_key(*pos), block.map(|b| b.into()))
-        })
+        .map(|(pos, block)| (WorldSaveData::pos_to_key(*pos), block.map(|b| b.into())))
         .collect();
 
     let world_save = WorldSaveData { modified_blocks };
@@ -112,13 +128,15 @@ pub fn collect_save_data(
             ConveyorShape::TJunction => ConveyorShapeSave::TJunction,
             ConveyorShape::Splitter => ConveyorShapeSave::Splitter,
         };
-        let items: Vec<ConveyorItemSave> = conveyor.items.iter().map(|item| {
-            ConveyorItemSave {
+        let items: Vec<ConveyorItemSave> = conveyor
+            .items
+            .iter()
+            .map(|item| ConveyorItemSave {
                 item_type: item.block_type.into(),
                 progress: item.progress,
                 lateral_offset: item.lateral_offset,
-            }
-        }).collect();
+            })
+            .collect();
 
         machines.push(MachineSaveData::Conveyor(ConveyorSaveData {
             position: conveyor.position.into(),
@@ -173,7 +191,10 @@ pub fn collect_save_data(
         .iter()
         .next()
         .map(|d| {
-            d.delivered.iter().map(|(bt, count)| ((*bt).into(), *count)).collect()
+            d.delivered
+                .iter()
+                .map(|(bt, count)| ((*bt).into(), *count))
+                .collect()
         })
         .unwrap_or_default();
 
@@ -307,7 +328,10 @@ pub fn handle_load_event(
     mut creative_mode: ResMut<CreativeMode>,
     mut delivery_query: Query<&mut DeliveryPlatform>,
     // All machine entities to despawn (combined query)
-    machine_entities: Query<Entity, Or<(With<Miner>, With<Conveyor>, With<Furnace>, With<Crusher>)>>,
+    machine_entities: Query<
+        Entity,
+        Or<(With<Miner>, With<Conveyor>, With<Furnace>, With<Crusher>)>,
+    >,
 ) {
     for event in events.read() {
         match save::load_game(&event.filename) {
@@ -327,9 +351,8 @@ pub fn handle_load_event(
                 inventory.selected_slot = data.inventory.selected_slot;
                 for (i, slot) in data.inventory.slots.iter().enumerate() {
                     if i < inventory.slots.len() {
-                        inventory.slots[i] = slot.as_ref().map(|s| {
-                            (s.item_type.clone().into(), s.count)
-                        });
+                        inventory.slots[i] =
+                            slot.as_ref().map(|s| (s.item_type.clone().into(), s.count));
                     }
                 }
 
@@ -346,10 +369,9 @@ pub fn handle_load_event(
                 world_data.modified_blocks.clear();
                 for (key, block_opt) in &data.world.modified_blocks {
                     if let Some(pos) = save::WorldSaveData::key_to_pos(key) {
-                        world_data.modified_blocks.insert(
-                            pos,
-                            block_opt.as_ref().map(|b| b.clone().into())
-                        );
+                        world_data
+                            .modified_blocks
+                            .insert(pos, block_opt.as_ref().map(|b| b.clone().into()));
                     }
                 }
 
@@ -369,15 +391,17 @@ pub fn handle_load_event(
                                 pos.z as f32 + 0.5,
                             );
 
-                            let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            let cube_mesh =
+                                meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                             commands.spawn((
                                 Miner {
                                     position: pos,
                                     facing: Direction::North, // Default for old saves
                                     progress: miner_data.progress,
-                                    buffer: miner_data.buffer.as_ref().map(|b| {
-                                        (b.item_type.clone().into(), b.count)
-                                    }),
+                                    buffer: miner_data
+                                        .buffer
+                                        .as_ref()
+                                        .map(|b| (b.item_type.clone().into(), b.count)),
                                     tick_count: 0,
                                 },
                                 Mesh3d(cube_mesh),
@@ -398,17 +422,25 @@ pub fn handle_load_event(
                                 pos.z as f32 + 0.5,
                             );
 
-                            let items: Vec<ConveyorItem> = conveyor_data.items.iter().map(|item| {
-                                ConveyorItem {
-                                    block_type: item.item_type.clone().into(),
-                                    progress: item.progress,
-                                    visual_entity: None, // Will be created by update_conveyor_item_visuals
-                                    lateral_offset: item.lateral_offset,
-                                }
-                            }).collect();
+                            let items: Vec<ConveyorItem> = conveyor_data
+                                .items
+                                .iter()
+                                .map(|item| {
+                                    ConveyorItem {
+                                        block_type: item.item_type.clone().into(),
+                                        progress: item.progress,
+                                        visual_entity: None, // Will be created by update_conveyor_item_visuals
+                                        lateral_offset: item.lateral_offset,
+                                    }
+                                })
+                                .collect();
 
                             // Use simple cuboid mesh for now (create_conveyor_mesh would need to be moved)
-                            let mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.9, BLOCK_SIZE * 0.2, BLOCK_SIZE));
+                            let mesh = meshes.add(Cuboid::new(
+                                BLOCK_SIZE * 0.9,
+                                BLOCK_SIZE * 0.2,
+                                BLOCK_SIZE,
+                            ));
 
                             commands.spawn((
                                 Conveyor {
@@ -440,16 +472,31 @@ pub fn handle_load_event(
                                 pos.z as f32 + 0.5,
                             );
 
-                            let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            let cube_mesh =
+                                meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                             commands.spawn((
                                 Furnace {
                                     position: pos,
                                     facing: Direction::North, // Default for old saves
                                     fuel: furnace_data.fuel,
-                                    input_type: furnace_data.input.as_ref().map(|s| s.item_type.clone().into()),
-                                    input_count: furnace_data.input.as_ref().map(|s| s.count).unwrap_or(0),
-                                    output_type: furnace_data.output.as_ref().map(|s| s.item_type.clone().into()),
-                                    output_count: furnace_data.output.as_ref().map(|s| s.count).unwrap_or(0),
+                                    input_type: furnace_data
+                                        .input
+                                        .as_ref()
+                                        .map(|s| s.item_type.clone().into()),
+                                    input_count: furnace_data
+                                        .input
+                                        .as_ref()
+                                        .map(|s| s.count)
+                                        .unwrap_or(0),
+                                    output_type: furnace_data
+                                        .output
+                                        .as_ref()
+                                        .map(|s| s.item_type.clone().into()),
+                                    output_count: furnace_data
+                                        .output
+                                        .as_ref()
+                                        .map(|s| s.count)
+                                        .unwrap_or(0),
                                     progress: furnace_data.progress,
                                 },
                                 Mesh3d(cube_mesh),
@@ -468,15 +515,30 @@ pub fn handle_load_event(
                                 pos.z as f32 + 0.5,
                             );
 
-                            let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            let cube_mesh =
+                                meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                             commands.spawn((
                                 Crusher {
                                     position: pos,
                                     facing: Direction::North, // Default for old saves
-                                    input_type: crusher_data.input.as_ref().map(|s| s.item_type.clone().into()),
-                                    input_count: crusher_data.input.as_ref().map(|s| s.count).unwrap_or(0),
-                                    output_type: crusher_data.output.as_ref().map(|s| s.item_type.clone().into()),
-                                    output_count: crusher_data.output.as_ref().map(|s| s.count).unwrap_or(0),
+                                    input_type: crusher_data
+                                        .input
+                                        .as_ref()
+                                        .map(|s| s.item_type.clone().into()),
+                                    input_count: crusher_data
+                                        .input
+                                        .as_ref()
+                                        .map(|s| s.count)
+                                        .unwrap_or(0),
+                                    output_type: crusher_data
+                                        .output
+                                        .as_ref()
+                                        .map(|s| s.item_type.clone().into()),
+                                    output_count: crusher_data
+                                        .output
+                                        .as_ref()
+                                        .map(|s| s.count)
+                                        .unwrap_or(0),
                                     progress: crusher_data.progress,
                                 },
                                 Mesh3d(cube_mesh),

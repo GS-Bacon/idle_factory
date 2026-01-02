@@ -16,7 +16,52 @@ pub struct QuestDef {
     pub unlocks: Vec<BlockType>,
 }
 
+/// Cached quest data to avoid allocations every frame
+#[derive(Resource)]
+pub struct QuestCache {
+    pub main_quests: Vec<QuestDef>,
+    pub sub_quests: Vec<QuestDef>,
+}
+
+impl Default for QuestCache {
+    fn default() -> Self {
+        Self {
+            main_quests: build_main_quests(),
+            sub_quests: build_sub_quests(),
+        }
+    }
+}
+
+/// Build main quests from game_spec (internal, called once)
+fn build_main_quests() -> Vec<QuestDef> {
+    game_spec::MAIN_QUESTS
+        .iter()
+        .map(|spec| QuestDef {
+            id: spec.id,
+            description: spec.description,
+            required_items: spec.required_items.to_vec(),
+            rewards: spec.rewards.to_vec(),
+            unlocks: spec.unlocks.to_vec(),
+        })
+        .collect()
+}
+
+/// Build sub quests from game_spec (internal, called once)
+fn build_sub_quests() -> Vec<QuestDef> {
+    game_spec::SUB_QUESTS
+        .iter()
+        .map(|spec| QuestDef {
+            id: spec.id,
+            description: spec.description,
+            required_items: spec.required_items.to_vec(),
+            rewards: spec.rewards.to_vec(),
+            unlocks: spec.unlocks.to_vec(),
+        })
+        .collect()
+}
+
 /// Get main quests from game_spec (Single Source of Truth)
+/// Note: Prefer using QuestCache resource for hot paths
 pub fn get_main_quests() -> Vec<QuestDef> {
     game_spec::MAIN_QUESTS
         .iter()
@@ -55,6 +100,7 @@ pub fn get_quests() -> Vec<QuestDef> {
 pub fn quest_progress_check(
     platform_query: Query<&DeliveryPlatform>,
     mut current_quest: ResMut<CurrentQuest>,
+    quest_cache: Res<QuestCache>,
 ) {
     if current_quest.completed {
         return;
@@ -64,8 +110,7 @@ pub fn quest_progress_check(
         return;
     };
 
-    let quests = get_main_quests();
-    let Some(quest) = quests.get(current_quest.index) else {
+    let Some(quest) = quest_cache.main_quests.get(current_quest.index) else {
         return;
     };
 
@@ -86,6 +131,7 @@ pub fn quest_claim_rewards(
     mut current_quest: ResMut<CurrentQuest>,
     mut global_inventory: ResMut<GlobalInventory>,
     command_state: Res<CommandInputState>,
+    quest_cache: Res<QuestCache>,
 ) {
     // Don't process while command input is open
     if command_state.open {
@@ -100,8 +146,7 @@ pub fn quest_claim_rewards(
         return;
     }
 
-    let quests = get_main_quests();
-    let Some(quest) = quests.get(current_quest.index) else {
+    let Some(quest) = quest_cache.main_quests.get(current_quest.index) else {
         return;
     };
 
@@ -113,7 +158,7 @@ pub fn quest_claim_rewards(
     current_quest.rewards_claimed = true;
 
     // Move to next quest
-    if current_quest.index + 1 < quests.len() {
+    if current_quest.index + 1 < quest_cache.main_quests.len() {
         current_quest.index += 1;
         current_quest.completed = false;
         current_quest.rewards_claimed = false;
@@ -146,14 +191,13 @@ pub fn update_quest_ui(
     global_inventory: Res<GlobalInventory>,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
     mut button_query: Query<(&mut Visibility, &mut BackgroundColor), With<QuestDeliverButton>>,
+    quest_cache: Res<QuestCache>,
 ) {
     let Ok(mut text) = text_query.get_single_mut() else {
         return;
     };
 
-    let quests = get_main_quests();
-
-    if current_quest.index >= quests.len() {
+    if current_quest.index >= quest_cache.main_quests.len() {
         **text = "=== Quest ===\nAll quests completed!".to_string();
         // Hide deliver button
         for (mut vis, _) in button_query.iter_mut() {
@@ -162,11 +206,12 @@ pub fn update_quest_ui(
         return;
     }
 
-    let quest = &quests[current_quest.index];
+    let quest = &quest_cache.main_quests[current_quest.index];
     let platform = platform_query.get_single().ok();
 
     if current_quest.completed && !current_quest.rewards_claimed {
-        let rewards: Vec<String> = quest.rewards
+        let rewards: Vec<String> = quest
+            .rewards
             .iter()
             .map(|(bt, amt)| format!("{} x{}", bt.name(), amt))
             .collect();
@@ -181,13 +226,23 @@ pub fn update_quest_ui(
         }
     } else {
         // Show progress for each required item
-        let progress: Vec<String> = quest.required_items.iter().map(|(item, amount)| {
-            let delivered = platform
-                .map(|p| p.delivered.get(item).copied().unwrap_or(0))
-                .unwrap_or(0);
-            let in_storage = global_inventory.get_count(*item);
-            format!("{}: {}/{} (Storage: {})", item.name(), delivered.min(*amount), amount, in_storage)
-        }).collect();
+        let progress: Vec<String> = quest
+            .required_items
+            .iter()
+            .map(|(item, amount)| {
+                let delivered = platform
+                    .map(|p| p.delivered.get(item).copied().unwrap_or(0))
+                    .unwrap_or(0);
+                let in_storage = global_inventory.get_count(*item);
+                format!(
+                    "{}: {}/{} (Storage: {})",
+                    item.name(),
+                    delivered.min(*amount),
+                    amount,
+                    in_storage
+                )
+            })
+            .collect();
 
         **text = format!(
             "=== Quest ===\n{}\n{}",
@@ -218,13 +273,13 @@ pub fn quest_deliver_button(
         (&Interaction, &mut BackgroundColor, &mut BorderColor),
         (Changed<Interaction>, With<QuestDeliverButton>),
     >,
+    quest_cache: Res<QuestCache>,
 ) {
     if current_quest.completed {
         return;
     }
 
-    let quests = get_main_quests();
-    let Some(quest) = quests.get(current_quest.index) else {
+    let Some(quest) = quest_cache.main_quests.get(current_quest.index) else {
         return;
     };
 
@@ -311,7 +366,11 @@ pub fn setup_delivery_platform(
 
     // Spawn delivery port markers (visual indicators at edges)
     // Use tall vertical markers for better visibility
-    let port_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.3, BLOCK_SIZE * 0.8, BLOCK_SIZE * 0.3));
+    let port_mesh = meshes.add(Cuboid::new(
+        BLOCK_SIZE * 0.3,
+        BLOCK_SIZE * 0.8,
+        BLOCK_SIZE * 0.3,
+    ));
     let port_material = materials.add(StandardMaterial {
         base_color: Color::srgb(1.0, 0.9, 0.2), // Bright yellow for ports
         emissive: bevy::color::LinearRgba::new(0.5, 0.45, 0.1, 1.0),
@@ -321,13 +380,25 @@ pub fn setup_delivery_platform(
     // Create 16 ports along edges (4 per side)
     let port_positions = [
         // North edge (z = 10)
-        IVec3::new(22, 8, 10), IVec3::new(25, 8, 10), IVec3::new(28, 8, 10), IVec3::new(31, 8, 10),
+        IVec3::new(22, 8, 10),
+        IVec3::new(25, 8, 10),
+        IVec3::new(28, 8, 10),
+        IVec3::new(31, 8, 10),
         // South edge (z = 21)
-        IVec3::new(22, 8, 21), IVec3::new(25, 8, 21), IVec3::new(28, 8, 21), IVec3::new(31, 8, 21),
+        IVec3::new(22, 8, 21),
+        IVec3::new(25, 8, 21),
+        IVec3::new(28, 8, 21),
+        IVec3::new(31, 8, 21),
         // West edge (x = 20)
-        IVec3::new(20, 8, 12), IVec3::new(20, 8, 15), IVec3::new(20, 8, 18), IVec3::new(20, 8, 21),
+        IVec3::new(20, 8, 12),
+        IVec3::new(20, 8, 15),
+        IVec3::new(20, 8, 18),
+        IVec3::new(20, 8, 21),
         // East edge (x = 31)
-        IVec3::new(31, 8, 12), IVec3::new(31, 8, 15), IVec3::new(31, 8, 18), IVec3::new(31, 8, 21),
+        IVec3::new(31, 8, 12),
+        IVec3::new(31, 8, 15),
+        IVec3::new(31, 8, 18),
+        IVec3::new(31, 8, 21),
     ];
 
     for port_pos in port_positions {
@@ -375,11 +446,16 @@ pub fn load_machine_models(
     mut item_sprites: ResMut<ItemSprites>,
 ) {
     // Try to load conveyor models
-    models.conveyor_straight = Some(asset_server.load("models/machines/conveyor/straight.glb#Scene0"));
-    models.conveyor_corner_left = Some(asset_server.load("models/machines/conveyor/corner_left.glb#Scene0"));
-    models.conveyor_corner_right = Some(asset_server.load("models/machines/conveyor/corner_right.glb#Scene0"));
-    models.conveyor_t_junction = Some(asset_server.load("models/machines/conveyor/t_junction.glb#Scene0"));
-    models.conveyor_splitter = Some(asset_server.load("models/machines/conveyor/splitter.glb#Scene0"));
+    models.conveyor_straight =
+        Some(asset_server.load("models/machines/conveyor/straight.glb#Scene0"));
+    models.conveyor_corner_left =
+        Some(asset_server.load("models/machines/conveyor/corner_left.glb#Scene0"));
+    models.conveyor_corner_right =
+        Some(asset_server.load("models/machines/conveyor/corner_right.glb#Scene0"));
+    models.conveyor_t_junction =
+        Some(asset_server.load("models/machines/conveyor/t_junction.glb#Scene0"));
+    models.conveyor_splitter =
+        Some(asset_server.load("models/machines/conveyor/splitter.glb#Scene0"));
 
     // Try to load machine models
     models.miner = Some(asset_server.load("models/machines/miner.glb#Scene0"));
@@ -399,14 +475,44 @@ pub fn load_machine_models(
 
     // Load item sprites for UI
     use crate::BlockType;
-    item_sprites.textures.insert(BlockType::IronOre, asset_server.load("textures/items/iron_ore.png"));
-    item_sprites.textures.insert(BlockType::CopperOre, asset_server.load("textures/items/copper_ore.png"));
-    item_sprites.textures.insert(BlockType::Coal, asset_server.load("textures/items/coal.png"));
-    item_sprites.textures.insert(BlockType::Stone, asset_server.load("textures/items/stone.png"));
-    item_sprites.textures.insert(BlockType::IronIngot, asset_server.load("textures/items/iron_ingot.png"));
-    item_sprites.textures.insert(BlockType::CopperIngot, asset_server.load("textures/items/copper_ingot.png"));
-    item_sprites.textures.insert(BlockType::MinerBlock, asset_server.load("textures/items/miner.png"));
-    item_sprites.textures.insert(BlockType::ConveyorBlock, asset_server.load("textures/items/conveyor.png"));
-    item_sprites.textures.insert(BlockType::FurnaceBlock, asset_server.load("textures/items/furnace.png"));
-    item_sprites.textures.insert(BlockType::CrusherBlock, asset_server.load("textures/items/crusher.png"));
+    item_sprites.textures.insert(
+        BlockType::IronOre,
+        asset_server.load("textures/items/iron_ore.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::CopperOre,
+        asset_server.load("textures/items/copper_ore.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::Coal,
+        asset_server.load("textures/items/coal.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::Stone,
+        asset_server.load("textures/items/stone.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::IronIngot,
+        asset_server.load("textures/items/iron_ingot.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::CopperIngot,
+        asset_server.load("textures/items/copper_ingot.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::MinerBlock,
+        asset_server.load("textures/items/miner.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::ConveyorBlock,
+        asset_server.load("textures/items/conveyor.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::FurnaceBlock,
+        asset_server.load("textures/items/furnace.png"),
+    );
+    item_sprites.textures.insert(
+        BlockType::CrusherBlock,
+        asset_server.load("textures/items/crusher.png"),
+    );
 }

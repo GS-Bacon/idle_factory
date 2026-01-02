@@ -6,7 +6,7 @@ use crate::{
     Furnace, MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
 };
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::info;
 
 /// Conveyor transfer logic - move items along conveyor chain (supports multiple items per conveyor)
@@ -89,8 +89,9 @@ pub fn conveyor_transfer(
             let output_positions: Vec<IVec3> = if conveyor.shape == ConveyorShape::Splitter {
                 // Splitter: try front, left, right in round-robin order
                 let outputs = conveyor.get_splitter_outputs();
-                let start_idx =
-                    *splitter_indices.get(&entity).unwrap_or(&conveyor.last_output_index);
+                let start_idx = *splitter_indices
+                    .get(&entity)
+                    .unwrap_or(&conveyor.last_output_index);
                 // Rotate the array to start from the current index
                 let mut rotated = Vec::with_capacity(3);
                 for i in 0..3 {
@@ -195,14 +196,14 @@ pub fn conveyor_transfer(
     actions.sort_by(|a, b| b.item_index.cmp(&a.item_index));
 
     // === ZIPPER MERGE LOGIC ===
-    // Group sources by target conveyor for zipper merge
-    let mut sources_by_target: HashMap<Entity, Vec<Entity>> = HashMap::new();
+    // Group sources by target conveyor for zipper merge (HashSet for O(1) dedup)
+    let mut sources_by_target: HashMap<Entity, HashSet<Entity>> = HashMap::new();
     for action in &actions {
         if let TransferTarget::Conveyor(target) = action.target {
-            let sources = sources_by_target.entry(target).or_default();
-            if !sources.contains(&action.source_entity) {
-                sources.push(action.source_entity);
-            }
+            sources_by_target
+                .entry(target)
+                .or_default()
+                .insert(action.source_entity);
         }
     }
 
@@ -213,11 +214,11 @@ pub fn conveyor_transfer(
         .filter_map(|(target, sources)| {
             if sources.len() <= 1 {
                 // Only one source, always allow
-                sources.first().map(|s| (*target, *s))
+                sources.iter().next().map(|s| (*target, *s))
             } else {
                 // Multiple sources - use zipper logic with last_input_source
                 conveyor_query.get(*target).ok().map(|(_, c)| {
-                    let mut sorted_sources: Vec<Entity> = sources.clone();
+                    let mut sorted_sources: Vec<Entity> = sources.iter().copied().collect();
                     sorted_sources.sort_by_key(|e| e.index());
                     let idx = c.last_input_source % sorted_sources.len();
                     (*target, sorted_sources[idx])
@@ -227,7 +228,7 @@ pub fn conveyor_transfer(
         .collect();
 
     // Track which targets successfully received an item (to update last_input_source)
-    let mut targets_to_update: Vec<Entity> = Vec::new();
+    let mut targets_to_update: HashSet<Entity> = HashSet::new();
 
     // First pass: check which conveyor-to-conveyor transfers can proceed
     // This avoids borrow conflicts
@@ -293,9 +294,7 @@ pub fn conveyor_transfer(
                         lateral_offset,
                     ));
                     // Mark target for last_input_source update
-                    if !targets_to_update.contains(&target_entity) {
-                        targets_to_update.push(target_entity);
-                    }
+                    targets_to_update.insert(target_entity);
                 }
             }
             TransferTarget::Furnace(furnace_pos) => {
@@ -476,10 +475,10 @@ pub fn update_conveyor_item_visuals(
         // Perpendicular vector for lateral offset (BUG-5 fix, BUG-9 fix)
         // Positive lateral_offset = right side of conveyor direction
         let lateral_vec = match conveyor.direction {
-            Direction::East => Vec3::new(0.0, 0.0, 1.0),   // Right is +Z (South)
-            Direction::West => Vec3::new(0.0, 0.0, -1.0),  // Right is -Z (North)
+            Direction::East => Vec3::new(0.0, 0.0, 1.0), // Right is +Z (South)
+            Direction::West => Vec3::new(0.0, 0.0, -1.0), // Right is -Z (North)
             Direction::South => Vec3::new(-1.0, 0.0, 0.0), // Right is -X (West)
-            Direction::North => Vec3::new(1.0, 0.0, 0.0),  // Right is +X (East)
+            Direction::North => Vec3::new(1.0, 0.0, 0.0), // Right is +X (East)
         };
 
         for item in conveyor.items.iter_mut() {
@@ -492,7 +491,8 @@ pub fn update_conveyor_item_visuals(
             match item.visual_entity {
                 None => {
                     // Try to spawn with GLB model, fall back to colored cube
-                    let entity = if let Some(scene_handle) = models.get_item_model(item.block_type) {
+                    let entity = if let Some(scene_handle) = models.get_item_model(item.block_type)
+                    {
                         // Spawn GLB model
                         commands
                             .spawn((
@@ -533,4 +533,3 @@ pub fn update_conveyor_item_visuals(
         }
     }
 }
-

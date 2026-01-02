@@ -238,10 +238,9 @@ impl ItemCategory {
                 block_type,
                 BlockType::IronOre | BlockType::CopperOre | BlockType::Coal | BlockType::Stone
             ),
-            ItemCategory::Ingots => matches!(
-                block_type,
-                BlockType::IronIngot | BlockType::CopperIngot
-            ),
+            ItemCategory::Ingots => {
+                matches!(block_type, BlockType::IronIngot | BlockType::CopperIngot)
+            }
             ItemCategory::Machines => matches!(
                 block_type,
                 BlockType::MinerBlock
@@ -268,4 +267,3 @@ pub struct GlobalInventoryCategoryTab(pub ItemCategory);
 /// Marker for search input box
 #[derive(Component)]
 pub struct GlobalInventorySearchInput;
-

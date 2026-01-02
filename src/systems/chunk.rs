@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 #[cfg(not(target_arch = "wasm32"))]
 use futures_lite::future;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Generate chunk data synchronously (shared between native and WASM)
 fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
@@ -133,7 +133,7 @@ pub fn receive_chunk_meshes(
     }
 
     // Collect coords that need neighbor mesh regeneration
-    let mut coords_needing_neighbor_update: Vec<IVec2> = Vec::new();
+    let mut coords_needing_neighbor_update: HashSet<IVec2> = HashSet::new();
 
     if !completed.is_empty() {
         tracing::debug!("Processing {} completed chunks", completed.len());
@@ -184,7 +184,7 @@ pub fn receive_chunk_meshes(
         let chunk_data = ChunkData { blocks, blocks_map };
 
         world_data.chunks.insert(coord, chunk_data);
-        coords_needing_neighbor_update.push(coord);
+        coords_needing_neighbor_update.insert(coord);
         tracing::debug!("Chunk {:?} loaded", coord);
     }
 
@@ -255,11 +255,15 @@ pub fn receive_chunk_meshes(
                         Mesh3d(mesh_handle),
                         MeshMaterial3d(material),
                         Transform::IDENTITY,
-                        ChunkMesh { coord: neighbor_coord },
+                        ChunkMesh {
+                            coord: neighbor_coord,
+                        },
                     ))
                     .id();
 
-                world_data.chunk_entities.insert(neighbor_coord, vec![entity]);
+                world_data
+                    .chunk_entities
+                    .insert(neighbor_coord, vec![entity]);
             }
         }
     }

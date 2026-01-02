@@ -95,9 +95,24 @@ if [ "$MODE" = "full" ]; then
 
     # Test 7: Scenario Test
     run_test "Scenario Test (production line)" "./scripts/scenario_test.sh 90"
+
+    # Test 8: VLM Visual Check (full suite)
+    if [ -n "$ANTHROPIC_API_KEY" ]; then
+        run_test "VLM Visual Check (full)" "./scripts/vlm_check.sh --full-suite"
+    else
+        warn "VLM test skipped: ANTHROPIC_API_KEY not set"
+        run_test "VLM Visual Check" "" "true"
+    fi
 else
     run_test "Fuzz Test" "" "true"
     run_test "Scenario Test" "" "true"
+
+    # Quick mode: VLM quick check if API key available
+    if [ -n "$ANTHROPIC_API_KEY" ]; then
+        run_test "VLM Visual Check (quick)" "./scripts/vlm_check.sh --quick"
+    else
+        run_test "VLM Visual Check" "" "true"
+    fi
 fi
 
 # Summary

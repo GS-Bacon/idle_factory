@@ -3,11 +3,11 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
-use crate::{
-    BlockType, ContinuousActionTimer, ConveyorItemVisual, CursorLockState,
-    InputStateResources, Inventory, BLOCK_SIZE, REACH_DISTANCE,
-};
 use crate::utils::ray_aabb_intersection;
+use crate::{
+    BlockType, ContinuousActionTimer, ConveyorItemVisual, CursorLockState, InputStateResources,
+    Inventory, BLOCK_SIZE, REACH_DISTANCE,
+};
 
 use super::MachineBreakQueries;
 
@@ -145,7 +145,8 @@ pub fn block_break(
     if let Some((hit_type, _)) = closest_hit {
         match hit_type {
             HitType::Conveyor(entity) => {
-                let item_count = if let Ok((_, conveyor, transform)) = machines.conveyor.get(entity) {
+                let item_count = if let Ok((_, conveyor, transform)) = machines.conveyor.get(entity)
+                {
                     let pos = transform.translation();
                     let count = conveyor.items.len();
                     for item in &conveyor.items {
@@ -157,16 +158,30 @@ pub fn block_break(
                         // Items on conveyor go to Inventory
                         inventory.add_item(item.block_type, 1);
                     }
-                    info!(category = "MACHINE", action = "break", machine = "conveyor", ?pos, items_returned = count, "Conveyor broken");
+                    info!(
+                        category = "MACHINE",
+                        action = "break",
+                        machine = "conveyor",
+                        ?pos,
+                        items_returned = count,
+                        "Conveyor broken"
+                    );
                     count
-                } else { 0 };
+                } else {
+                    0
+                };
                 let _ = item_count;
                 commands.entity(entity).despawn_recursive();
                 // Machine block goes to Inventory
                 inventory.add_item(BlockType::ConveyorBlock, 1);
             }
             HitType::Miner(entity) => {
-                info!(category = "MACHINE", action = "break", machine = "miner", "Miner broken");
+                info!(
+                    category = "MACHINE",
+                    action = "break",
+                    machine = "miner",
+                    "Miner broken"
+                );
                 commands.entity(entity).despawn_recursive();
                 // Machine block goes to Inventory
                 inventory.add_item(BlockType::MinerBlock, 1);
@@ -185,7 +200,12 @@ pub fn block_break(
                         }
                     }
                 }
-                info!(category = "MACHINE", action = "break", machine = "crusher", "Crusher broken");
+                info!(
+                    category = "MACHINE",
+                    action = "break",
+                    machine = "crusher",
+                    "Crusher broken"
+                );
                 commands.entity(entity).despawn_recursive();
                 // Machine block goes to Inventory
                 inventory.add_item(BlockType::CrusherBlock, 1);
@@ -207,7 +227,12 @@ pub fn block_break(
                         }
                     }
                 }
-                info!(category = "MACHINE", action = "break", machine = "furnace", "Furnace broken");
+                info!(
+                    category = "MACHINE",
+                    action = "break",
+                    machine = "furnace",
+                    "Furnace broken"
+                );
                 commands.entity(entity).despawn_recursive();
                 // Machine block goes to Inventory
                 inventory.add_item(BlockType::FurnaceBlock, 1);

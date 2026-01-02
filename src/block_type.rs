@@ -5,7 +5,20 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
 
 /// Types of blocks in the game
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize, Display, EnumString, EnumIter)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
 #[strum(serialize_all = "snake_case", ascii_case_insensitive)]
 pub enum BlockType {
     #[default]
@@ -16,17 +29,37 @@ pub enum BlockType {
     Coal,
     #[strum(serialize = "iron_ingot", serialize = "ironingot")]
     IronIngot,
-    #[strum(serialize = "miner_block", serialize = "miner", serialize = "minerblock")]
+    #[strum(
+        serialize = "miner_block",
+        serialize = "miner",
+        serialize = "minerblock"
+    )]
     MinerBlock,
-    #[strum(serialize = "conveyor_block", serialize = "conveyor", serialize = "conveyorblock")]
+    #[strum(
+        serialize = "conveyor_block",
+        serialize = "conveyor",
+        serialize = "conveyorblock"
+    )]
     ConveyorBlock,
-    #[strum(serialize = "copper_ore", serialize = "copperore", serialize = "copper")]
+    #[strum(
+        serialize = "copper_ore",
+        serialize = "copperore",
+        serialize = "copper"
+    )]
     CopperOre,
     #[strum(serialize = "copper_ingot", serialize = "copperingot")]
     CopperIngot,
-    #[strum(serialize = "crusher_block", serialize = "crusher", serialize = "crusherblock")]
+    #[strum(
+        serialize = "crusher_block",
+        serialize = "crusher",
+        serialize = "crusherblock"
+    )]
     CrusherBlock,
-    #[strum(serialize = "furnace_block", serialize = "furnace", serialize = "furnaceblock")]
+    #[strum(
+        serialize = "furnace_block",
+        serialize = "furnace",
+        serialize = "furnaceblock"
+    )]
     FurnaceBlock,
 }
 
@@ -87,13 +120,19 @@ impl BlockType {
     pub fn is_machine(&self) -> bool {
         matches!(
             self,
-            BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock | BlockType::FurnaceBlock
+            BlockType::MinerBlock
+                | BlockType::ConveyorBlock
+                | BlockType::CrusherBlock
+                | BlockType::FurnaceBlock
         )
     }
 
     /// Returns true if this block type is a raw ore
     pub fn is_ore(&self) -> bool {
-        matches!(self, BlockType::IronOre | BlockType::CopperOre | BlockType::Coal)
+        matches!(
+            self,
+            BlockType::IronOre | BlockType::CopperOre | BlockType::Coal
+        )
     }
 
     /// Returns true if this block type is a processed material
@@ -114,8 +153,8 @@ impl BlockType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use strum::IntoEnumIterator;
     use std::str::FromStr;
+    use strum::IntoEnumIterator;
 
     #[test]
     fn test_block_type_color_returns_valid() {
@@ -141,16 +180,28 @@ mod tests {
     fn test_strum_enum_string_parsing() {
         // Test snake_case parsing
         assert_eq!(BlockType::from_str("stone").ok(), Some(BlockType::Stone));
-        assert_eq!(BlockType::from_str("iron_ore").ok(), Some(BlockType::IronOre));
+        assert_eq!(
+            BlockType::from_str("iron_ore").ok(),
+            Some(BlockType::IronOre)
+        );
 
         // Test case insensitivity
         assert_eq!(BlockType::from_str("STONE").ok(), Some(BlockType::Stone));
-        assert_eq!(BlockType::from_str("IronOre").ok(), Some(BlockType::IronOre));
+        assert_eq!(
+            BlockType::from_str("IronOre").ok(),
+            Some(BlockType::IronOre)
+        );
 
         // Test aliases
         assert_eq!(BlockType::from_str("iron").ok(), Some(BlockType::IronOre));
-        assert_eq!(BlockType::from_str("miner").ok(), Some(BlockType::MinerBlock));
-        assert_eq!(BlockType::from_str("conveyor").ok(), Some(BlockType::ConveyorBlock));
+        assert_eq!(
+            BlockType::from_str("miner").ok(),
+            Some(BlockType::MinerBlock)
+        );
+        assert_eq!(
+            BlockType::from_str("conveyor").ok(),
+            Some(BlockType::ConveyorBlock)
+        );
 
         // Test invalid parsing
         assert!(BlockType::from_str("invalid_block").is_err());
@@ -204,8 +255,14 @@ mod tests {
 
     #[test]
     fn test_block_type_smelt_result() {
-        assert_eq!(BlockType::IronOre.smelt_result(), Some(BlockType::IronIngot));
-        assert_eq!(BlockType::CopperOre.smelt_result(), Some(BlockType::CopperIngot));
+        assert_eq!(
+            BlockType::IronOre.smelt_result(),
+            Some(BlockType::IronIngot)
+        );
+        assert_eq!(
+            BlockType::CopperOre.smelt_result(),
+            Some(BlockType::CopperIngot)
+        );
 
         assert_eq!(BlockType::Stone.smelt_result(), None);
         assert_eq!(BlockType::Coal.smelt_result(), None);

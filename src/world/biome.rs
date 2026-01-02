@@ -5,9 +5,9 @@
 //!
 //! See game_spec::biome_mining_spec for probability tables.
 
-use bevy::prelude::*;
-use crate::BlockType;
 use crate::game_spec::biome_mining_spec;
+use crate::BlockType;
+use bevy::prelude::*;
 
 /// Biome types that determine mining output
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -95,7 +95,8 @@ impl BiomeMap {
 
             // Divide into 3 sectors for iron, copper, coal
             let angle = (dz as f32).atan2(dx as f32);
-            let sector = ((angle + std::f32::consts::PI) / (2.0 * std::f32::consts::PI / 3.0)) as i32 % 3;
+            let sector =
+                ((angle + std::f32::consts::PI) / (2.0 * std::f32::consts::PI / 3.0)) as i32 % 3;
 
             return match sector {
                 0 => BiomeType::Iron,
@@ -181,7 +182,11 @@ mod tests {
         for biome in biomes {
             let table = biome.get_probability_table();
             let sum: u32 = table.iter().map(|(_, p)| p).sum();
-            assert_eq!(sum, 100, "Biome {:?} probabilities should sum to 100, got {}", biome, sum);
+            assert_eq!(
+                sum, 100,
+                "Biome {:?} probabilities should sum to 100, got {}",
+                biome, sum
+            );
         }
     }
 
@@ -226,7 +231,11 @@ mod tests {
         let biome = BiomeType::Iron;
         for i in 0..100 {
             let result = biome.sample_resource(i);
-            assert!(result.is_some(), "Iron biome should return resource for value {}", i);
+            assert!(
+                result.is_some(),
+                "Iron biome should return resource for value {}",
+                i
+            );
         }
     }
 

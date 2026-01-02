@@ -1,0 +1,29 @@
+{
+  "timestamp": "20260102_073520",
+  "overall_status": "PASS",
+  "build": {
+    "status": "pass"
+  },
+  "tests": {
+    "unit": {
+      "passed": 74,
+      "failed": 0
+    },
+    "e2e": {
+      "passed": 146,
+      "failed": 0
+    },
+    "proptest": {
+      "passed": 8,
+      "failed": 0
+    },
+    "total_passed": 228,
+    "total_failed": 0
+  },
+  "quality": {
+    "clippy_warnings": 0,
+    "coverage_percent": "N/A",
+    "vlm_issues": 0,
+    "log_severity": "none"
+  }
+}

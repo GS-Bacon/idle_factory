@@ -3,17 +3,16 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
+use crate::utils::{
+    auto_conveyor_direction, dda_raycast, ray_aabb_intersection, ray_aabb_intersection_with_normal,
+    yaw_to_direction,
+};
+use crate::world::{ChunkMesh, WorldData};
 use crate::{
     BlockType, ContinuousActionTimer, Conveyor, ConveyorRotationOffset, ConveyorShape,
     ConveyorVisual, CreativeMode, Crusher, DeliveryPlatform, Direction, Furnace,
-    InputStateResourcesWithCursor, Inventory, MachineModels, Miner, PlayerCamera,
-    BLOCK_SIZE, CHUNK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE,
-    REACH_DISTANCE,
-};
-use crate::world::{ChunkMesh, WorldData};
-use crate::utils::{
-    auto_conveyor_direction, ray_aabb_intersection, ray_aabb_intersection_with_normal,
-    yaw_to_direction,
+    InputStateResourcesWithCursor, Inventory, MachineModels, Miner, PlayerCamera, BLOCK_SIZE,
+    CHUNK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE, REACH_DISTANCE,
 };
 
 use super::MachinePlaceQueries;
@@ -125,88 +124,15 @@ pub fn block_place(
     // Find closest block intersection with hit normal using DDA
     let mut closest_hit: Option<(IVec3, Vec3, f32)> = None;
 
-    {
-        let mut current = IVec3::new(
-            ray_origin.x.floor() as i32,
-            ray_origin.y.floor() as i32,
-            ray_origin.z.floor() as i32,
+    if let Some(hit) = dda_raycast(ray_origin, ray_direction, REACH_DISTANCE, |pos| {
+        world_data.has_block(pos)
+    }) {
+        let normal = Vec3::new(
+            hit.normal.x as f32,
+            hit.normal.y as f32,
+            hit.normal.z as f32,
         );
-
-        let step = IVec3::new(
-            if ray_direction.x >= 0.0 { 1 } else { -1 },
-            if ray_direction.y >= 0.0 { 1 } else { -1 },
-            if ray_direction.z >= 0.0 { 1 } else { -1 },
-        );
-
-        let t_delta = Vec3::new(
-            if ray_direction.x.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.x).abs() },
-            if ray_direction.y.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.y).abs() },
-            if ray_direction.z.abs() < 1e-8 { f32::MAX } else { (1.0 / ray_direction.z).abs() },
-        );
-
-        let mut t_max = Vec3::new(
-            if ray_direction.x >= 0.0 {
-                ((current.x + 1) as f32 - ray_origin.x) / ray_direction.x.abs().max(1e-8)
-            } else {
-                (ray_origin.x - current.x as f32) / ray_direction.x.abs().max(1e-8)
-            },
-            if ray_direction.y >= 0.0 {
-                ((current.y + 1) as f32 - ray_origin.y) / ray_direction.y.abs().max(1e-8)
-            } else {
-                (ray_origin.y - current.y as f32) / ray_direction.y.abs().max(1e-8)
-            },
-            if ray_direction.z >= 0.0 {
-                ((current.z + 1) as f32 - ray_origin.z) / ray_direction.z.abs().max(1e-8)
-            } else {
-                (ray_origin.z - current.z as f32) / ray_direction.z.abs().max(1e-8)
-            },
-        );
-
-        let mut last_step_axis = 0;
-        let max_steps = (REACH_DISTANCE * 2.0) as i32;
-
-        for _ in 0..max_steps {
-            if world_data.has_block(current) {
-                let block_center = Vec3::new(
-                    current.x as f32 + 0.5,
-                    current.y as f32 + 0.5,
-                    current.z as f32 + 0.5,
-                );
-                if let Some((hit_t, _normal)) = ray_aabb_intersection_with_normal(
-                    ray_origin,
-                    ray_direction,
-                    block_center - Vec3::splat(half_size),
-                    block_center + Vec3::splat(half_size),
-                ) {
-                    if hit_t > 0.0 && hit_t < REACH_DISTANCE {
-                        let dda_normal = match last_step_axis {
-                            0 => Vec3::new(-step.x as f32, 0.0, 0.0),
-                            1 => Vec3::new(0.0, -step.y as f32, 0.0),
-                            _ => Vec3::new(0.0, 0.0, -step.z as f32),
-                        };
-                        closest_hit = Some((current, dda_normal, hit_t));
-                        break;
-                    }
-                }
-            }
-
-            if t_max.x < t_max.y && t_max.x < t_max.z {
-                if t_max.x > REACH_DISTANCE { break; }
-                current.x += step.x;
-                t_max.x += t_delta.x;
-                last_step_axis = 0;
-            } else if t_max.y < t_max.z {
-                if t_max.y > REACH_DISTANCE { break; }
-                current.y += step.y;
-                t_max.y += t_delta.y;
-                last_step_axis = 1;
-            } else {
-                if t_max.z > REACH_DISTANCE { break; }
-                current.z += step.z;
-                t_max.z += t_delta.z;
-                last_step_axis = 2;
-            }
-        }
+        closest_hit = Some((hit.position, normal, hit.distance));
     }
 
     // Also check DeliveryPlatform for raycast hit
@@ -216,15 +142,14 @@ pub fn block_place(
         let platform_half_y = BLOCK_SIZE * 0.1;
         let platform_half_z = platform_half_x;
 
-        let platform_min = platform_center - Vec3::new(platform_half_x, platform_half_y, platform_half_z);
-        let platform_max = platform_center + Vec3::new(platform_half_x, platform_half_y, platform_half_z);
+        let platform_min =
+            platform_center - Vec3::new(platform_half_x, platform_half_y, platform_half_z);
+        let platform_max =
+            platform_center + Vec3::new(platform_half_x, platform_half_y, platform_half_z);
 
-        if let Some((hit_t, normal)) = ray_aabb_intersection_with_normal(
-            ray_origin,
-            ray_direction,
-            platform_min,
-            platform_max,
-        ) {
+        if let Some((hit_t, normal)) =
+            ray_aabb_intersection_with_normal(ray_origin, ray_direction, platform_min, platform_max)
+        {
             if hit_t > 0.0 && hit_t < REACH_DISTANCE {
                 let hit_point = ray_origin + ray_direction * hit_t;
                 let hit_block_pos = IVec3::new(
@@ -250,11 +175,12 @@ pub fn block_place(
 
     // Place block on the adjacent face
     if let Some((hit_pos, normal, _)) = closest_hit {
-        let place_pos = hit_pos + IVec3::new(
-            normal.x.round() as i32,
-            normal.y.round() as i32,
-            normal.z.round() as i32,
-        );
+        let place_pos = hit_pos
+            + IVec3::new(
+                normal.x.round() as i32,
+                normal.y.round() as i32,
+                normal.z.round() as i32,
+            );
 
         // Don't place if already occupied
         if world_data.has_block(place_pos) {
@@ -296,7 +222,8 @@ pub fn block_place(
         let player_facing = yaw_to_direction(player_camera.yaw);
 
         let facing_direction = if selected_type == BlockType::ConveyorBlock {
-            let conveyors: Vec<(IVec3, Direction)> = machines.conveyor
+            let conveyors: Vec<(IVec3, Direction)> = machines
+                .conveyor
                 .iter()
                 .map(|c| (c.position, c.direction))
                 .collect();
@@ -316,7 +243,8 @@ pub fn block_place(
                 ));
             }
 
-            let mut dir = auto_conveyor_direction(place_pos, player_facing, &conveyors, &machine_positions);
+            let mut dir =
+                auto_conveyor_direction(place_pos, player_facing, &conveyors, &machine_positions);
             for _ in 0..rotation.offset {
                 dir = dir.rotate_cw();
             }
@@ -325,39 +253,48 @@ pub fn block_place(
             player_facing
         };
 
-        let regenerate_chunk = |coord: IVec2,
-                                commands: &mut Commands,
-                                world_data: &mut WorldData,
-                                meshes: &mut Assets<Mesh>,
-                                materials: &mut Assets<StandardMaterial>| {
-            if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
-                for entity in old_entities {
-                    commands.entity(entity).try_despawn_recursive();
+        let regenerate_chunk =
+            |coord: IVec2,
+             commands: &mut Commands,
+             world_data: &mut WorldData,
+             meshes: &mut Assets<Mesh>,
+             materials: &mut Assets<StandardMaterial>| {
+                if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
+                    for entity in old_entities {
+                        commands.entity(entity).try_despawn_recursive();
+                    }
                 }
-            }
 
-            if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
-                let mesh_handle = meshes.add(new_mesh);
-                let material = materials.add(StandardMaterial {
-                    base_color: Color::WHITE,
-                    perceptual_roughness: 0.9,
-                    ..default()
-                });
+                if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
+                    let mesh_handle = meshes.add(new_mesh);
+                    let material = materials.add(StandardMaterial {
+                        base_color: Color::WHITE,
+                        perceptual_roughness: 0.9,
+                        ..default()
+                    });
 
-                let entity = commands.spawn((
-                    Mesh3d(mesh_handle),
-                    MeshMaterial3d(material),
-                    Transform::IDENTITY,
-                    ChunkMesh { coord },
-                )).id();
+                    let entity = commands
+                        .spawn((
+                            Mesh3d(mesh_handle),
+                            MeshMaterial3d(material),
+                            Transform::IDENTITY,
+                            ChunkMesh { coord },
+                        ))
+                        .id();
 
-                world_data.chunk_entities.insert(coord, vec![entity]);
-            }
-        };
+                    world_data.chunk_entities.insert(coord, vec![entity]);
+                }
+            };
 
         match selected_type {
             BlockType::MinerBlock => {
-                info!(category = "MACHINE", action = "place", machine = "miner", ?place_pos, "Miner placed");
+                info!(
+                    category = "MACHINE",
+                    action = "place",
+                    machine = "miner",
+                    ?place_pos,
+                    "Miner placed"
+                );
 
                 let transform = Transform::from_translation(Vec3::new(
                     place_pos.x as f32 * BLOCK_SIZE + 0.5,
@@ -420,7 +357,15 @@ pub fn block_place(
                     }
                 }
 
-                info!(category = "MACHINE", action = "place", machine = "conveyor", ?place_pos, ?final_direction, ?final_shape, "Conveyor placed");
+                info!(
+                    category = "MACHINE",
+                    action = "place",
+                    machine = "conveyor",
+                    ?place_pos,
+                    ?final_direction,
+                    ?final_shape,
+                    "Conveyor placed"
+                );
 
                 let conveyor_pos = Vec3::new(
                     place_pos.x as f32 * BLOCK_SIZE + 0.5,
@@ -451,47 +396,64 @@ pub fn block_place(
                     let conveyor_mesh = meshes.add(Cuboid::new(
                         BLOCK_SIZE * CONVEYOR_BELT_WIDTH,
                         BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
-                        BLOCK_SIZE
+                        BLOCK_SIZE,
                     ));
                     let material = materials.add(StandardMaterial {
                         base_color: selected_type.color(),
                         ..default()
                     });
-                    let arrow_mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.12, BLOCK_SIZE * 0.03, BLOCK_SIZE * 0.35));
+                    let arrow_mesh = meshes.add(Cuboid::new(
+                        BLOCK_SIZE * 0.12,
+                        BLOCK_SIZE * 0.03,
+                        BLOCK_SIZE * 0.35,
+                    ));
                     let arrow_material = materials.add(StandardMaterial {
                         base_color: Color::srgb(0.9, 0.9, 0.2),
                         ..default()
                     });
                     let belt_y = place_pos.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT / 2.0;
-                    commands.spawn((
-                        Mesh3d(conveyor_mesh),
-                        MeshMaterial3d(material),
-                        Transform::from_translation(Vec3::new(
-                            place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                            belt_y,
-                            place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                        )).with_rotation(final_direction.to_rotation()),
-                        Conveyor {
-                            position: place_pos,
-                            direction: final_direction,
-                            items: Vec::new(),
-                            last_output_index: 0,
-                            last_input_source: 0,
-                            shape: final_shape,
-                        },
-                        ConveyorVisual,
-                    )).with_children(|parent| {
-                        parent.spawn((
-                            Mesh3d(arrow_mesh),
-                            MeshMaterial3d(arrow_material),
-                            Transform::from_translation(Vec3::new(0.0, CONVEYOR_BELT_HEIGHT / 2.0 + 0.02, -0.25)),
-                        ));
-                    });
+                    commands
+                        .spawn((
+                            Mesh3d(conveyor_mesh),
+                            MeshMaterial3d(material),
+                            Transform::from_translation(Vec3::new(
+                                place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                                belt_y,
+                                place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                            ))
+                            .with_rotation(final_direction.to_rotation()),
+                            Conveyor {
+                                position: place_pos,
+                                direction: final_direction,
+                                items: Vec::new(),
+                                last_output_index: 0,
+                                last_input_source: 0,
+                                shape: final_shape,
+                            },
+                            ConveyorVisual,
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Mesh3d(arrow_mesh),
+                                MeshMaterial3d(arrow_material),
+                                Transform::from_translation(Vec3::new(
+                                    0.0,
+                                    CONVEYOR_BELT_HEIGHT / 2.0 + 0.02,
+                                    -0.25,
+                                )),
+                            ));
+                        });
                 }
                 rotation.offset = 0;
             }
             BlockType::CrusherBlock => {
-                info!(category = "MACHINE", action = "place", machine = "crusher", ?place_pos, "Crusher placed");
+                info!(
+                    category = "MACHINE",
+                    action = "place",
+                    machine = "crusher",
+                    ?place_pos,
+                    "Crusher placed"
+                );
 
                 let transform = Transform::from_translation(Vec3::new(
                     place_pos.x as f32 * BLOCK_SIZE + 0.5,
@@ -532,7 +494,13 @@ pub fn block_place(
                 }
             }
             BlockType::FurnaceBlock => {
-                info!(category = "MACHINE", action = "place", machine = "furnace", ?place_pos, "Furnace placed");
+                info!(
+                    category = "MACHINE",
+                    action = "place",
+                    machine = "furnace",
+                    ?place_pos,
+                    "Furnace placed"
+                );
 
                 let transform = Transform::from_translation(Vec3::new(
                     place_pos.x as f32 * BLOCK_SIZE + 0.5,
@@ -575,7 +543,13 @@ pub fn block_place(
             _ => {
                 info!(category = "BLOCK", action = "place", ?place_pos, block_type = ?selected_type, "Block placed");
                 world_data.set_block(place_pos, selected_type);
-                regenerate_chunk(chunk_coord, &mut commands, &mut world_data, &mut meshes, &mut materials);
+                regenerate_chunk(
+                    chunk_coord,
+                    &mut commands,
+                    &mut world_data,
+                    &mut meshes,
+                    &mut materials,
+                );
 
                 let local_pos = WorldData::world_to_local(place_pos);
                 let neighbor_offsets: [(i32, i32, bool); 4] = [
@@ -589,7 +563,13 @@ pub fn block_place(
                     if at_boundary {
                         let neighbor_coord = IVec2::new(chunk_coord.x + dx, chunk_coord.y + dz);
                         if world_data.chunks.contains_key(&neighbor_coord) {
-                            regenerate_chunk(neighbor_coord, &mut commands, &mut world_data, &mut meshes, &mut materials);
+                            regenerate_chunk(
+                                neighbor_coord,
+                                &mut commands,
+                                &mut world_data,
+                                &mut meshes,
+                                &mut materials,
+                            );
                         }
                     }
                 }

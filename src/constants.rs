@@ -48,3 +48,45 @@ pub const MAIN_INVENTORY_COLS: usize = 9;
 pub const MAIN_INVENTORY_SLOTS: usize = MAIN_INVENTORY_ROWS * MAIN_INVENTORY_COLS; // 27
 pub const NUM_SLOTS: usize = HOTBAR_SLOTS + MAIN_INVENTORY_SLOTS; // 36 total
 pub const MAX_STACK_SIZE: u32 = 999;
+
+// ============================================================================
+// UI Color Constants (Hybrid Dark Theme)
+// ============================================================================
+
+/// Panel background colors
+pub mod ui_colors {
+    use bevy::prelude::Color;
+
+    /// Dark panel background with slight transparency
+    pub const PANEL_BG: Color = Color::srgba(0.12, 0.12, 0.14, 0.97);
+    /// Empty slot background
+    pub const SLOT_EMPTY: Color = Color::srgb(0.18, 0.18, 0.20);
+    /// Filled slot background
+    pub const SLOT_FILLED: Color = Color::srgb(0.22, 0.22, 0.25);
+
+    /// Border colors for depth effect
+    pub const BORDER_HIGHLIGHT: Color = Color::srgb(0.4, 0.4, 0.45);
+    pub const BORDER_SHADOW: Color = Color::srgb(0.08, 0.08, 0.10);
+    pub const BORDER_ACTIVE: Color = Color::srgb(0.8, 0.8, 0.8);
+    pub const BORDER_HOVER: Color = Color::srgb(0.7, 0.7, 0.7);
+
+    /// Tab/button states
+    pub const TAB_SELECTED: Color = Color::srgb(0.35, 0.38, 0.50);
+    pub const TAB_UNSELECTED: Color = Color::srgb(0.20, 0.20, 0.25);
+    pub const TAB_HOVER: Color = Color::srgb(0.28, 0.30, 0.38);
+
+    /// Text colors
+    pub const TEXT_PRIMARY: Color = Color::srgb(0.9, 0.9, 0.95);
+    pub const TEXT_SECONDARY: Color = Color::srgb(0.85, 0.85, 0.9);
+
+    /// Search/input background
+    pub const INPUT_BG: Color = Color::srgb(0.15, 0.15, 0.18);
+
+    /// Button colors
+    pub const BTN_BG: Color = Color::srgb(0.25, 0.25, 0.30);
+    pub const BTN_HOVER: Color = Color::srgb(0.35, 0.35, 0.40);
+
+    /// Danger/warning colors
+    pub const DANGER_BG: Color = Color::srgb(0.4, 0.1, 0.1);
+    pub const DANGER_HOVER: Color = Color::srgb(0.6, 0.1, 0.1);
+}

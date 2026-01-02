@@ -1,7 +1,8 @@
 //! Machine components: Miner, Conveyor, Furnace, Crusher
 
-use crate::BlockType;
 use crate::constants::*;
+use crate::game_spec::recipe_spec::{find_recipe, MachineType};
+use crate::BlockType;
 use bevy::prelude::*;
 use std::f32::consts::PI;
 
@@ -86,10 +87,10 @@ pub struct ConveyorItem {
 pub enum ConveyorShape {
     #[default]
     Straight,
-    CornerLeft,   // Input from left side
-    CornerRight,  // Input from right side
-    TJunction,    // Input from both sides
-    Splitter,     // Output to front, left, and right (3-way split)
+    CornerLeft,  // Input from left side
+    CornerRight, // Input from right side
+    TJunction,   // Input from both sides
+    Splitter,    // Output to front, left, and right (3-way split)
 }
 
 /// Conveyor belt component - moves items in a direction
@@ -125,7 +126,13 @@ impl Conveyor {
     }
 
     /// Add an item at the specified progress position with optional visual and lateral offset
-    pub fn add_item_with_visual(&mut self, block_type: BlockType, at_progress: f32, visual_entity: Option<Entity>, lateral_offset: f32) {
+    pub fn add_item_with_visual(
+        &mut self,
+        block_type: BlockType,
+        at_progress: f32,
+        visual_entity: Option<Entity>,
+        lateral_offset: f32,
+    ) {
         self.items.push(ConveyorItem {
             block_type,
             progress: at_progress,
@@ -133,7 +140,11 @@ impl Conveyor {
             lateral_offset,
         });
         // Sort by progress so we process items in order
-        self.items.sort_by(|a, b| a.progress.partial_cmp(&b.progress).unwrap_or(std::cmp::Ordering::Equal));
+        self.items.sort_by(|a, b| {
+            a.progress
+                .partial_cmp(&b.progress)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
     }
 
     /// Add an item at the specified progress position (no visual, no lateral offset)
@@ -295,13 +306,11 @@ impl Default for Furnace {
 }
 
 impl Furnace {
-    /// Get smelt output for an ore type
+    /// Get smelt output for an ore type (uses recipe system as Single Source of Truth)
     pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
-        match ore {
-            BlockType::IronOre => Some(BlockType::IronIngot),
-            BlockType::CopperOre => Some(BlockType::CopperIngot),
-            _ => None,
-        }
+        find_recipe(MachineType::Furnace, ore)
+            .and_then(|recipe| recipe.outputs.first())
+            .map(|output| output.item)
     }
 
     /// Check if this ore type can be added to input
@@ -345,9 +354,16 @@ impl Default for Crusher {
 }
 
 impl Crusher {
-    /// Check if this ore can be crushed
+    /// Check if this ore can be crushed (uses recipe system as Single Source of Truth)
     pub fn can_crush(ore: BlockType) -> bool {
-        matches!(ore, BlockType::IronOre | BlockType::CopperOre)
+        find_recipe(MachineType::Crusher, ore).is_some()
+    }
+
+    /// Get crush output for an ore type (uses recipe system as Single Source of Truth)
+    pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
+        find_recipe(MachineType::Crusher, ore)
+            .and_then(|recipe| recipe.outputs.first())
+            .map(|output| (output.item, output.count))
     }
 }
 

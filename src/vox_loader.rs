@@ -67,8 +67,22 @@ impl Plugin for VoxLoaderPlugin {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            app.add_systems(Startup, (setup_file_watcher, load_initial_vox_models, load_initial_texture_atlas))
-                .add_systems(Update, (check_file_changes, handle_vox_reload, handle_texture_atlas_reload));
+            app.add_systems(
+                Startup,
+                (
+                    setup_file_watcher,
+                    load_initial_vox_models,
+                    load_initial_texture_atlas,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    check_file_changes,
+                    handle_vox_reload,
+                    handle_texture_atlas_reload,
+                ),
+            );
         }
     }
 }
@@ -191,7 +205,11 @@ fn handle_texture_atlas_reload(
             atlas.texture = asset_server.load(&path_str);
             atlas.current_path = path.to_string_lossy().to_string();
             atlas.generation += 1;
-            tracing::info!("Hot reloaded texture atlas: {} (gen {})", event.path, atlas.generation);
+            tracing::info!(
+                "Hot reloaded texture atlas: {} (gen {})",
+                event.path,
+                atlas.generation
+            );
         }
     }
 }
@@ -299,17 +317,71 @@ fn vox_to_mesh(vox: &DotVoxData) -> Option<(Mesh, Vec<Color>)> {
     // Face definitions: (normal, vertices offsets)
     let faces: [([f32; 3], [[f32; 3]; 4], [i32; 3]); 6] = [
         // +X face
-        ([1.0, 0.0, 0.0], [[1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0], [1.0, 0.0, 1.0]], [1, 0, 0]),
+        (
+            [1.0, 0.0, 0.0],
+            [
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0],
+            ],
+            [1, 0, 0],
+        ),
         // -X face
-        ([-1.0, 0.0, 0.0], [[0.0, 0.0, 1.0], [0.0, 1.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]], [-1, 0, 0]),
+        (
+            [-1.0, 0.0, 0.0],
+            [
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 1.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+            [-1, 0, 0],
+        ),
         // +Y face
-        ([0.0, 1.0, 0.0], [[0.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0]], [0, 1, 0]),
+        (
+            [0.0, 1.0, 0.0],
+            [
+                [0.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0],
+            ],
+            [0, 1, 0],
+        ),
         // -Y face
-        ([0.0, -1.0, 0.0], [[0.0, 0.0, 1.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0]], [0, -1, 0]),
+        (
+            [0.0, -1.0, 0.0],
+            [
+                [0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 1.0],
+            ],
+            [0, -1, 0],
+        ),
         // +Z face
-        ([0.0, 0.0, 1.0], [[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0]], [0, 0, 1]),
+        (
+            [0.0, 0.0, 1.0],
+            [
+                [0.0, 0.0, 1.0],
+                [1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0],
+            ],
+            [0, 0, 1],
+        ),
         // -Z face
-        ([0.0, 0.0, -1.0], [[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]], [0, 0, -1]),
+        (
+            [0.0, 0.0, -1.0],
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+            ],
+            [0, 0, -1],
+        ),
     ];
 
     // Calculate center offset for centering the model
@@ -392,7 +464,14 @@ fn vox_to_mesh(vox: &DotVoxData) -> Option<(Mesh, Vec<Color>)> {
     // Extract unique colors for reference
     let unique_colors: Vec<Color> = palette
         .iter()
-        .map(|c| Color::srgba(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0))
+        .map(|c| {
+            Color::srgba(
+                c.r as f32 / 255.0,
+                c.g as f32 / 255.0,
+                c.b as f32 / 255.0,
+                c.a as f32 / 255.0,
+            )
+        })
         .collect();
 
     Some((mesh, unique_colors))

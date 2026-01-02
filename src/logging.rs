@@ -58,7 +58,7 @@ pub fn init_logging() -> Option<WorkerGuard> {
 
     let file_layer = fmt::layer()
         .with_writer(non_blocking)
-        .with_ansi(false)  // No ANSI colors in file
+        .with_ansi(false) // No ANSI colors in file
         .with_target(true)
         .with_thread_ids(true);
 
@@ -96,7 +96,10 @@ fn log_system_info() {
 
     tracing::info!("=== System Information ===");
     tracing::info!("OS: {} {}", env::consts::OS, env::consts::ARCH);
-    tracing::info!("Rust version: {}", env!("CARGO_PKG_RUST_VERSION", "unknown"));
+    tracing::info!(
+        "Rust version: {}",
+        env!("CARGO_PKG_RUST_VERSION", "unknown")
+    );
     tracing::info!("Game version: {}", env!("CARGO_PKG_VERSION"));
 
     // Current working directory
@@ -105,9 +108,12 @@ fn log_system_info() {
     }
 
     // Number of CPUs
-    tracing::info!("CPU cores: {}", std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1));
+    tracing::info!(
+        "CPU cores: {}",
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+    );
 
     tracing::info!("==========================");
 }
@@ -184,7 +190,9 @@ impl EventLogger {
                 // Write header comment
                 let _ = writeln!(file, "// Game events log - JSON Lines format");
                 tracing::info!("Event log: {}", filename);
-                Some(Self { file: std::sync::Mutex::new(file) })
+                Some(Self {
+                    file: std::sync::Mutex::new(file),
+                })
             }
             Err(e) => {
                 tracing::warn!("Failed to create event log: {}", e);
@@ -249,8 +257,17 @@ pub struct EventLogger;
 
 #[cfg(target_arch = "wasm32")]
 impl EventLogger {
-    pub fn new() -> Option<Self> { Some(Self) }
+    pub fn new() -> Option<Self> {
+        Some(Self)
+    }
     pub fn log(&self, _event: GameEvent) {}
     pub fn log_simple(&self, _category: EventCategory, _action: &str, _details: Option<&str>) {}
-    pub fn log_at(&self, _category: EventCategory, _action: &str, _pos: IVec3, _entity: Option<&str>) {}
+    pub fn log_at(
+        &self,
+        _category: EventCategory,
+        _action: &str,
+        _pos: IVec3,
+        _entity: Option<&str>,
+    ) {
+    }
 }

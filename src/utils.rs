@@ -1,13 +1,145 @@
 //! Utility functions for raycast, direction, and other common operations
-//!
-//! Note: These functions are also defined locally in main.rs for now.
-//! This module exists for future refactoring to centralize utility functions.
 
 #![allow(dead_code)]
 
 use crate::Direction;
 use bevy::prelude::*;
 use std::f32::consts::PI;
+
+/// DDA (Digital Differential Analyzer) result for voxel raycast
+#[derive(Clone, Copy, Debug)]
+pub struct DdaHit {
+    /// The voxel position that was hit
+    pub position: IVec3,
+    /// The face normal (pointing away from the hit surface)
+    pub normal: IVec3,
+    /// Distance along the ray to the hit
+    pub distance: f32,
+}
+
+/// Perform DDA voxel traversal to find the first voxel that satisfies the check function.
+///
+/// # Arguments
+/// * `ray_origin` - Starting point of the ray
+/// * `ray_direction` - Direction of the ray (should be normalized)
+/// * `max_distance` - Maximum distance to search
+/// * `check_fn` - Function that returns true if the voxel at given position should be hit
+///
+/// # Returns
+/// The first DdaHit if a voxel passes the check, None otherwise
+pub fn dda_raycast<F>(
+    ray_origin: Vec3,
+    ray_direction: Vec3,
+    max_distance: f32,
+    check_fn: F,
+) -> Option<DdaHit>
+where
+    F: Fn(IVec3) -> bool,
+{
+    // Current voxel position
+    let mut current = IVec3::new(
+        ray_origin.x.floor() as i32,
+        ray_origin.y.floor() as i32,
+        ray_origin.z.floor() as i32,
+    );
+
+    // Direction sign for stepping (+1 or -1 for each axis)
+    let step = IVec3::new(
+        if ray_direction.x >= 0.0 { 1 } else { -1 },
+        if ray_direction.y >= 0.0 { 1 } else { -1 },
+        if ray_direction.z >= 0.0 { 1 } else { -1 },
+    );
+
+    // How far along the ray we need to travel for one voxel step on each axis
+    let t_delta = Vec3::new(
+        if ray_direction.x.abs() < 1e-8 {
+            f32::MAX
+        } else {
+            (1.0 / ray_direction.x).abs()
+        },
+        if ray_direction.y.abs() < 1e-8 {
+            f32::MAX
+        } else {
+            (1.0 / ray_direction.y).abs()
+        },
+        if ray_direction.z.abs() < 1e-8 {
+            f32::MAX
+        } else {
+            (1.0 / ray_direction.z).abs()
+        },
+    );
+
+    // Distance to next voxel boundary for each axis
+    let mut t_max = Vec3::new(
+        if ray_direction.x >= 0.0 {
+            ((current.x + 1) as f32 - ray_origin.x) / ray_direction.x.abs().max(1e-8)
+        } else {
+            (ray_origin.x - current.x as f32) / ray_direction.x.abs().max(1e-8)
+        },
+        if ray_direction.y >= 0.0 {
+            ((current.y + 1) as f32 - ray_origin.y) / ray_direction.y.abs().max(1e-8)
+        } else {
+            (ray_origin.y - current.y as f32) / ray_direction.y.abs().max(1e-8)
+        },
+        if ray_direction.z >= 0.0 {
+            ((current.z + 1) as f32 - ray_origin.z) / ray_direction.z.abs().max(1e-8)
+        } else {
+            (ray_origin.z - current.z as f32) / ray_direction.z.abs().max(1e-8)
+        },
+    );
+
+    // Track which axis we stepped on last (for face normal)
+    let mut last_step_axis = 0; // 0=x, 1=y, 2=z
+    let mut current_distance = 0.0f32;
+
+    // Maximum number of steps (prevent infinite loop)
+    let max_steps = (max_distance * 2.0) as i32;
+
+    for _ in 0..max_steps {
+        // Check current voxel
+        if check_fn(current) {
+            let normal = match last_step_axis {
+                0 => IVec3::new(-step.x, 0, 0),
+                1 => IVec3::new(0, -step.y, 0),
+                _ => IVec3::new(0, 0, -step.z),
+            };
+            return Some(DdaHit {
+                position: current,
+                normal,
+                distance: current_distance,
+            });
+        }
+
+        // Step to next voxel
+        if t_max.x < t_max.y && t_max.x < t_max.z {
+            if t_max.x > max_distance {
+                break;
+            }
+            current_distance = t_max.x;
+            current.x += step.x;
+            t_max.x += t_delta.x;
+            last_step_axis = 0;
+        } else if t_max.y < t_max.z {
+            if t_max.y > max_distance {
+                break;
+            }
+            current_distance = t_max.y;
+            current.y += step.y;
+            t_max.y += t_delta.y;
+            last_step_axis = 1;
+        } else {
+            if t_max.z > max_distance {
+                break;
+            }
+            current_distance = t_max.z;
+            current.z += step.z;
+            t_max.z += t_delta.z;
+            last_step_axis = 2;
+        }
+    }
+
+    None
+}
 
 /// Ray-AABB intersection test
 /// Returns the distance along the ray to the intersection point, or None if no intersection

@@ -1,8 +1,8 @@
 //! Player inventory system
 
-use bevy::prelude::*;
 use crate::block_type::BlockType;
-use crate::constants::{NUM_SLOTS, HOTBAR_SLOTS, MAX_STACK_SIZE};
+use crate::constants::{HOTBAR_SLOTS, MAX_STACK_SIZE, NUM_SLOTS};
+use bevy::prelude::*;
 
 /// Player inventory with fixed slots
 /// Slots 0-8: Hotbar (visible at bottom of screen)
@@ -53,7 +53,10 @@ impl Inventory {
 
     /// Get the count at a given slot index
     pub fn get_slot_count(&self, slot: usize) -> u32 {
-        self.slots.get(slot).and_then(|s| s.map(|(_, c)| c)).unwrap_or(0)
+        self.slots
+            .get(slot)
+            .and_then(|s| s.map(|(_, c)| c))
+            .unwrap_or(0)
     }
 
     /// Get the currently selected block type (None if empty slot selected)
@@ -65,7 +68,9 @@ impl Inventory {
     pub fn add_item(&mut self, block_type: BlockType, mut amount: u32) -> u32 {
         // First, try to stack onto existing slots with same block type
         for slot in self.slots.iter_mut() {
-            if amount == 0 { break; }
+            if amount == 0 {
+                break;
+            }
             if let Some((bt, count)) = slot {
                 if *bt == block_type && *count < MAX_STACK_SIZE {
                     let space = MAX_STACK_SIZE - *count;
@@ -78,7 +83,9 @@ impl Inventory {
 
         // Then, find empty slots for remaining items
         for slot in self.slots.iter_mut() {
-            if amount == 0 { break; }
+            if amount == 0 {
+                break;
+            }
             if slot.is_none() {
                 let to_add = amount.min(MAX_STACK_SIZE);
                 *slot = Some((block_type, to_add));
@@ -156,7 +163,8 @@ impl Inventory {
 
     /// Check if we have the selected block type with count > 0
     pub fn has_selected(&self) -> bool {
-        self.slots.get(self.selected_slot)
+        self.slots
+            .get(self.selected_slot)
             .and_then(|s| s.as_ref())
             .map(|(_, c)| *c > 0)
             .unwrap_or(false)
@@ -164,7 +172,8 @@ impl Inventory {
 
     /// Get the selected block type if any
     pub fn get_selected_type(&self) -> Option<BlockType> {
-        self.slots.get(self.selected_slot)
+        self.slots
+            .get(self.selected_slot)
             .and_then(|s| s.as_ref())
             .filter(|(_, c)| *c > 0)
             .map(|(bt, _)| *bt)
@@ -179,7 +188,9 @@ impl Inventory {
 
         // Consume from slots
         for slot in self.slots.iter_mut() {
-            if amount == 0 { break; }
+            if amount == 0 {
+                break;
+            }
             if let Some((bt, count)) = slot {
                 if *bt == block_type {
                     let to_consume = amount.min(*count);
@@ -213,7 +224,8 @@ impl Inventory {
 
     /// Get total count of a specific block type across all slots
     pub fn get_total_count(&self, block_type: BlockType) -> u32 {
-        self.slots.iter()
+        self.slots
+            .iter()
             .flatten()
             .filter(|(bt, _)| *bt == block_type)
             .map(|(_, count)| count)

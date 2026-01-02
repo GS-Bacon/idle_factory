@@ -14,14 +14,10 @@ use bevy::prelude::*;
 
 // Re-export public items
 pub use handlers::{
-    handle_teleport_event,
-    handle_look_event,
-    handle_setblock_event,
-    handle_spawn_machine_event,
-    handle_debug_conveyor_event,
-    handle_assert_machine_event,
+    handle_assert_machine_event, handle_debug_event, handle_look_event, handle_screenshot_event,
+    handle_setblock_event, handle_spawn_machine_event, handle_teleport_event,
 };
-pub use ui::{command_input_toggle, command_input_handler};
+pub use ui::{command_input_handler, command_input_toggle};
 
 /// E2E test command events
 #[derive(Event)]
@@ -41,9 +37,27 @@ pub struct SetBlockEvent {
     pub block_type: BlockType,
 }
 
-/// Debug conveyor event (for /debug_conveyor command)
+/// Debug event types
+#[derive(Clone, Copy, Debug)]
+pub enum DebugEventType {
+    /// Dump all conveyor states
+    Conveyor,
+    /// Dump all machine states
+    Machine,
+    /// Show machine input/output port connections
+    Connection,
+}
+
+/// Debug event (for /debug_* commands)
 #[derive(Event)]
-pub struct DebugConveyorEvent;
+pub struct DebugEvent {
+    pub debug_type: DebugEventType,
+}
+
+// Legacy aliases for backward compatibility
+pub type DebugConveyorEvent = DebugEvent;
+pub type DebugMachineEvent = DebugEvent;
+pub type DebugConnectionEvent = DebugEvent;
 
 /// Machine assertion types
 #[derive(Clone, Copy, Debug)]
@@ -60,4 +74,10 @@ pub enum MachineAssertType {
 #[derive(Event)]
 pub struct AssertMachineEvent {
     pub assert_type: MachineAssertType,
+}
+
+/// Screenshot event for capturing game screen
+#[derive(Event)]
+pub struct ScreenshotEvent {
+    pub filename: String,
 }

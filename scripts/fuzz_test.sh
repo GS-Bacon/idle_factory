@@ -32,7 +32,7 @@ sleep 0.5
 # Key pool
 KEYS=(w a s d e f3 1 2 3 4 5 6 7 8 9 space Escape q shift)
 
-# Command pool
+# Command pool - Basic
 COMMANDS=(
     "/creative" "/survival" "/clear"
     "/give iron 64" "/give coal 32" "/give miner 5" "/give conveyor 10"
@@ -43,6 +43,37 @@ COMMANDS=(
     "/test production" "/debug_conveyor"
     "/assert inventory iron 0"
     "/save fuzz" "/load fuzz"
+
+    # Boundary value tests
+    "/tp 0 0 0"
+    "/tp 999999 999999 999999"
+    "/tp -999999 -999999 -999999"
+    "/give iron 0"
+    "/give iron 999999"
+    "/give iron 1"
+    "/look 90 0"
+    "/look -90 360"
+
+    # Rapid operations
+    "/save test1"
+    "/load test1"
+    "/save test2"
+    "/load test2"
+
+    # Stress tests
+    "/spawn 0 8 0 miner"
+    "/spawn 1 8 0 miner"
+    "/spawn 2 8 0 miner"
+    "/spawn 0 8 0 conveyor 0"
+    "/spawn 1 8 0 conveyor 0"
+    "/spawn 2 8 0 conveyor 0"
+
+    # Invalid input tests (should be handled gracefully)
+    "/give invaliditem 1"
+    "/tp a b c"
+    "/spawn 0 8 0 invalidmachine"
+    "/look nan inf"
+    "/give iron -1"
 )
 
 CMD_COUNT=0

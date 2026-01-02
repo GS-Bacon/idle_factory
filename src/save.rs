@@ -56,7 +56,11 @@ pub struct Vec3Save {
 
 impl From<Vec3> for Vec3Save {
     fn from(v: Vec3) -> Self {
-        Self { x: v.x, y: v.y, z: v.z }
+        Self {
+            x: v.x,
+            y: v.y,
+            z: v.z,
+        }
     }
 }
 
@@ -76,7 +80,11 @@ pub struct IVec3Save {
 
 impl From<IVec3> for IVec3Save {
     fn from(v: IVec3) -> Self {
-        Self { x: v.x, y: v.y, z: v.z }
+        Self {
+            x: v.x,
+            y: v.y,
+            z: v.z,
+        }
     }
 }
 
@@ -334,8 +342,7 @@ pub mod native {
         let json = serde_json::to_string_pretty(data)
             .map_err(|e| format!("Failed to serialize save data: {}", e))?;
 
-        fs::write(&path, json)
-            .map_err(|e| format!("Failed to write save file: {}", e))?;
+        fs::write(&path, json).map_err(|e| format!("Failed to write save file: {}", e))?;
 
         Ok(())
     }
@@ -348,11 +355,11 @@ pub mod native {
             return Err(format!("Save file not found: {}", filename));
         }
 
-        let json = fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read save file: {}", e))?;
+        let json =
+            fs::read_to_string(&path).map_err(|e| format!("Failed to read save file: {}", e))?;
 
-        let data: SaveData = serde_json::from_str(&json)
-            .map_err(|e| format!("Failed to parse save data: {}", e))?;
+        let data: SaveData =
+            serde_json::from_str(&json).map_err(|e| format!("Failed to parse save data: {}", e))?;
 
         Ok(data)
     }
@@ -366,8 +373,8 @@ pub mod native {
         }
 
         let mut saves = Vec::new();
-        let entries = fs::read_dir(&dir)
-            .map_err(|e| format!("Failed to read save directory: {}", e))?;
+        let entries =
+            fs::read_dir(&dir).map_err(|e| format!("Failed to read save directory: {}", e))?;
 
         for entry in entries.flatten() {
             let path = entry.path();
@@ -401,8 +408,7 @@ pub mod native {
             return Err(format!("Save file not found: {}", filename));
         }
 
-        fs::remove_file(&path)
-            .map_err(|e| format!("Failed to delete save file: {}", e))?;
+        fs::remove_file(&path).map_err(|e| format!("Failed to delete save file: {}", e))?;
 
         Ok(())
     }
@@ -418,15 +424,17 @@ pub mod wasm {
     /// Save game data to localStorage
     pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
         let win = window().ok_or("No window available")?;
-        let storage = win.local_storage()
+        let storage = win
+            .local_storage()
             .map_err(|_| "Failed to access localStorage")?
             .ok_or("localStorage not available")?;
 
-        let json = serde_json::to_string(data)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
+        let json =
+            serde_json::to_string(data).map_err(|e| format!("Failed to serialize: {}", e))?;
 
         let key = format!("{}{}", SAVE_PREFIX, filename);
-        storage.set_item(&key, &json)
+        storage
+            .set_item(&key, &json)
             .map_err(|_| "Failed to save to localStorage")?;
 
         Ok(())
@@ -435,17 +443,19 @@ pub mod wasm {
     /// Load game data from localStorage
     pub fn load_game(filename: &str) -> Result<SaveData, String> {
         let win = window().ok_or("No window available")?;
-        let storage = win.local_storage()
+        let storage = win
+            .local_storage()
             .map_err(|_| "Failed to access localStorage")?
             .ok_or("localStorage not available")?;
 
         let key = format!("{}{}", SAVE_PREFIX, filename);
-        let json = storage.get_item(&key)
+        let json = storage
+            .get_item(&key)
             .map_err(|_| "Failed to read from localStorage")?
             .ok_or_else(|| format!("Save not found: {}", filename))?;
 
-        let data: SaveData = serde_json::from_str(&json)
-            .map_err(|e| format!("Failed to parse save: {}", e))?;
+        let data: SaveData =
+            serde_json::from_str(&json).map_err(|e| format!("Failed to parse save: {}", e))?;
 
         Ok(data)
     }
@@ -453,12 +463,15 @@ pub mod wasm {
     /// List all saves in localStorage
     pub fn list_saves() -> Result<Vec<SaveSlotInfo>, String> {
         let win = window().ok_or("No window available")?;
-        let storage = win.local_storage()
+        let storage = win
+            .local_storage()
             .map_err(|_| "Failed to access localStorage")?
             .ok_or("localStorage not available")?;
 
         let mut saves = Vec::new();
-        let len = storage.length().map_err(|_| "Failed to get storage length")?;
+        let len = storage
+            .length()
+            .map_err(|_| "Failed to get storage length")?;
 
         for i in 0..len {
             if let Ok(Some(key)) = storage.key(i) {
@@ -483,12 +496,14 @@ pub mod wasm {
     /// Delete a save from localStorage
     pub fn delete_save(filename: &str) -> Result<(), String> {
         let win = window().ok_or("No window available")?;
-        let storage = win.local_storage()
+        let storage = win
+            .local_storage()
             .map_err(|_| "Failed to access localStorage")?
             .ok_or("localStorage not available")?;
 
         let key = format!("{}{}", SAVE_PREFIX, filename);
-        storage.remove_item(&key)
+        storage
+            .remove_item(&key)
             .map_err(|_| "Failed to delete save")?;
 
         Ok(())
@@ -539,10 +554,11 @@ mod tests {
     #[test]
     fn test_block_type_serialization() {
         let bt = BlockTypeSave::IronOre;
-        let json = serde_json::to_string(&bt).unwrap();
+        let json = serde_json::to_string(&bt).expect("serialization should succeed");
         assert!(json.contains("IronOre"));
 
-        let parsed: BlockTypeSave = serde_json::from_str(&json).unwrap();
+        let parsed: BlockTypeSave =
+            serde_json::from_str(&json).expect("deserialization should succeed");
         assert_eq!(parsed, bt);
     }
 
@@ -573,7 +589,7 @@ mod tests {
         let key = WorldSaveData::pos_to_key(pos);
         assert_eq!(key, "10,-5,20");
 
-        let parsed = WorldSaveData::key_to_pos(&key).unwrap();
+        let parsed = WorldSaveData::key_to_pos(&key).expect("key_to_pos should succeed");
         assert_eq!(parsed, pos);
     }
 
@@ -583,8 +599,15 @@ mod tests {
             version: SAVE_VERSION.to_string(),
             timestamp: 1704067200000,
             player: PlayerSaveData {
-                position: Vec3Save { x: 8.0, y: 12.0, z: 20.0 },
-                rotation: CameraRotation { pitch: 0.0, yaw: 0.0 },
+                position: Vec3Save {
+                    x: 8.0,
+                    y: 12.0,
+                    z: 20.0,
+                },
+                rotation: CameraRotation {
+                    pitch: 0.0,
+                    yaw: 0.0,
+                },
             },
             inventory: InventorySaveData {
                 selected_slot: 0,
@@ -607,16 +630,349 @@ mod tests {
                 rewards_claimed: false,
                 delivered: HashMap::new(),
             },
-            mode: GameModeSaveData {
-                creative: false,
-            },
+            mode: GameModeSaveData { creative: false },
         };
 
-        let json = serde_json::to_string_pretty(&data).unwrap();
-        let parsed: SaveData = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string_pretty(&data).expect("serialization should succeed");
+        let parsed: SaveData = serde_json::from_str(&json).expect("deserialization should succeed");
 
         assert_eq!(parsed.version, data.version);
         assert_eq!(parsed.inventory.selected_slot, 0);
         assert!(parsed.inventory.slots[0].is_some());
+    }
+
+    // === Save/Load Round-trip Tests ===
+
+    #[test]
+    fn test_save_data_round_trip_with_machines() {
+        // Create save data with all machine types
+        let mut modified_blocks = HashMap::new();
+        modified_blocks.insert("5,10,5".to_string(), Some(BlockTypeSave::Stone));
+        modified_blocks.insert("6,10,5".to_string(), None); // Removed block
+
+        let mut delivered = HashMap::new();
+        delivered.insert(BlockTypeSave::IronIngot, 5);
+
+        let data = SaveData {
+            version: SAVE_VERSION.to_string(),
+            timestamp: 1704067200000,
+            player: PlayerSaveData {
+                position: Vec3Save {
+                    x: 100.0,
+                    y: 50.0,
+                    z: -200.0,
+                },
+                rotation: CameraRotation {
+                    pitch: -0.5,
+                    yaw: 3.14,
+                },
+            },
+            inventory: InventorySaveData {
+                selected_slot: 3,
+                slots: vec![
+                    Some(ItemStack {
+                        item_type: BlockTypeSave::IronOre,
+                        count: 64,
+                    }),
+                    Some(ItemStack {
+                        item_type: BlockTypeSave::Coal,
+                        count: 32,
+                    }),
+                    None,
+                    Some(ItemStack {
+                        item_type: BlockTypeSave::MinerBlock,
+                        count: 5,
+                    }),
+                ],
+            },
+            global_inventory: GlobalInventorySaveData {
+                items: {
+                    let mut m = HashMap::new();
+                    m.insert(BlockTypeSave::IronIngot, 100);
+                    m.insert(BlockTypeSave::CopperOre, 50);
+                    m
+                },
+            },
+            world: WorldSaveData { modified_blocks },
+            machines: vec![
+                MachineSaveData::Miner(MinerSaveData {
+                    position: IVec3Save { x: 10, y: 5, z: 10 },
+                    progress: 0.5,
+                    buffer: Some(ItemStack {
+                        item_type: BlockTypeSave::IronOre,
+                        count: 1,
+                    }),
+                }),
+                MachineSaveData::Conveyor(ConveyorSaveData {
+                    position: IVec3Save { x: 11, y: 5, z: 10 },
+                    direction: DirectionSave::East,
+                    shape: ConveyorShapeSave::Straight,
+                    items: vec![ConveyorItemSave {
+                        item_type: BlockTypeSave::IronOre,
+                        progress: 0.3,
+                        lateral_offset: 0.0,
+                    }],
+                    last_output_index: 0,
+                    last_input_source: 0,
+                }),
+                MachineSaveData::Furnace(FurnaceSaveData {
+                    position: IVec3Save { x: 12, y: 5, z: 10 },
+                    fuel: 10,
+                    input: Some(ItemStack {
+                        item_type: BlockTypeSave::IronOre,
+                        count: 5,
+                    }),
+                    output: Some(ItemStack {
+                        item_type: BlockTypeSave::IronIngot,
+                        count: 3,
+                    }),
+                    progress: 0.75,
+                }),
+                MachineSaveData::Crusher(CrusherSaveData {
+                    position: IVec3Save { x: 13, y: 5, z: 10 },
+                    input: Some(ItemStack {
+                        item_type: BlockTypeSave::CopperOre,
+                        count: 10,
+                    }),
+                    output: Some(ItemStack {
+                        item_type: BlockTypeSave::CopperOre,
+                        count: 6,
+                    }),
+                    progress: 0.25,
+                }),
+            ],
+            quests: QuestSaveData {
+                current_index: 2,
+                completed: false,
+                rewards_claimed: false,
+                delivered,
+            },
+            mode: GameModeSaveData { creative: true },
+        };
+
+        // Serialize and deserialize
+        let json = serde_json::to_string(&data).expect("serialization should succeed");
+        let restored: SaveData =
+            serde_json::from_str(&json).expect("deserialization should succeed");
+
+        // Verify all fields
+        assert_eq!(restored.version, data.version);
+        assert_eq!(restored.timestamp, data.timestamp);
+
+        // Player
+        assert!((restored.player.position.x - 100.0).abs() < 0.001);
+        assert!((restored.player.rotation.yaw - 3.14).abs() < 0.001);
+
+        // Inventory
+        assert_eq!(restored.inventory.selected_slot, 3);
+        assert_eq!(restored.inventory.slots.len(), 4);
+        assert_eq!(
+            restored.inventory.slots[0]
+                .as_ref()
+                .expect("slot 0 should exist")
+                .count,
+            64
+        );
+
+        // Global inventory
+        assert_eq!(
+            restored
+                .global_inventory
+                .items
+                .get(&BlockTypeSave::IronIngot),
+            Some(&100)
+        );
+
+        // World
+        assert_eq!(restored.world.modified_blocks.len(), 2);
+
+        // Machines
+        assert_eq!(restored.machines.len(), 4);
+        match &restored.machines[0] {
+            MachineSaveData::Miner(m) => assert!((m.progress - 0.5).abs() < 0.001),
+            _ => panic!("Expected Miner"),
+        }
+        match &restored.machines[1] {
+            MachineSaveData::Conveyor(c) => {
+                assert_eq!(c.direction, DirectionSave::East);
+                assert_eq!(c.items.len(), 1);
+            }
+            _ => panic!("Expected Conveyor"),
+        }
+        match &restored.machines[2] {
+            MachineSaveData::Furnace(f) => assert_eq!(f.fuel, 10),
+            _ => panic!("Expected Furnace"),
+        }
+        match &restored.machines[3] {
+            MachineSaveData::Crusher(c) => assert_eq!(
+                c.input.as_ref().expect("crusher input should exist").count,
+                10
+            ),
+            _ => panic!("Expected Crusher"),
+        }
+
+        // Quests
+        assert_eq!(restored.quests.current_index, 2);
+        assert_eq!(
+            restored.quests.delivered.get(&BlockTypeSave::IronIngot),
+            Some(&5)
+        );
+
+        // Mode
+        assert!(restored.mode.creative);
+    }
+
+    // === Edge Case Tests ===
+
+    #[test]
+    fn test_key_to_pos_invalid_formats() {
+        // Too few parts
+        assert!(WorldSaveData::key_to_pos("10,20").is_none());
+
+        // Too many parts
+        assert!(WorldSaveData::key_to_pos("10,20,30,40").is_none());
+
+        // Non-numeric
+        assert!(WorldSaveData::key_to_pos("abc,20,30").is_none());
+        assert!(WorldSaveData::key_to_pos("10,xyz,30").is_none());
+        assert!(WorldSaveData::key_to_pos("10,20,!!!").is_none());
+
+        // Empty
+        assert!(WorldSaveData::key_to_pos("").is_none());
+
+        // Partial empty
+        assert!(WorldSaveData::key_to_pos(",20,30").is_none());
+        assert!(WorldSaveData::key_to_pos("10,,30").is_none());
+    }
+
+    #[test]
+    fn test_key_to_pos_boundary_values() {
+        // Large positive values
+        let big_pos = IVec3::new(i32::MAX, i32::MAX, i32::MAX);
+        let key = WorldSaveData::pos_to_key(big_pos);
+        let restored =
+            WorldSaveData::key_to_pos(&key).expect("key_to_pos should succeed for big values");
+        assert_eq!(restored, big_pos);
+
+        // Large negative values
+        let small_pos = IVec3::new(i32::MIN, i32::MIN, i32::MIN);
+        let key = WorldSaveData::pos_to_key(small_pos);
+        let restored =
+            WorldSaveData::key_to_pos(&key).expect("key_to_pos should succeed for small values");
+        assert_eq!(restored, small_pos);
+
+        // Zero
+        let zero_pos = IVec3::ZERO;
+        let key = WorldSaveData::pos_to_key(zero_pos);
+        let restored = WorldSaveData::key_to_pos(&key).expect("key_to_pos should succeed for zero");
+        assert_eq!(restored, zero_pos);
+    }
+
+    #[test]
+    fn test_empty_save_data() {
+        let data = SaveData {
+            version: SAVE_VERSION.to_string(),
+            timestamp: 0,
+            player: PlayerSaveData {
+                position: Vec3Save {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                rotation: CameraRotation {
+                    pitch: 0.0,
+                    yaw: 0.0,
+                },
+            },
+            inventory: InventorySaveData {
+                selected_slot: 0,
+                slots: vec![],
+            },
+            global_inventory: GlobalInventorySaveData::default(),
+            world: WorldSaveData {
+                modified_blocks: HashMap::new(),
+            },
+            machines: vec![],
+            quests: QuestSaveData {
+                current_index: 0,
+                completed: false,
+                rewards_claimed: false,
+                delivered: HashMap::new(),
+            },
+            mode: GameModeSaveData { creative: false },
+        };
+
+        let json = serde_json::to_string(&data).expect("serialization should succeed");
+        let restored: SaveData =
+            serde_json::from_str(&json).expect("deserialization should succeed");
+
+        assert!(restored.inventory.slots.is_empty());
+        assert!(restored.machines.is_empty());
+        assert!(restored.world.modified_blocks.is_empty());
+    }
+
+    #[test]
+    fn test_max_stack_values() {
+        let stack = ItemStack {
+            item_type: BlockTypeSave::Stone,
+            count: u32::MAX,
+        };
+
+        let json = serde_json::to_string(&stack).expect("serialization should succeed");
+        let restored: ItemStack =
+            serde_json::from_str(&json).expect("deserialization should succeed");
+
+        assert_eq!(restored.count, u32::MAX);
+    }
+
+    #[test]
+    fn test_conveyor_all_shapes() {
+        for shape in [
+            ConveyorShapeSave::Straight,
+            ConveyorShapeSave::CornerLeft,
+            ConveyorShapeSave::CornerRight,
+            ConveyorShapeSave::TJunction,
+            ConveyorShapeSave::Splitter,
+        ] {
+            let conveyor = ConveyorSaveData {
+                position: IVec3Save { x: 0, y: 0, z: 0 },
+                direction: DirectionSave::North,
+                shape,
+                items: vec![],
+                last_output_index: 0,
+                last_input_source: 0,
+            };
+
+            let json = serde_json::to_string(&conveyor).expect("serialization should succeed");
+            let restored: ConveyorSaveData =
+                serde_json::from_str(&json).expect("deserialization should succeed");
+
+            assert_eq!(restored.shape, shape);
+        }
+    }
+
+    #[test]
+    fn test_direction_all_values() {
+        for dir in [
+            DirectionSave::North,
+            DirectionSave::South,
+            DirectionSave::East,
+            DirectionSave::West,
+        ] {
+            let conveyor = ConveyorSaveData {
+                position: IVec3Save { x: 0, y: 0, z: 0 },
+                direction: dir,
+                shape: ConveyorShapeSave::Straight,
+                items: vec![],
+                last_output_index: 0,
+                last_input_source: 0,
+            };
+
+            let json = serde_json::to_string(&conveyor).expect("serialization should succeed");
+            let restored: ConveyorSaveData =
+                serde_json::from_str(&json).expect("deserialization should succeed");
+
+            assert_eq!(restored.direction, dir);
+        }
     }
 }

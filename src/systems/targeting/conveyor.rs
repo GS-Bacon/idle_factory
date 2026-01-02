@@ -6,8 +6,8 @@ use std::collections::HashSet;
 use crate::meshes::create_conveyor_mesh;
 use crate::player::Inventory;
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, ConveyorVisual, Crusher,
-    Direction, Furnace, InputStateResourcesWithCursor, MachineModels,
+    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, ConveyorVisual, Crusher, Direction,
+    Furnace, InputStateResourcesWithCursor, MachineModels,
 };
 
 /// Handle R key to rotate conveyor placement direction
@@ -139,10 +139,15 @@ pub fn update_conveyor_shapes(
                 || furnace_positions.contains(&front_pos)
                 || crusher_positions.contains(&front_pos));
 
-        let input_count = [has_back_input, has_left_input, has_right_input, has_front_input]
-            .iter()
-            .filter(|&&b| b)
-            .count();
+        let input_count = [
+            has_back_input,
+            has_left_input,
+            has_right_input,
+            has_front_input,
+        ]
+        .iter()
+        .filter(|&&b| b)
+        .count();
         let wait_count = [left_waiting, right_waiting, front_waiting]
             .iter()
             .filter(|&&b| b)

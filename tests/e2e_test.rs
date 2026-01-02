@@ -7,8 +7,8 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 // Use real library types
-use idle_factory::BlockType;
 use idle_factory::constants::{CHUNK_SIZE, HOTBAR_SLOTS};
+use idle_factory::BlockType;
 
 #[derive(Resource, Default)]
 struct Inventory {
@@ -226,15 +226,15 @@ impl Default for HotbarInventory {
     fn default() -> Self {
         Self {
             slots: vec![
-                Some((BlockType::Stone, 64)),  // Slot 0
-                Some((BlockType::Grass, 32)),  // Slot 1
-                None,                           // Slot 2 - empty
-                None,                           // Slot 3 - empty
-                None,                           // Slot 4 - empty
-                None,                           // Slot 5 - empty
-                None,                           // Slot 6 - empty
-                None,                           // Slot 7 - empty
-                None,                           // Slot 8 - empty
+                Some((BlockType::Stone, 64)), // Slot 0
+                Some((BlockType::Grass, 32)), // Slot 1
+                None,                         // Slot 2 - empty
+                None,                         // Slot 3 - empty
+                None,                         // Slot 4 - empty
+                None,                         // Slot 5 - empty
+                None,                         // Slot 6 - empty
+                None,                         // Slot 7 - empty
+                None,                         // Slot 8 - empty
             ],
         }
     }
@@ -289,7 +289,14 @@ fn test_block_placement_empties_slot() {
     let mut inventory = HotbarInventory {
         slots: vec![
             Some((BlockType::Stone, 1)), // Only 1 block
-            None, None, None, None, None, None, None, None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         ],
     };
 
@@ -427,7 +434,10 @@ impl SlotInventory {
     }
 
     fn get_slot_count(&self, slot: usize) -> u32 {
-        self.slots.get(slot).and_then(|s| s.map(|(_, c)| c)).unwrap_or(0)
+        self.slots
+            .get(slot)
+            .and_then(|s| s.map(|(_, c)| c))
+            .unwrap_or(0)
     }
 
     fn selected_block(&self) -> Option<BlockType> {
@@ -482,7 +492,8 @@ impl SlotInventory {
     }
 
     fn has_selected(&self) -> bool {
-        self.slots.get(self.selected_slot)
+        self.slots
+            .get(self.selected_slot)
             .and_then(|s| s.as_ref())
             .map(|(_, c)| *c > 0)
             .unwrap_or(false)
@@ -575,7 +586,11 @@ fn test_slot_inventory_full() {
     // Fill all 9 slots with different block types (using only Stone and Grass)
     for i in 0..HOTBAR_SLOTS {
         // Alternate between block types but use separate add calls to fill slots
-        let block = if i % 2 == 0 { BlockType::Stone } else { BlockType::Grass };
+        let block = if i % 2 == 0 {
+            BlockType::Stone
+        } else {
+            BlockType::Grass
+        };
         // Force into separate slots by making each a new "stack"
         inv.slots[i] = Some((block, (i + 1) as u32));
     }
@@ -889,20 +904,47 @@ impl Crusher {
 fn test_miner_mining_cycle() {
     let mut miner = Miner::default();
 
+    // Initial state verification
+    assert_eq!(miner.progress, 0.0, "Initial progress should be 0");
+    assert!(miner.buffer.is_none(), "Initial buffer should be empty");
+
     // Simulate mining iron ore
     let ore_type = Some(BlockType::Stone); // Representing iron ore
 
-    // Not enough time passed
-    assert!(!miner.tick(2.0, ore_type));
-    assert!(miner.buffer.is_none());
+    // Not enough time passed (2 seconds of 5 total)
+    assert!(
+        !miner.tick(2.0, ore_type),
+        "Mining should not complete at 2s"
+    );
+    assert!(miner.buffer.is_none(), "Buffer should still be empty at 2s");
+    assert!(
+        miner.progress >= 0.4 - 0.01,
+        "Progress should be ~0.4 at 2s"
+    );
+    assert!(
+        miner.progress <= 0.4 + 0.01,
+        "Progress should be ~0.4 at 2s"
+    );
 
     // Complete mining (5 seconds total)
-    assert!(miner.tick(3.0, ore_type));
-    assert_eq!(miner.buffer, Some((BlockType::Stone, 1)));
+    assert!(miner.tick(3.0, ore_type), "Mining should complete at 5s");
+    assert_eq!(
+        miner.buffer,
+        Some((BlockType::Stone, 1)),
+        "Buffer should contain 1 Stone"
+    );
+    assert!(
+        miner.progress < 0.01,
+        "Progress should reset after completion"
+    );
 
     // Take output
-    assert_eq!(miner.take_output(), Some(BlockType::Stone));
-    assert!(miner.buffer.is_none());
+    assert_eq!(
+        miner.take_output(),
+        Some(BlockType::Stone),
+        "Should output Stone"
+    );
+    assert!(miner.buffer.is_none(), "Buffer should be empty after take");
 }
 
 #[test]
@@ -959,20 +1001,52 @@ fn test_conveyor_chain() {
 fn test_furnace_smelting() {
     let mut furnace = Furnace::default();
 
+    // Initial state verification
+    assert_eq!(furnace.progress, 0.0, "Initial progress should be 0");
+    assert_eq!(furnace.fuel, 0, "Initial fuel should be 0");
+    assert!(
+        furnace.input_type.is_none(),
+        "Initial input should be empty"
+    );
+    assert!(
+        furnace.output_type.is_none(),
+        "Initial output should be empty"
+    );
+
     // Add fuel and input
     furnace.add_fuel(1);
+    assert_eq!(furnace.fuel, 1, "Fuel should be 1 after adding");
     furnace.add_input(BlockType::Stone); // Representing iron ore
+    assert!(furnace.input_type.is_some(), "Input should be set");
 
-    // Smelting takes 3 seconds
-    assert!(!furnace.tick(2.0));
-    assert!(furnace.tick(1.0));
+    // Smelting takes 3 seconds - partial progress
+    assert!(!furnace.tick(2.0), "Smelting should not complete at 2s");
+    assert!(
+        furnace.progress >= 0.6 - 0.1,
+        "Progress should be ~0.66 at 2s"
+    );
+
+    // Complete smelting
+    assert!(furnace.tick(1.0), "Smelting should complete at 3s");
+    assert!(
+        furnace.progress < 0.01,
+        "Progress should reset after completion"
+    );
 
     // Check output
-    assert_eq!(furnace.output_count, 1);
-    assert_eq!(furnace.take_output(), Some(BlockType::Stone));
+    assert_eq!(furnace.output_count, 1, "Should have 1 output item");
+    assert_eq!(
+        furnace.take_output(),
+        Some(BlockType::Stone),
+        "Should output Stone"
+    );
+    assert_eq!(
+        furnace.output_count, 0,
+        "Output count should be 0 after take"
+    );
 
     // Fuel consumed
-    assert_eq!(furnace.fuel, 0);
+    assert_eq!(furnace.fuel, 0, "Fuel should be consumed");
 }
 
 #[test]
@@ -989,16 +1063,57 @@ fn test_furnace_no_fuel() {
 fn test_crusher_doubles_output() {
     let mut crusher = Crusher::default();
 
+    // Initial state verification
+    assert_eq!(crusher.progress, 0.0, "Initial progress should be 0");
+    assert!(
+        crusher.input_type.is_none(),
+        "Initial input should be empty"
+    );
+    assert!(
+        crusher.output_type.is_none(),
+        "Initial output should be empty"
+    );
+    assert_eq!(crusher.output_count, 0, "Initial output count should be 0");
+
     crusher.add_input(BlockType::Stone);
+    assert!(
+        crusher.input_type.is_some(),
+        "Input should be set after add"
+    );
+    assert_eq!(crusher.input_count, 1, "Input count should be 1");
 
     // Crushing takes 2 seconds
-    assert!(crusher.tick(2.0));
+    assert!(crusher.tick(2.0), "Crushing should complete at 2s");
+    assert!(
+        crusher.progress < 0.01,
+        "Progress should reset after completion"
+    );
 
-    // Should produce 2 outputs
-    assert_eq!(crusher.output_count, 2);
-    assert_eq!(crusher.take_output(), Some(BlockType::Stone));
-    assert_eq!(crusher.take_output(), Some(BlockType::Stone));
-    assert!(crusher.take_output().is_none());
+    // Should produce 2 outputs (doubling effect)
+    assert_eq!(crusher.output_count, 2, "Should produce exactly 2 outputs");
+    assert!(crusher.input_type.is_none(), "Input should be consumed");
+
+    // Take first output
+    assert_eq!(
+        crusher.take_output(),
+        Some(BlockType::Stone),
+        "First output should be Stone"
+    );
+    assert_eq!(crusher.output_count, 1, "Should have 1 output remaining");
+
+    // Take second output
+    assert_eq!(
+        crusher.take_output(),
+        Some(BlockType::Stone),
+        "Second output should be Stone"
+    );
+    assert_eq!(crusher.output_count, 0, "Should have 0 outputs remaining");
+
+    // No more outputs
+    assert!(
+        crusher.take_output().is_none(),
+        "No more outputs should exist"
+    );
 }
 
 // =====================================================
@@ -1036,11 +1151,14 @@ impl EntityManager {
     fn spawn(&mut self, entity_type: EntityType) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
-        self.entities.insert(id, EntityData {
-            entity_type,
-            children: Vec::new(),
-            item_visual: None,
-        });
+        self.entities.insert(
+            id,
+            EntityData {
+                entity_type,
+                children: Vec::new(),
+                item_visual: None,
+            },
+        );
         id
     }
 
@@ -1078,7 +1196,10 @@ impl EntityManager {
     }
 
     fn count_by_type(&self, entity_type: EntityType) -> usize {
-        self.entities.values().filter(|e| e.entity_type == entity_type).count()
+        self.entities
+            .values()
+            .filter(|e| e.entity_type == entity_type)
+            .count()
     }
 }
 
@@ -1316,7 +1437,8 @@ fn test_full_automation_line() {
 
     // Run simulation for several cycles
     let delta = 0.1; // 100ms per tick
-    for _ in 0..200 { // 20 seconds of simulation
+    for _ in 0..200 {
+        // 20 seconds of simulation
         // Miner mines
         miner.tick(delta, Some(BlockType::Stone));
 
@@ -1365,7 +1487,11 @@ fn test_full_automation_line() {
 
     // Should have some deliveries
     let delivered = platform.get_delivered(BlockType::Stone);
-    assert!(delivered > 0, "Automation line should produce deliveries, got {}", delivered);
+    assert!(
+        delivered > 0,
+        "Automation line should produce deliveries, got {}",
+        delivered
+    );
 }
 
 // =====================================================
@@ -1397,7 +1523,8 @@ impl TestWorldData {
             world_pos.x.div_euclid(CHUNK_SIZE),
             world_pos.z.div_euclid(CHUNK_SIZE),
         );
-        self.chunks.get(&chunk_coord)
+        self.chunks
+            .get(&chunk_coord)
             .map(|c| c.contains_key(&world_pos))
             .unwrap_or(false)
     }
@@ -1450,7 +1577,11 @@ fn test_chunk_boundary_all_directions() {
     ];
 
     for dir in directions {
-        assert!(world.should_render_face(center, dir), "Face {:?} should render", dir);
+        assert!(
+            world.should_render_face(center, dir),
+            "Face {:?} should render",
+            dir
+        );
     }
 
     // Add neighbors in all directions
@@ -1460,7 +1591,11 @@ fn test_chunk_boundary_all_directions() {
 
     // No faces should render now
     for dir in directions {
-        assert!(!world.should_render_face(center, dir), "Face {:?} should NOT render", dir);
+        assert!(
+            !world.should_render_face(center, dir),
+            "Face {:?} should NOT render",
+            dir
+        );
     }
 }
 
@@ -1589,7 +1724,11 @@ fn test_raycast_hits_all_machine_types() {
 
     // Ray from player position looking at each machine
     for machine in &machines {
-        let ray_origin = Vec3::new(machine.position.x, machine.position.y + 2.0, machine.position.z - 3.0);
+        let ray_origin = Vec3::new(
+            machine.position.x,
+            machine.position.y + 2.0,
+            machine.position.z - 3.0,
+        );
         let ray_direction = (machine.position - ray_origin).normalize();
 
         let hit = ray_aabb_test(
@@ -1599,7 +1738,11 @@ fn test_raycast_hits_all_machine_types() {
             machine.position + machine.half_size,
         );
 
-        assert!(hit.is_some(), "Raycast should hit {:?}", machine.entity_type);
+        assert!(
+            hit.is_some(),
+            "Raycast should hit {:?}",
+            machine.entity_type
+        );
     }
 }
 
@@ -1636,9 +1779,9 @@ fn test_conveyor_item_no_overlap() {
 
     // Simulate a conveyor with multiple items
     let items: Vec<(f32, f32)> = vec![
-        (0.0, 0.0),   // (progress, lateral_offset)
-        (0.4, 0.0),   // Should be at minimum spacing
-        (0.8, 0.0),   // Should be at minimum spacing from previous
+        (0.0, 0.0), // (progress, lateral_offset)
+        (0.4, 0.0), // Should be at minimum spacing
+        (0.8, 0.0), // Should be at minimum spacing from previous
     ];
 
     // Check that all items maintain minimum spacing
@@ -1673,7 +1816,10 @@ fn test_conveyor_side_merge_offset() {
 
     // After enough time, offset should reach near zero
     let frames_to_center = (initial_offset / (decay_rate * delta_time)).ceil() as i32;
-    assert!(frames_to_center > 0 && frames_to_center < 100, "Should center within reasonable time");
+    assert!(
+        frames_to_center > 0 && frames_to_center < 100,
+        "Should center within reasonable time"
+    );
 }
 
 /// Test inventory stack limit at 999
@@ -1730,7 +1876,8 @@ impl TestInventory {
     }
 
     fn get_count(&self, item: TestBlockType) -> u32 {
-        self.slots.iter()
+        self.slots
+            .iter()
             .filter(|(i, _)| *i == Some(item))
             .map(|(_, c)| c)
             .sum()
@@ -1779,7 +1926,10 @@ fn test_multiple_conveyor_merge() {
 
     // Try to add from south (progress 0.5) - should fail due to spacing
     let can_add_south = main_conveyor.can_accept(0.5);
-    assert!(!can_add_south, "Should not accept two items at same progress");
+    assert!(
+        !can_add_south,
+        "Should not accept two items at same progress"
+    );
 
     // Try to add from behind (progress 0.0) - should succeed
     let can_add_behind = main_conveyor.can_accept(0.0);
@@ -1799,10 +1949,26 @@ fn test_conveyor_loop_handling() {
     }
 
     let mut conveyors = vec![
-        LoopConveyor { id: 0, items: vec![0.5], next_id: 1 },
-        LoopConveyor { id: 1, items: vec![], next_id: 2 },
-        LoopConveyor { id: 2, items: vec![], next_id: 3 },
-        LoopConveyor { id: 3, items: vec![], next_id: 0 }, // Loop back
+        LoopConveyor {
+            id: 0,
+            items: vec![0.5],
+            next_id: 1,
+        },
+        LoopConveyor {
+            id: 1,
+            items: vec![],
+            next_id: 2,
+        },
+        LoopConveyor {
+            id: 2,
+            items: vec![],
+            next_id: 3,
+        },
+        LoopConveyor {
+            id: 3,
+            items: vec![],
+            next_id: 0,
+        }, // Loop back
     ];
 
     // Simulate 100 frames
@@ -1839,7 +2005,10 @@ fn test_conveyor_loop_handling() {
 
     // Count total items - should still be exactly 1
     let total_items: usize = conveyors.iter().map(|c| c.items.len()).sum();
-    assert_eq!(total_items, 1, "Item should not be duplicated or lost in loop");
+    assert_eq!(
+        total_items, 1,
+        "Item should not be duplicated or lost in loop"
+    );
 }
 
 /// Test that entity count remains stable after repeated operations
@@ -1860,7 +2029,10 @@ fn test_entity_count_stability() {
     }
 
     assert_eq!(entity_count, 0, "All entities should be cleaned up");
-    assert!(max_entities <= 10, "Entity count should not grow unboundedly");
+    assert!(
+        max_entities <= 10,
+        "Entity count should not grow unboundedly"
+    );
 }
 
 /// Test visual entity handoff doesn't leak (BUG-3 prevention)
@@ -1889,8 +2061,15 @@ fn test_visual_entity_handoff() {
     target.visual_entity = source.visual_entity.take();
     target.progress = 0.0;
 
-    assert!(source.visual_entity.is_none(), "Source should release visual");
-    assert_eq!(target.visual_entity, Some(42), "Target should receive visual");
+    assert!(
+        source.visual_entity.is_none(),
+        "Source should release visual"
+    );
+    assert_eq!(
+        target.visual_entity,
+        Some(42),
+        "Target should receive visual"
+    );
 }
 
 /// Test zipper merge - alternating inputs from multiple sources
@@ -1936,7 +2115,8 @@ fn test_zipper_merge() {
     // Verify alternating pattern
     for i in 0..9 {
         assert_ne!(
-            accepted_from[i], accepted_from[i + 1],
+            accepted_from[i],
+            accepted_from[i + 1],
             "Zipper should alternate between sources"
         );
     }
@@ -1976,7 +2156,11 @@ fn test_splitter_round_robin() {
 
     // Verify round-robin pattern: 0,1,2,0,1,2,...
     for (i, &output) in output_sequence.iter().enumerate() {
-        assert_eq!(output, i % 3, "Round-robin pattern should be 0,1,2,0,1,2,...");
+        assert_eq!(
+            output,
+            i % 3,
+            "Round-robin pattern should be 0,1,2,0,1,2,..."
+        );
     }
 }
 
@@ -2014,10 +2198,17 @@ fn test_splitter_skips_blocked_output() {
 
     // With output 1 blocked, items should go to 0 and 2
     assert!(output_counts[0] > 0, "Front output should receive items");
-    assert_eq!(output_counts[1], 0, "Blocked left output should receive 0 items");
+    assert_eq!(
+        output_counts[1], 0,
+        "Blocked left output should receive 0 items"
+    );
     assert!(output_counts[2] > 0, "Right output should receive items");
     // Total should be 10
-    assert_eq!(output_counts.iter().sum::<usize>(), 10, "All 10 items should be distributed");
+    assert_eq!(
+        output_counts.iter().sum::<usize>(),
+        10,
+        "All 10 items should be distributed"
+    );
 }
 
 #[test]
@@ -2052,17 +2243,53 @@ fn test_conveyor_shape_detection() {
     }
 
     // Test cases
-    assert_eq!(determine_shape(false, false, 1), ConveyorShape::Straight, "No side inputs, 1 output = Straight");
-    assert_eq!(determine_shape(true, false, 1), ConveyorShape::CornerLeft, "Left input only = CornerLeft");
-    assert_eq!(determine_shape(false, true, 1), ConveyorShape::CornerRight, "Right input only = CornerRight");
-    assert_eq!(determine_shape(true, true, 1), ConveyorShape::TJunction, "Both side inputs = TJunction");
-    assert_eq!(determine_shape(false, false, 2), ConveyorShape::Splitter, "No side inputs, 2+ outputs = Splitter");
-    assert_eq!(determine_shape(false, false, 3), ConveyorShape::Splitter, "No side inputs, 3 outputs = Splitter");
+    assert_eq!(
+        determine_shape(false, false, 1),
+        ConveyorShape::Straight,
+        "No side inputs, 1 output = Straight"
+    );
+    assert_eq!(
+        determine_shape(true, false, 1),
+        ConveyorShape::CornerLeft,
+        "Left input only = CornerLeft"
+    );
+    assert_eq!(
+        determine_shape(false, true, 1),
+        ConveyorShape::CornerRight,
+        "Right input only = CornerRight"
+    );
+    assert_eq!(
+        determine_shape(true, true, 1),
+        ConveyorShape::TJunction,
+        "Both side inputs = TJunction"
+    );
+    assert_eq!(
+        determine_shape(false, false, 2),
+        ConveyorShape::Splitter,
+        "No side inputs, 2+ outputs = Splitter"
+    );
+    assert_eq!(
+        determine_shape(false, false, 3),
+        ConveyorShape::Splitter,
+        "No side inputs, 3 outputs = Splitter"
+    );
 
     // Side inputs prevent splitter mode even with multiple outputs
-    assert_eq!(determine_shape(true, false, 2), ConveyorShape::CornerLeft, "Left input with 2 outputs = CornerLeft (not Splitter)");
-    assert_eq!(determine_shape(false, true, 3), ConveyorShape::CornerRight, "Right input with 3 outputs = CornerRight (not Splitter)");
-    assert_eq!(determine_shape(true, true, 2), ConveyorShape::TJunction, "Both inputs with 2 outputs = TJunction (not Splitter)");
+    assert_eq!(
+        determine_shape(true, false, 2),
+        ConveyorShape::CornerLeft,
+        "Left input with 2 outputs = CornerLeft (not Splitter)"
+    );
+    assert_eq!(
+        determine_shape(false, true, 3),
+        ConveyorShape::CornerRight,
+        "Right input with 3 outputs = CornerRight (not Splitter)"
+    );
+    assert_eq!(
+        determine_shape(true, true, 2),
+        ConveyorShape::TJunction,
+        "Both inputs with 2 outputs = TJunction (not Splitter)"
+    );
 }
 
 // =====================================================
@@ -2107,10 +2334,18 @@ fn auto_conveyor_direction(
     for machine_pos in machines {
         let diff = place_pos - *machine_pos;
         if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
-            if diff.x == 1 { return TestDirection::East; }
-            if diff.x == -1 { return TestDirection::West; }
-            if diff.z == 1 { return TestDirection::South; }
-            if diff.z == -1 { return TestDirection::North; }
+            if diff.x == 1 {
+                return TestDirection::East;
+            }
+            if diff.x == -1 {
+                return TestDirection::West;
+            }
+            if diff.z == 1 {
+                return TestDirection::South;
+            }
+            if diff.z == -1 {
+                return TestDirection::North;
+            }
         }
     }
 
@@ -2118,10 +2353,18 @@ fn auto_conveyor_direction(
     for (conv_pos, _) in conveyors {
         let diff = *conv_pos - place_pos;
         if diff.x.abs() + diff.y.abs() + diff.z.abs() == 1 {
-            if diff.x == 1 { return TestDirection::East; }
-            if diff.x == -1 { return TestDirection::West; }
-            if diff.z == 1 { return TestDirection::South; }
-            if diff.z == -1 { return TestDirection::North; }
+            if diff.x == 1 {
+                return TestDirection::East;
+            }
+            if diff.x == -1 {
+                return TestDirection::West;
+            }
+            if diff.z == 1 {
+                return TestDirection::South;
+            }
+            if diff.z == -1 {
+                return TestDirection::North;
+            }
         }
     }
 
@@ -2147,7 +2390,11 @@ fn test_auto_conveyor_points_away_from_machine() {
     let place_pos = IVec3::new(6, 8, 5);
 
     let dir = auto_conveyor_direction(place_pos, TestDirection::North, &conveyors, &machines);
-    assert_eq!(dir, TestDirection::East, "Should point away from machine (East)");
+    assert_eq!(
+        dir,
+        TestDirection::East,
+        "Should point away from machine (East)"
+    );
 }
 
 #[test]
@@ -2159,7 +2406,11 @@ fn test_auto_conveyor_connects_to_adjacent() {
     let place_pos = IVec3::new(6, 8, 5);
 
     let dir = auto_conveyor_direction(place_pos, TestDirection::North, &conveyors, &machines);
-    assert_eq!(dir, TestDirection::East, "Should point toward adjacent conveyor");
+    assert_eq!(
+        dir,
+        TestDirection::East,
+        "Should point toward adjacent conveyor"
+    );
 }
 
 #[test]
@@ -2182,7 +2433,11 @@ fn test_auto_conveyor_machine_priority_over_adjacent() {
     let place_pos = IVec3::new(6, 8, 5);
 
     let dir = auto_conveyor_direction(place_pos, TestDirection::North, &conveyors, &machines);
-    assert_eq!(dir, TestDirection::East, "Machine priority: should point away from machine");
+    assert_eq!(
+        dir,
+        TestDirection::East,
+        "Machine priority: should point away from machine"
+    );
 }
 
 // =====================================================
@@ -2195,12 +2450,34 @@ fn test_inventory_add_at_max_slots() {
     const MAX_STACK: u32 = 999;
 
     #[derive(Clone, Copy, PartialEq, Eq)]
-    enum Item { A, B, C, D, E, F, G, H, I, J }
+    enum Item {
+        A,
+        B,
+        C,
+        D,
+        E,
+        F,
+        G,
+        H,
+        I,
+        J,
+    }
 
     let mut slots: [Option<(Item, u32)>; NUM_SLOTS] = [None; NUM_SLOTS];
 
     // Fill all slots with different items (can't stack)
-    let items = [Item::A, Item::B, Item::C, Item::D, Item::E, Item::F, Item::G, Item::H, Item::I, Item::J];
+    let items = [
+        Item::A,
+        Item::B,
+        Item::C,
+        Item::D,
+        Item::E,
+        Item::F,
+        Item::G,
+        Item::H,
+        Item::I,
+        Item::J,
+    ];
     for (i, slot) in slots.iter_mut().enumerate() {
         *slot = Some((items[i % items.len()], MAX_STACK));
     }
@@ -2262,9 +2539,18 @@ fn test_chunk_unload_clears_entities() {
     }
 
     let mut loaded_chunks: Vec<ChunkEntities> = vec![
-        ChunkEntities { chunk_coord: IVec2::new(0, 0), entities: vec![1, 2, 3] },
-        ChunkEntities { chunk_coord: IVec2::new(1, 0), entities: vec![4, 5] },
-        ChunkEntities { chunk_coord: IVec2::new(0, 1), entities: vec![6, 7, 8, 9] },
+        ChunkEntities {
+            chunk_coord: IVec2::new(0, 0),
+            entities: vec![1, 2, 3],
+        },
+        ChunkEntities {
+            chunk_coord: IVec2::new(1, 0),
+            entities: vec![4, 5],
+        },
+        ChunkEntities {
+            chunk_coord: IVec2::new(0, 1),
+            entities: vec![6, 7, 8, 9],
+        },
     ];
 
     // Unload chunk (0, 1) - should remove entities 6, 7, 8, 9
@@ -2313,8 +2599,12 @@ fn test_modified_blocks_persist_across_chunk_reload() {
                 continue;
             }
             match maybe_block {
-                Some(block) => { generated_blocks.insert(world_pos, block); }
-                None => { generated_blocks.remove(&world_pos); }
+                Some(block) => {
+                    generated_blocks.insert(world_pos, block);
+                }
+                None => {
+                    generated_blocks.remove(&world_pos);
+                }
             }
         }
     }
@@ -2327,8 +2617,15 @@ fn test_modified_blocks_persist_across_chunk_reload() {
     apply_modifications(IVec2::new(0, 0), &mut blocks, &modified_blocks);
 
     // After reload: (5, 7, 5) should be gone (player destroyed), (10, 8, 10) should have stone
-    assert!(!blocks.contains_key(&IVec3::new(5, 7, 5)), "Destroyed block should stay destroyed");
-    assert_eq!(blocks.get(&IVec3::new(10, 8, 10)), Some(&1), "Placed block should persist");
+    assert!(
+        !blocks.contains_key(&IVec3::new(5, 7, 5)),
+        "Destroyed block should stay destroyed"
+    );
+    assert_eq!(
+        blocks.get(&IVec3::new(10, 8, 10)),
+        Some(&1),
+        "Placed block should persist"
+    );
 }
 
 #[test]
@@ -2342,7 +2639,9 @@ fn test_chunk_boundary_machine_survival() {
         IVec2::new(pos.x.div_euclid(16), pos.z.div_euclid(16))
     }
 
-    let machine = Machine { world_pos: IVec3::new(16, 8, 0) }; // At chunk (1, 0)
+    let machine = Machine {
+        world_pos: IVec3::new(16, 8, 0),
+    }; // At chunk (1, 0)
     let loaded_chunks = vec![IVec2::new(0, 0), IVec2::new(1, 0)];
 
     let machine_chunk = world_to_chunk(machine.world_pos);
@@ -2459,7 +2758,11 @@ fn test_crusher_break_returns_items() {
 
     // Verify items were returned (stacked in slot 0)
     assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
-    assert_eq!(inventory.get_slot_count(0), 15, "All items should be returned (5 input + 10 output)");
+    assert_eq!(
+        inventory.get_slot_count(0),
+        15,
+        "All items should be returned (5 input + 10 output)"
+    );
 }
 
 #[test]
@@ -2502,10 +2805,18 @@ fn test_furnace_break_returns_items() {
     // Verify items were returned
     // Grass (fuel substitute + output): 3 + 2 = 5 in slot 0
     assert_eq!(inventory.get_slot(0), Some(BlockType::Grass));
-    assert_eq!(inventory.get_slot_count(0), 5, "Fuel and output should be returned");
+    assert_eq!(
+        inventory.get_slot_count(0),
+        5,
+        "Fuel and output should be returned"
+    );
     // Stone (input ore) in slot 1
     assert_eq!(inventory.get_slot(1), Some(BlockType::Stone));
-    assert_eq!(inventory.get_slot_count(1), 5, "Input ore should be returned");
+    assert_eq!(
+        inventory.get_slot_count(1),
+        5,
+        "Input ore should be returned"
+    );
 }
 
 // === Command execution tests ===
@@ -2655,7 +2966,8 @@ fn test_machine_placement_no_block_registration() {
     // They should NOT be registered in the world block data
     // Registering them causes the terrain underneath to disappear
 
-    let mut world_blocks: std::collections::HashMap<IVec3, BlockType> = std::collections::HashMap::new();
+    let mut world_blocks: std::collections::HashMap<IVec3, BlockType> =
+        std::collections::HashMap::new();
 
     // Initial terrain
     world_blocks.insert(IVec3::new(0, 0, 0), BlockType::Stone);
@@ -2668,9 +2980,18 @@ fn test_machine_placement_no_block_registration() {
     // DO NOT: world_blocks.insert(miner_pos, BlockType::MinerBlock);
 
     // Verify terrain is still intact
-    assert!(world_blocks.contains_key(&IVec3::new(0, 0, 0)), "Stone should still exist");
-    assert!(world_blocks.contains_key(&IVec3::new(0, 1, 0)), "Grass should still exist");
-    assert!(!world_blocks.contains_key(&miner_pos), "Machine position should NOT be in world blocks");
+    assert!(
+        world_blocks.contains_key(&IVec3::new(0, 0, 0)),
+        "Stone should still exist"
+    );
+    assert!(
+        world_blocks.contains_key(&IVec3::new(0, 1, 0)),
+        "Grass should still exist"
+    );
+    assert!(
+        !world_blocks.contains_key(&miner_pos),
+        "Machine position should NOT be in world blocks"
+    );
 }
 
 // ============================================================
@@ -2714,7 +3035,11 @@ fn test_chunk_boundary_mesh_needs_neighbors() {
         if neighbor_pos.x < 0 || neighbor_pos.x >= CHUNK_SIZE {
             if let Some(neighbor) = neighbor_chunk {
                 // Convert to neighbor chunk local coords
-                let local_x = if neighbor_pos.x < 0 { CHUNK_SIZE - 1 } else { 0 };
+                let local_x = if neighbor_pos.x < 0 {
+                    CHUNK_SIZE - 1
+                } else {
+                    0
+                };
                 let local_pos = IVec3::new(local_x, neighbor_pos.y, neighbor_pos.z);
                 if neighbor.contains_key(&local_pos) {
                     return false; // Occluded by neighbor chunk block
@@ -2728,23 +3053,20 @@ fn test_chunk_boundary_mesh_needs_neighbors() {
     let edge_pos = IVec3::new(CHUNK_SIZE - 1, 0, 0);
 
     // Without neighbor info: incorrectly says to render +X face
-    let render_without_neighbor = should_render_face(
-        edge_pos,
-        IVec3::new(1, 0, 0),
-        &chunk_a,
-        None,
-    );
+    let render_without_neighbor = should_render_face(edge_pos, IVec3::new(1, 0, 0), &chunk_a, None);
 
     // With neighbor info: correctly says NOT to render +X face
-    let render_with_neighbor = should_render_face(
-        edge_pos,
-        IVec3::new(1, 0, 0),
-        &chunk_a,
-        Some(&chunk_b),
-    );
+    let render_with_neighbor =
+        should_render_face(edge_pos, IVec3::new(1, 0, 0), &chunk_a, Some(&chunk_b));
 
-    assert!(render_without_neighbor, "Without neighbor info, would incorrectly render face");
-    assert!(!render_with_neighbor, "With neighbor info, correctly skips occluded face");
+    assert!(
+        render_without_neighbor,
+        "Without neighbor info, would incorrectly render face"
+    );
+    assert!(
+        !render_with_neighbor,
+        "With neighbor info, correctly skips occluded face"
+    );
 }
 
 // ============================================================
@@ -2861,7 +3183,10 @@ fn test_ui_blocks_hotbar_scroll() {
 
     // Scroll with UI open - should NOT change selection
     handle_scroll(&mut state, 1);
-    assert_eq!(state.hotbar_selection, 1, "Hotbar should not change when UI is open");
+    assert_eq!(
+        state.hotbar_selection, 1,
+        "Hotbar should not change when UI is open"
+    );
 }
 
 // ============================================================
@@ -2883,13 +3208,13 @@ fn test_chunk_processing_rate_limit() {
     ];
 
     // Simulate processing with rate limit
-    let chunks_to_process: Vec<_> = pending_chunks
-        .iter()
-        .take(MAX_CHUNKS_PER_FRAME)
-        .collect();
+    let chunks_to_process: Vec<_> = pending_chunks.iter().take(MAX_CHUNKS_PER_FRAME).collect();
 
     assert_eq!(chunks_to_process.len(), MAX_CHUNKS_PER_FRAME);
-    assert!(chunks_to_process.len() < pending_chunks.len(), "Should not process all chunks at once");
+    assert!(
+        chunks_to_process.len() < pending_chunks.len(),
+        "Should not process all chunks at once"
+    );
 }
 
 // NOTE: test_conveyor_shape_detection moved earlier in file with Splitter support
@@ -3095,7 +3420,10 @@ fn test_modified_blocks_save_load() {
     // Check values
     assert_eq!(save_data.get("10,8,20"), Some(&Some("Stone".to_string())));
     assert_eq!(save_data.get("12,8,20"), Some(&None));
-    assert_eq!(save_data.get("5,8,5"), Some(&Some("MinerBlock".to_string())));
+    assert_eq!(
+        save_data.get("5,8,5"),
+        Some(&Some("MinerBlock".to_string()))
+    );
 }
 
 /// Test machine state serialization
@@ -3138,10 +3466,7 @@ fn test_machine_state_serialization() {
     let conveyor = TestConveyor {
         position: (11, 8, 10),
         direction: "East".to_string(),
-        items: vec![
-            ("IronOre".to_string(), 0.3),
-            ("IronOre".to_string(), 0.7),
-        ],
+        items: vec![("IronOre".to_string(), 0.3), ("IronOre".to_string(), 0.7)],
     };
     let json = serde_json::to_string(&conveyor).unwrap();
     let parsed: TestConveyor = serde_json::from_str(&json).unwrap();
@@ -3235,9 +3560,10 @@ fn test_inventory_serialization_edge_cases() {
     let json = serde_json::to_string(&full).unwrap();
     let parsed: TestInventory = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.selected_slot, 8);
-    assert!(parsed.slots.iter().all(|s| {
-        s.as_ref().map(|(_, c)| *c == MAX_STACK).unwrap_or(false)
-    }));
+    assert!(parsed
+        .slots
+        .iter()
+        .all(|s| { s.as_ref().map(|(_, c)| *c == MAX_STACK).unwrap_or(false) }));
 }
 
 /// Test auto-save timer logic
@@ -3302,9 +3628,7 @@ fn test_save_command_parsing() {
         }
 
         match parts[0] {
-            "/save" | "save" => {
-                Some(parts.get(1).unwrap_or(&"quicksave").to_string())
-            }
+            "/save" | "save" => Some(parts.get(1).unwrap_or(&"quicksave").to_string()),
             _ => None,
         }
     }
@@ -3314,8 +3638,14 @@ fn test_save_command_parsing() {
     assert_eq!(parse_save_command("save"), Some("quicksave".to_string()));
 
     // Custom filename
-    assert_eq!(parse_save_command("/save myworld"), Some("myworld".to_string()));
-    assert_eq!(parse_save_command("/save test_save"), Some("test_save".to_string()));
+    assert_eq!(
+        parse_save_command("/save myworld"),
+        Some("myworld".to_string())
+    );
+    assert_eq!(
+        parse_save_command("/save test_save"),
+        Some("test_save".to_string())
+    );
 
     // Invalid commands
     assert_eq!(parse_save_command("/creative"), None);
@@ -3333,9 +3663,7 @@ fn test_load_command_parsing() {
         }
 
         match parts[0] {
-            "/load" | "load" => {
-                Some(parts.get(1).unwrap_or(&"quicksave").to_string())
-            }
+            "/load" | "load" => Some(parts.get(1).unwrap_or(&"quicksave").to_string()),
             _ => None,
         }
     }
@@ -3345,8 +3673,14 @@ fn test_load_command_parsing() {
     assert_eq!(parse_load_command("load"), Some("quicksave".to_string()));
 
     // Custom filename
-    assert_eq!(parse_load_command("/load myworld"), Some("myworld".to_string()));
-    assert_eq!(parse_load_command("/load autosave"), Some("autosave".to_string()));
+    assert_eq!(
+        parse_load_command("/load myworld"),
+        Some("myworld".to_string())
+    );
+    assert_eq!(
+        parse_load_command("/load autosave"),
+        Some("autosave".to_string())
+    );
 
     // Invalid commands
     assert_eq!(parse_load_command("/save"), None);
@@ -3358,7 +3692,11 @@ fn test_load_command_parsing() {
 // =============================================================================
 
 /// Check if inventory contains at least the specified amount of an item
-fn assert_inventory_contains(inventory: &HashMap<BlockType, u32>, block_type: BlockType, min_count: u32) -> bool {
+fn assert_inventory_contains(
+    inventory: &HashMap<BlockType, u32>,
+    block_type: BlockType,
+    min_count: u32,
+) -> bool {
     inventory.get(&block_type).copied().unwrap_or(0) >= min_count
 }
 
@@ -3385,7 +3723,11 @@ fn test_assert_inventory_contains() {
 
     assert!(assert_inventory_contains(&inventory, BlockType::IronOre, 3));
     assert!(assert_inventory_contains(&inventory, BlockType::IronOre, 5));
-    assert!(!assert_inventory_contains(&inventory, BlockType::IronOre, 6));
+    assert!(!assert_inventory_contains(
+        &inventory,
+        BlockType::IronOre,
+        6
+    ));
     assert!(!assert_inventory_contains(&inventory, BlockType::Stone, 1));
 }
 
@@ -3463,7 +3805,11 @@ enum ConveyorShape {
 }
 
 /// Simulate item movement on L-shape (left corner) conveyor
-fn simulate_corner_left_path(start_pos: Vec3, input_dir: ConveyorDirection, steps: usize) -> Vec<Vec3> {
+fn simulate_corner_left_path(
+    start_pos: Vec3,
+    input_dir: ConveyorDirection,
+    steps: usize,
+) -> Vec<Vec3> {
     let mut positions = vec![start_pos];
     let output_dir = input_dir.left();
     let corner_center = Vec3::new(0.5, 0.0, 0.5);
@@ -3486,7 +3832,11 @@ fn simulate_corner_left_path(start_pos: Vec3, input_dir: ConveyorDirection, step
 }
 
 /// Simulate item movement on L-shape (right corner) conveyor
-fn simulate_corner_right_path(start_pos: Vec3, input_dir: ConveyorDirection, steps: usize) -> Vec<Vec3> {
+fn simulate_corner_right_path(
+    start_pos: Vec3,
+    input_dir: ConveyorDirection,
+    steps: usize,
+) -> Vec<Vec3> {
     let mut positions = vec![start_pos];
     let output_dir = input_dir.right();
     let corner_center = Vec3::new(0.5, 0.0, 0.5);
@@ -3517,10 +3867,16 @@ fn test_conveyor_corner_left_item_path() {
 
     // Verify item ends moving West (negative X)
     let final_pos = path.last().unwrap();
-    assert!(final_pos.x < 0.5, "Corner left should exit West (negative X), got x={}", final_pos.x);
+    assert!(
+        final_pos.x < 0.5,
+        "Corner left should exit West (negative X), got x={}",
+        final_pos.x
+    );
 
     // Verify item passed through center area
-    let center_crossed = path.iter().any(|p| (p.x - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3);
+    let center_crossed = path
+        .iter()
+        .any(|p| (p.x - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3);
     assert!(center_crossed, "Item should pass through corner center");
 }
 
@@ -3535,10 +3891,16 @@ fn test_conveyor_corner_right_item_path() {
 
     // Verify item ends moving East (positive X)
     let final_pos = path.last().unwrap();
-    assert!(final_pos.x > 0.5, "Corner right should exit East (positive X), got x={}", final_pos.x);
+    assert!(
+        final_pos.x > 0.5,
+        "Corner right should exit East (positive X), got x={}",
+        final_pos.x
+    );
 
     // Verify item passed through center area
-    let center_crossed = path.iter().any(|p| (p.x - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3);
+    let center_crossed = path
+        .iter()
+        .any(|p| (p.x - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3);
     assert!(center_crossed, "Item should pass through corner center");
 }
 
@@ -3546,16 +3908,19 @@ fn test_conveyor_corner_right_item_path() {
 fn test_corner_left_all_directions() {
     // Test left corner from all 4 directions
     let test_cases = [
-        (ConveyorDirection::North, ConveyorDirection::West),   // N -> W
-        (ConveyorDirection::East, ConveyorDirection::North),   // E -> N
-        (ConveyorDirection::South, ConveyorDirection::East),   // S -> E
-        (ConveyorDirection::West, ConveyorDirection::South),   // W -> S
+        (ConveyorDirection::North, ConveyorDirection::West), // N -> W
+        (ConveyorDirection::East, ConveyorDirection::North), // E -> N
+        (ConveyorDirection::South, ConveyorDirection::East), // S -> E
+        (ConveyorDirection::West, ConveyorDirection::South), // W -> S
     ];
 
     for (input, expected_output) in test_cases {
         let output = input.left();
-        assert_eq!(output, expected_output,
-            "Left of {:?} should be {:?}, got {:?}", input, expected_output, output);
+        assert_eq!(
+            output, expected_output,
+            "Left of {:?} should be {:?}, got {:?}",
+            input, expected_output, output
+        );
     }
 }
 
@@ -3563,16 +3928,19 @@ fn test_corner_left_all_directions() {
 fn test_corner_right_all_directions() {
     // Test right corner from all 4 directions
     let test_cases = [
-        (ConveyorDirection::North, ConveyorDirection::East),   // N -> E
-        (ConveyorDirection::East, ConveyorDirection::South),   // E -> S
-        (ConveyorDirection::South, ConveyorDirection::West),   // S -> W
-        (ConveyorDirection::West, ConveyorDirection::North),   // W -> N
+        (ConveyorDirection::North, ConveyorDirection::East), // N -> E
+        (ConveyorDirection::East, ConveyorDirection::South), // E -> S
+        (ConveyorDirection::South, ConveyorDirection::West), // S -> W
+        (ConveyorDirection::West, ConveyorDirection::North), // W -> N
     ];
 
     for (input, expected_output) in test_cases {
         let output = input.right();
-        assert_eq!(output, expected_output,
-            "Right of {:?} should be {:?}, got {:?}", input, expected_output, output);
+        assert_eq!(
+            output, expected_output,
+            "Right of {:?} should be {:?}, got {:?}",
+            input, expected_output, output
+        );
     }
 }
 
@@ -3757,8 +4125,11 @@ fn test_full_production_chain() {
 
     // Should have produced at least 3 ingots in 30 seconds
     // (Miner: 2s per ore, Furnace: 3s per ingot, 5 fuel available)
-    assert!(produced_ingots >= 3,
-        "Expected at least 3 ingots, got {}", produced_ingots);
+    assert!(
+        produced_ingots >= 3,
+        "Expected at least 3 ingots, got {}",
+        produced_ingots
+    );
 }
 
 #[test]
@@ -3816,7 +4187,11 @@ fn test_miner_continuous_output() {
     }
 
     // 20 seconds / 2 seconds per ore = 10 ores
-    assert!(collected >= 9, "Expected at least 9 ores in 20s, got {}", collected);
+    assert!(
+        collected >= 9,
+        "Expected at least 9 ores in 20s, got {}",
+        collected
+    );
 }
 
 // =============================================================================
@@ -3849,7 +4224,11 @@ fn test_place_block_on_conveyor() {
 
     // The placement position should be one block above the conveyor
     let place_pos = conveyor_pos + IVec3::new(0, 1, 0);
-    assert_eq!(place_pos, IVec3::new(5, 9, 5), "Block should be placed above conveyor");
+    assert_eq!(
+        place_pos,
+        IVec3::new(5, 9, 5),
+        "Block should be placed above conveyor"
+    );
 }
 
 /// Test that conveyors can be stacked (placing conveyor on conveyor)
@@ -3868,9 +4247,21 @@ fn test_stack_conveyor_on_conveyor() {
 /// Simple ray-AABB intersection for testing
 fn ray_aabb_intersection_simple(origin: Vec3, dir: Vec3, min: Vec3, max: Vec3) -> Option<f32> {
     let inv_dir = Vec3::new(
-        if dir.x.abs() > 1e-8 { 1.0 / dir.x } else { f32::MAX },
-        if dir.y.abs() > 1e-8 { 1.0 / dir.y } else { f32::MAX },
-        if dir.z.abs() > 1e-8 { 1.0 / dir.z } else { f32::MAX },
+        if dir.x.abs() > 1e-8 {
+            1.0 / dir.x
+        } else {
+            f32::MAX
+        },
+        if dir.y.abs() > 1e-8 {
+            1.0 / dir.y
+        } else {
+            f32::MAX
+        },
+        if dir.z.abs() > 1e-8 {
+            1.0 / dir.z
+        } else {
+            f32::MAX
+        },
     );
 
     let t1 = (min - origin) * inv_dir;
@@ -3902,7 +4293,11 @@ fn test_place_not_inside_conveyor() {
     for pos in &conveyor_positions {
         let place_pos = *pos;
         let is_occupied = conveyor_positions.iter().any(|c| *c == place_pos);
-        assert!(is_occupied, "Position {:?} should be occupied by conveyor", pos);
+        assert!(
+            is_occupied,
+            "Position {:?} should be occupied by conveyor",
+            pos
+        );
     }
 
     // Test that we CAN place above
@@ -3916,8 +4311,8 @@ fn test_place_not_inside_conveyor() {
 // =====================================================
 
 use idle_factory::{
-    GameEventsPlugin, Inventory as RealInventory,
-    BlockPlaceEvent, BlockBreakEvent, QuestProgressEvent,
+    BlockBreakEvent, BlockPlaceEvent, GameEventsPlugin, Inventory as RealInventory,
+    QuestProgressEvent,
 };
 
 /// Test that GameEventsPlugin registers all events correctly
@@ -4055,7 +4450,10 @@ fn test_custom_system_event_handling() {
 
     // Verify events were counted
     let counter = app.world().resource::<EventCounter>();
-    assert_eq!(counter.block_breaks, 3, "Should have counted 3 block breaks");
+    assert_eq!(
+        counter.block_breaks, 3,
+        "Should have counted 3 block breaks"
+    );
 }
 
 /// Test inventory selected slot changes
@@ -4170,4 +4568,878 @@ fn test_events_consumed_after_read() {
 
     app.update();
     assert_eq!(app.world().resource::<EventCounter>().block_breaks, 2);
+}
+
+// =====================================================
+// Inventory UI Interaction Tests
+// =====================================================
+
+/// Test held item pickup and placement behavior
+#[test]
+fn test_held_item_pickup_and_drop() {
+    // Simulate held item for drag-drop
+    struct HeldItem {
+        block_type: Option<BlockType>,
+        count: u32,
+    }
+
+    impl HeldItem {
+        fn pick_up(&mut self, block_type: BlockType, count: u32) {
+            self.block_type = Some(block_type);
+            self.count = count;
+        }
+
+        fn drop_all(&mut self) -> Option<(BlockType, u32)> {
+            if let Some(bt) = self.block_type.take() {
+                let count = self.count;
+                self.count = 0;
+                Some((bt, count))
+            } else {
+                None
+            }
+        }
+
+        fn is_empty(&self) -> bool {
+            self.block_type.is_none() || self.count == 0
+        }
+    }
+
+    let mut held = HeldItem {
+        block_type: None,
+        count: 0,
+    };
+    let mut inventory = SlotInventory::default();
+
+    // Add items to inventory
+    inventory.add_item(BlockType::Stone, 64);
+
+    // Pick up items from slot
+    if let Some(bt) = inventory.get_slot(0) {
+        let count = inventory.get_slot_count(0);
+        inventory.slots[0] = None; // Clear slot
+        held.pick_up(bt, count);
+    }
+
+    assert!(!held.is_empty());
+    assert_eq!(held.count, 64);
+    assert!(inventory.get_slot(0).is_none());
+
+    // Drop items into empty slot
+    if let Some((bt, count)) = held.drop_all() {
+        inventory.add_item(bt, count);
+    }
+
+    assert!(held.is_empty());
+    assert_eq!(inventory.get_slot_count(0), 64);
+}
+
+/// Test slot swap behavior (drag to occupied slot)
+#[test]
+fn test_inventory_slot_swap() {
+    let mut inventory = SlotInventory::default();
+
+    // Put different items in two slots
+    inventory.add_item(BlockType::Stone, 32);
+    inventory.add_item(BlockType::Grass, 16);
+
+    // Verify initial state
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(0), 32);
+    assert_eq!(inventory.get_slot(1), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot_count(1), 16);
+
+    // Simulate swap by manually swapping slot data
+    let slot0 = inventory.slots[0];
+    let slot1 = inventory.slots[1];
+
+    inventory.slots[0] = slot1;
+    inventory.slots[1] = slot0;
+
+    // Verify swap
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot_count(0), 16);
+    assert_eq!(inventory.get_slot(1), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(1), 32);
+}
+
+/// Test trash slot behavior
+#[test]
+fn test_trash_slot_deletes_items() {
+    struct TrashSlot {
+        deleted_count: u32,
+    }
+
+    impl TrashSlot {
+        fn trash(&mut self, _block_type: BlockType, count: u32) {
+            self.deleted_count += count;
+        }
+    }
+
+    let mut trash = TrashSlot { deleted_count: 0 };
+    let mut inventory = SlotInventory::default();
+
+    inventory.add_item(BlockType::Stone, 100);
+
+    // Simulate dragging to trash
+    if let Some(bt) = inventory.get_slot(0) {
+        let count = inventory.get_slot_count(0);
+        inventory.slots[0] = None; // Clear slot
+        trash.trash(bt, count);
+    }
+
+    assert_eq!(trash.deleted_count, 100);
+    assert!(inventory.get_slot(0).is_none());
+}
+
+/// Test creative mode item spawning
+#[test]
+fn test_creative_mode_item_spawn() {
+    let mut inventory = SlotInventory::default();
+    let creative_mode = true;
+
+    // In creative mode, clicking an item in catalog adds a stack
+    if creative_mode {
+        let spawned_type = BlockType::Stone;
+        let spawned_count = 64;
+        inventory.add_item(spawned_type, spawned_count);
+    }
+
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(0), 64);
+}
+
+// =====================================================
+// Load/Stress Tests
+// =====================================================
+
+/// Test handling large number of inventory operations
+#[test]
+fn test_load_massive_inventory_operations() {
+    let mut inventory = SlotInventory::default();
+
+    // Perform 10,000 add operations
+    for i in 0..10000 {
+        let block_type = if i % 2 == 0 {
+            BlockType::Stone
+        } else {
+            BlockType::Grass
+        };
+        inventory.add_item(block_type, 1);
+    }
+
+    // Verify total counts
+    let mut stone_count = 0u32;
+    let mut grass_count = 0u32;
+    for slot in &inventory.slots {
+        if let Some((bt, count)) = slot {
+            match bt {
+                BlockType::Stone => stone_count += count,
+                BlockType::Grass => grass_count += count,
+                _ => {}
+            }
+        }
+    }
+
+    assert_eq!(stone_count, 5000);
+    assert_eq!(grass_count, 5000);
+}
+
+/// Test rapid slot selection changes
+#[test]
+fn test_load_rapid_slot_selection() {
+    let mut hotbar = HotbarState::default();
+
+    // Rapidly switch between all slots 1000 times
+    for i in 0..1000 {
+        hotbar.select(i % 9);
+        assert!(hotbar.selected_index.unwrap() < 9);
+    }
+}
+
+/// Test stress test with many machines simulated
+#[test]
+fn test_load_many_machines() {
+    // Simulate 100 miners, 100 furnaces, 100 crushers
+    struct MachineState {
+        miners: Vec<MinerState>,
+        furnaces: Vec<FurnaceState>,
+        crushers: Vec<CrusherState>,
+    }
+
+    struct MinerState {
+        progress: f32,
+        buffer: u32,
+    }
+    struct FurnaceState {
+        fuel: u32,
+        input: u32,
+        output: u32,
+        progress: f32,
+    }
+    struct CrusherState {
+        input: u32,
+        output: u32,
+        progress: f32,
+    }
+
+    let mut machines = MachineState {
+        miners: (0..100)
+            .map(|_| MinerState {
+                progress: 0.0,
+                buffer: 0,
+            })
+            .collect(),
+        furnaces: (0..100)
+            .map(|_| FurnaceState {
+                fuel: 10,
+                input: 0,
+                output: 0,
+                progress: 0.0,
+            })
+            .collect(),
+        crushers: (0..100)
+            .map(|_| CrusherState {
+                input: 0,
+                output: 0,
+                progress: 0.0,
+            })
+            .collect(),
+    };
+
+    // Simulate 1000 ticks of processing
+    let delta_time = 0.016; // 60fps
+    for _ in 0..1000 {
+        // Update miners
+        for miner in &mut machines.miners {
+            miner.progress += delta_time;
+            if miner.progress >= 1.0 {
+                miner.progress = 0.0;
+                miner.buffer += 1;
+            }
+        }
+
+        // Update furnaces
+        for furnace in &mut machines.furnaces {
+            if furnace.fuel > 0 && furnace.input > 0 {
+                furnace.progress += delta_time;
+                if furnace.progress >= 1.0 {
+                    furnace.progress = 0.0;
+                    furnace.input -= 1;
+                    furnace.output += 1;
+                }
+            }
+        }
+
+        // Update crushers
+        for crusher in &mut machines.crushers {
+            if crusher.input > 0 {
+                crusher.progress += delta_time;
+                if crusher.progress >= 1.0 {
+                    crusher.progress = 0.0;
+                    crusher.input -= 1;
+                    crusher.output += 2; // Doubles output
+                }
+            }
+        }
+    }
+
+    // Verify miners produced items (1000 ticks * 0.016 = 16 seconds, at 1 ore/second = 16 ore each)
+    let total_mined: u32 = machines.miners.iter().map(|m| m.buffer).sum();
+    assert!(
+        total_mined >= 1500,
+        "Should have mined substantial amount: {}",
+        total_mined
+    );
+}
+
+/// Test conveyor chain with many items
+#[test]
+fn test_load_conveyor_chain_throughput() {
+    // Simulate 50-segment conveyor chain
+    struct ConveyorSegment {
+        items: Vec<f32>, // Progress values
+    }
+
+    let mut chain: Vec<ConveyorSegment> =
+        (0..50).map(|_| ConveyorSegment { items: vec![] }).collect();
+
+    // Insert 200 items over time
+    for tick in 0..500 {
+        let delta = 0.1; // 10 ticks per conveyor length
+
+        // Insert new item at start every 2 ticks
+        if tick % 2 == 0 && chain[0].items.len() < 5 {
+            chain[0].items.push(0.0);
+        }
+
+        // Move items along chain
+        for i in 0..chain.len() {
+            let mut to_transfer = vec![];
+
+            for item in &mut chain[i].items {
+                *item += delta;
+                if *item >= 1.0 {
+                    to_transfer.push(*item);
+                }
+            }
+
+            chain[i].items.retain(|&p| p < 1.0);
+
+            // Transfer to next segment
+            if i + 1 < chain.len() {
+                for _ in to_transfer {
+                    if chain[i + 1].items.len() < 5 {
+                        chain[i + 1].items.push(0.0);
+                    }
+                }
+            }
+        }
+    }
+
+    // Should have items spread through chain
+    let total_items: usize = chain.iter().map(|c| c.items.len()).sum();
+    assert!(total_items > 0, "Conveyor chain should have items flowing");
+}
+
+/// Test GlobalInventory with very large item counts
+#[test]
+fn test_load_global_inventory_large_counts() {
+    use std::collections::HashMap;
+
+    let mut global_inventory: HashMap<BlockType, u32> = HashMap::new();
+
+    // Add millions of items
+    for _ in 0..1000 {
+        *global_inventory.entry(BlockType::Stone).or_insert(0) += 10000;
+        *global_inventory.entry(BlockType::Grass).or_insert(0) += 5000;
+        *global_inventory.entry(BlockType::Coal).or_insert(0) += 2500;
+    }
+
+    assert_eq!(global_inventory.get(&BlockType::Stone), Some(&10_000_000));
+    assert_eq!(global_inventory.get(&BlockType::Grass), Some(&5_000_000));
+    assert_eq!(global_inventory.get(&BlockType::Coal), Some(&2_500_000));
+
+    // Consume items
+    for _ in 0..500 {
+        if let Some(count) = global_inventory.get_mut(&BlockType::Stone) {
+            *count = count.saturating_sub(10000);
+        }
+    }
+
+    assert_eq!(global_inventory.get(&BlockType::Stone), Some(&5_000_000));
+}
+
+// ============================================================================
+// GlobalInventory Advanced Tests
+// ============================================================================
+
+/// Test GlobalInventory atomic try_consume behavior
+#[test]
+fn test_global_inventory_try_consume_atomic() {
+    use idle_factory::player::GlobalInventory;
+
+    let mut inv = GlobalInventory::new();
+    inv.add_item(BlockType::IronIngot, 10);
+    inv.add_item(BlockType::Coal, 5);
+
+    // Should fail atomically - neither item consumed
+    let result = inv.try_consume(&[(BlockType::IronIngot, 5), (BlockType::Coal, 10)]);
+    assert!(!result);
+    assert_eq!(inv.get_count(BlockType::IronIngot), 10);
+    assert_eq!(inv.get_count(BlockType::Coal), 5);
+
+    // Should succeed
+    let result = inv.try_consume(&[(BlockType::IronIngot, 5), (BlockType::Coal, 3)]);
+    assert!(result);
+    assert_eq!(inv.get_count(BlockType::IronIngot), 5);
+    assert_eq!(inv.get_count(BlockType::Coal), 2);
+}
+
+/// Test GlobalInventory with zero count items are not shown
+#[test]
+fn test_global_inventory_zero_count_hidden() {
+    use idle_factory::player::GlobalInventory;
+
+    let mut inv = GlobalInventory::new();
+    inv.add_item(BlockType::Stone, 10);
+    inv.add_item(BlockType::Coal, 0); // Should not appear
+
+    let items = inv.get_all_items();
+    assert_eq!(items.len(), 1);
+    assert!(items.iter().any(|(bt, _)| *bt == BlockType::Stone));
+    assert!(!items.iter().any(|(bt, _)| *bt == BlockType::Coal));
+}
+
+/// Test GlobalInventory remove item cleans up zero entries
+#[test]
+fn test_global_inventory_remove_cleans_zero() {
+    use idle_factory::player::GlobalInventory;
+
+    let mut inv = GlobalInventory::new();
+    inv.add_item(BlockType::Stone, 10);
+
+    // Remove all
+    assert!(inv.remove_item(BlockType::Stone, 10));
+    assert_eq!(inv.get_count(BlockType::Stone), 0);
+    assert!(inv.is_empty());
+}
+
+/// Test GlobalInventory with_items constructor
+#[test]
+fn test_global_inventory_with_items() {
+    use idle_factory::player::GlobalInventory;
+
+    let inv = GlobalInventory::with_items(&[
+        (BlockType::MinerBlock, 5),
+        (BlockType::ConveyorBlock, 50),
+        (BlockType::FurnaceBlock, 10),
+    ]);
+
+    assert_eq!(inv.get_count(BlockType::MinerBlock), 5);
+    assert_eq!(inv.get_count(BlockType::ConveyorBlock), 50);
+    assert_eq!(inv.get_count(BlockType::FurnaceBlock), 10);
+    assert_eq!(inv.item_type_count(), 3);
+}
+
+// ============================================================================
+// Biome System Tests
+// ============================================================================
+
+/// Test BiomeType sample_resource with different random values
+#[test]
+fn test_biome_sample_resource() {
+    use idle_factory::world::biome::BiomeType;
+
+    // Iron biome: 70% iron, 22% stone, 8% coal
+    let iron_biome = BiomeType::Iron;
+
+    // random_value 0-69 should give iron
+    assert_eq!(iron_biome.sample_resource(0), Some(BlockType::IronOre));
+    assert_eq!(iron_biome.sample_resource(69), Some(BlockType::IronOre));
+
+    // random_value 70-91 should give stone
+    assert_eq!(iron_biome.sample_resource(70), Some(BlockType::Stone));
+    assert_eq!(iron_biome.sample_resource(91), Some(BlockType::Stone));
+
+    // random_value 92-99 should give coal
+    assert_eq!(iron_biome.sample_resource(92), Some(BlockType::Coal));
+    assert_eq!(iron_biome.sample_resource(99), Some(BlockType::Coal));
+}
+
+/// Test Unmailable biome returns no resources
+#[test]
+fn test_biome_unmailable_no_resources() {
+    use idle_factory::world::biome::BiomeType;
+
+    let unmailable = BiomeType::Unmailable;
+    assert!(unmailable.sample_resource(0).is_none());
+    assert!(unmailable.sample_resource(50).is_none());
+    assert!(unmailable.sample_resource(99).is_none());
+}
+
+/// Test BiomeMap spawn area guarantees
+#[test]
+fn test_biome_spawn_area_guarantees() {
+    use idle_factory::world::biome::BiomeMap;
+    use idle_factory::world::biome::BiomeType;
+
+    let biome_map = BiomeMap::new(12345);
+
+    // Very close to spawn center (26, 16) should be Mixed
+    let center = IVec3::new(26, 0, 16);
+    assert_eq!(biome_map.get_biome(center), BiomeType::Mixed);
+
+    // Can mine at spawn area
+    assert!(biome_map.can_mine(center));
+}
+
+/// Test BiomeMap deterministic generation
+#[test]
+fn test_biome_deterministic() {
+    use idle_factory::world::biome::BiomeMap;
+
+    let biome_map1 = BiomeMap::new(42);
+    let biome_map2 = BiomeMap::new(42);
+
+    // Same seed should give same biomes
+    let test_positions = [
+        IVec3::new(100, 0, 100),
+        IVec3::new(-50, 5, 200),
+        IVec3::new(0, 10, 0),
+    ];
+
+    for pos in test_positions {
+        assert_eq!(
+            biome_map1.get_biome(pos),
+            biome_map2.get_biome(pos),
+            "Biome at {:?} should be deterministic",
+            pos
+        );
+    }
+}
+
+/// Test BiomeMap different seeds give different results
+#[test]
+fn test_biome_different_seeds() {
+    use idle_factory::world::biome::BiomeMap;
+
+    let biome_map1 = BiomeMap::new(1);
+    let biome_map2 = BiomeMap::new(999999);
+
+    // Check multiple positions - at least one should differ
+    let positions: Vec<IVec3> = (0..20)
+        .map(|i| IVec3::new(i * 50, 0, i * 50 + 100))
+        .collect();
+
+    let different = positions
+        .iter()
+        .filter(|&&pos| biome_map1.get_biome(pos) != biome_map2.get_biome(pos))
+        .count();
+
+    assert!(
+        different > 0,
+        "Different seeds should produce some different biomes"
+    );
+}
+
+// ============================================================================
+// Machine I/O Tests
+// ============================================================================
+
+/// Test machine facing determines output position
+#[test]
+fn test_machine_facing_output_direction() {
+    use idle_factory::components::Direction;
+
+    let base_pos = IVec3::new(10, 5, 10);
+
+    // North facing outputs to z-1 (negative Z is north in this engine)
+    let north_output = base_pos + Direction::North.to_ivec3();
+    assert_eq!(north_output, IVec3::new(10, 5, 9));
+
+    // East facing outputs to x+1
+    let east_output = base_pos + Direction::East.to_ivec3();
+    assert_eq!(east_output, IVec3::new(11, 5, 10));
+
+    // South facing outputs to z+1
+    let south_output = base_pos + Direction::South.to_ivec3();
+    assert_eq!(south_output, IVec3::new(10, 5, 11));
+
+    // West facing outputs to x-1
+    let west_output = base_pos + Direction::West.to_ivec3();
+    assert_eq!(west_output, IVec3::new(9, 5, 10));
+}
+
+/// Test machine input comes from opposite of facing (back)
+#[test]
+fn test_machine_input_from_back() {
+    use idle_factory::components::Direction;
+
+    let machine_pos = IVec3::new(10, 5, 10);
+    let facing = Direction::North;
+
+    // Input comes from opposite direction (back = South)
+    // North.opposite() = South, South.to_ivec3() = (0, 0, 1)
+    let input_pos = machine_pos + facing.opposite().to_ivec3();
+    assert_eq!(input_pos, IVec3::new(10, 5, 11)); // South of machine (z+1)
+
+    // Conveyor at input_pos facing toward machine would deliver
+    let conveyor_pos = input_pos;
+    let conveyor_facing = Direction::North; // Toward machine (z-1)
+    let conveyor_output = conveyor_pos + conveyor_facing.to_ivec3();
+    assert_eq!(conveyor_output, machine_pos);
+}
+
+/// Test library Miner creates with default facing
+#[test]
+fn test_lib_miner_default_facing() {
+    use idle_factory::components::Direction;
+    let miner = idle_factory::Miner::default();
+    assert_eq!(miner.facing, Direction::North);
+    assert_eq!(miner.buffer, None);
+    assert_eq!(miner.progress, 0.0);
+}
+
+/// Test library Furnace creates with default facing
+#[test]
+fn test_lib_furnace_default_facing() {
+    use idle_factory::components::Direction;
+    let furnace = idle_factory::Furnace::default();
+    assert_eq!(furnace.facing, Direction::North);
+    assert_eq!(furnace.fuel, 0);
+    assert_eq!(furnace.input_type, None);
+}
+
+/// Test library Crusher creates with default facing
+#[test]
+fn test_lib_crusher_default_facing() {
+    use idle_factory::components::Direction;
+    let crusher = idle_factory::Crusher::default();
+    assert_eq!(crusher.facing, Direction::North);
+    assert_eq!(crusher.input_type, None);
+    assert_eq!(crusher.input_count, 0);
+}
+
+/// Test Direction opposite
+#[test]
+fn test_direction_opposite() {
+    use idle_factory::components::Direction;
+
+    assert_eq!(Direction::North.opposite(), Direction::South);
+    assert_eq!(Direction::South.opposite(), Direction::North);
+    assert_eq!(Direction::East.opposite(), Direction::West);
+    assert_eq!(Direction::West.opposite(), Direction::East);
+}
+
+/// Test Direction rotate_cw
+#[test]
+fn test_direction_rotate_cw() {
+    use idle_factory::components::Direction;
+
+    // Clockwise rotation: N->E->S->W->N
+    assert_eq!(Direction::North.rotate_cw(), Direction::East);
+    assert_eq!(Direction::East.rotate_cw(), Direction::South);
+    assert_eq!(Direction::South.rotate_cw(), Direction::West);
+    assert_eq!(Direction::West.rotate_cw(), Direction::North);
+}
+
+// ============================================================================
+// Storage UI Logic Tests
+// ============================================================================
+
+/// Test pagination calculation
+#[test]
+fn test_storage_ui_pagination() {
+    use idle_factory::ui::storage_ui::{GRID_COLUMNS, SLOTS_PER_PAGE};
+
+    // 32 slots per page
+    assert_eq!(SLOTS_PER_PAGE, 32);
+    assert_eq!(GRID_COLUMNS, 8);
+
+    // 100 items should need 4 pages (ceil(100/32))
+    let item_count = 100;
+    let pages_needed = (item_count + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE;
+    assert_eq!(pages_needed, 4);
+
+    // 32 items exactly should need 1 page
+    let item_count = 32;
+    let pages_needed = (item_count + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE;
+    assert_eq!(pages_needed, 1);
+
+    // 0 items should need 1 page (minimum)
+    let item_count = 0;
+    let pages_needed = std::cmp::max(1, (item_count + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE);
+    assert_eq!(pages_needed, 1);
+}
+
+/// Test ItemCategory variants exist
+#[test]
+fn test_item_category_variants() {
+    use idle_factory::components::ItemCategory;
+
+    // All variants can be created
+    let _all = ItemCategory::All;
+    let _ores = ItemCategory::Ores;
+    let _ingots = ItemCategory::Ingots;
+    let _machines = ItemCategory::Machines;
+
+    // Labels work
+    assert_eq!(ItemCategory::All.label(), "All");
+    assert_eq!(ItemCategory::Ores.label(), "Ores");
+    assert_eq!(ItemCategory::Ingots.label(), "Ingots");
+    assert_eq!(ItemCategory::Machines.label(), "Machines");
+}
+
+// ============================================================================
+// Machine Chain Integration Tests
+// ============================================================================
+
+/// Test complete production chain: Miner -> Conveyor -> Furnace -> Output
+#[test]
+fn test_production_chain_miner_to_furnace() {
+    use idle_factory::components::Direction;
+
+    // Setup positions
+    let miner_pos = IVec3::new(0, 0, 0);
+    let miner_facing = Direction::East;
+    let conveyor_pos = IVec3::new(1, 0, 0);
+    let conveyor_dir = Direction::East;
+    let furnace_pos = IVec3::new(2, 0, 0);
+    let furnace_facing = Direction::East;
+
+    // Verify chain connections
+    let miner_output_pos = miner_pos + miner_facing.to_ivec3();
+    assert_eq!(miner_output_pos, conveyor_pos);
+
+    let conveyor_output_pos = conveyor_pos + conveyor_dir.to_ivec3();
+    assert_eq!(conveyor_output_pos, furnace_pos);
+
+    let furnace_input_pos = furnace_pos + furnace_facing.opposite().to_ivec3();
+    assert_eq!(furnace_input_pos, conveyor_pos);
+}
+
+/// Test Miner -> Crusher chain for ore processing
+#[test]
+fn test_production_chain_miner_to_crusher() {
+    use idle_factory::components::Direction;
+
+    // North = z-1, so chain goes in decreasing z direction
+    let miner_pos = IVec3::new(5, 5, 5);
+    let miner_facing = Direction::North;
+    let conveyor_pos = IVec3::new(5, 5, 4); // North of miner (z-1)
+    let crusher_pos = IVec3::new(5, 5, 3); // North of conveyor (z-1)
+    let crusher_facing = Direction::North;
+
+    // Miner output goes to conveyor
+    let miner_output = miner_pos + miner_facing.to_ivec3();
+    assert_eq!(miner_output, conveyor_pos);
+
+    // Crusher input is from back (South = z+1)
+    let crusher_input = crusher_pos + crusher_facing.opposite().to_ivec3();
+    assert_eq!(crusher_input, conveyor_pos);
+}
+
+// ============================================================================
+// Performance Monitoring Tests
+// ============================================================================
+
+/// Benchmark: Machine tick performance (should complete 1000 ticks quickly)
+#[test]
+fn test_performance_machine_ticks() {
+    use std::time::Instant;
+
+    let mut miner = Miner::default();
+    let mut furnace = Furnace::default();
+    let mut crusher = Crusher::default();
+
+    furnace.add_fuel(100);
+    furnace.add_input(BlockType::Stone);
+    crusher.add_input(BlockType::Stone);
+
+    let start = Instant::now();
+    let iterations = 1000;
+
+    for _ in 0..iterations {
+        miner.tick(0.1, Some(BlockType::Stone));
+        furnace.tick(0.1);
+        crusher.tick(0.1);
+    }
+
+    let elapsed = start.elapsed();
+    let avg_ms = elapsed.as_micros() as f64 / iterations as f64;
+
+    // Each tick should complete in under 100 microseconds
+    assert!(
+        avg_ms < 100.0,
+        "Machine tick avg {}us exceeds 100us limit",
+        avg_ms
+    );
+}
+
+/// Benchmark: Conveyor operations (should handle many items efficiently)
+#[test]
+fn test_performance_conveyor_operations() {
+    use std::time::Instant;
+
+    let mut conveyor = Conveyor::new(IVec3::ZERO, Direction::North);
+
+    let start = Instant::now();
+    let operations = 1000;
+
+    for _ in 0..operations {
+        // Add items
+        for _ in 0..5 {
+            let _ = conveyor.accept_item(BlockType::Stone);
+        }
+        // Tick to move items
+        for _ in 0..10 {
+            let _ = conveyor.tick(0.05);
+        }
+    }
+
+    let elapsed = start.elapsed();
+    let total_ms = elapsed.as_millis();
+
+    // Should complete within 500ms
+    assert!(
+        total_ms < 500,
+        "Conveyor operations took {}ms, exceeds 500ms limit",
+        total_ms
+    );
+}
+
+/// Benchmark: Inventory operations (should be fast for basic operations)
+#[test]
+fn test_performance_inventory_operations() {
+    use std::time::Instant;
+
+    let start = Instant::now();
+    let operations = 10000;
+
+    for _ in 0..operations {
+        let mut inventory = HotbarInventory::default();
+
+        // Add items
+        for slot in 0..9 {
+            if slot < 2 {
+                inventory.slots[slot] = Some((BlockType::Stone, 64));
+            }
+        }
+
+        // Place blocks
+        for _ in 0..10 {
+            let _ = inventory.place_block(0);
+        }
+
+        // Query items
+        for slot in 0..9 {
+            let _ = inventory.get_slot(slot);
+        }
+    }
+
+    let elapsed = start.elapsed();
+    let ops_per_sec = (operations as f64 * 1000.0) / elapsed.as_millis() as f64;
+
+    // Should handle at least 10000 operations per second
+    assert!(
+        ops_per_sec > 10000.0,
+        "Inventory ops/sec {} is below 10000",
+        ops_per_sec
+    );
+}
+
+/// Benchmark: WorldData block queries
+#[test]
+fn test_performance_world_block_queries() {
+    use idle_factory::constants::CHUNK_SIZE;
+    use idle_factory::world::{ChunkData, WorldData};
+    use std::time::Instant;
+
+    let mut world = WorldData::default();
+    // Generate chunk at 0,0
+    world
+        .chunks
+        .insert(IVec2::new(0, 0), ChunkData::generate(IVec2::new(0, 0)));
+
+    let start = Instant::now();
+    let queries = 10000;
+
+    for i in 0..queries {
+        let pos = IVec3::new(
+            (i % CHUNK_SIZE as usize) as i32,
+            5,
+            (i / 16 % CHUNK_SIZE as usize) as i32,
+        );
+        let _ = world.get_block(pos);
+    }
+
+    let elapsed = start.elapsed();
+    let queries_per_ms = queries as f64 / elapsed.as_millis().max(1) as f64;
+
+    // Should handle at least 100 queries per millisecond
+    assert!(
+        queries_per_ms > 100.0,
+        "Block queries/ms {} is below 100",
+        queries_per_ms
+    );
 }

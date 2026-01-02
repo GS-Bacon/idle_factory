@@ -15,7 +15,10 @@ pub fn update_hotbar_ui(
 ) {
     // Check if any sprite assets are still loading
     let sprites_loading = item_sprites.textures.values().any(|h| {
-        !matches!(asset_server.get_load_state(h), Some(bevy::asset::LoadState::Loaded))
+        !matches!(
+            asset_server.get_load_state(h),
+            Some(bevy::asset::LoadState::Loaded)
+        )
     });
 
     // Update when inventory changes, sprites resource changes, or sprites are loading

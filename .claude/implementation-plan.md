@@ -144,8 +144,8 @@
 | システム間連携テスト | Miner→Conveyor→Furnace→Delivery | [x] ✅ (機械facing/inputテスト) |
 | エッジケーステスト | 満杯時、空時、境界値 | [x] ✅ (key_to_pos, 境界値テスト) |
 | 負荷テスト | 大量アイテム・大量機械 | [x] ✅ (5テスト追加) |
-| SSIM比較 (Rust版) | `image-compare` crateで構造類似度 | [ ] |
-| cargo-fuzz導入 | セーブ/ロードのパース部分をfuzz | [ ] |
+| SSIM比較 (Rust版) | `image-compare` crateで構造類似度 | [x] ✅ (tests/ssim_test.rs) |
+| cargo-fuzz導入 | セーブ/ロードのパース部分をfuzz | [x] ✅ (proptest版: tests/fuzz_save_load.rs) |
 
 ### 4.1 E2Eテスト改善 (VLMテスト完了後)
 
@@ -169,13 +169,13 @@
 
 | タスク | 詳細 | 効果 | 状態 |
 |--------|------|------|------|
-| ゲーム内スクショ | `ScreenshotManager`使用 | 最も正確な画面取得 | [ ] |
-| VLMテスト統合 | test_all.shにレベル自動選択で組込 | 視覚バグ自動検出 | [ ] |
-| ランダムプレイテスト | 1000回ランダム操作→異常検出 | 予想外バグ発見 | [ ] |
-| テスト結果JSON化 | 実行時間・カバレッジ・トレンド | 可視化・追跡可能 | [ ] |
+| ゲーム内スクショ | `ScreenshotManager`使用 | 最も正確な画面取得 | [x] ✅ (/screenshotコマンド) |
+| VLMテスト統合 | test_all.shにレベル自動選択で組込 | 視覚バグ自動検出 | [x] ✅ (quick/full自動選択) |
+| ランダムプレイテスト | 1000回ランダム操作→異常検出 | 予想外バグ発見 | [x] ✅ (random_play_test.sh) |
+| テスト結果JSON化 | 実行時間・カバレッジ・トレンド | 可視化・追跡可能 | [x] ✅ (test_json_report.sh) |
 
 **目標**: ロジック部分カバレッジ70%以上 ✅
-**現状**: 226テスト通過 (lib:66, bin:38, e2e:122)
+**現状**: 280テスト通過 (lib:74, bin:38, e2e:146, fuzz:11, proptest:8, ssim:3)
 **カバレッジ**: 8.54%全体 (Bevy ECSシステム関数は0%、ロジック部分70%+達成)
 - `world/mod.rs`: 75%、`world/biome.rs`: 88%
 - `player/inventory.rs`: 72%、`player/global_inventory.rs`: 83%

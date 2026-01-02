@@ -8,7 +8,10 @@ use serde::Serialize;
 use std::fs;
 
 /// Update window title with FPS
-pub fn update_window_title_fps(diagnostics: Res<DiagnosticsStore>, mut windows: Query<&mut Window>) {
+pub fn update_window_title_fps(
+    diagnostics: Res<DiagnosticsStore>,
+    mut windows: Query<&mut Window>,
+) {
     if let Some(fps) = diagnostics.get(&bevy::diagnostic::FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(value) = fps.smoothed() {
             if let Ok(mut window) = windows.get_single_mut() {
@@ -84,11 +87,18 @@ pub fn update_debug_hud(
     let (pos_str, dir_str) = if let Ok(transform) = player_query.get_single() {
         let pos = transform.translation;
         let dir = if let Ok(camera) = camera_query.get_single() {
-            format!("Pitch: {:.1}° Yaw: {:.1}°", camera.pitch.to_degrees(), camera.yaw.to_degrees())
+            format!(
+                "Pitch: {:.1}° Yaw: {:.1}°",
+                camera.pitch.to_degrees(),
+                camera.yaw.to_degrees()
+            )
         } else {
             "N/A".to_string()
         };
-        (format!("X: {:.1} Y: {:.1} Z: {:.1}", pos.x, pos.y, pos.z), dir)
+        (
+            format!("X: {:.1} Y: {:.1} Z: {:.1}", pos.x, pos.y, pos.z),
+            dir,
+        )
     } else {
         ("N/A".to_string(), "N/A".to_string())
     };
@@ -125,7 +135,11 @@ pub fn update_debug_hud(
     };
 
     let chunk_count = world_data.chunks.len();
-    let mode_str = if creative_mode.enabled { "Creative" } else { "Survival" };
+    let mode_str = if creative_mode.enabled {
+        "Creative"
+    } else {
+        "Survival"
+    };
     let pause_str = if cursor_state.paused { " [PAUSED]" } else { "" };
 
     let conveyor_line = if conveyor_info.is_empty() {
@@ -136,7 +150,16 @@ pub fn update_debug_hud(
 
     text.0 = format!(
         "FPS: {:.0}\nPos: {}\nDir: {}\nTarget: {} ({})\nPlace: {}\nChunks: {}\nMode: {}{}{}",
-        fps, pos_str, dir_str, break_str, block_type_str, place_str, chunk_count, mode_str, pause_str, conveyor_line
+        fps,
+        pos_str,
+        dir_str,
+        break_str,
+        block_type_str,
+        place_str,
+        chunk_count,
+        mode_str,
+        pause_str,
+        conveyor_line
     );
 }
 
@@ -207,8 +230,7 @@ impl Default for E2EExportConfig {
     fn default() -> Self {
         Self {
             enabled: std::env::var("E2E_EXPORT").is_ok(),
-            path: std::env::var("E2E_EXPORT_PATH")
-                .unwrap_or_else(|_| "e2e_state.json".to_string()),
+            path: std::env::var("E2E_EXPORT_PATH").unwrap_or_else(|_| "e2e_state.json".to_string()),
         }
     }
 }
@@ -271,12 +293,16 @@ pub fn export_e2e_state(
     let quest = if current_quest.index < quests.len() {
         let q = &quests[current_quest.index];
         let platform = platform_query.get_single().ok();
-        let required_items: Vec<String> = q.required_items.iter().map(|(item, amount)| {
-            let delivered = platform
-                .map(|p| p.delivered.get(item).copied().unwrap_or(0))
-                .unwrap_or(0);
-            format!("{}:{}/{}", item.name(), delivered, amount)
-        }).collect();
+        let required_items: Vec<String> = q
+            .required_items
+            .iter()
+            .map(|(item, amount)| {
+                let delivered = platform
+                    .map(|p| p.delivered.get(item).copied().unwrap_or(0))
+                    .unwrap_or(0);
+                format!("{}:{}/{}", item.name(), delivered, amount)
+            })
+            .collect();
         E2EQuestState {
             index: current_quest.index,
             completed: current_quest.completed,
@@ -318,8 +344,12 @@ pub fn export_e2e_state(
             position: [pos.x as i32, pos.y as i32, pos.z as i32],
             machine_type: "Furnace".to_string(),
             progress: furnace.progress,
-            input: furnace.input_type.map(|bt| (format!("{:?}", bt), furnace.input_count)),
-            output: furnace.output_type.map(|bt| (format!("{:?}", bt), furnace.output_count)),
+            input: furnace
+                .input_type
+                .map(|bt| (format!("{:?}", bt), furnace.input_count)),
+            output: furnace
+                .output_type
+                .map(|bt| (format!("{:?}", bt), furnace.output_count)),
             fuel: Some(furnace.fuel),
             buffer: None,
         });
@@ -329,8 +359,12 @@ pub fn export_e2e_state(
             position: [crusher.position.x, crusher.position.y, crusher.position.z],
             machine_type: "Crusher".to_string(),
             progress: crusher.progress,
-            input: crusher.input_type.map(|bt| (format!("{:?}", bt), crusher.input_count)),
-            output: crusher.output_type.map(|bt| (format!("{:?}", bt), crusher.output_count)),
+            input: crusher
+                .input_type
+                .map(|bt| (format!("{:?}", bt), crusher.input_count)),
+            output: crusher
+                .output_type
+                .map(|bt| (format!("{:?}", bt), crusher.output_count)),
             fuel: None,
             buffer: None,
         });

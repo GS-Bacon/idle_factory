@@ -69,6 +69,35 @@ pkill -9 -f idle_factory
 
 ### 4. 視覚的異常の検出
 
+#### 4.1 自動比較（推奨）
+
+```bash
+# Smart Compare: SSIM + 知覚ハッシュ + エッジ検出
+python3 scripts/vlm_check/smart_compare.py baseline.png current.png
+
+# JSON出力
+python3 scripts/vlm_check/smart_compare.py baseline.png current.png --json
+
+# ピクセル比較（シンプル版）
+python3 scripts/vlm_check/pixel_compare.py baseline.png current.png
+```
+
+**Smart Compare メトリクス:**
+
+| メトリクス | 意味 | 閾値 |
+|-----------|------|------|
+| SSIM | 構造的類似度 | 0.95+ で OK |
+| Hash距離 | 知覚ハッシュ差 | 10以下 で OK |
+| Edge類似度 | UIレイアウト | 0.8+ で OK |
+
+**severity判定:**
+- `none`: ほぼ同一
+- `minor`: 微差（影、アンチエイリアス）
+- `major`: 明らかな違い
+- `critical`: 完全に異なる
+
+#### 4.2 目視チェック項目
+
 各スクリーンショットで以下をチェック:
 
 | チェック項目 | 正常 | 異常 |

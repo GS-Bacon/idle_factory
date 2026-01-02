@@ -117,12 +117,12 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                             column_gap: Val::Px(SLOT_GAP),
                             ..default()
                         },))
-                        .with_children(|row_node| {
-                            for col in 0..9 {
-                                let slot_idx = 9 + row * 9 + col;
-                                spawn_inventory_slot(row_node, slot_idx);
-                            }
-                        });
+                            .with_children(|row_node| {
+                                for col in 0..9 {
+                                    let slot_idx = 9 + row * 9 + col;
+                                    spawn_inventory_slot(row_node, slot_idx);
+                                }
+                            });
                     }
                 });
 

@@ -9,8 +9,7 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    ConveyorRotationOffset, InteractingCrusher, InteractingFurnace, InteractingMiner,
-    MachineModels,
+    ConveyorRotationOffset, InteractingCrusher, InteractingFurnace, InteractingMiner, MachineModels,
 };
 use crate::systems::{
     // Machine interaction systems

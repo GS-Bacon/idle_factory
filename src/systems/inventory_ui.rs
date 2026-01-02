@@ -15,7 +15,8 @@ pub fn set_ui_open_state(ui_open: bool) {
     if let Some(win) = window() {
         if let Some(doc) = win.document() {
             if let Some(canvas) = doc.get_element_by_id("bevy-canvas") {
-                let _ = canvas.set_attribute("data-ui-open", if ui_open { "true" } else { "false" });
+                let _ =
+                    canvas.set_attribute("data-ui-open", if ui_open { "true" } else { "false" });
             }
         }
     }
@@ -56,20 +57,29 @@ pub fn inventory_toggle(
     mut windows: Query<&mut Window>,
 ) {
     // Don't toggle if other UIs are open or game is paused (input matrix: E key)
-    if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || command_state.open || cursor_state.paused {
+    if interacting_furnace.0.is_some()
+        || interacting_crusher.0.is_some()
+        || command_state.open
+        || cursor_state.paused
+    {
         if key_input.just_pressed(KeyCode::KeyE) {
-            info!("[INVENTORY] E pressed but blocked: furnace={}, crusher={}, command={}, paused={}",
+            info!(
+                "[INVENTORY] E pressed but blocked: furnace={}, crusher={}, command={}, paused={}",
                 interacting_furnace.0.is_some(),
                 interacting_crusher.0.is_some(),
                 command_state.open,
-                cursor_state.paused);
+                cursor_state.paused
+            );
         }
         return;
     }
 
     // E key to toggle inventory
     if key_input.just_pressed(KeyCode::KeyE) {
-        info!("[INVENTORY] E key pressed, toggling from {} to {}", inventory_open.0, !inventory_open.0);
+        info!(
+            "[INVENTORY] E key pressed, toggling from {} to {}",
+            inventory_open.0, !inventory_open.0
+        );
         inventory_open.0 = !inventory_open.0;
 
         // Return held item when closing
@@ -86,7 +96,10 @@ pub fn inventory_toggle(
                 Visibility::Hidden
             };
         }
-        info!("[INVENTORY] Updated {} UI entities, now open={}", ui_count, inventory_open.0);
+        info!(
+            "[INVENTORY] Updated {} UI entities, now open={}",
+            ui_count, inventory_open.0
+        );
 
         if ui_count == 0 {
             warn!("[INVENTORY] No InventoryUI entity found! UI will not display.");
@@ -146,7 +159,12 @@ pub fn creative_inventory_click(
     creative_mode: Res<CreativeMode>,
     mut inventory: ResMut<Inventory>,
     mut interaction_query: Query<
-        (&Interaction, &CreativeItemButton, &mut BackgroundColor, &mut BorderColor),
+        (
+            &Interaction,
+            &CreativeItemButton,
+            &mut BackgroundColor,
+            &mut BorderColor,
+        ),
         Changed<Interaction>,
     >,
 ) {
@@ -171,7 +189,12 @@ pub fn creative_inventory_click(
                 *border_color = BorderColor(Color::srgb(0.8, 0.8, 0.8));
                 // Slightly brighter background
                 let base = block_type.color();
-                let Srgba { red, green, blue, alpha } = base.to_srgba();
+                let Srgba {
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                } = base.to_srgba();
                 *bg_color = BackgroundColor(Color::srgba(
                     (red + 0.2).min(1.0),
                     (green + 0.2).min(1.0),
@@ -195,7 +218,12 @@ pub fn inventory_slot_click(
     mut held_item: ResMut<HeldItem>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut interaction_query: Query<
-        (&Interaction, &InventorySlotUI, &mut BackgroundColor, &mut BorderColor),
+        (
+            &Interaction,
+            &InventorySlotUI,
+            &mut BackgroundColor,
+            &mut BorderColor,
+        ),
         Changed<Interaction>,
     >,
 ) {
@@ -203,7 +231,8 @@ pub fn inventory_slot_click(
         return;
     }
 
-    let shift_held = key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
+    let shift_held =
+        key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
 
     for (interaction, slot_ui, mut bg_color, mut border_color) in interaction_query.iter_mut() {
         let slot_idx = slot_ui.0;
@@ -225,7 +254,9 @@ pub fn inventory_slot_click(
                         // Try to stack first
                         let mut remaining = count;
                         for target_idx in target_range.clone() {
-                            if remaining == 0 { break; }
+                            if remaining == 0 {
+                                break;
+                            }
                             if let Some((bt, ref mut c)) = inventory.slots[target_idx] {
                                 if bt == block_type && *c < MAX_STACK_SIZE {
                                     let space = MAX_STACK_SIZE - *c;
@@ -238,7 +269,9 @@ pub fn inventory_slot_click(
 
                         // Then find empty slots
                         for target_idx in target_range {
-                            if remaining == 0 { break; }
+                            if remaining == 0 {
+                                break;
+                            }
                             if inventory.slots[target_idx].is_none() {
                                 let to_add = remaining.min(MAX_STACK_SIZE);
                                 inventory.slots[target_idx] = Some((block_type, to_add));
@@ -317,7 +350,9 @@ fn perform_shift_click_move(inventory: &mut Inventory, slot_idx: usize) -> bool 
         // Try to stack first
         let mut remaining = count;
         for target_idx in target_range.clone() {
-            if remaining == 0 { break; }
+            if remaining == 0 {
+                break;
+            }
             if let Some((bt, ref mut c)) = inventory.slots[target_idx] {
                 if bt == block_type && *c < MAX_STACK_SIZE {
                     let space = MAX_STACK_SIZE - *c;
@@ -330,7 +365,9 @@ fn perform_shift_click_move(inventory: &mut Inventory, slot_idx: usize) -> bool 
 
         // Then find empty slots
         for target_idx in target_range {
-            if remaining == 0 { break; }
+            if remaining == 0 {
+                break;
+            }
             if inventory.slots[target_idx].is_none() {
                 let to_add = remaining.min(MAX_STACK_SIZE);
                 inventory.slots[target_idx] = Some((block_type, to_add));
@@ -360,7 +397,8 @@ pub fn inventory_continuous_shift_click(
         return;
     }
 
-    let shift_held = key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
+    let shift_held =
+        key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
     if !shift_held || !mouse_button.pressed(MouseButton::Left) {
         return;
     }
@@ -387,7 +425,12 @@ pub fn inventory_update_slots(
     inventory_open: Res<InventoryOpen>,
     inventory: Res<Inventory>,
     item_sprites: Res<ItemSprites>,
-    mut slot_query: Query<(&InventorySlotUI, &mut BackgroundColor, &Children, &Interaction)>,
+    mut slot_query: Query<(
+        &InventorySlotUI,
+        &mut BackgroundColor,
+        &Children,
+        &Interaction,
+    )>,
     mut text_query: Query<&mut Text>,
     mut image_query: Query<(&InventorySlotImage, &mut ImageNode, &mut Visibility)>,
 ) {
@@ -467,7 +510,10 @@ pub fn update_held_item_display(
     windows: Query<&Window>,
     mut held_display_query: Query<(&mut Node, &mut Visibility), With<HeldItemDisplay>>,
     mut held_image_query: Query<&mut ImageNode, With<HeldItemImage>>,
-    mut held_text_query: Query<(&mut Text, &mut Node, &mut Visibility), (With<HeldItemText>, Without<HeldItemDisplay>)>,
+    mut held_text_query: Query<
+        (&mut Text, &mut Node, &mut Visibility),
+        (With<HeldItemText>, Without<HeldItemDisplay>),
+    >,
 ) {
     let Ok((mut node, mut visibility)) = held_display_query.get_single_mut() else {
         return;
@@ -504,7 +550,9 @@ pub fn update_held_item_display(
                     node.top = Val::Px(y);
 
                     // Update count text position and visibility
-                    if let Ok((mut text, mut text_node, mut text_vis)) = held_text_query.get_single_mut() {
+                    if let Ok((mut text, mut text_node, mut text_vis)) =
+                        held_text_query.get_single_mut()
+                    {
                         text.0 = if *count > 1 {
                             format!("{}", count)
                         } else {
@@ -647,4 +695,3 @@ pub fn update_creative_catalog_sprites(
         }
     }
 }
-

@@ -166,6 +166,49 @@ GEMINI_TIMEOUT=180 ./scripts/ask_gemini.sh "詳細なレビュー" src/main.rs
 - 大きなファイル（1000行超）は応答が遅い
 - タイムアウトが発生したら`GEMINI_TIMEOUT`を増やす
 
+## VLMビジュアルチェック
+
+Claude Vision APIでスクリーンショットの視覚バグを検出。
+
+### 使い方
+
+```bash
+# クイックチェック（起動→スクショ→解析）
+./scripts/vlm_check.sh --quick
+
+# 詳細チェック
+./scripts/vlm_check.sh --thorough screenshot.png
+
+# コンベア専用チェック
+./scripts/vlm_check.sh --conveyor
+
+# リリース前フルスイート
+./scripts/vlm_check.sh --full-suite
+```
+
+### 推奨タイミング
+
+| タイミング | コマンド |
+|-----------|---------|
+| テクスチャ/モデル変更後 | `--thorough` |
+| コンベアロジック変更後 | `--conveyor` |
+| UI変更後 | `--ui` |
+| チャンク/地形変更後 | `--chunk` |
+| **リリース前（必須）** | `--full-suite` |
+
+### E2Eテストとの違い
+
+| 観点 | E2Eテスト | VLMチェック |
+|------|----------|-------------|
+| 検証対象 | データ・ロジック | 視覚的表示 |
+| テクスチャ抜け | ❌ | ✅ |
+| モデル不良 | ❌ | ✅ |
+| アイテム移動 | ✅ | ❌ |
+| 速度 | 0.02秒 | 5-30秒 |
+| コスト | 無料 | API課金 |
+
+詳細: `scripts/vlm_check/README.md`
+
 ## 参照ドキュメント
 
 | ファイル | 内容 |
@@ -179,6 +222,8 @@ GEMINI_TIMEOUT=180 ./scripts/ask_gemini.sh "詳細なレビュー" src/main.rs
 | `.specify/memory/modeling-rules.md` | 3Dモデル作成ルール |
 | `scripts/ask_gemini.sh` | Gemini質問スクリプト |
 | `scripts/watch_gemini.sh` | Gemini出力監視スクリプト |
+| `scripts/vlm_check.sh` | VLMビジュアルチェック |
+| `scripts/vlm_check/README.md` | VLMチェック詳細ドキュメント |
 
 ## 修正済みバグ
 
@@ -188,10 +233,11 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 
 | 項目 | 値 |
 |------|-----|
-| コード行数 | **10,957行** (目標12,500行以下 ✅) |
-| テスト | **113件** 通過 |
-| unwrap() | **17箇所** |
+| コード行数 | **11,500行** (目標12,500行以下 ✅) |
+| テスト | **280件** 通過 (lib:74, bin:38, e2e:146, fuzz:11, proptest:8, ssim:3) |
+| unwrap() | **17箇所** (全てテストコード内) |
 | Clippy警告 | **0件** |
+| カバレッジ | **8.54%** 全体、ロジック部分70%+ |
 
 ## タスク
 

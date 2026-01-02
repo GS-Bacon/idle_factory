@@ -3,15 +3,15 @@
 //! This module defines all ECS components and resources used in the game.
 //! It is the lowest layer and has no dependencies on other game modules.
 
-mod player;
-mod machines;
-mod ui;
 mod input;
+mod machines;
+mod player;
+mod ui;
 
-pub use player::*;
-pub use machines::*;
-pub use ui::*;
 pub use input::*;
+pub use machines::*;
+pub use player::*;
+pub use ui::*;
 
 use crate::BlockType;
 use bevy::prelude::*;

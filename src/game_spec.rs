@@ -149,9 +149,9 @@ pub mod biome_mining_spec {
     /// 鉄鉱石バイオームの確率テーブル
     /// 合計100%
     pub const IRON_BIOME: &[MiningProbability] = &[
-        (BlockType::IronOre, 70),   // 70% 鉄鉱石
-        (BlockType::Stone, 22),     // 22% 石
-        (BlockType::Coal, 8),       // 8% 石炭
+        (BlockType::IronOre, 70), // 70% 鉄鉱石
+        (BlockType::Stone, 22),   // 22% 石
+        (BlockType::Coal, 8),     // 8% 石炭
     ];
 
     /// 銅鉱石バイオームの確率テーブル
@@ -164,16 +164,16 @@ pub mod biome_mining_spec {
 
     /// 石炭バイオームの確率テーブル
     pub const COAL_BIOME: &[MiningProbability] = &[
-        (BlockType::Coal, 75),      // 75% 石炭
-        (BlockType::Stone, 20),     // 20% 石
-        (BlockType::IronOre, 5),    // 5% 鉄鉱石
+        (BlockType::Coal, 75),   // 75% 石炭
+        (BlockType::Stone, 20),  // 20% 石
+        (BlockType::IronOre, 5), // 5% 鉄鉱石
     ];
 
     /// 石バイオームの確率テーブル（貧鉱地帯）
     pub const STONE_BIOME: &[MiningProbability] = &[
-        (BlockType::Stone, 85),     // 85% 石
-        (BlockType::Coal, 10),      // 10% 石炭
-        (BlockType::IronOre, 5),    // 5% 鉄鉱石
+        (BlockType::Stone, 85),  // 85% 石
+        (BlockType::Coal, 10),   // 10% 石炭
+        (BlockType::IronOre, 5), // 5% 鉄鉱石
     ];
 
     /// 混合バイオームの確率テーブル（バランス型）
@@ -417,9 +417,11 @@ pub mod machine_spec {
         id: "miner",
         name: "採掘機",
         block_type: BlockType::MinerBlock,
-        ports: &[
-            IoPort { side: PortSide::Front, is_input: false, slot_id: 0 },
-        ],
+        ports: &[IoPort {
+            side: PortSide::Front,
+            is_input: false,
+            slot_id: 0,
+        }],
         buffer_size: 64,
         process_time: 1.5,
         requires_fuel: false,
@@ -432,8 +434,16 @@ pub mod machine_spec {
         name: "精錬炉",
         block_type: BlockType::FurnaceBlock,
         ports: &[
-            IoPort { side: PortSide::Back, is_input: true, slot_id: 0 },   // 鉱石入力
-            IoPort { side: PortSide::Front, is_input: false, slot_id: 0 }, // インゴット出力
+            IoPort {
+                side: PortSide::Back,
+                is_input: true,
+                slot_id: 0,
+            }, // 鉱石入力
+            IoPort {
+                side: PortSide::Front,
+                is_input: false,
+                slot_id: 0,
+            }, // インゴット出力
         ],
         buffer_size: 64,
         process_time: 2.0,
@@ -447,8 +457,16 @@ pub mod machine_spec {
         name: "粉砕機",
         block_type: BlockType::CrusherBlock,
         ports: &[
-            IoPort { side: PortSide::Back, is_input: true, slot_id: 0 },
-            IoPort { side: PortSide::Front, is_input: false, slot_id: 0 },
+            IoPort {
+                side: PortSide::Back,
+                is_input: true,
+                slot_id: 0,
+            },
+            IoPort {
+                side: PortSide::Front,
+                is_input: false,
+                slot_id: 0,
+            },
         ],
         buffer_size: 64,
         process_time: 1.5,
@@ -457,15 +475,12 @@ pub mod machine_spec {
     };
 
     /// 全機械一覧
-    pub const ALL_MACHINES: &[&MachineSpec] = &[
-        &MINER,
-        &FURNACE,
-        &CRUSHER,
-    ];
+    pub const ALL_MACHINES: &[&MachineSpec] = &[&MINER, &FURNACE, &CRUSHER];
 
     /// BlockTypeから機械仕様を取得
     pub fn get_machine_spec(block_type: BlockType) -> Option<&'static MachineSpec> {
-        ALL_MACHINES.iter()
+        ALL_MACHINES
+            .iter()
             .find(|m| m.block_type == block_type)
             .copied()
     }
@@ -542,12 +557,20 @@ pub mod recipe_spec {
     impl RecipeOutput {
         /// 確定出力を作成
         pub const fn guaranteed(item: BlockType, count: u32) -> Self {
-            Self { item, count, chance: 1.0 }
+            Self {
+                item,
+                count,
+                chance: 1.0,
+            }
         }
 
         /// 確率出力を作成
         pub const fn chance(item: BlockType, count: u32, chance: f32) -> Self {
-            Self { item, count, chance }
+            Self {
+                item,
+                count,
+                chance,
+            }
         }
     }
 
@@ -620,10 +643,7 @@ pub mod recipe_spec {
     };
 
     /// 全精錬レシピ
-    pub const FURNACE_RECIPES: &[&RecipeSpec] = &[
-        &RECIPE_SMELT_IRON,
-        &RECIPE_SMELT_COPPER,
-    ];
+    pub const FURNACE_RECIPES: &[&RecipeSpec] = &[&RECIPE_SMELT_IRON, &RECIPE_SMELT_COPPER];
 
     // =========================================================================
     // 粉砕レシピ
@@ -650,10 +670,7 @@ pub mod recipe_spec {
     };
 
     /// 全粉砕レシピ
-    pub const CRUSHER_RECIPES: &[&RecipeSpec] = &[
-        &RECIPE_CRUSH_IRON,
-        &RECIPE_CRUSH_COPPER,
-    ];
+    pub const CRUSHER_RECIPES: &[&RecipeSpec] = &[&RECIPE_CRUSH_IRON, &RECIPE_CRUSH_COPPER];
 
     // =========================================================================
     // 組立レシピ（将来用）
@@ -700,14 +717,20 @@ pub mod recipe_spec {
 
     /// 入力アイテムからレシピを検索（機械タイプ指定）
     pub fn find_recipe(machine: MachineType, input: BlockType) -> Option<&'static RecipeSpec> {
-        ALL_RECIPES.iter()
+        ALL_RECIPES
+            .iter()
             .find(|r| r.machine == machine && r.inputs.iter().any(|i| i.item == input))
             .copied()
     }
 
     /// 機械タイプの全レシピを取得
-    pub fn get_recipes_for_machine(machine: MachineType) -> impl Iterator<Item = &'static RecipeSpec> {
-        ALL_RECIPES.iter().filter(move |r| r.machine == machine).copied()
+    pub fn get_recipes_for_machine(
+        machine: MachineType,
+    ) -> impl Iterator<Item = &'static RecipeSpec> {
+        ALL_RECIPES
+            .iter()
+            .filter(move |r| r.machine == machine)
+            .copied()
     }
 }
 
@@ -894,8 +917,11 @@ mod tests {
 
         // 全てのメインクエストにアンロック要素がある
         for quest in MAIN_QUESTS {
-            assert!(!quest.unlocks.is_empty(),
-                "Main quest {} should unlock something", quest.id);
+            assert!(
+                !quest.unlocks.is_empty(),
+                "Main quest {} should unlock something",
+                quest.id
+            );
         }
     }
 
@@ -903,16 +929,21 @@ mod tests {
     #[test]
     fn test_quest_rewards_not_empty() {
         for quest in MAIN_QUESTS.iter().chain(SUB_QUESTS.iter()) {
-            assert!(!quest.rewards.is_empty(),
-                "Quest {} should have rewards", quest.id);
+            assert!(
+                !quest.rewards.is_empty(),
+                "Quest {} should have rewards",
+                quest.id
+            );
         }
     }
 
     /// 初期装備が存在する
     #[test]
     fn test_initial_equipment_not_empty() {
-        assert!(!INITIAL_EQUIPMENT.is_empty(),
-            "Player should start with some equipment");
+        assert!(
+            !INITIAL_EQUIPMENT.is_empty(),
+            "Player should start with some equipment"
+        );
     }
 
     /// 仕様定数の妥当性
@@ -936,15 +967,30 @@ mod tests {
     fn test_recipe_system() {
         // 全レシピが入力と出力を持つ
         for recipe in ALL_RECIPES {
-            assert!(!recipe.inputs.is_empty(), "Recipe {} should have inputs", recipe.id);
-            assert!(!recipe.outputs.is_empty(), "Recipe {} should have outputs", recipe.id);
-            assert!(recipe.craft_time > 0.0, "Recipe {} should have positive craft time", recipe.id);
+            assert!(
+                !recipe.inputs.is_empty(),
+                "Recipe {} should have inputs",
+                recipe.id
+            );
+            assert!(
+                !recipe.outputs.is_empty(),
+                "Recipe {} should have outputs",
+                recipe.id
+            );
+            assert!(
+                recipe.craft_time > 0.0,
+                "Recipe {} should have positive craft time",
+                recipe.id
+            );
         }
 
         // レシピ検索が動作する
         let iron_smelt = find_recipe(MachineType::Furnace, BlockType::IronOre);
         assert!(iron_smelt.is_some(), "Should find iron smelting recipe");
-        assert_eq!(iron_smelt.unwrap().id, "smelt_iron");
+        assert_eq!(
+            iron_smelt.expect("iron smelt recipe should exist").id,
+            "smelt_iron"
+        );
 
         let copper_crush = find_recipe(MachineType::Crusher, BlockType::CopperOre);
         assert!(copper_crush.is_some(), "Should find copper crushing recipe");
@@ -954,15 +1000,23 @@ mod tests {
     #[test]
     fn test_fuel_requirements() {
         // 精錬炉は燃料が必要
-        let iron_smelt = find_recipe(MachineType::Furnace, BlockType::IronOre).unwrap();
-        assert!(iron_smelt.fuel.is_some(), "Furnace recipes should require fuel");
-        let fuel = iron_smelt.fuel.unwrap();
+        let iron_smelt = find_recipe(MachineType::Furnace, BlockType::IronOre)
+            .expect("iron smelt recipe should exist");
+        assert!(
+            iron_smelt.fuel.is_some(),
+            "Furnace recipes should require fuel"
+        );
+        let fuel = iron_smelt.fuel.expect("fuel requirement should exist");
         assert_eq!(fuel.fuel_type, BlockType::Coal);
         assert_eq!(fuel.amount, 1);
 
         // 粉砕機は燃料不要
-        let iron_crush = find_recipe(MachineType::Crusher, BlockType::IronOre).unwrap();
-        assert!(iron_crush.fuel.is_none(), "Crusher recipes should not require fuel");
+        let iron_crush = find_recipe(MachineType::Crusher, BlockType::IronOre)
+            .expect("iron crush recipe should exist");
+        assert!(
+            iron_crush.fuel.is_none(),
+            "Crusher recipes should not require fuel"
+        );
     }
 
     /// 出力確率の検証
@@ -971,13 +1025,18 @@ mod tests {
         // 現在のレシピは全て確定出力
         for recipe in ALL_RECIPES {
             for output in recipe.outputs {
-                assert!(output.chance >= 1.0,
-                    "Recipe {} output {} should be guaranteed", recipe.id, output.item.name());
+                assert!(
+                    output.chance >= 1.0,
+                    "Recipe {} output {} should be guaranteed",
+                    recipe.id,
+                    output.item.name()
+                );
             }
         }
 
         // guaranteed_outputs / chance_outputs のテスト
-        let iron_smelt = find_recipe(MachineType::Furnace, BlockType::IronOre).unwrap();
+        let iron_smelt = find_recipe(MachineType::Furnace, BlockType::IronOre)
+            .expect("iron smelt recipe should exist");
         let guaranteed: Vec<_> = iron_smelt.guaranteed_outputs().collect();
         let chance: Vec<_> = iron_smelt.chance_outputs().collect();
         assert_eq!(guaranteed.len(), 1);
@@ -1007,20 +1066,26 @@ mod tests {
 
         // 各機械に少なくとも1つのポートがある
         for machine in ALL_MACHINES {
-            assert!(!machine.ports.is_empty(),
-                "Machine {} should have at least one port", machine.id);
-            assert!(machine.buffer_size > 0,
-                "Machine {} should have positive buffer size", machine.id);
+            assert!(
+                !machine.ports.is_empty(),
+                "Machine {} should have at least one port",
+                machine.id
+            );
+            assert!(
+                machine.buffer_size > 0,
+                "Machine {} should have positive buffer size",
+                machine.id
+            );
         }
 
         // BlockTypeから機械仕様を取得できる
         let miner = get_machine_spec(BlockType::MinerBlock);
         assert!(miner.is_some());
-        assert_eq!(miner.unwrap().id, "miner");
+        assert_eq!(miner.expect("miner spec should exist").id, "miner");
 
         let furnace = get_machine_spec(BlockType::FurnaceBlock);
         assert!(furnace.is_some());
-        assert_eq!(furnace.unwrap().id, "furnace");
+        assert_eq!(furnace.expect("furnace spec should exist").id, "furnace");
 
         // 非機械ブロックはNone
         let stone = get_machine_spec(BlockType::Stone);
@@ -1041,13 +1106,29 @@ mod tests {
         // 精錬炉: 入力1、出力1
         let furnace_inputs: Vec<_> = get_input_ports(&FURNACE).collect();
         let furnace_outputs: Vec<_> = get_output_ports(&FURNACE).collect();
-        assert_eq!(furnace_inputs.len(), 1, "Furnace should have one input port");
-        assert_eq!(furnace_outputs.len(), 1, "Furnace should have one output port");
+        assert_eq!(
+            furnace_inputs.len(),
+            1,
+            "Furnace should have one input port"
+        );
+        assert_eq!(
+            furnace_outputs.len(),
+            1,
+            "Furnace should have one output port"
+        );
 
         // 粉砕機: 入力1、出力1
         let crusher_inputs: Vec<_> = get_input_ports(&CRUSHER).collect();
         let crusher_outputs: Vec<_> = get_output_ports(&CRUSHER).collect();
-        assert_eq!(crusher_inputs.len(), 1, "Crusher should have one input port");
-        assert_eq!(crusher_outputs.len(), 1, "Crusher should have one output port");
+        assert_eq!(
+            crusher_inputs.len(),
+            1,
+            "Crusher should have one input port"
+        );
+        assert_eq!(
+            crusher_outputs.len(),
+            1,
+            "Crusher should have one output port"
+        );
     }
 }

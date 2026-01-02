@@ -3,8 +3,8 @@
 
 #![allow(dead_code)] // These events are prepared for future multiplayer support
 
-use bevy::prelude::*;
 use crate::block_type::BlockType;
+use bevy::prelude::*;
 
 /// Event for block placement
 #[derive(Event, Clone, Debug)]

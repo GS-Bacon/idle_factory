@@ -124,7 +124,7 @@ pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
                 ..default()
             },
             BackgroundColor(Color::srgba(0.14, 0.14, 0.14, 0.95)), // Darker MC-style
-            BorderColor(Color::srgba(0.25, 0.25, 0.25, 1.0)), // Subtle border
+            BorderColor(Color::srgba(0.25, 0.25, 0.25, 1.0)),      // Subtle border
         ))
         .with_children(|btn| {
             // Item sprite image
