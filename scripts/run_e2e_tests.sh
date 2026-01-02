@@ -45,7 +45,7 @@ echo "" | tee -a "$LOG_FILE"
 
 # ゲームを起動
 echo "Starting game..." | tee -a "$LOG_FILE"
-pkill -f idle_factory 2>/dev/null || true
+pkill -x idle_factory 2>/dev/null || true
 sleep 1
 
 cargo run &

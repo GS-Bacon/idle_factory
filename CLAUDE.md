@@ -1,10 +1,42 @@
 # Claude Code メモリ
 
-## 批判的姿勢（重要）
+## メタワーク判定基準（重要）
 
-- 仕様地獄に戻っていないか？（詳細化・レビュー・パターン確認の連鎖）
-- メタワークになっていないか？（ゲームを作らず道具を作っている）
-- 「完璧」を目指して「完成」を遅らせていないか？
+### メタワーク（やらない）
+
+| 例 | 理由 |
+|----|------|
+| 仕様書を詳細化する | ゲームが1行も進まない |
+| ドキュメント整理・圧縮 | 誰も読まない |
+| 「将来のため」の抽象化 | 今必要ない |
+| レビュースキル・パターン集作成 | 使わない道具 |
+| 「綺麗にする」ためだけのリファクタ | 動作は変わらない |
+
+### メタワークではない（やる）
+
+| 例 | 理由 |
+|----|------|
+| 自動テスト追加 | バグを早期発見、開発速度UP |
+| E2E強化 | 遊べないバグを防ぐ |
+| CI/起動確認スクリプト | クラッシュを即検出 |
+| バグ修正 | 遊べるようにする |
+| リファクタ（複雑さ解消） | 将来のバグ確率を減らす |
+| アーキテクチャ改善 | 機能追加時のバグ確率を減らす |
+| 重複コード統合 | 片方だけ直して忘れるバグを防ぐ |
+| 機能追加 | ゲームが進む |
+| UI/UX改善 | 体験が良くなる |
+| パフォーマンス改善 | 遊べる体験に直結 |
+
+### 判定フロー
+
+```
+これをやると...
+  → ゲームが遊べるようになる？ → やる
+  → 今のバグが減る？ → やる
+  → 将来のバグ確率が減る？ → やる
+  → 機能追加が速くなる？ → やる
+  → ドキュメントが増えるだけ？ → やらない
+```
 
 **過去の失敗**: 仕様39ファイル・パターン52個・レビュースキル群を作り、誰もゲームを遊んでいなかった
 
@@ -178,8 +210,11 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 - [x] 未使用コード削除（既に削除済み）
 
 ### 自動バグ検出
-- [x] Lv1: Fuzzingスクリプト（scripts/fuzz_test.sh）
-- [x] Lv2: シナリオテスト（scripts/scenario_test.sh）
+- [x] Lv1: スモークテスト（scripts/smoke_test.sh）
+- [x] Lv2: ビジュアル回帰テスト（scripts/visual_regression.sh）
+- [x] Lv3: ファジング（scripts/fuzz_test.sh）
+- [x] シナリオテスト（scripts/scenario_test.sh）
+- [x] 統合テスト（scripts/test_all.sh）
 
 ### E2E改善（ゲーム内コマンド）
 - [x] /testコマンド追加（production, stress）
@@ -259,6 +294,106 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 | UIState統合 | [ ] | 7つのUIリソースを1つの構造体に |
 | イベント駆動への移行 | [ ] | 直接Resource変更→Event発行に |
 | MachineSystemsPlugin分割 | [ ] | Furnace/Crusher/Miner/Conveyorに分割 |
+
+### 🔴 コードダイエット計画（高優先度）
+
+目標: **14,602行 → 12,500行**（-2,000行、-14%）
+
+#### Phase 1: すぐ削れる（-800行）
+
+| タスク | 状態 | 削減量 | 詳細 |
+|--------|------|--------|------|
+| machine_interact統合 | [ ] | -190行 | 3つの_interact()を1つのジェネリック関数に |
+| machine_output統合 | [ ] | -110行 | 3つの_output()を1つのジェネリック関数に |
+| machine_ui_input統合 | [ ] | -145行 | 3つの_ui_input()を1つのジェネリック関数に |
+| Color定数化 | [ ] | -80行 | 125箇所のColor::srgbを定数に統一 |
+| raycast共通化 | [ ] | -45行 | find_closest_interaction汎用関数 |
+| game_spec.rsドキュメント外部化 | [ ] | -200行 | 仕様コメントを外部ファイルへ |
+
+#### Phase 2: 中期で削れる（-500行）
+
+| タスク | 状態 | 削減量 | 詳細 |
+|--------|------|--------|------|
+| UIスロット生成統合 | [ ] | -30行 | spawn_machine_slot統一 |
+| マシン仕様マクロ化 | [ ] | -100行 | define_machine!マクロ導入 |
+| 隣接位置ヘルパー | [ ] | -15行 | get_adjacent_positions関数 |
+| モジュール共通パターン抽出 | [ ] | -150行 | machines/common.rs作成 |
+| join_infoテーブル化 | [ ] | -20行 | Conveyor方向マッピング |
+
+#### Phase 3: 仕上げ（-200行）
+
+| タスク | 状態 | 削減量 | 詳細 |
+|--------|------|--------|------|
+| テストマクロ化 | [ ] | -50行 | 重複テストをマクロ生成 |
+| バイオーム設定外部化 | [ ] | -80行 | TOML/JSONに移行 |
+| Deprecated削除 | [ ] | -50行 | 未使用コード完全削除 |
+
+### 🔴 自動バグ検出強化（高優先度）
+
+目標: **人間が遊べないレベルのバグをAIで100%検出**
+
+#### Lv1: スモークテスト（起動確認）
+
+| タスク | 状態 | 詳細 |
+|--------|------|------|
+| 起動→メニュー表示確認 | [x] | scripts/smoke_test.sh |
+| クラッシュ検出 | [x] | exit code != 0 を検出 |
+| フリーズ検出 | [x] | タイムアウトで強制終了→失敗 |
+| メモリリーク監視 | [ ] | RSS増加率を監視 |
+
+#### Lv2: ビジュアル回帰テスト（表示バグ検出）
+
+| タスク | 状態 | 詳細 |
+|--------|------|------|
+| スクリーンショット比較基盤 | [x] | scripts/visual_regression.sh |
+| SSIM比較（Rust版） | [ ] | `image-compare` crateで構造類似度 |
+| 期待値スクショ管理 | [x] | screenshots/baseline/ に保存 |
+| CI連携 | [ ] | PRごとにビジュアル回帰チェック |
+| 差分レポート生成 | [x] | screenshots/diff/ に保存 |
+
+検出できるバグ: UIずれ、色おかしい、文字重なり、テクスチャ欠け
+
+#### Lv3: ファジング（ランダム入力でクラッシュ検出）
+
+| タスク | 状態 | 詳細 |
+|--------|------|------|
+| cargo-fuzz導入 | [ ] | セーブ/ロードのパース部分をfuzz |
+| ランダム操作ボット | [x] | scripts/fuzz_test.sh |
+| 境界値自動生成 | [ ] | 座標MAX/MIN、アイテム999個等 |
+
+参考: [cargo-fuzz](https://rust-fuzz.github.io/book/cargo-fuzz.html), [AFL.rs](https://github.com/rust-fuzz/afl.rs)
+
+#### Lv4: AIプレイボット（人間的なバグ発見）
+
+| タスク | 状態 | 詳細 |
+|--------|------|------|
+| 探索ボット | [ ] | ランダム移動+操作で全エリア巡回 |
+| 目標達成ボット | [ ] | 「鉄インゴット3個作る」を自動達成 |
+| スタック検出 | [ ] | 同じ座標に30秒以上→スタック報告 |
+| 進行不能検出 | [ ] | クエスト進捗が5分間変化なし→警告 |
+
+参考: [modl.ai](https://modl.ai/), [BiFuzz](https://arxiv.org/html/2508.02144)
+
+#### Lv5: 継続監視（本番運用）
+
+| タスク | 状態 | 詳細 |
+|--------|------|------|
+| ウォッチドッグ | [ ] | ゲームプロセス監視、異常終了で再起動+ログ |
+| FPS監視 | [ ] | 30FPS以下が続いたら警告 |
+| ログ異常検出 | [ ] | ERROR/WARN頻度の急増を検出 |
+
+#### 実装優先順位
+
+```
+Lv1（すぐ）→ Lv2（1週間）→ Lv3（2週間）→ Lv4（1ヶ月）→ Lv5（継続）
+```
+
+**参考資料**:
+- [Automated Testing in Bevy](https://chadnauseam.com/coding/gamedev/automated-testing-in-bevy/)
+- [Percy Visual Testing](https://www.browserstack.com/percy/visual-regression-testing)
+- [BrowserStack Visual Testing Tools](https://www.browserstack.com/guide/visual-testing-tools)
+- [Game QA Automation Tools 2025](https://www.thinkgamerz.com/game-qa-automation-tools/)
+- [Smoke Tests for Games](https://andrewfray.wordpress.com/2025/09/03/theres-no-fire-without-smoke-tests/)
 
 ### 将来リスト
 - [ ] リプレイシステム: 操作記録・巻き戻し・早送り対応

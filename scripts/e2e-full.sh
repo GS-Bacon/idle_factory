@@ -50,7 +50,7 @@ rm -f "$SCREENSHOTS_DIR"/*.png "$SCREENSHOTS_DIR"/*.json 2>/dev/null || true
 # ==============================================================================
 
 cleanup() {
-    pkill -9 -f "idle_factory" 2>/dev/null || true
+    pkill -x idle_factory 2>/dev/null || true
     pkill -9 -f "target/debug/idle" 2>/dev/null || true
     pkill -9 -f "simple-http-server" 2>/dev/null || true
     pkill -9 -f "chromium" 2>/dev/null || true

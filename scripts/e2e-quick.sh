@@ -24,7 +24,7 @@ mkdir -p "$SCREENSHOTS_DIR"
 
 # 既存プロセス停止
 cleanup() {
-    pkill -9 -f "idle_factory" 2>/dev/null || true
+    pkill -x idle_factory 2>/dev/null || true
     pkill -9 -f "target/debug/idle" 2>/dev/null || true
     sleep 1
 }

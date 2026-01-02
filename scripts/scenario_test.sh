@@ -17,7 +17,7 @@ log() { echo "[$(date +%H:%M:%S)] $1" | tee -a "$LOG_FILE"; }
 err() { echo "[$(date +%H:%M:%S)] ERROR: $1" | tee -a "$LOG_FILE"; }
 
 cleanup() {
-    pkill -9 -f "idle_factory" 2>/dev/null || true
+    pkill -x idle_factory 2>/dev/null || true
     sleep 1
 }
 
