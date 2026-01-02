@@ -58,6 +58,15 @@ impl Direction {
         self.rotate_cw()
     }
 
+    /// Get the opposite direction
+    pub fn opposite(self) -> Self {
+        match self {
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::East => Direction::West,
+            Direction::West => Direction::East,
+        }
+    }
 }
 
 /// Single item on a conveyor

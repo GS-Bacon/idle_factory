@@ -307,6 +307,12 @@ pub fn conveyor_transfer(
                         furnace_transform.translation.z.floor() as i32,
                     );
                     if pos == furnace_pos {
+                        // Check if conveyor is at input port (back of furnace)
+                        let input_port = furnace.position + furnace.facing.opposite().to_ivec3();
+                        if action.source_pos != input_port {
+                            break; // Not at input port, reject
+                        }
+
                         let can_accept = match item.block_type {
                             BlockType::Coal => furnace.fuel < 64,
                             BlockType::IronOre | BlockType::CopperOre => {
@@ -339,6 +345,12 @@ pub fn conveyor_transfer(
                 let mut accepted = false;
                 for mut crusher in crusher_query.iter_mut() {
                     if crusher.position == crusher_pos {
+                        // Check if conveyor is at input port (back of crusher)
+                        let input_port = crusher.position + crusher.facing.opposite().to_ivec3();
+                        if action.source_pos != input_port {
+                            break; // Not at input port, reject
+                        }
+
                         let can_accept = Crusher::can_crush(item.block_type)
                             && (crusher.input_type.is_none()
                                 || crusher.input_type == Some(item.block_type))

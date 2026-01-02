@@ -279,7 +279,7 @@ pub fn miner_visual_feedback(time: Res<Time>, mut miner_query: Query<(&Miner, &m
     }
 }
 
-/// Output from miner to adjacent conveyor
+/// Output from miner to conveyor in facing direction only
 pub fn miner_output(
     mut miner_query: Query<&mut Miner>,
     mut conveyor_query: Query<&mut Conveyor>,
@@ -292,37 +292,21 @@ pub fn miner_output(
             continue;
         }
 
-        // Check for adjacent conveyors (horizontal + above)
-        let adjacent_positions = [
-            miner.position + IVec3::new(1, 0, 0),  // east
-            miner.position + IVec3::new(-1, 0, 0), // west
-            miner.position + IVec3::new(0, 0, 1),  // south
-            miner.position + IVec3::new(0, 0, -1), // north
-            miner.position + IVec3::new(0, 1, 0),  // above
-        ];
+        // Output only in facing direction (front of machine)
+        let output_pos = miner.position + miner.facing.to_ivec3();
 
-        'outer: for mut conveyor in conveyor_query.iter_mut() {
-            for pos in &adjacent_positions {
-                if conveyor.position == *pos {
-                    // Use get_join_progress to determine if item can join and at what progress
-                    // For above conveyor, allow joining at entry (0.0) for any direction
-                    let join_progress = if *pos == miner.position + IVec3::new(0, 1, 0) {
-                        Some(0.0) // Above: always join at entry
-                    } else {
-                        conveyor.get_join_progress(miner.position)
-                    };
-
-                    if let Some(progress) = join_progress {
-                        if conveyor.can_accept_item(progress) {
-                            conveyor.add_item(block_type, progress);
-                            if let Some((_, ref mut buf_count)) = miner.buffer {
-                                *buf_count -= 1;
-                                if *buf_count == 0 {
-                                    miner.buffer = None;
-                                }
+        for mut conveyor in conveyor_query.iter_mut() {
+            if conveyor.position == output_pos {
+                if let Some(progress) = conveyor.get_join_progress(miner.position) {
+                    if conveyor.can_accept_item(progress) {
+                        conveyor.add_item(block_type, progress);
+                        if let Some((_, ref mut buf_count)) = miner.buffer {
+                            *buf_count -= 1;
+                            if *buf_count == 0 {
+                                miner.buffer = None;
                             }
-                            break 'outer;
                         }
+                        break;
                     }
                 }
             }

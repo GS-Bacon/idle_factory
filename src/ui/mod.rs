@@ -1,15 +1,10 @@
 //! UI components and systems
 //!
-//! This module will contain UI definitions and logic
-//! when main.rs is fully split.
-//!
-//! Currently, all implementations remain in main.rs.
-//! This module exists as a placeholder for future refactoring.
+//! This module contains UI definitions and logic.
 
-// Future submodules:
-// mod components;
-// mod hotbar;
-// mod inventory;
-// mod machine_ui;
+pub mod storage_ui;
 
-// Re-exports will be added when implementations are moved here.
+pub use storage_ui::{
+    global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
+    global_inventory_toggle, setup_global_inventory_ui, update_global_inventory_ui,
+};

@@ -239,7 +239,7 @@ pub fn crusher_ui_input(
     }
 }
 
-/// Crusher output to conveyor
+/// Crusher output to conveyor in facing direction only
 pub fn crusher_output(
     mut crusher_query: Query<&mut Crusher>,
     mut conveyor_query: Query<&mut Conveyor>,
@@ -253,33 +253,19 @@ pub fn crusher_output(
             continue;
         }
 
-        // Check for adjacent conveyors (horizontal + above)
-        let adjacent_positions = [
-            crusher.position + IVec3::new(1, 0, 0),  // east
-            crusher.position + IVec3::new(-1, 0, 0), // west
-            crusher.position + IVec3::new(0, 0, 1),  // south
-            crusher.position + IVec3::new(0, 0, -1), // north
-            crusher.position + IVec3::new(0, 1, 0),  // above
-        ];
+        // Output only in facing direction (front of machine)
+        let output_pos = crusher.position + crusher.facing.to_ivec3();
 
-        'outer: for mut conveyor in conveyor_query.iter_mut() {
-            for pos in &adjacent_positions {
-                if conveyor.position == *pos {
-                    let join_progress = if *pos == crusher.position + IVec3::new(0, 1, 0) {
-                        Some(0.0) // Above: always join at entry
-                    } else {
-                        conveyor.get_join_progress(crusher.position)
-                    };
-
-                    if let Some(progress) = join_progress {
-                        if conveyor.can_accept_item(progress) {
-                            conveyor.add_item(output_type, progress);
-                            crusher.output_count -= 1;
-                            if crusher.output_count == 0 {
-                                crusher.output_type = None;
-                            }
-                            break 'outer;
+        for mut conveyor in conveyor_query.iter_mut() {
+            if conveyor.position == output_pos {
+                if let Some(progress) = conveyor.get_join_progress(crusher.position) {
+                    if conveyor.can_accept_item(progress) {
+                        conveyor.add_item(output_type, progress);
+                        crusher.output_count -= 1;
+                        if crusher.output_count == 0 {
+                            crusher.output_type = None;
                         }
+                        break;
                     }
                 }
             }

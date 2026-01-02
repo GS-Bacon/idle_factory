@@ -59,10 +59,10 @@ echo ""
 
 # Geminiにレビュー依頼
 echo "Sending to Gemini..."
-./scripts/ask_gemini.sh "このコードをレビューしてください。評価基準に従って10点満点で採点し、良い点3つ、改善点3つを挙げてください。" "$CONTEXT_FILE" &
-GEMINI_PID=$!
-
-echo "Gemini review requested (PID: $GEMINI_PID)"
 echo ""
+
+GEMINI_TIMEOUT=180 ./scripts/ask_gemini.sh "このコードをレビューしてください。評価基準に従って10点満点で採点し、良い点3つ、改善点3つを挙げてください。" "$CONTEXT_FILE"
+
+echo ""
+echo "=== Gemini review complete ==="
 echo "Claude review: 直接会話で依頼してください"
-echo "Gemini review: tmux attach -t ai_gemini で確認"

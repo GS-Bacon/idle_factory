@@ -119,6 +119,49 @@ pub struct CurrentQuest {
     pub rewards_claimed: bool,
 }
 
+/// Active sub-quest state
+#[derive(Clone, Default)]
+pub struct SubQuestState {
+    /// Index of sub-quest in SUB_QUESTS array
+    pub quest_index: usize,
+    /// Whether the sub-quest is completed
+    pub completed: bool,
+    /// Whether rewards were claimed
+    pub rewards_claimed: bool,
+}
+
+/// Active sub-quests resource (up to MAX_ACTIVE_SUB_QUESTS)
+#[derive(Resource, Default)]
+pub struct ActiveSubQuests {
+    /// Currently active sub-quests
+    pub quests: Vec<SubQuestState>,
+}
+
+impl ActiveSubQuests {
+    /// Check if a sub-quest is already active
+    pub fn is_active(&self, quest_index: usize) -> bool {
+        self.quests.iter().any(|q| q.quest_index == quest_index)
+    }
+
+    /// Add a sub-quest if not already active and under limit
+    pub fn add_quest(&mut self, quest_index: usize, max_active: usize) -> bool {
+        if self.quests.len() >= max_active || self.is_active(quest_index) {
+            return false;
+        }
+        self.quests.push(SubQuestState {
+            quest_index,
+            completed: false,
+            rewards_claimed: false,
+        });
+        true
+    }
+
+    /// Remove a completed and claimed sub-quest
+    pub fn remove_claimed(&mut self) {
+        self.quests.retain(|q| !q.rewards_claimed);
+    }
+}
+
 /// Marker for quest UI
 #[derive(Component)]
 pub struct QuestUI;

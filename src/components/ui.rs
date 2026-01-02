@@ -174,4 +174,98 @@ pub struct CommandInputUI;
 #[derive(Component)]
 pub struct CommandInputText;
 
+// === Global Inventory UI ===
+
+/// Global inventory open state (toggle with Tab key)
+#[derive(Resource, Default)]
+pub struct GlobalInventoryOpen(pub bool);
+
+/// Marker for global inventory UI panel
+#[derive(Component)]
+pub struct GlobalInventoryUI;
+
+/// Marker for global inventory slot
+#[derive(Component)]
+pub struct GlobalInventorySlot(pub usize);
+
+/// Marker for global inventory slot image
+#[derive(Component)]
+pub struct GlobalInventorySlotImage(pub usize);
+
+/// Marker for global inventory slot count text
+#[derive(Component)]
+pub struct GlobalInventorySlotCount(pub usize);
+
+/// Global inventory page state
+#[derive(Resource, Default)]
+pub struct GlobalInventoryPage(pub usize);
+
+/// Marker for page navigation buttons
+#[derive(Component)]
+pub struct GlobalInventoryPageButton {
+    pub next: bool, // true = next, false = prev
+}
+
+/// Marker for page indicator text
+#[derive(Component)]
+pub struct GlobalInventoryPageText;
+
+/// Item category for filtering
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum ItemCategory {
+    #[default]
+    All,
+    Ores,
+    Ingots,
+    Machines,
+}
+
+impl ItemCategory {
+    pub fn label(&self) -> &'static str {
+        match self {
+            ItemCategory::All => "All",
+            ItemCategory::Ores => "Ores",
+            ItemCategory::Ingots => "Ingots",
+            ItemCategory::Machines => "Machines",
+        }
+    }
+
+    pub fn matches(&self, block_type: crate::BlockType) -> bool {
+        use crate::BlockType;
+        match self {
+            ItemCategory::All => true,
+            ItemCategory::Ores => matches!(
+                block_type,
+                BlockType::IronOre | BlockType::CopperOre | BlockType::Coal | BlockType::Stone
+            ),
+            ItemCategory::Ingots => matches!(
+                block_type,
+                BlockType::IronIngot | BlockType::CopperIngot
+            ),
+            ItemCategory::Machines => matches!(
+                block_type,
+                BlockType::MinerBlock
+                    | BlockType::ConveyorBlock
+                    | BlockType::FurnaceBlock
+                    | BlockType::CrusherBlock
+            ),
+        }
+    }
+}
+
+/// Current category filter for global inventory
+#[derive(Resource, Default)]
+pub struct GlobalInventoryCategory(pub ItemCategory);
+
+/// Search text for global inventory
+#[derive(Resource, Default)]
+pub struct GlobalInventorySearch(pub String);
+
+/// Marker for category tab button
+#[derive(Component)]
+pub struct GlobalInventoryCategoryTab(pub ItemCategory);
+
+/// Marker for search input box
+#[derive(Component)]
+pub struct GlobalInventorySearchInput;
 

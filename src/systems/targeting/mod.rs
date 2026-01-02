@@ -15,5 +15,5 @@ mod raycast;
 
 pub use conveyor::{rotate_conveyor_placement, update_conveyor_shapes};
 pub use guide::update_guide_markers;
-pub use highlight::update_target_highlight;
+pub use highlight::{setup_highlight_cache, update_target_highlight, HighlightMeshCache};
 pub use raycast::update_target_block;

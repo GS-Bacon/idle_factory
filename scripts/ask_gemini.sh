@@ -1,57 +1,64 @@
 #!/bin/bash
-# Gemini連携スクリプト - 回答完了待機版
-# 使い方: ./scripts/ask_gemini.sh "質問" [コンテキストファイル]
+# Gemini連携スクリプト - 非インタラクティブモード版
+# 使い方: ./scripts/ask_gemini.sh "質問" [コンテキストファイル...]
+#
+# 例:
+#   ./scripts/ask_gemini.sh "このコードをレビューして" src/main.rs
+#   ./scripts/ask_gemini.sh "アーキテクチャを評価して" src/*.rs
+#   echo "質問" | ./scripts/ask_gemini.sh
 
-QUESTION="$1"
-CONTEXT_FILE="$2"
-SESSION="ai_gemini"
-MAX_WAIT=120  # 最大待機秒数
-POLL_INTERVAL=2
+set -e
 
-# セッション確認・作成
-if ! tmux has-session -t $SESSION 2>/dev/null; then
-    tmux new-session -d -s $SESSION
-    tmux send-keys -t $SESSION "gemini" Enter
-    sleep 5
-fi
+TIMEOUT="${GEMINI_TIMEOUT:-120}"  # デフォルト2分
 
-# 質問送信
-if [ -n "$CONTEXT_FILE" ] && [ -f "$CONTEXT_FILE" ]; then
-    tmux send-keys -t $SESSION "@$CONTEXT_FILE $QUESTION" Enter
-else
-    tmux send-keys -t $SESSION "$QUESTION" Enter
-fi
-tmux send-keys -t $SESSION Enter  # 念のためEnter追加
+# 引数処理
+QUESTION=""
+FILES=()
 
-# 回答完了を待機（プロンプト ">" が最終行に出現するまで）
-echo "Waiting for Gemini response..."
-waited=0
-while [ $waited -lt $MAX_WAIT ]; do
-    sleep $POLL_INTERVAL
-    waited=$((waited + POLL_INTERVAL))
-
-    # 最新の出力を取得
-    last_lines=$(tmux capture-pane -t $SESSION -p | tail -5)
-
-    # プロンプト待ち状態かチェック（処理中マーカーがない）
-    if echo "$last_lines" | grep -q "> .*Type your message" && \
-       ! echo "$last_lines" | grep -qE "(esc to cancel|⠴|⠙|⠸|⠦|⠧|⠇|⠏)"; then
-        echo "Response complete (${waited}s)"
-        break
-    fi
-
-    # 編集確認ダイアログが出た場合はスキップ
-    if echo "$last_lines" | grep -q "Apply this change"; then
-        tmux send-keys -t $SESSION "4"  # No を選択
-        sleep 1
+for arg in "$@"; do
+    if [[ -f "$arg" ]]; then
+        FILES+=("$arg")
+    else
+        if [[ -z "$QUESTION" ]]; then
+            QUESTION="$arg"
+        else
+            QUESTION="$QUESTION $arg"
+        fi
     fi
 done
 
-if [ $waited -ge $MAX_WAIT ]; then
-    echo "Timeout after ${MAX_WAIT}s"
+# stdinからの入力があれば追加
+if [ ! -t 0 ]; then
+    STDIN_INPUT=$(cat)
+    if [[ -n "$STDIN_INPUT" ]]; then
+        QUESTION="${QUESTION:+$QUESTION\n\n}$STDIN_INPUT"
+    fi
 fi
 
-# 結果取得（回答部分のみ）
-echo ""
-echo "=== Gemini Response ==="
-tmux capture-pane -t $SESSION -p -S -100 | grep -A 100 "^✦" | tail -60
+# 質問がなければエラー
+if [[ -z "$QUESTION" && ${#FILES[@]} -eq 0 ]]; then
+    echo "Usage: $0 \"質問\" [ファイル...]" >&2
+    echo "  例: $0 \"このコードをレビューして\" src/main.rs" >&2
+    exit 1
+fi
+
+# ファイル指定がある場合は@プレフィックスを付ける
+FILE_ARGS=""
+for file in "${FILES[@]}"; do
+    FILE_ARGS="$FILE_ARGS @$file"
+done
+
+# 実行
+echo "🤖 Gemini に質問中... (タイムアウト: ${TIMEOUT}秒)" >&2
+
+if timeout "$TIMEOUT" gemini $FILE_ARGS "$QUESTION" --approval-mode yolo 2>&1; then
+    exit 0
+else
+    EXIT_CODE=$?
+    if [[ $EXIT_CODE -eq 124 ]]; then
+        echo "❌ タイムアウト (${TIMEOUT}秒)" >&2
+    else
+        echo "❌ エラー (exit code: $EXIT_CODE)" >&2
+    fi
+    exit $EXIT_CODE
+fi

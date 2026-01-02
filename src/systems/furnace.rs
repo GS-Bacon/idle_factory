@@ -265,12 +265,12 @@ pub fn update_furnace_ui(
     }
 }
 
-/// Furnace output to conveyor
+/// Furnace output to conveyor in facing direction only
 pub fn furnace_output(
-    mut furnace_query: Query<(&Transform, &mut Furnace)>,
+    mut furnace_query: Query<&mut Furnace>,
     mut conveyor_query: Query<&mut Conveyor>,
 ) {
-    for (transform, mut furnace) in furnace_query.iter_mut() {
+    for mut furnace in furnace_query.iter_mut() {
         let Some(output_type) = furnace.output_type else {
             continue;
         };
@@ -279,40 +279,19 @@ pub fn furnace_output(
             continue;
         }
 
-        // Get furnace position from Transform
-        let furnace_pos = IVec3::new(
-            transform.translation.x.floor() as i32,
-            transform.translation.y.floor() as i32,
-            transform.translation.z.floor() as i32,
-        );
+        // Output only in facing direction (front of machine)
+        let output_pos = furnace.position + furnace.facing.to_ivec3();
 
-        // Check for adjacent conveyors (horizontal + above)
-        let adjacent_positions = [
-            furnace_pos + IVec3::new(1, 0, 0),  // east
-            furnace_pos + IVec3::new(-1, 0, 0), // west
-            furnace_pos + IVec3::new(0, 0, 1),  // south
-            furnace_pos + IVec3::new(0, 0, -1), // north
-            furnace_pos + IVec3::new(0, 1, 0),  // above
-        ];
-
-        'outer: for mut conveyor in conveyor_query.iter_mut() {
-            for pos in &adjacent_positions {
-                if conveyor.position == *pos {
-                    let join_progress = if *pos == furnace_pos + IVec3::new(0, 1, 0) {
-                        Some(0.0) // Above: always join at entry
-                    } else {
-                        conveyor.get_join_progress(furnace_pos)
-                    };
-
-                    if let Some(progress) = join_progress {
-                        if conveyor.can_accept_item(progress) {
-                            conveyor.add_item(output_type, progress);
-                            furnace.output_count -= 1;
-                            if furnace.output_count == 0 {
-                                furnace.output_type = None;
-                            }
-                            break 'outer;
+        for mut conveyor in conveyor_query.iter_mut() {
+            if conveyor.position == output_pos {
+                if let Some(progress) = conveyor.get_join_progress(furnace.position) {
+                    if conveyor.can_accept_item(progress) {
+                        conveyor.add_item(output_type, progress);
+                        furnace.output_count -= 1;
+                        if furnace.output_count == 0 {
+                            furnace.output_type = None;
                         }
+                        break;
                     }
                 }
             }

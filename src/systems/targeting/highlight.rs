@@ -7,9 +7,57 @@ use crate::meshes::{create_conveyor_wireframe_mesh, create_wireframe_cube_mesh};
 use crate::player::Inventory;
 use crate::utils::{auto_conveyor_direction, yaw_to_direction};
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, Crusher, Furnace, Miner, PlaceHighlight,
+    BlockType, Conveyor, ConveyorRotationOffset, Crusher, Direction, Furnace, Miner, PlaceHighlight,
     PlayerCamera, TargetBlock, TargetHighlight,
 };
+
+/// Cached meshes for highlight wireframes (avoid recreation every frame)
+#[derive(Resource)]
+pub struct HighlightMeshCache {
+    pub cube_mesh: Handle<Mesh>,
+    pub conveyor_north: Handle<Mesh>,
+    pub conveyor_south: Handle<Mesh>,
+    pub conveyor_east: Handle<Mesh>,
+    pub conveyor_west: Handle<Mesh>,
+    pub red_material: Handle<StandardMaterial>,
+    pub green_material: Handle<StandardMaterial>,
+}
+
+impl HighlightMeshCache {
+    pub fn get_conveyor_mesh(&self, dir: Direction) -> Handle<Mesh> {
+        match dir {
+            Direction::North => self.conveyor_north.clone(),
+            Direction::South => self.conveyor_south.clone(),
+            Direction::East => self.conveyor_east.clone(),
+            Direction::West => self.conveyor_west.clone(),
+        }
+    }
+}
+
+/// Setup highlight mesh cache (run once at startup)
+pub fn setup_highlight_cache(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    commands.insert_resource(HighlightMeshCache {
+        cube_mesh: meshes.add(create_wireframe_cube_mesh()),
+        conveyor_north: meshes.add(create_conveyor_wireframe_mesh(Direction::North)),
+        conveyor_south: meshes.add(create_conveyor_wireframe_mesh(Direction::South)),
+        conveyor_east: meshes.add(create_conveyor_wireframe_mesh(Direction::East)),
+        conveyor_west: meshes.add(create_conveyor_wireframe_mesh(Direction::West)),
+        red_material: materials.add(StandardMaterial {
+            base_color: Color::srgb(1.0, 0.2, 0.2),
+            unlit: true,
+            ..default()
+        }),
+        green_material: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.2, 1.0, 0.2),
+            unlit: true,
+            ..default()
+        }),
+    });
+}
 
 /// Update target highlight entity position
 #[allow(clippy::too_many_arguments)]
@@ -18,8 +66,7 @@ pub fn update_target_highlight(
     mut target: ResMut<TargetBlock>,
     break_query: Query<Entity, (With<TargetHighlight>, Without<PlaceHighlight>)>,
     place_query: Query<Entity, (With<PlaceHighlight>, Without<TargetHighlight>)>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    cache: Res<HighlightMeshCache>,
     inventory: Res<Inventory>,
     conveyor_query: Query<&Conveyor>,
     miner_query: Query<&Miner>,
@@ -89,7 +136,6 @@ pub fn update_target_highlight(
     if let Some(pos) = target.break_target {
         let center = Vec3::new(pos.x as f32 + 0.5, pos.y as f32 + 0.5, pos.z as f32 + 0.5);
 
-        // Always recreate mesh to handle conveyor direction changes
         // Despawn old entity if exists
         if let Some(entity) = target.break_highlight_entity.take() {
             if break_query.get(entity).is_ok() {
@@ -97,20 +143,16 @@ pub fn update_target_highlight(
             }
         }
 
+        // Use cached mesh (no recreation every frame)
         let mesh = if let Some(dir) = break_conveyor_dir {
-            meshes.add(create_conveyor_wireframe_mesh(dir))
+            cache.get_conveyor_mesh(dir)
         } else {
-            meshes.add(create_wireframe_cube_mesh())
+            cache.cube_mesh.clone()
         };
-        let material = materials.add(StandardMaterial {
-            base_color: Color::srgb(1.0, 0.2, 0.2),
-            unlit: true,
-            ..default()
-        });
         let entity = commands
             .spawn((
                 Mesh3d(mesh),
-                MeshMaterial3d(material),
+                MeshMaterial3d(cache.red_material.clone()),
                 Transform::from_translation(center),
                 TargetHighlight,
                 NotShadowCaster,
@@ -127,27 +169,23 @@ pub fn update_target_highlight(
     if let Some(pos) = target.place_target.filter(|_| has_placeable_item) {
         let center = Vec3::new(pos.x as f32 + 0.5, pos.y as f32 + 0.5, pos.z as f32 + 0.5);
 
-        // Always recreate mesh to handle conveyor direction changes
+        // Despawn old entity if exists
         if let Some(entity) = target.place_highlight_entity.take() {
             if place_query.get(entity).is_ok() {
                 commands.entity(entity).despawn();
             }
         }
 
+        // Use cached mesh (no recreation every frame)
         let mesh = if let Some(dir) = place_direction {
-            meshes.add(create_conveyor_wireframe_mesh(dir))
+            cache.get_conveyor_mesh(dir)
         } else {
-            meshes.add(create_wireframe_cube_mesh())
+            cache.cube_mesh.clone()
         };
-        let material = materials.add(StandardMaterial {
-            base_color: Color::srgb(0.2, 1.0, 0.2),
-            unlit: true,
-            ..default()
-        });
         let entity = commands
             .spawn((
                 Mesh3d(mesh),
-                MeshMaterial3d(material),
+                MeshMaterial3d(cache.green_material.clone()),
                 Transform::from_translation(center),
                 PlaceHighlight,
                 NotShadowCaster,

@@ -1,5 +1,11 @@
 # Claude Code メモリ
 
+## 互換性ポリシー
+
+- **既存プレイヤーはいない** → セーブデータ移行は不要
+- **しばらくは後方互換性を気にしなくてよい**
+- 破壊的変更OK、古いセーブ切り捨てOK
+
 ## メタワーク判定基準（重要）
 
 ### メタワーク（やらない）
@@ -8,9 +14,9 @@
 |----|------|
 | 仕様書を詳細化する | ゲームが1行も進まない |
 | ドキュメント整理・圧縮 | 誰も読まない |
-| 「将来のため」の抽象化 | 今必要ない |
+| ドキュメントコメント追加 | 誰も読まない |
 | レビュースキル・パターン集作成 | 使わない道具 |
-| 「綺麗にする」ためだけのリファクタ | 動作は変わらない |
+| コード移動だけのリファクタ | バグ確率変わらない |
 
 ### メタワークではない（やる）
 
@@ -120,25 +126,23 @@
 | バグ特定 | ログやスタックトレースからの推論 |
 | コードの細部 | 命名、型、エラーハンドリング |
 
-### 連携スクリプト
+### 使い方
 
 ```bash
-# 基本：質問スクリプト（回答完了まで待機）
-./scripts/ask_gemini.sh "質問" context_file.rs
+# 基本：質問のみ
+./scripts/ask_gemini.sh "Rustのunwrap()の代替を3つ挙げて"
 
-# コンテキスト同期（Geminiに現在の状態を共有）
-./scripts/sync_context.sh generate  # 状態ファイル生成
-./scripts/sync_context.sh show      # 内容確認
+# ファイル指定（コンテキスト付き）
+./scripts/ask_gemini.sh "このコードをレビューして" src/main.rs
 
-# デュアルレビュー（両AIに同時依頼）
-./scripts/dual_review.sh src/main.rs general
+# 複数ファイル指定
+./scripts/ask_gemini.sh "アーキテクチャを評価して" src/*.rs
 
-# 監視スクリプト（許可ダイアログ自動処理）
-./scripts/watch_gemini.sh 120 --auto-deny
+# パイプで質問
+echo "質問内容" | ./scripts/ask_gemini.sh
 
-# 直接tmux操作
-tmux send-keys -t ai_gemini "質問内容" Enter
-tmux attach -t ai_gemini  # 回答確認
+# タイムアウト変更（デフォルト120秒）
+GEMINI_TIMEOUT=180 ./scripts/ask_gemini.sh "詳細なレビュー" src/main.rs
 ```
 
 ### 連携パターン
@@ -154,24 +158,23 @@ tmux attach -t ai_gemini  # 回答確認
 
 1. **大きな設計変更前**: Geminiに俯瞰レビューを依頼
 2. **バグが取れない時**: Geminiにセカンドオピニオン
-3. **コードレビュー**: 両方に依頼して比較（dual_review.sh）
-4. **座標・回転計算**: Geminiで数学的正しさを確認
+3. **座標・回転計算**: Geminiで数学的正しさを確認
 
 ### 注意点
 
-- `/tmp`はGeminiワークスペース外 → プロジェクト内にファイルを置く
-- 抽出コードでも品質十分 → 必要部分だけ渡してトークン節約
-- Geminiは読み込みに時間がかかる → 待機スクリプトを使う
+- ファイル読み込みには30-60秒かかることがある
+- 大きなファイル（1000行超）は応答が遅い
+- タイムアウトが発生したら`GEMINI_TIMEOUT`を増やす
 
 ## 参照ドキュメント
 
 | ファイル | 内容 |
 |----------|------|
+| `.claude/implementation-plan.md` | **統合実装計画（タスク一覧）** |
 | `.claude/architecture.md` | モジュール構成、依存関係、分割ルール |
 | `.claude/coding-rules.md` | コーディング規約、命名規則 |
 | `.claude/bugs.md` | よくあるバグと対策、チェックリスト |
 | `.claude/build.md` | ビルド最適化、プロファイル設定 |
-| `.claude/refactoring-tasks.md` | リファクタリングタスク（2026-01-01レビュー） |
 | `.specify/memory/input-rules.md` | 入力マトリクス |
 | `.specify/memory/modeling-rules.md` | 3Dモデル作成ルール |
 | `scripts/ask_gemini.sh` | Gemini質問スクリプト |
@@ -183,223 +186,39 @@ BUG-1〜9: 全て修正済み。詳細は `.claude/bugs.md` 参照。
 
 ## 現在の状態
 
-- v0.1 MVP: 完了
-- フェーズ1-8: 全完了
-- テスト: 113件通過
-- Clippy警告: 0
-- unwrap(): 10箇所のみ
+| 項目 | 値 |
+|------|-----|
+| コード行数 | **10,957行** (目標12,500行以下 ✅) |
+| テスト | **113件** 通過 |
+| unwrap() | **17箇所** |
+| Clippy警告 | **0件** |
 
-## タスクリスト
+## タスク
 
-### 🔴 リファクタリング（高優先度）
+**詳細は `.claude/implementation-plan.md` 参照**
 
-詳細は `.claude/refactoring-tasks.md` 参照
+### 優先順位
 
-| タスク | 状態 | 効果 |
-|--------|------|------|
-| block_operations.rs 分割 | ✅ | 1001行→3ファイル |
-| ui_setup.rs 分割 | ✅ | 977行→3ファイル |
-| targeting.rs 分割 | ✅ | 759行→4ファイル |
-| MachineSystemsPlugin 作成 | ✅ | main.rs 300行削減 |
-| UIPlugin 作成 | ✅ | UI系システム分離 |
-| SavePlugin 作成 | ✅ | セーブ系システム分離 |
-| command_ui.rs 分割 | ✅ | 826行→4ファイル |
+| 順位 | カテゴリ | 状態 |
+|------|----------|------|
+| 1 | パフォーマンス改善 | Phase 1 |
+| 2 | セキュリティ・エラー処理 | Phase 2 |
+| 3 | v0.2機能実装 | Phase 3 |
+| 4 | テスト強化 | Phase 4 |
+| 5 | コードダイエット | Phase 5 |
 
-### バグ修正・クリーンアップ
-- [x] unwrap()削減（72箇所→10箇所）
-- [x] 未使用コード削除（既に削除済み）
+### 次のアクション
 
-### 自動バグ検出
-- [x] Lv1: スモークテスト（scripts/smoke_test.sh）
-- [x] Lv2: ビジュアル回帰テスト（scripts/visual_regression.sh）
-- [x] Lv3: ファジング（scripts/fuzz_test.sh）
-- [x] シナリオテスト（scripts/scenario_test.sh）
-- [x] 統合テスト（scripts/test_all.sh）
+1. **Phase 1**: highlight.rs + conveyor.rs パフォーマンス改善
+2. **Phase 2**: unwrap()削除
+3. **Phase 3**: v0.2機能（UI改修、クエスト拡張、機械入出力）
 
-### E2E改善（ゲーム内コマンド）
-- [x] /testコマンド追加（production, stress）
-- [x] /assertコマンド追加（inventory, slot検証）
-- [x] /spawn_lineコマンド追加（機械ライン配置）
-- [x] /debug_conveyorコマンド追加
+### 将来機能 (v0.3以降)
 
-### ログ改善
-- [x] 構造化ログ形式（EventLogger in logging.rs）
-- [x] チャンク生成ログのノイズ削減（DEBUGレベル）
-
-### ログ活用（AI連携）
-- [x] ログサマリー生成スクリプト（scripts/summarize_log.sh）
-- [x] 異常検出ルール追加（scripts/detect_anomalies.sh）
-
-### コンベア左右逆問題
-- [x] L字配置自動テスト（test_conveyor_corner_*）
-- [x] 「左」の定義統一（.claude/conveyor-direction.md）
-
-### 🟡 テスト強化（中優先度）
-
-現状: 113件通過、推定カバレッジ40-50%
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| カバレッジ計測 | [ ] | `cargo tarpaulin`で現状把握 |
-| コンベア統合テスト | [ ] | 複数コンベア連結・分岐・合流の動作検証 |
-| セーブ/ロード往復テスト | [ ] | 保存→読込→比較、全データ型対応 |
-| UIインタラクションテスト | [ ] | ボタン押下→状態変化の検証 |
-| インベントリUIテスト | [ ] | 650行あるがテストほぼなし |
-| システム間連携テスト | [ ] | Miner→Conveyor→Furnace→Deliveryの流れ |
-| エッジケーステスト | [ ] | 満杯時、空時、境界値 |
-| 負荷テスト | [ ] | 大量アイテム・大量機械での性能 |
-
-目標: カバレッジ70%以上
-
-### 🔴 セキュリティ・エラー処理（高優先度）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| セーブファイル改ざん対策 | [ ] | チェックサム/署名追加、データ検証ロジック |
-| コマンドのパス走査防止 | [ ] | `filename.contains(&['/', '\\'])`チェック追加 |
-| 配列インデックス範囲チェック | [ ] | `pos_to_index`にResult型化、world/mod.rs:71-73 |
-| main.rsのunwrap削除 | [ ] | 行239-295のメッシュ属性unwrapをmatch化 |
-| 座標キーの範囲チェック | [ ] | `key_to_pos`に座標範囲検証追加、save.rs:184-194 |
-| コマンドパース検証強化 | [ ] | /tp, /give等の入力値範囲チェック |
-| NaN/Infinity処理 | [ ] | `f32::is_finite()`チェック追加 |
-
-### 🔴 パフォーマンス改善（高優先度）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| ハイライトメッシュ毎フレーム再生成 | [ ] | highlight.rs:92-141、キャッシュ化必須 |
-| O(N²)コンベア転送ロジック | [ ] | conveyor.rs:300-359、HashMap化 |
-| 線形検索をHashMap化 | [ ] | 位置→Entity検索を複数箇所で改善 |
-| Vec::contains()をHashSet化 | [ ] | chunk.rs:235, conveyor.rs:203,296 |
-| 不要なclone削除 | [ ] | conveyor.rs:220,265 |
-| クエストデータ変換キャッシュ | [ ] | quest.rs:20-46、Resourceにキャッシュ |
-
-### 🟡 保守性・コード品質（中優先度）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| conveyor_transfer()分割 | [ ] | 418行→3-4関数に分割 |
-| マシン相互作用関数統合 | [ ] | furnace/crusher/miner_interact()をジェネリック化 |
-| UI色値の定数化 | [ ] | 0.8,0.8,0.8等の色値をconstants.rsに |
-| 機械出力ロジック統合 | [ ] | furnace/crusher/miner_output()を統合 |
-| マジックナンバー削除 | [ ] | 深さ値(y<=5)、ハッシュ値(hash%8)等 |
-| ドキュメントコメント追加 | [ ] | システム関数、マシン相互作用関数 |
-
-### 🟡 アーキテクチャ改善（中優先度）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| DebugHudState重複修正 | [ ] | plugins/debug.rs + plugins/ui.rsで重複 |
-| MachineInteraction統合 | [ ] | 3つのInteracting*リソースを1つのenumに |
-| UIState統合 | [ ] | 7つのUIリソースを1つの構造体に |
-| イベント駆動への移行 | [ ] | 直接Resource変更→Event発行に |
-| MachineSystemsPlugin分割 | [ ] | Furnace/Crusher/Miner/Conveyorに分割 |
-
-### 🔴 コードダイエット計画（高優先度）
-
-目標: **14,602行 → 12,500行**（-2,000行、-14%）
-
-#### Phase 1: すぐ削れる（-800行）
-
-| タスク | 状態 | 削減量 | 詳細 |
-|--------|------|--------|------|
-| machine_interact統合 | [ ] | -190行 | 3つの_interact()を1つのジェネリック関数に |
-| machine_output統合 | [ ] | -110行 | 3つの_output()を1つのジェネリック関数に |
-| machine_ui_input統合 | [ ] | -145行 | 3つの_ui_input()を1つのジェネリック関数に |
-| Color定数化 | [ ] | -80行 | 125箇所のColor::srgbを定数に統一 |
-| raycast共通化 | [ ] | -45行 | find_closest_interaction汎用関数 |
-| game_spec.rsドキュメント外部化 | [ ] | -200行 | 仕様コメントを外部ファイルへ |
-
-#### Phase 2: 中期で削れる（-500行）
-
-| タスク | 状態 | 削減量 | 詳細 |
-|--------|------|--------|------|
-| UIスロット生成統合 | [ ] | -30行 | spawn_machine_slot統一 |
-| マシン仕様マクロ化 | [ ] | -100行 | define_machine!マクロ導入 |
-| 隣接位置ヘルパー | [ ] | -15行 | get_adjacent_positions関数 |
-| モジュール共通パターン抽出 | [ ] | -150行 | machines/common.rs作成 |
-| join_infoテーブル化 | [ ] | -20行 | Conveyor方向マッピング |
-
-#### Phase 3: 仕上げ（-200行）
-
-| タスク | 状態 | 削減量 | 詳細 |
-|--------|------|--------|------|
-| テストマクロ化 | [ ] | -50行 | 重複テストをマクロ生成 |
-| バイオーム設定外部化 | [ ] | -80行 | TOML/JSONに移行 |
-| Deprecated削除 | [ ] | -50行 | 未使用コード完全削除 |
-
-### 🔴 自動バグ検出強化（高優先度）
-
-目標: **人間が遊べないレベルのバグをAIで100%検出**
-
-#### Lv1: スモークテスト（起動確認）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| 起動→メニュー表示確認 | [x] | scripts/smoke_test.sh |
-| クラッシュ検出 | [x] | exit code != 0 を検出 |
-| フリーズ検出 | [x] | タイムアウトで強制終了→失敗 |
-| メモリリーク監視 | [ ] | RSS増加率を監視 |
-
-#### Lv2: ビジュアル回帰テスト（表示バグ検出）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| スクリーンショット比較基盤 | [x] | scripts/visual_regression.sh |
-| SSIM比較（Rust版） | [ ] | `image-compare` crateで構造類似度 |
-| 期待値スクショ管理 | [x] | screenshots/baseline/ に保存 |
-| CI連携 | [ ] | PRごとにビジュアル回帰チェック |
-| 差分レポート生成 | [x] | screenshots/diff/ に保存 |
-
-検出できるバグ: UIずれ、色おかしい、文字重なり、テクスチャ欠け
-
-#### Lv3: ファジング（ランダム入力でクラッシュ検出）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| cargo-fuzz導入 | [ ] | セーブ/ロードのパース部分をfuzz |
-| ランダム操作ボット | [x] | scripts/fuzz_test.sh |
-| 境界値自動生成 | [ ] | 座標MAX/MIN、アイテム999個等 |
-
-参考: [cargo-fuzz](https://rust-fuzz.github.io/book/cargo-fuzz.html), [AFL.rs](https://github.com/rust-fuzz/afl.rs)
-
-#### Lv4: AIプレイボット（人間的なバグ発見）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| 探索ボット | [ ] | ランダム移動+操作で全エリア巡回 |
-| 目標達成ボット | [ ] | 「鉄インゴット3個作る」を自動達成 |
-| スタック検出 | [ ] | 同じ座標に30秒以上→スタック報告 |
-| 進行不能検出 | [ ] | クエスト進捗が5分間変化なし→警告 |
-
-参考: [modl.ai](https://modl.ai/), [BiFuzz](https://arxiv.org/html/2508.02144)
-
-#### Lv5: 継続監視（本番運用）
-
-| タスク | 状態 | 詳細 |
-|--------|------|------|
-| ウォッチドッグ | [ ] | ゲームプロセス監視、異常終了で再起動+ログ |
-| FPS監視 | [ ] | 30FPS以下が続いたら警告 |
-| ログ異常検出 | [ ] | ERROR/WARN頻度の急増を検出 |
-
-#### 実装優先順位
-
-```
-Lv1（すぐ）→ Lv2（1週間）→ Lv3（2週間）→ Lv4（1ヶ月）→ Lv5（継続）
-```
-
-**参考資料**:
-- [Automated Testing in Bevy](https://chadnauseam.com/coding/gamedev/automated-testing-in-bevy/)
-- [Percy Visual Testing](https://www.browserstack.com/percy/visual-regression-testing)
-- [BrowserStack Visual Testing Tools](https://www.browserstack.com/guide/visual-testing-tools)
-- [Game QA Automation Tools 2025](https://www.thinkgamerz.com/game-qa-automation-tools/)
-- [Smoke Tests for Games](https://andrewfray.wordpress.com/2025/09/03/theres-no-fire-without-smoke-tests/)
-
-### 将来リスト
-- [ ] リプレイシステム: 操作記録・巻き戻し・早送り対応
-- [ ] ブループリント: 範囲選択保存・ペースト・エクスポート/インポート
-- [ ] 電力システム: 発電機・電線・電力消費・過負荷制御
-- [ ] 流体パイプ: ポンプ・パイプ・タンク・流量計算
-- [ ] マルチプレイ基盤: WebSocket同期・プレイヤー位置・ブロック操作同期
-- [ ] Modding API: Lua/WASM埋め込み・イベントフック
-- [ ] ビジュアルプログラミング: ノードグラフで機械の振る舞い定義
+- リプレイシステム
+- ブループリント
+- 電力システム
+- 流体パイプ
+- マルチプレイ基盤
+- Modding API
+- ビジュアルプログラミング

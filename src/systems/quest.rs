@@ -1,7 +1,7 @@
 //! Quest and delivery platform systems
 
 use crate::components::*;
-use crate::player::Inventory;
+use crate::player::GlobalInventory;
 use crate::{game_spec, BlockType, BLOCK_SIZE, PLATFORM_SIZE};
 use bevy::prelude::*;
 
@@ -31,7 +31,6 @@ pub fn get_main_quests() -> Vec<QuestDef> {
 }
 
 /// Get sub quests from game_spec
-#[allow(dead_code)]
 pub fn get_sub_quests() -> Vec<QuestDef> {
     game_spec::SUB_QUESTS
         .iter()
@@ -85,7 +84,7 @@ pub fn quest_progress_check(
 pub fn quest_claim_rewards(
     key_input: Res<ButtonInput<KeyCode>>,
     mut current_quest: ResMut<CurrentQuest>,
-    mut inventory: ResMut<Inventory>,
+    mut global_inventory: ResMut<GlobalInventory>,
     command_state: Res<CommandInputState>,
 ) {
     // Don't process while command input is open
@@ -106,9 +105,9 @@ pub fn quest_claim_rewards(
         return;
     };
 
-    // Add rewards to Inventory (machines and items)
+    // Add rewards to GlobalInventory (machines and items)
     for (block_type, amount) in &quest.rewards {
-        inventory.add_item(*block_type, *amount);
+        global_inventory.add_item(*block_type, *amount);
     }
 
     current_quest.rewards_claimed = true;
@@ -121,9 +120,9 @@ pub fn quest_claim_rewards(
     }
 }
 
-/// Check if Inventory has enough items to deliver for the current quest
-fn can_deliver_from_inventory(
-    inventory: &Inventory,
+/// Check if GlobalInventory has enough items to deliver for the current quest
+fn can_deliver_from_global_inventory(
+    global_inventory: &GlobalInventory,
     quest: &QuestDef,
     platform: Option<&DeliveryPlatform>,
 ) -> bool {
@@ -132,7 +131,7 @@ fn can_deliver_from_inventory(
             .map(|p| p.delivered.get(item).copied().unwrap_or(0))
             .unwrap_or(0);
         let remaining = required.saturating_sub(already_delivered);
-        if remaining > 0 && inventory.get_total_count(*item) < remaining {
+        if remaining > 0 && global_inventory.get_count(*item) < remaining {
             return false;
         }
     }
@@ -144,7 +143,7 @@ fn can_deliver_from_inventory(
 pub fn update_quest_ui(
     current_quest: Res<CurrentQuest>,
     platform_query: Query<&DeliveryPlatform>,
-    inventory: Res<Inventory>,
+    global_inventory: Res<GlobalInventory>,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
     mut button_query: Query<(&mut Visibility, &mut BackgroundColor), With<QuestDeliverButton>>,
 ) {
@@ -186,8 +185,8 @@ pub fn update_quest_ui(
             let delivered = platform
                 .map(|p| p.delivered.get(item).copied().unwrap_or(0))
                 .unwrap_or(0);
-            let in_inventory = inventory.get_total_count(*item);
-            format!("{}: {}/{} (在庫: {})", item.name(), delivered.min(*amount), amount, in_inventory)
+            let in_storage = global_inventory.get_count(*item);
+            format!("{}: {}/{} (Storage: {})", item.name(), delivered.min(*amount), amount, in_storage)
         }).collect();
 
         **text = format!(
@@ -196,8 +195,8 @@ pub fn update_quest_ui(
             progress.join("\n")
         );
 
-        // Show deliver button if can deliver
-        let can_deliver = can_deliver_from_inventory(&inventory, quest, platform);
+        // Show deliver button if can deliver from GlobalInventory
+        let can_deliver = can_deliver_from_global_inventory(&global_inventory, quest, platform);
         for (mut vis, mut bg) in button_query.iter_mut() {
             if can_deliver {
                 *vis = Visibility::Visible;
@@ -209,11 +208,11 @@ pub fn update_quest_ui(
     }
 }
 
-/// Handle deliver button click - consume from Inventory and deliver to platform
+/// Handle deliver button click - consume from GlobalInventory and deliver to platform
 #[allow(clippy::type_complexity)]
 pub fn quest_deliver_button(
     mut current_quest: ResMut<CurrentQuest>,
-    mut inventory: ResMut<Inventory>,
+    mut global_inventory: ResMut<GlobalInventory>,
     mut platform_query: Query<&mut DeliveryPlatform>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor, &mut BorderColor),
@@ -236,13 +235,13 @@ pub fn quest_deliver_button(
     for (interaction, mut bg_color, mut border_color) in button_query.iter_mut() {
         match *interaction {
             Interaction::Pressed => {
-                // Consume items from Inventory and deliver to platform
+                // Consume items from GlobalInventory and deliver to platform
                 let mut success = true;
                 for (item, required) in &quest.required_items {
                     let already_delivered = platform.delivered.get(item).copied().unwrap_or(0);
                     let remaining = required.saturating_sub(already_delivered);
                     if remaining > 0 {
-                        if inventory.consume_item(*item, remaining) {
+                        if global_inventory.remove_item(*item, remaining) {
                             *platform.delivered.entry(*item).or_insert(0) += remaining;
                         } else {
                             success = false;

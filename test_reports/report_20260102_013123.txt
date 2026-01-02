@@ -1,0 +1,373 @@
+═══════════════════════════════════════════════
+  Idle Factory 統合テストレポート
+  Mode: quick
+  Date: 2026年  1月  2日 金曜日 01:31:23 UTC
+═══════════════════════════════════════════════
+
+[0;34m[TEST][0m ━━━ Unit Tests (cargo test) ━━━
+test test_visual_entity_handoff ... ok
+test test_bevy_app_builds ... ok
+test test_game_events_plugin_registers_events ... ok
+test test_inventory_resource_in_app ... ok
+test test_inventory_stacking_in_app ... ok
+test test_inventory_slot_selection ... ok
+test test_quest_progress_event_chain ... ok
+test test_custom_system_event_handling ... ok
+test test_events_consumed_after_read ... ok
+test test_multiple_blocks_mining ... ok
+test test_world_generation ... ok
+
+test result: ok. 113 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests idle_factory
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[0;32m[TEST][0m ✓ Unit Tests (cargo test): PASSED
+
+[0;34m[TEST][0m ━━━ Clippy (lint check) ━━━
+No warnings
+[0;32m[TEST][0m ✓ Clippy (lint check): PASSED
+
+[0;34m[TEST][0m ━━━ Smoke Test (startup) ━━━
+[0;32m[SMOKE][0m === Smoke Test ===
+[0;32m[SMOKE][0m Timeout: 15s
+[0;32m[SMOKE][0m [1/5] Build check...
+    Finished `release` profile [optimized] target(s) in 0.49s
+[0;32m[SMOKE][0m ✓ Build OK
+[0;32m[SMOKE][0m [2/5] Starting game...
+[0;32m[SMOKE][0m [3/5] Waiting for window...
+    Finished `release` profile [optimized] target(s) in 0.45s
+     Running `target/release/idle_factory`
+[0;32m[SMOKE][0m ✓ Window appeared in 2s
+[0;32m[SMOKE][0m [4/5] Running for 15s (crash check)...
+[0;32m[SMOKE][0m   Running... 10s
+[0;32m[SMOKE][0m ✓ No crash for 15s
+[0;32m[SMOKE][0m [5/5] Freeze check (sending input)...
+[0;32m[SMOKE][0m ✓ Game responsive
+
+[0;32m[SMOKE][0m === Smoke Test Results ===
+[0;32m[SMOKE][0m ✓ Build:     OK
+[0;32m[SMOKE][0m ✓ Startup:   OK
+[0;32m[SMOKE][0m ✓ Stability: OK (15s)
+[0;32m[SMOKE][0m ✓ Response:  OK
+[1;33m[SMOKE][0m   Errors in log: 1
+[0;32m[SMOKE][0m   Warnings in log: 2
+[0;32m[SMOKE][0m 
+[0;32m[SMOKE][0m All smoke tests passed!
+[0;32m[TEST][0m ✓ Smoke Test (startup): PASSED
+
+[0;34m[TEST][0m ━━━ E2E Quick Test ━━━
+[0;32m[E2E][0m === 基本テスト（6枚） ===
+[0;32m[E2E][0m ゲーム起動中...
+[0;32m[E2E][0m ウィンドウ待機中...
+[2m2026-01-02T01:31:58.945896Z[0m [32m INFO[0m Idle Factory - Logging initialized
+[2m2026-01-02T01:31:58.945950Z[0m [32m INFO[0m Log file: logs/game_20260102_013158.log
+[2m2026-01-02T01:31:58.945975Z[0m [32m INFO[0m === System Information ===
+[2m2026-01-02T01:31:58.946007Z[0m [32m INFO[0m OS: linux x86_64
+[2m2026-01-02T01:31:58.946028Z[0m [32m INFO[0m Rust version: 
+[2m2026-01-02T01:31:58.946057Z[0m [32m INFO[0m Game version: 0.1.0
+[2m2026-01-02T01:31:58.946093Z[0m [32m INFO[0m Working directory: /home/bacon/idle_factory
+[2m2026-01-02T01:31:58.946276Z[0m [32m INFO[0m CPU cores: 80
+[2m2026-01-02T01:31:58.946300Z[0m [32m INFO[0m ==========================
+[2m2026-01-02T01:31:58.956312Z[0m [32m INFO[0m Skipping installing `Ctrl+C` handler as one was already installed. Please call `TerminalCtrlCHandlerPlugin::gracefully_exit` in your own `Ctrl+C` handler if you want Bevy to gracefully exit on `Ctrl+C`.
+[2m2026-01-02T01:31:59.030724Z[0m [33m WARN[0m InstanceFlags::VALIDATION requested, but unable to find layer: VK_LAYER_KHRONOS_validation
+[2m2026-01-02T01:31:59.097418Z[0m [33m WARN[0m The selected adapter is using a driver that only supports software rendering. This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/
+[2m2026-01-02T01:31:59.302340Z[0m [33m WARN[0m [1mbevy_app[0m[2m:[0m XRandR reported that the display's 0mm in size, which is certifiably insane
+[2m2026-01-02T01:31:59.302552Z[0m [32m INFO[0m [1mbevy_app[0m[2m:[0m Creating new window "Idle Factory" (0v1#4294967296)
+[2m2026-01-02T01:31:59.302683Z[0m [32m INFO[0m [1mbevy_app[0m[2m:[0m Guessed window scale factor: 1
+[2m2026-01-02T01:31:59.305829Z[0m [32m INFO[0m Loaded texture atlas: assets/textures/block_atlas_default.png
+[2m2026-01-02T01:31:59.306219Z[0m [32m INFO[0m VOX hot reload enabled: watching assets/models/
+[2m2026-01-02T01:31:59.306348Z[0m [32m INFO[0m Texture hot reload enabled: watching assets/textures/
+[2m2026-01-02T01:31:59.324460Z[0m [32m INFO[0m Loaded VOX: miner.vox
+[2m2026-01-02T01:31:59.330175Z[0m [32m INFO[0m Loaded VOX: straight.vox
+[2m2026-01-02T01:31:59.359134Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.361452Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.361508Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, -1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.361556Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 0): 4096 vertices, 6144 indices
+[0;32m[E2E][0m ゲーム起動完了 (2秒)
+[2m2026-01-02T01:31:59.864652Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, -2): 3584 vertices, 5376 indices
+[2m2026-01-02T01:31:59.864977Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.865457Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.872745Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, -1): 3584 vertices, 5376 indices
+[2m2026-01-02T01:31:59.873944Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.880840Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.997731Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, -1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.997776Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:31:59.997963Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 0): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.002886Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.010759Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.012890Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.093354Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, -1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.096713Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.096727Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.096842Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.100092Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 0): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.107849Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, -1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.115440Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, -1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.186417Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.186456Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.186416Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 0): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.186535Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.191935Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, -1): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.199926Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:00.207900Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 1): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.215931Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 0): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.290490Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 0): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.290503Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.290533Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.290586Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.296346Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.304402Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 2): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.312492Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.320487Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 0): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.328487Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 0): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:00.336536Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, -1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.417054Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.417069Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.417143Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.417152Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.421988Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -1): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.429671Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:00.436892Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 3): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.444432Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:00.519736Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.519832Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 0): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.519954Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.520131Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.525266Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.533315Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 4): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.541342Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 4): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.547985Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 3): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.627903Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.628055Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.628070Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.628090Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.632789Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.640381Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.722551Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.722599Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.722574Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 0): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.722556Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.727571Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.734843Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 1): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.742576Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 3): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.750205Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 3): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.833202Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.833868Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.833897Z[0m [32m INFO[0m Mesh for chunk IVec2(3, -2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.834028Z[0m [32m INFO[0m Mesh for chunk IVec2(3, -1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.839000Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -1): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.847044Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.855133Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -2): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:00.952829Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 2): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.952836Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 1): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.952948Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 3): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.952971Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 0): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:00.957885Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:00.965734Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:00.973581Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 1): 3096 vertices, 4644 indices
+[2m2026-01-02T01:32:00.981268Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 1): 3096 vertices, 4644 indices
+[2m2026-01-02T01:32:01.070397Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 4): 4096 vertices, 6144 indices
+[2m2026-01-02T01:32:01.075399Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 0): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:01.083275Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.091123Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 1): 2584 vertices, 3876 indices
+[2m2026-01-02T01:32:01.187847Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, -2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.195718Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, -2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.203555Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, -1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:01.211360Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.219242Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.227081Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.326802Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.334876Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.342985Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.350690Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 0): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.358700Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 0): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.366809Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.481663Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 4): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:01.489761Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 3): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.497744Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, -2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.505788Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, -2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.513799Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.521688Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, -1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:01.623679Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 4): 3584 vertices, 5376 indices
+[2m2026-01-02T01:32:01.631748Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 4): 3584 vertices, 5376 indices
+[0;32m[E2E][0m 📸 01_initial
+[2m2026-01-02T01:32:01.735635Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 3): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.743514Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.751413Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 4): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.759447Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.767504Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.775467Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.881600Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 3): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:01.889524Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 3): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.897382Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 3): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.905177Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 2): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:01.913022Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 4): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.921047Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:01.928927Z[0m [32m INFO[0m Mesh for chunk IVec2(0, -1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:01.936993Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:01.945080Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.054557Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 0): 2120 vertices, 3180 indices
+[2m2026-01-02T01:32:02.062607Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 0): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.070537Z[0m [32m INFO[0m Mesh for chunk IVec2(1, -1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.078437Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 1): 2632 vertices, 3948 indices
+[2m2026-01-02T01:32:02.086445Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 0): 2072 vertices, 3108 indices
+[2m2026-01-02T01:32:02.094432Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 0): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:02.102446Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.110415Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 1): 2072 vertices, 3108 indices
+[2m2026-01-02T01:32:02.220032Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 4): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.227939Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 4): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:02.235148Z[0m [32m INFO[0m Mesh for chunk IVec2(2, 4): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.242953Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 3): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.250092Z[0m [32m INFO[0m Mesh for chunk IVec2(3, -1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:02.257946Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.265743Z[0m [32m INFO[0m Mesh for chunk IVec2(3, 0): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.379500Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:02.387349Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 2): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.395213Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 3): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.403263Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 3): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:02.411278Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 3): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.419210Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 3): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.516946Z[0m [32m INFO[0m [TUTORIAL] Dismissed, starting gameplay
+[2m2026-01-02T01:32:02.533885Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 1): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:02.541736Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.549574Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 0): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.557424Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 4): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.565258Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 4): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.573195Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 4): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.581175Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 3): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.698623Z[0m [32m INFO[0m Mesh for chunk IVec2(3, -2): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:02.706527Z[0m [32m INFO[0m Mesh for chunk IVec2(2, -2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.714377Z[0m [32m INFO[0m Mesh for chunk IVec2(3, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.722197Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 2): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.730041Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 2): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.738008Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.746048Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.754013Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 3): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.869407Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 0): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.877066Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 0): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.884797Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, -1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.892633Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 1): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.900511Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 3): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.908296Z[0m [32m INFO[0m Mesh for chunk IVec2(-2, 3): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:02.916179Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 2): 2560 vertices, 3840 indices
+[2m2026-01-02T01:32:02.924029Z[0m [32m INFO[0m Mesh for chunk IVec2(-3, 4): 3072 vertices, 4608 indices
+[2m2026-01-02T01:32:03.037622Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:03.045534Z[0m [32m INFO[0m Mesh for chunk IVec2(-1, 1): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:03.053280Z[0m [32m INFO[0m Mesh for chunk IVec2(1, 1): 2120 vertices, 3180 indices
+[2m2026-01-02T01:32:03.061136Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 0): 2048 vertices, 3072 indices
+[2m2026-01-02T01:32:03.069016Z[0m [32m INFO[0m Mesh for chunk IVec2(0, 2): 2048 vertices, 3072 indices
+[0;32m[E2E][0m 📸 02_started
+[0;32m[E2E][0m [起動後] Pos:8,12,20 Dir:0,0 Target:None Place:None
+[2m2026-01-02T01:32:03.838217Z[0m [32m INFO[0m [INVENTORY] E key pressed, toggling from false to true
+[2m2026-01-02T01:32:03.838271Z[0m [32m INFO[0m [INVENTORY] Updated 1 UI entities, now open=true
+[0;32m[E2E][0m 📸 03_inventory
+[0;32m[E2E][0m 📸 04_closed
+[0;32m[E2E][0m 📸 05_debug
+[0;32m[E2E][0m [デバッグHUD] Pos:8,12,20 Dir:0,0 Target:None Place:None
+[0;32m[E2E][0m 📸 06_conveyor_mode
+[0;32m[E2E][0m [コンベアモード] Pos:8,12,20 Dir:0,0 Target:None Place:None
+[0;32m[E2E][0m --- E2E状態ファイル ---
+{
+  "player_pos": [
+    8.0,
+    12.0,
+    20.0
+  ],
+  "camera_pitch": 0.0,
+  "camera_yaw": 0.0,
+  "target_break": null,
+  "target_place": null,
+  "target_block_type": "None",
+  "creative_mode": false,
+  "paused": true,
+  "fps": 10.29542,
+  "quest": {
+    "index": 0,
+    "completed": false,
+    "rewards_claimed": false,
+    "description": "鉄インゴットを10個納品せよ",
+    "required_items": [
+      "Iron Ingot:0/10"
+    ]
+  },
+  "conveyors": [],
+  "machines": [
+    {
+      "position": [
+        10,
+        8,
+        18
+      ],
+      "machine_type": "Furnace",
+      "progress": 0.0,
+      "input": null,
+      "output": null,
+      "fuel": 0,
+      "buffer": null
+    }
+  ],
+  "floating_blocks": []
+}[0;32m[E2E][0m ----------------------
+[0;32m[E2E][0m === 完了: 6枚 ===
+
+[0;32m[E2E][0m 📂 /home/bacon/idle_factory/screenshots/verify
+---
+  01_initial.png
+  02_started.png
+  03_inventory.png
+  04_closed.png
+  05_debug.png
+  06_conveyor_mode.png
+---
+[0;32m[E2E][0m 合計: 6 枚
+[0;32m[TEST][0m ✓ E2E Quick Test: PASSED
+
+[0;34m[TEST][0m ━━━ Visual Regression ━━━
+[0;32m[VRT][0m === Visual Regression Check ===
+(standard_in) 1: syntax error
+(standard_in) 1: syntax error
+./scripts/visual_regression.sh: line 81: [: : integer expression expected
+[0;32m[VRT][0m PASS: 01_initial.png - % different (within threshold)
+(standard_in) 1: syntax error
+(standard_in) 1: syntax error
+./scripts/visual_regression.sh: line 81: [: : integer expression expected
+[0;32m[VRT][0m PASS: 02_started.png - % different (within threshold)
+(standard_in) 1: syntax error
+(standard_in) 1: syntax error
+./scripts/visual_regression.sh: line 81: [: : integer expression expected
+[0;32m[VRT][0m PASS: 03_inventory.png - % different (within threshold)
+(standard_in) 1: syntax error
+(standard_in) 1: syntax error
+./scripts/visual_regression.sh: line 81: [: : integer expression expected
+[0;32m[VRT][0m PASS: 04_closed.png - % different (within threshold)
+(standard_in) 1: syntax error
+(standard_in) 1: syntax error
+./scripts/visual_regression.sh: line 81: [: : integer expression expected
+[0;32m[VRT][0m PASS: 05_debug.png - % different (within threshold)
+(standard_in) 1: syntax error
+(standard_in) 1: syntax error
+./scripts/visual_regression.sh: line 81: [: : integer expression expected
+[0;32m[VRT][0m PASS: 06_conveyor_mode.png - % different (within threshold)
+
+[0;32m[VRT][0m === Results ===
+[0;32m[VRT][0m Passed: 6
+[0;32m[VRT][0m All visual checks passed!
+[0;32m[TEST][0m ✓ Visual Regression: PASSED
+
+[0;34m[TEST][0m ━━━ Fuzz Test ━━━
+[1;33m[TEST][0m SKIPPED: Fuzz Test
+[0;34m[TEST][0m ━━━ Scenario Test ━━━
+[1;33m[TEST][0m SKIPPED: Scenario Test
+
+═══════════════════════════════════════════════
+  テスト結果サマリー
+═══════════════════════════════════════════════
+[0;32m[TEST][0m Passed:  5
+[1;33m[TEST][0m Skipped: 2
+
+[0;32m[TEST][0m Report: /home/bacon/idle_factory/test_reports/report_20260102_013123.txt
+[0;32m[TEST][0m All tests passed!

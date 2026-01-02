@@ -7,9 +7,13 @@ use idle_factory::events::GameEventsPlugin;
 #[cfg(target_arch = "wasm32")]
 use idle_factory::logging::GameLoggingPlugin;
 use idle_factory::logging;
-use idle_factory::player::Inventory;
+use idle_factory::player::{GlobalInventory, Inventory};
 use idle_factory::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 use idle_factory::setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
+use idle_factory::ui::{
+    global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
+    global_inventory_toggle, setup_global_inventory_ui, update_global_inventory_ui,
+};
 use idle_factory::systems::{
     // Block operation systems
     block_break, block_place,
@@ -27,7 +31,7 @@ use idle_factory::systems::{
     load_machine_models, quest_claim_rewards, quest_deliver_button, quest_progress_check,
     setup_delivery_platform, update_delivery_ui, update_quest_ui,
     // Targeting systems
-    rotate_conveyor_placement, update_conveyor_shapes, update_guide_markers,
+    rotate_conveyor_placement, setup_highlight_cache, update_conveyor_shapes, update_guide_markers,
     update_target_block, update_target_highlight,
 };
 use idle_factory::world::{BiomeMap, ChunkMeshTasks, WorldData};
@@ -113,20 +117,26 @@ fn main() {
         .add_plugins(SavePlugin)
         .add_plugins(DebugPlugin)
         .insert_resource(Inventory::with_initial_items(idle_factory::game_spec::INITIAL_EQUIPMENT))
+        .insert_resource(GlobalInventory::with_items(idle_factory::game_spec::INITIAL_EQUIPMENT))
         .init_resource::<WorldData>()
         .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
         .init_resource::<CursorLockState>()
         .init_resource::<CurrentQuest>()
+        .init_resource::<ActiveSubQuests>()
         .init_resource::<GameFont>()
         .init_resource::<ChunkMeshTasks>()
         .init_resource::<CreativeMode>()
         .init_resource::<ContinuousActionTimer>()
+        .init_resource::<GlobalInventoryOpen>()
+        .init_resource::<GlobalInventoryPage>()
+        .init_resource::<GlobalInventoryCategory>()
+        .init_resource::<GlobalInventorySearch>()
         .add_event::<TeleportEvent>()
         .add_event::<LookEvent>()
         .add_event::<SetBlockEvent>()
         .add_event::<DebugConveyorEvent>()
         .add_event::<AssertMachineEvent>()
-        .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models))
+        .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models, setup_highlight_cache, setup_global_inventory_ui))
         .add_systems(
             Update,
             (
@@ -167,6 +177,17 @@ fn main() {
                 update_delivery_ui,
                 update_quest_ui,
                 quest_deliver_button,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                // Global inventory UI systems
+                global_inventory_toggle,
+                global_inventory_page_nav,
+                global_inventory_category_click,
+                global_inventory_search_input,
+                update_global_inventory_ui,
             ),
         )
         .add_systems(
