@@ -2,10 +2,10 @@
 
 use crate::components::*;
 use crate::components::{Furnace, LoadGameEvent, SaveGameEvent};
-use crate::player::{GlobalInventory, Inventory};
+use crate::player::Inventory;
 use crate::save;
 use crate::world::WorldData;
-use crate::{game_spec, BlockType, Direction, BLOCK_SIZE};
+use crate::{BlockType, Direction, BLOCK_SIZE};
 use bevy::prelude::*;
 use tracing::info;
 
@@ -15,7 +15,6 @@ pub fn collect_save_data(
     player_query: &Query<&Transform, With<Player>>,
     camera_query: &Query<&PlayerCamera>,
     inventory: &Inventory,
-    global_inventory: &GlobalInventory,
     world_data: &WorldData,
     miner_query: &Query<&Miner>,
     conveyor_query: &Query<&Conveyor>,
@@ -190,12 +189,8 @@ pub fn collect_save_data(
         creative: creative_mode.enabled,
     };
 
-    // Collect global inventory
-    let global_inventory_data = GlobalInventorySaveData {
-        items: global_inventory.iter()
-            .map(|(bt, count)| ((*bt).into(), *count))
-            .collect(),
-    };
+    // Global inventory is now merged with regular inventory (legacy field kept for compatibility)
+    let global_inventory_data = GlobalInventorySaveData::default();
 
     SaveData {
         version: save::SAVE_VERSION.to_string(),
@@ -254,7 +249,6 @@ pub fn handle_save_event(
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
     inventory: Res<Inventory>,
-    global_inventory: Res<GlobalInventory>,
     world_data: Res<WorldData>,
     miner_query: Query<&Miner>,
     conveyor_query: Query<&Conveyor>,
@@ -270,7 +264,6 @@ pub fn handle_save_event(
             &player_query,
             &camera_query,
             &inventory,
-            &global_inventory,
             &world_data,
             &miner_query,
             &conveyor_query,
@@ -299,7 +292,7 @@ pub fn handle_save_event(
 /// Handle load game events
 /// Note: This function uses create_conveyor_mesh from main.rs which needs to be made public
 /// or moved to a shared module. For now, we'll keep this in main.rs until full refactor.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_load_event(
     mut events: EventReader<LoadGameEvent>,
     mut save_load_state: ResMut<SaveLoadState>,
@@ -309,7 +302,6 @@ pub fn handle_load_event(
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<&mut PlayerCamera>,
     mut inventory: ResMut<Inventory>,
-    mut global_inventory: ResMut<GlobalInventory>,
     mut world_data: ResMut<WorldData>,
     mut current_quest: ResMut<CurrentQuest>,
     mut creative_mode: ResMut<CreativeMode>,
@@ -341,18 +333,13 @@ pub fn handle_load_event(
                     }
                 }
 
-                // Apply global inventory (v0.2)
-                // If save has global_inventory, use it; otherwise migrate from old inventory or use defaults
+                // Migrate old global_inventory items into regular inventory (v0.2 -> unified)
                 if !data.global_inventory.items.is_empty() {
-                    global_inventory.clear();
+                    info!("[SAVE] Migrating old global_inventory items to unified inventory");
                     for (bt_save, count) in &data.global_inventory.items {
                         let bt: BlockType = bt_save.clone().into();
-                        global_inventory.add_item(bt, *count);
+                        inventory.add_item(bt, *count);
                     }
-                } else {
-                    // Old save without global_inventory - restore defaults
-                    info!("[SAVE] Migrating old save: restoring default global inventory");
-                    *global_inventory = GlobalInventory::with_initial_items(game_spec::INITIAL_EQUIPMENT);
                 }
 
                 // Apply world modifications

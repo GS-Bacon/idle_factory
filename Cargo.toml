@@ -25,6 +25,7 @@ tracing-appender = "0.2"  # File logging for native builds
 chrono = "0.4"  # Timestamp for log files
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+strum = { version = "0.26", features = ["derive"] }  # Enum string conversion
 dot_vox = "5.1"  # MagicaVoxel .vox file loader
 
 # Native-only dependencies (file watching)

@@ -174,17 +174,4 @@ pub struct CommandInputUI;
 #[derive(Component)]
 pub struct CommandInputText;
 
-// === Global Inventory UI ===
-
-/// Marker for global inventory panel in inventory UI
-#[derive(Component)]
-pub struct GlobalInventoryPanel;
-
-/// Marker for global inventory item row (BlockType)
-#[derive(Component)]
-pub struct GlobalInventoryRow(pub BlockType);
-
-/// Marker for global inventory item count text
-#[derive(Component)]
-pub struct GlobalInventoryCountText(pub BlockType);
 

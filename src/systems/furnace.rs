@@ -5,7 +5,9 @@ use crate::components::{
     MachineProgressBar, MachineSlotButton, MachineSlotCount, MachineSlotType, PlayerCamera,
 };
 use crate::player::Inventory;
-use crate::{ray_aabb_intersection, set_ui_open_state, BlockType, Conveyor, Furnace, BLOCK_SIZE, REACH_DISTANCE, SMELT_TIME};
+use crate::utils::ray_aabb_intersection;
+use super::set_ui_open_state;
+use crate::{BlockType, Conveyor, Furnace, BLOCK_SIZE, REACH_DISTANCE, SMELT_TIME};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 

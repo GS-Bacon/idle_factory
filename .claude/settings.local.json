@@ -302,7 +302,12 @@
       "Bash(# Geminiの状態を直接確認 tmux capture-pane -t ai_gemini -p)",
       "Bash(# Geminiセッションの全出力を取得 tmux capture-pane -t ai_gemini -p -S -500)",
       "Bash(# Geminiの回答を確認 tmux capture-pane -t ai_gemini -p -S -150)",
-      "Bash(./scripts/ask_gemini.sh:*)"
+      "Bash(./scripts/ask_gemini.sh:*)",
+      "Bash(tree:*)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo metadata:*)",
+      "Bash(for dep in futures-lite notify crossbeam-channel dot_vox)",
+      "Bash(cut:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

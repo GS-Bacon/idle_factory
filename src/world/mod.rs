@@ -14,12 +14,12 @@ use std::collections::HashMap;
 
 /// Marker for chunk mesh entity (single mesh per chunk)
 #[derive(Component)]
-pub(crate) struct ChunkMesh {
+pub struct ChunkMesh {
     pub coord: IVec2,
 }
 
 /// Data for a generated chunk mesh (sent from async task)
-pub(crate) struct ChunkMeshData {
+pub struct ChunkMeshData {
     #[allow(dead_code)]
     pub coord: IVec2,
     #[allow(dead_code)]
@@ -48,7 +48,7 @@ pub enum PendingChunk {
 
 /// Resource to track pending chunk mesh generation
 #[derive(Resource, Default)]
-pub(crate) struct ChunkMeshTasks {
+pub struct ChunkMeshTasks {
     /// Pending chunk generation (coord -> state)
     pub pending: HashMap<IVec2, PendingChunk>,
 }
@@ -56,7 +56,7 @@ pub(crate) struct ChunkMeshTasks {
 /// Single chunk data - blocks stored in a flat array for fast access
 /// Array index = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
 #[derive(Clone)]
-pub(crate) struct ChunkData {
+pub struct ChunkData {
     /// Flat array of blocks. None = air
     pub blocks: Vec<Option<BlockType>>,
     /// HashMap for compatibility with existing code (lazy populated)
@@ -393,7 +393,7 @@ impl ChunkData {
 
 /// World data - manages multiple chunks
 #[derive(Resource, Default)]
-pub(crate) struct WorldData {
+pub struct WorldData {
     /// Loaded chunks indexed by chunk coordinate
     pub chunks: HashMap<IVec2, ChunkData>,
     /// Block entities for each chunk (for despawning)
@@ -455,6 +455,7 @@ impl WorldData {
     }
 
     /// Remove block at world position, returns the removed block type
+    #[allow(dead_code)] // Used in tests
     pub fn remove_block(&mut self, world_pos: IVec3) -> Option<BlockType> {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);

@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use super::executor::execute_command;
-use super::{TeleportEvent, LookEvent, SetBlockEvent, DebugConveyorEvent};
+use super::{TeleportEvent, LookEvent, SetBlockEvent, DebugConveyorEvent, AssertMachineEvent};
 
 /// Toggle command input with T or / key
 #[allow(clippy::too_many_arguments)]
@@ -81,6 +81,7 @@ pub fn command_input_handler(
     mut setblock_events: EventWriter<SetBlockEvent>,
     mut spawn_machine_events: EventWriter<SpawnMachineEvent>,
     mut debug_conveyor_events: EventWriter<DebugConveyorEvent>,
+    mut assert_machine_events: EventWriter<AssertMachineEvent>,
 ) {
     if !command_state.open {
         return;
@@ -134,6 +135,7 @@ pub fn command_input_handler(
             &mut setblock_events,
             &mut spawn_machine_events,
             &mut debug_conveyor_events,
+            &mut assert_machine_events,
         );
         return;
     }

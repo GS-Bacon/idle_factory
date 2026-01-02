@@ -5,29 +5,12 @@
 use crate::components::{CreativeMode, SaveGameEvent, LoadGameEvent};
 use crate::events::SpawnMachineEvent;
 use crate::player::Inventory;
+use crate::utils::parse_item_name;
 use crate::BlockType;
 use bevy::prelude::*;
 use tracing::info;
 
-use super::{TeleportEvent, LookEvent, SetBlockEvent, DebugConveyorEvent};
-
-/// Parse item name to BlockType
-pub fn parse_item_name(name: &str) -> Option<BlockType> {
-    match name {
-        "stone" => Some(BlockType::Stone),
-        "grass" => Some(BlockType::Grass),
-        "ironore" | "iron_ore" => Some(BlockType::IronOre),
-        "copperore" | "copper_ore" => Some(BlockType::CopperOre),
-        "coal" => Some(BlockType::Coal),
-        "ironingot" | "iron_ingot" | "iron" => Some(BlockType::IronIngot),
-        "copperingot" | "copper_ingot" | "copper" => Some(BlockType::CopperIngot),
-        "miner" => Some(BlockType::MinerBlock),
-        "conveyor" => Some(BlockType::ConveyorBlock),
-        "crusher" => Some(BlockType::CrusherBlock),
-        "furnace" => Some(BlockType::FurnaceBlock),
-        _ => None,
-    }
-}
+use super::{TeleportEvent, LookEvent, SetBlockEvent, DebugConveyorEvent, AssertMachineEvent, MachineAssertType};
 
 /// Execute a command
 #[allow(clippy::too_many_arguments)]
@@ -42,6 +25,7 @@ pub fn execute_command(
     setblock_events: &mut EventWriter<SetBlockEvent>,
     spawn_machine_events: &mut EventWriter<SpawnMachineEvent>,
     debug_conveyor_events: &mut EventWriter<DebugConveyorEvent>,
+    assert_machine_events: &mut EventWriter<AssertMachineEvent>,
 ) {
     info!("execute_command called with: '{}'", command);
     let parts: Vec<&str> = command.split_whitespace().collect();
@@ -273,10 +257,10 @@ pub fn execute_command(
                             if actual >= min_count {
                                 info!("✓ PASS: {} >= {} (actual: {})", block_type.name(), min_count, actual);
                             } else {
-                                info!("✗ FAIL: {} < {} (actual: {})", block_type.name(), min_count, actual);
+                                tracing::error!("✗ FAIL: {} < {} (actual: {})", block_type.name(), min_count, actual);
                             }
                         } else {
-                            info!("Unknown item: {}", item_name);
+                            tracing::error!("Unknown item: {}", item_name);
                         }
                     } else {
                         info!("Usage: /assert inventory <item> <min_count>");
@@ -295,23 +279,62 @@ pub fn execute_command(
                                     if actual_type == expected_type && actual_count >= expected_count {
                                         info!("✓ PASS: slot {} = {} x{}", slot_idx, actual_type.name(), actual_count);
                                     } else {
-                                        info!("✗ FAIL: slot {} = {} x{} (expected {} x{})", slot_idx, actual_type.name(), actual_count, expected_type.name(), expected_count);
+                                        tracing::error!("✗ FAIL: slot {} = {} x{} (expected {} x{})", slot_idx, actual_type.name(), actual_count, expected_type.name(), expected_count);
                                     }
                                 } else {
-                                    info!("✗ FAIL: slot {} is empty", slot_idx);
+                                    tracing::error!("✗ FAIL: slot {} is empty", slot_idx);
                                 }
                             } else {
-                                info!("Invalid slot index: {}", slot_idx);
+                                tracing::error!("Invalid slot index: {}", slot_idx);
                             }
                         }
                     } else {
                         info!("Usage: /assert slot <index> <item> <count>");
                     }
                 }
+                Some("machine") => {
+                    // /assert machine miner working - Check if miner is working
+                    // /assert machine conveyor items - Check if conveyors have items
+                    // /assert machine <type> count <min> - Check machine count
+                    match parts.get(2).map(|s| s.as_ref()) {
+                        Some("miner") if parts.get(3).map(|s| s.as_ref()) == Some("working") => {
+                            assert_machine_events.send(AssertMachineEvent {
+                                assert_type: MachineAssertType::MinerWorking,
+                            });
+                        }
+                        Some("conveyor") if parts.get(3).map(|s| s.as_ref()) == Some("items") => {
+                            assert_machine_events.send(AssertMachineEvent {
+                                assert_type: MachineAssertType::ConveyorHasItems,
+                            });
+                        }
+                        Some(machine_name) if parts.get(3).map(|s| s.as_ref()) == Some("count") => {
+                            if let Some(block_type) = parse_item_name(machine_name) {
+                                let min_count: u32 = parts.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
+                                assert_machine_events.send(AssertMachineEvent {
+                                    assert_type: MachineAssertType::MachineCount {
+                                        machine: block_type,
+                                        min_count,
+                                    },
+                                });
+                            } else {
+                                tracing::error!("Unknown machine type: {}", machine_name);
+                            }
+                        }
+                        _ => {
+                            info!("Usage: /assert machine <subcommand>");
+                            info!("  /assert machine miner working");
+                            info!("  /assert machine conveyor items");
+                            info!("  /assert machine <type> count <min>");
+                        }
+                    }
+                }
                 _ => {
-                    info!("Usage: /assert [inventory|slot] ...");
+                    info!("Usage: /assert [inventory|slot|machine] ...");
                     info!("  /assert inventory <item> <min_count>");
                     info!("  /assert slot <index> <item> <count>");
+                    info!("  /assert machine miner working");
+                    info!("  /assert machine conveyor items");
+                    info!("  /assert machine <type> count <min>");
                 }
             }
         }

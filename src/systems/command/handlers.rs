@@ -15,7 +15,7 @@ use crate::events::SpawnMachineEvent;
 use bevy::prelude::*;
 use tracing::info;
 
-use super::{TeleportEvent, LookEvent, SetBlockEvent, DebugConveyorEvent};
+use super::{TeleportEvent, LookEvent, SetBlockEvent, DebugConveyorEvent, AssertMachineEvent, MachineAssertType};
 
 /// Handle teleport events
 pub fn handle_teleport_event(
@@ -287,5 +287,56 @@ pub fn handle_debug_conveyor_event(
             count += 1;
         }
         info!("=== Total: {} conveyors ===", count);
+    }
+}
+
+/// Handle assert machine events - verify machine states for E2E testing
+pub fn handle_assert_machine_event(
+    mut events: EventReader<AssertMachineEvent>,
+    miner_query: Query<&Miner>,
+    conveyor_query: Query<&Conveyor>,
+    crusher_query: Query<&Crusher>,
+    furnace_query: Query<&Furnace>,
+) {
+    for event in events.read() {
+        match event.assert_type {
+            MachineAssertType::MinerWorking => {
+                let working_miners: Vec<_> = miner_query.iter()
+                    .filter(|m| m.progress > 0.0 || m.buffer.is_some())
+                    .collect();
+                if !working_miners.is_empty() {
+                    info!("✓ PASS: {} miner(s) working", working_miners.len());
+                } else {
+                    tracing::error!("✗ FAIL: No miners working (total: {})", miner_query.iter().count());
+                }
+            }
+            MachineAssertType::ConveyorHasItems => {
+                let conveyors_with_items: Vec<_> = conveyor_query.iter()
+                    .filter(|c| !c.items.is_empty())
+                    .collect();
+                let total_items: usize = conveyors_with_items.iter()
+                    .map(|c| c.items.len())
+                    .sum();
+                if total_items > 0 {
+                    info!("✓ PASS: {} item(s) on {} conveyor(s)", total_items, conveyors_with_items.len());
+                } else {
+                    tracing::error!("✗ FAIL: No items on conveyors (total conveyors: {})", conveyor_query.iter().count());
+                }
+            }
+            MachineAssertType::MachineCount { machine, min_count } => {
+                let actual_count = match machine {
+                    BlockType::MinerBlock => miner_query.iter().count(),
+                    BlockType::ConveyorBlock => conveyor_query.iter().count(),
+                    BlockType::CrusherBlock => crusher_query.iter().count(),
+                    BlockType::FurnaceBlock => furnace_query.iter().count(),
+                    _ => 0,
+                };
+                if actual_count as u32 >= min_count {
+                    info!("✓ PASS: {} count {} >= {}", machine.name(), actual_count, min_count);
+                } else {
+                    tracing::error!("✗ FAIL: {} count {} < {}", machine.name(), actual_count, min_count);
+                }
+            }
+        }
     }
 }

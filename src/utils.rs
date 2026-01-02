@@ -204,21 +204,8 @@ pub fn keycode_to_char(key_code: KeyCode, shift: bool) -> Option<char> {
     }
 }
 
-/// Parse item name to BlockType
+/// Parse item name to BlockType using strum's EnumString
 pub fn parse_item_name(name: &str) -> Option<crate::BlockType> {
-    use crate::BlockType;
-    match name.to_lowercase().as_str() {
-        "iron_ore" | "ironore" | "iron" => Some(BlockType::IronOre),
-        "coal" => Some(BlockType::Coal),
-        "stone" => Some(BlockType::Stone),
-        "grass" => Some(BlockType::Grass),
-        "iron_ingot" | "ironingot" => Some(BlockType::IronIngot),
-        "copper_ore" | "copperore" | "copper" => Some(BlockType::CopperOre),
-        "copper_ingot" | "copperingot" => Some(BlockType::CopperIngot),
-        "miner" | "miner_block" | "minerblock" => Some(BlockType::MinerBlock),
-        "conveyor" | "conveyor_block" | "conveyorblock" => Some(BlockType::ConveyorBlock),
-        "crusher" | "crusher_block" | "crusherblock" => Some(BlockType::CrusherBlock),
-        "furnace" | "furnace_block" | "furnaceblock" => Some(BlockType::FurnaceBlock),
-        _ => None,
-    }
+    use std::str::FromStr;
+    crate::BlockType::from_str(name).ok()
 }

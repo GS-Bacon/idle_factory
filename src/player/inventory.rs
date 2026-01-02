@@ -25,6 +25,15 @@ impl Default for Inventory {
 }
 
 impl Inventory {
+    /// Create a new inventory with initial items
+    pub fn with_initial_items(items: &[(BlockType, u32)]) -> Self {
+        let mut inv = Self::default();
+        for (block_type, amount) in items {
+            inv.add_item(*block_type, *amount);
+        }
+        inv
+    }
+
     /// Check if a slot index is in the hotbar (0-8)
     #[allow(dead_code)]
     pub fn is_hotbar_slot(slot: usize) -> bool {
@@ -130,6 +139,7 @@ impl Inventory {
     }
 
     /// Remove one item from the selected slot, returns the block type if successful
+    #[allow(dead_code)] // Used in tests
     pub fn consume_selected(&mut self) -> Option<BlockType> {
         if let Some(Some((block_type, count))) = self.slots.get_mut(self.selected_slot) {
             if *count > 0 {
@@ -160,20 +170,34 @@ impl Inventory {
             .map(|(bt, _)| *bt)
     }
 
-    /// Consume a specific block type from inventory, returns true if successful
-    pub fn consume_item(&mut self, block_type: BlockType, amount: u32) -> bool {
+    /// Consume a specific block type from inventory (across multiple slots), returns true if successful
+    pub fn consume_item(&mut self, block_type: BlockType, mut amount: u32) -> bool {
+        // First check if we have enough total
+        if self.get_total_count(block_type) < amount {
+            return false;
+        }
+
+        // Consume from slots
         for slot in self.slots.iter_mut() {
+            if amount == 0 { break; }
             if let Some((bt, count)) = slot {
-                if *bt == block_type && *count >= amount {
-                    *count -= amount;
+                if *bt == block_type {
+                    let to_consume = amount.min(*count);
+                    *count -= to_consume;
+                    amount -= to_consume;
                     if *count == 0 {
                         *slot = None;
                     }
-                    return true;
                 }
             }
         }
-        false
+        true
+    }
+
+    /// Check if inventory has enough of a specific block type
+    #[allow(dead_code)] // Reserved for future use
+    pub fn has_item(&self, block_type: BlockType, amount: u32) -> bool {
+        self.get_total_count(block_type) >= amount
     }
 
     /// Get count of a specific block type in inventory
@@ -197,11 +221,13 @@ impl Inventory {
     }
 
     /// Check if inventory is full (all slots occupied)
+    #[allow(dead_code)] // Used in tests
     pub fn is_full(&self) -> bool {
         self.slots.iter().all(|s| s.is_some())
     }
 
     /// Get number of empty slots
+    #[allow(dead_code)] // Used in tests
     pub fn empty_slot_count(&self) -> usize {
         self.slots.iter().filter(|s| s.is_none()).count()
     }

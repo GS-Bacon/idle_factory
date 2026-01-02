@@ -6,21 +6,9 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-// Re-create the core types for testing (since they're private in main)
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-enum BlockType {
-    Stone,
-    Grass,
-    IronOre,
-    CopperOre,
-    Coal,
-    IronIngot,
-    CopperIngot,
-    MinerBlock,
-    ConveyorBlock,
-    CrusherBlock,
-    FurnaceBlock,
-}
+// Use real library types
+use idle_factory::BlockType;
+use idle_factory::constants::{CHUNK_SIZE, HOTBAR_SLOTS};
 
 #[derive(Resource, Default)]
 struct Inventory {
@@ -32,13 +20,11 @@ struct ChunkData {
     blocks: HashMap<IVec3, BlockType>,
 }
 
-const CHUNK_SIZE: usize = 16;
-
 impl Default for ChunkData {
     fn default() -> Self {
         let mut blocks = HashMap::new();
-        for x in 0..CHUNK_SIZE as i32 {
-            for z in 0..CHUNK_SIZE as i32 {
+        for x in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
                 for y in 0..8 {
                     let block_type = if y == 7 {
                         BlockType::Grass
@@ -419,19 +405,17 @@ fn test_block_break_no_freeze() {
 // Slot-based Inventory Tests (matching new implementation)
 // =====================================================
 
-const NUM_SLOTS: usize = 9;
-
-/// Slot-based inventory matching the actual game implementation
+/// Slot-based inventory matching the actual game implementation (simplified for tests)
 #[derive(Clone)]
 struct SlotInventory {
-    slots: [Option<(BlockType, u32)>; NUM_SLOTS],
+    slots: [Option<(BlockType, u32)>; HOTBAR_SLOTS],
     selected_slot: usize,
 }
 
 impl Default for SlotInventory {
     fn default() -> Self {
         Self {
-            slots: [None; NUM_SLOTS],
+            slots: [None; HOTBAR_SLOTS],
             selected_slot: 0,
         }
     }
@@ -589,7 +573,7 @@ fn test_slot_inventory_full() {
     let mut inv = SlotInventory::default();
 
     // Fill all 9 slots with different block types (using only Stone and Grass)
-    for i in 0..NUM_SLOTS {
+    for i in 0..HOTBAR_SLOTS {
         // Alternate between block types but use separate add calls to fill slots
         let block = if i % 2 == 0 { BlockType::Stone } else { BlockType::Grass };
         // Force into separate slots by making each a new "stack"
@@ -599,7 +583,7 @@ fn test_slot_inventory_full() {
     // All slots full - adding new item type should fail
     // (We need a third block type for this test, but we only have 2 in test)
     // Instead, verify all slots are used
-    for i in 0..NUM_SLOTS {
+    for i in 0..HOTBAR_SLOTS {
         assert!(inv.get_slot(i).is_some());
     }
 }
@@ -1388,8 +1372,6 @@ fn test_full_automation_line() {
 // Chunk Boundary Mesh Tests
 // =====================================================
 
-const TEST_CHUNK_SIZE: i32 = 16;
-
 struct TestWorldData {
     chunks: HashMap<IVec2, HashMap<IVec3, BlockType>>,
 }
@@ -1403,8 +1385,8 @@ impl TestWorldData {
 
     fn set_block(&mut self, world_pos: IVec3, block_type: BlockType) {
         let chunk_coord = IVec2::new(
-            world_pos.x.div_euclid(TEST_CHUNK_SIZE),
-            world_pos.z.div_euclid(TEST_CHUNK_SIZE),
+            world_pos.x.div_euclid(CHUNK_SIZE),
+            world_pos.z.div_euclid(CHUNK_SIZE),
         );
         let chunk = self.chunks.entry(chunk_coord).or_insert_with(HashMap::new);
         chunk.insert(world_pos, block_type);
@@ -1412,8 +1394,8 @@ impl TestWorldData {
 
     fn has_block(&self, world_pos: IVec3) -> bool {
         let chunk_coord = IVec2::new(
-            world_pos.x.div_euclid(TEST_CHUNK_SIZE),
-            world_pos.z.div_euclid(TEST_CHUNK_SIZE),
+            world_pos.x.div_euclid(CHUNK_SIZE),
+            world_pos.z.div_euclid(CHUNK_SIZE),
         );
         self.chunks.get(&chunk_coord)
             .map(|c| c.contains_key(&world_pos))
@@ -3483,22 +3465,20 @@ enum ConveyorShape {
 /// Simulate item movement on L-shape (left corner) conveyor
 fn simulate_corner_left_path(start_pos: Vec3, input_dir: ConveyorDirection, steps: usize) -> Vec<Vec3> {
     let mut positions = vec![start_pos];
-    let mut current = start_pos;
     let output_dir = input_dir.left();
-
     let corner_center = Vec3::new(0.5, 0.0, 0.5);
 
     for step in 0..steps {
         let t = step as f32 / steps as f32;
 
-        if t < 0.5 {
+        let current = if t < 0.5 {
             // First half: move toward corner center along input direction
-            current = start_pos + input_dir.to_vec() * (t * 2.0);
+            start_pos + input_dir.to_vec() * (t * 2.0)
         } else {
             // Second half: turn and move along output direction
             let corner_progress = (t - 0.5) * 2.0;
-            current = corner_center + output_dir.to_vec() * corner_progress;
-        }
+            corner_center + output_dir.to_vec() * corner_progress
+        };
         positions.push(current);
     }
 
@@ -3508,20 +3488,18 @@ fn simulate_corner_left_path(start_pos: Vec3, input_dir: ConveyorDirection, step
 /// Simulate item movement on L-shape (right corner) conveyor
 fn simulate_corner_right_path(start_pos: Vec3, input_dir: ConveyorDirection, steps: usize) -> Vec<Vec3> {
     let mut positions = vec![start_pos];
-    let mut current = start_pos;
     let output_dir = input_dir.right();
-
     let corner_center = Vec3::new(0.5, 0.0, 0.5);
 
     for step in 0..steps {
         let t = step as f32 / steps as f32;
 
-        if t < 0.5 {
-            current = start_pos + input_dir.to_vec() * (t * 2.0);
+        let current = if t < 0.5 {
+            start_pos + input_dir.to_vec() * (t * 2.0)
         } else {
             let corner_progress = (t - 0.5) * 2.0;
-            current = corner_center + output_dir.to_vec() * corner_progress;
-        }
+            corner_center + output_dir.to_vec() * corner_progress
+        };
         positions.push(current);
     }
 
@@ -3931,4 +3909,265 @@ fn test_place_not_inside_conveyor() {
     let above_pos = IVec3::new(1, 9, 0);
     let is_occupied = conveyor_positions.iter().any(|c| *c == above_pos);
     assert!(!is_occupied, "Position above conveyor should be free");
+}
+
+// =====================================================
+// Bevy App Simulation Tests
+// =====================================================
+
+use idle_factory::{
+    GameEventsPlugin, Inventory as RealInventory,
+    BlockPlaceEvent, BlockBreakEvent, QuestProgressEvent,
+};
+
+/// Test that GameEventsPlugin registers all events correctly
+#[test]
+fn test_game_events_plugin_registers_events() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(GameEventsPlugin);
+
+    // Verify events are registered by sending them (would panic if not registered)
+    app.world_mut().send_event(BlockPlaceEvent {
+        position: IVec3::new(0, 0, 0),
+        block_type: BlockType::Stone,
+        player_id: 1,
+    });
+
+    app.world_mut().send_event(BlockBreakEvent {
+        position: IVec3::new(1, 1, 1),
+        player_id: 1,
+    });
+
+    app.world_mut().send_event(QuestProgressEvent {
+        item_type: BlockType::IronOre,
+        amount: 5,
+    });
+
+    // Run one update cycle
+    app.update();
+
+    // If we get here without panic, events are registered correctly
+}
+
+/// Test Inventory resource in Bevy App context
+#[test]
+fn test_inventory_resource_in_app() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+
+    // Insert inventory with initial items
+    app.insert_resource(RealInventory::with_initial_items(&[
+        (BlockType::Stone, 64),
+        (BlockType::IronOre, 32),
+    ]));
+
+    app.update();
+
+    // Verify inventory state
+    let inventory = app.world().resource::<RealInventory>();
+
+    // Check first slot has stone
+    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_count(0), 64);
+
+    // Check second slot has iron ore
+    assert_eq!(inventory.get_slot(1), Some(BlockType::IronOre));
+    assert_eq!(inventory.get_slot_count(1), 32);
+}
+
+/// Test inventory add_item system behavior
+#[test]
+fn test_inventory_stacking_in_app() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.insert_resource(RealInventory::default());
+
+    app.update();
+
+    // Add items through world access
+    {
+        let mut inventory = app.world_mut().resource_mut::<RealInventory>();
+        inventory.add_item(BlockType::Coal, 100);
+        inventory.add_item(BlockType::Coal, 100);
+        inventory.add_item(BlockType::Coal, 100);
+    }
+
+    app.update();
+
+    // Verify stacking behavior
+    let inventory = app.world().resource::<RealInventory>();
+
+    // Coal should be stacked (999 max per slot)
+    let total_coal: u32 = (0..idle_factory::constants::NUM_SLOTS)
+        .filter_map(|i| {
+            if inventory.get_slot(i) == Some(BlockType::Coal) {
+                Some(inventory.get_slot_count(i))
+            } else {
+                None
+            }
+        })
+        .sum();
+
+    assert_eq!(total_coal, 300, "Should have 300 coal total");
+}
+
+/// Test system that reads events
+fn count_block_break_events(
+    mut events: EventReader<BlockBreakEvent>,
+    mut counter: ResMut<EventCounter>,
+) {
+    for _event in events.read() {
+        counter.block_breaks += 1;
+    }
+}
+
+#[derive(Resource, Default)]
+struct EventCounter {
+    block_breaks: u32,
+}
+
+/// Test custom system with event handling
+#[test]
+fn test_custom_system_event_handling() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(GameEventsPlugin);
+    app.init_resource::<EventCounter>();
+    app.add_systems(Update, count_block_break_events);
+
+    // Send events before update
+    app.world_mut().send_event(BlockBreakEvent {
+        position: IVec3::new(0, 0, 0),
+        player_id: 1,
+    });
+    app.world_mut().send_event(BlockBreakEvent {
+        position: IVec3::new(1, 1, 1),
+        player_id: 1,
+    });
+    app.world_mut().send_event(BlockBreakEvent {
+        position: IVec3::new(2, 2, 2),
+        player_id: 1,
+    });
+
+    // Run update to process events
+    app.update();
+
+    // Verify events were counted
+    let counter = app.world().resource::<EventCounter>();
+    assert_eq!(counter.block_breaks, 3, "Should have counted 3 block breaks");
+}
+
+/// Test inventory selected slot changes
+#[test]
+fn test_inventory_slot_selection() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+
+    let mut inv = RealInventory::default();
+    inv.add_item(BlockType::Grass, 10);
+    inv.add_item(BlockType::Coal, 20);
+    inv.add_item(BlockType::Stone, 30);
+
+    app.insert_resource(inv);
+    app.update();
+
+    // Initial selection is slot 0
+    {
+        let inventory = app.world().resource::<RealInventory>();
+        assert_eq!(inventory.selected_slot, 0);
+        assert_eq!(inventory.selected_block(), Some(BlockType::Grass));
+    }
+
+    // Change selection to slot 2
+    {
+        let mut inventory = app.world_mut().resource_mut::<RealInventory>();
+        inventory.selected_slot = 2;
+    }
+
+    app.update();
+
+    {
+        let inventory = app.world().resource::<RealInventory>();
+        assert_eq!(inventory.selected_slot, 2);
+        assert_eq!(inventory.selected_block(), Some(BlockType::Stone));
+    }
+}
+
+/// Test quest progress event chain
+#[test]
+fn test_quest_progress_event_chain() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(GameEventsPlugin);
+
+    #[derive(Resource, Default)]
+    struct QuestTracker {
+        items_collected: HashMap<BlockType, u32>,
+    }
+
+    fn track_quest_progress(
+        mut events: EventReader<QuestProgressEvent>,
+        mut tracker: ResMut<QuestTracker>,
+    ) {
+        for event in events.read() {
+            *tracker.items_collected.entry(event.item_type).or_default() += event.amount;
+        }
+    }
+
+    app.init_resource::<QuestTracker>();
+    app.add_systems(Update, track_quest_progress);
+
+    // Simulate collecting items
+    app.world_mut().send_event(QuestProgressEvent {
+        item_type: BlockType::IronOre,
+        amount: 5,
+    });
+    app.world_mut().send_event(QuestProgressEvent {
+        item_type: BlockType::Coal,
+        amount: 10,
+    });
+    app.world_mut().send_event(QuestProgressEvent {
+        item_type: BlockType::IronOre,
+        amount: 3,
+    });
+
+    app.update();
+
+    let tracker = app.world().resource::<QuestTracker>();
+    assert_eq!(tracker.items_collected.get(&BlockType::IronOre), Some(&8));
+    assert_eq!(tracker.items_collected.get(&BlockType::Coal), Some(&10));
+}
+
+/// Test multiple app updates don't duplicate events
+#[test]
+fn test_events_consumed_after_read() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(GameEventsPlugin);
+    app.init_resource::<EventCounter>();
+    app.add_systems(Update, count_block_break_events);
+
+    // Send one event
+    app.world_mut().send_event(BlockBreakEvent {
+        position: IVec3::new(0, 0, 0),
+        player_id: 1,
+    });
+
+    // First update processes the event
+    app.update();
+    assert_eq!(app.world().resource::<EventCounter>().block_breaks, 1);
+
+    // Second update should not reprocess the same event
+    app.update();
+    assert_eq!(app.world().resource::<EventCounter>().block_breaks, 1);
+
+    // Send another event
+    app.world_mut().send_event(BlockBreakEvent {
+        position: IVec3::new(1, 1, 1),
+        player_id: 1,
+    });
+
+    app.update();
+    assert_eq!(app.world().resource::<EventCounter>().block_breaks, 2);
 }

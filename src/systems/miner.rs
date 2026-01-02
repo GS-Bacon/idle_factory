@@ -7,7 +7,9 @@ use crate::components::{
 };
 use crate::player::Inventory;
 use crate::world::{BiomeMap, mining_random};
-use crate::{ray_aabb_intersection, set_ui_open_state, Conveyor, Miner, BLOCK_SIZE, MINE_TIME, REACH_DISTANCE};
+use crate::utils::ray_aabb_intersection;
+use super::set_ui_open_state;
+use crate::{Conveyor, Miner, BLOCK_SIZE, MINE_TIME, REACH_DISTANCE};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 

@@ -2,21 +2,31 @@
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter, EnumString};
 
 /// Types of blocks in the game
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize, Display, EnumString, EnumIter)]
+#[strum(serialize_all = "snake_case", ascii_case_insensitive)]
 pub enum BlockType {
     #[default]
     Stone,
     Grass,
+    #[strum(serialize = "iron_ore", serialize = "ironore", serialize = "iron")]
     IronOre,
     Coal,
+    #[strum(serialize = "iron_ingot", serialize = "ironingot")]
     IronIngot,
+    #[strum(serialize = "miner_block", serialize = "miner", serialize = "minerblock")]
     MinerBlock,
+    #[strum(serialize = "conveyor_block", serialize = "conveyor", serialize = "conveyorblock")]
     ConveyorBlock,
+    #[strum(serialize = "copper_ore", serialize = "copperore", serialize = "copper")]
     CopperOre,
+    #[strum(serialize = "copper_ingot", serialize = "copperingot")]
     CopperIngot,
+    #[strum(serialize = "crusher_block", serialize = "crusher", serialize = "crusherblock")]
     CrusherBlock,
+    #[strum(serialize = "furnace_block", serialize = "furnace", serialize = "furnaceblock")]
     FurnaceBlock,
 }
 
@@ -104,24 +114,13 @@ impl BlockType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use strum::IntoEnumIterator;
+    use std::str::FromStr;
 
     #[test]
     fn test_block_type_color_returns_valid() {
-        // All block types should return a color
-        let types = [
-            BlockType::Stone,
-            BlockType::Grass,
-            BlockType::IronOre,
-            BlockType::Coal,
-            BlockType::IronIngot,
-            BlockType::MinerBlock,
-            BlockType::ConveyorBlock,
-            BlockType::CopperOre,
-            BlockType::CopperIngot,
-            BlockType::CrusherBlock,
-            BlockType::FurnaceBlock,
-        ];
-        for bt in types {
+        // Use EnumIter to iterate over all block types
+        for bt in BlockType::iter() {
             let color = bt.color();
             let srgba = color.to_srgba();
             assert!(srgba.red >= 0.0 && srgba.red <= 1.0);
@@ -132,15 +131,43 @@ mod tests {
 
     #[test]
     fn test_block_type_name_not_empty() {
-        let types = [
-            BlockType::Stone,
-            BlockType::Grass,
-            BlockType::IronOre,
-            BlockType::Coal,
-        ];
-        for bt in types {
-            assert!(!bt.name().is_empty());
+        // Use EnumIter to iterate over all block types
+        for bt in BlockType::iter() {
+            assert!(!bt.name().is_empty(), "Block type {:?} has empty name", bt);
         }
+    }
+
+    #[test]
+    fn test_strum_enum_string_parsing() {
+        // Test snake_case parsing
+        assert_eq!(BlockType::from_str("stone").ok(), Some(BlockType::Stone));
+        assert_eq!(BlockType::from_str("iron_ore").ok(), Some(BlockType::IronOre));
+
+        // Test case insensitivity
+        assert_eq!(BlockType::from_str("STONE").ok(), Some(BlockType::Stone));
+        assert_eq!(BlockType::from_str("IronOre").ok(), Some(BlockType::IronOre));
+
+        // Test aliases
+        assert_eq!(BlockType::from_str("iron").ok(), Some(BlockType::IronOre));
+        assert_eq!(BlockType::from_str("miner").ok(), Some(BlockType::MinerBlock));
+        assert_eq!(BlockType::from_str("conveyor").ok(), Some(BlockType::ConveyorBlock));
+
+        // Test invalid parsing
+        assert!(BlockType::from_str("invalid_block").is_err());
+    }
+
+    #[test]
+    fn test_strum_display() {
+        // Test that Display uses snake_case
+        assert_eq!(format!("{}", BlockType::Stone), "stone");
+        assert_eq!(format!("{}", BlockType::IronOre), "iron_ore");
+        assert_eq!(format!("{}", BlockType::MinerBlock), "miner_block");
+    }
+
+    #[test]
+    fn test_strum_iter_count() {
+        // Verify we have the expected number of block types
+        assert_eq!(BlockType::iter().count(), 11);
     }
 
     #[test]

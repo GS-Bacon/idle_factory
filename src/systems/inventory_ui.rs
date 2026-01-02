@@ -648,19 +648,3 @@ pub fn update_creative_catalog_sprites(
     }
 }
 
-/// Update GlobalInventory panel display
-pub fn update_global_inventory_ui(
-    inventory_open: Res<InventoryOpen>,
-    global_inventory: Res<crate::player::GlobalInventory>,
-    mut text_query: Query<(&GlobalInventoryCountText, &mut Text)>,
-) {
-    if !inventory_open.0 {
-        return;
-    }
-
-    for (count_text, mut text) in text_query.iter_mut() {
-        let block_type = count_text.0;
-        let count = global_inventory.get_count(block_type);
-        text.0 = format!("{}: {}", block_type.name(), count);
-    }
-}

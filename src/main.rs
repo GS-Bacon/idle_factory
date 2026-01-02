@@ -1,44 +1,28 @@
 //! Idle Factory - Milestone 1: Minimal Voxel Game
 //! Goal: Walk, mine blocks, collect in inventory
 
-mod block_type;
-mod components;
-mod constants;
-mod events;
-mod game_spec;
-mod logging;
-mod meshes;
-mod player;
-mod plugins;
-mod save;
-pub mod setup;
-mod systems;
-mod ui;
-mod utils;
-mod vox_loader;
-mod world;
-
-// Re-export components for use by other modules via crate::ComponentName
-pub use components::*;
-use events::GameEventsPlugin;
+// Use library crate for all game logic
+use idle_factory::components::*;
+use idle_factory::events::GameEventsPlugin;
 #[cfg(target_arch = "wasm32")]
-use logging::GameLoggingPlugin;
-use player::{GlobalInventory, Inventory};
-use plugins::{MachineSystemsPlugin, SavePlugin, UIPlugin};
-use setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
-use utils::ray_aabb_intersection;
-use systems::{
+use idle_factory::logging::GameLoggingPlugin;
+use idle_factory::logging;
+use idle_factory::player::Inventory;
+use idle_factory::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
+use idle_factory::setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
+use idle_factory::systems::{
     // Block operation systems
     block_break, block_place,
     // Player systems
     player_look, player_move, tick_action_timers, toggle_cursor_lock, tutorial_dismiss,
     // Chunk systems
     receive_chunk_meshes, spawn_chunk_tasks, unload_distant_chunks,
-    // UI systems (not in UIPlugin)
-    select_block_type, set_ui_open_state, update_window_title_fps, export_e2e_state,
-    E2EExportConfig, TeleportEvent, LookEvent, SetBlockEvent, handle_teleport_event,
+    // UI systems
+    select_block_type,
+    // Command events and handlers
+    TeleportEvent, LookEvent, SetBlockEvent, handle_teleport_event,
     handle_look_event, handle_setblock_event, handle_spawn_machine_event, handle_debug_conveyor_event,
-    DebugConveyorEvent,
+    handle_assert_machine_event, DebugConveyorEvent, AssertMachineEvent,
     // Quest systems
     load_machine_models, quest_claim_rewards, quest_deliver_button, quest_progress_check,
     setup_delivery_platform, update_delivery_ui, update_quest_ui,
@@ -46,17 +30,12 @@ use systems::{
     rotate_conveyor_placement, update_conveyor_shapes, update_guide_markers,
     update_target_block, update_target_highlight,
 };
-use world::{BiomeMap, ChunkMesh, ChunkMeshTasks, WorldData};
-
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use idle_factory::world::{BiomeMap, ChunkMeshTasks, WorldData};
 use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::window::PresentMode;
-
-pub use block_type::BlockType;
-pub use constants::*;
 
 fn main() {
     // WASM: Set panic hook to display errors in browser console
@@ -94,7 +73,6 @@ fn main() {
                     }),
                     ..default()
                 }),
-            FrameTimeDiagnosticsPlugin,
         ));
     }
 
@@ -103,7 +81,7 @@ fn main() {
         // WASM: Use default plugins with canvas selector
         // Disable LogPlugin to use tracing_wasm instead
         use bevy::log::LogPlugin;
-        app.add_plugins((
+        app.add_plugins(
             DefaultPlugins
                 .build()
                 .disable::<LogPlugin>()
@@ -117,8 +95,7 @@ fn main() {
                     }),
                     ..default()
                 }),
-            FrameTimeDiagnosticsPlugin,
-        ));
+        );
     }
 
     // WASM: Add logging plugin (Native logging is initialized above)
@@ -127,15 +104,15 @@ fn main() {
 
     // Add VOX loader plugin for hot reload (native only)
     #[cfg(not(target_arch = "wasm32"))]
-    app.add_plugins(vox_loader::VoxLoaderPlugin);
+    app.add_plugins(idle_factory::vox_loader::VoxLoaderPlugin);
 
     app
         .add_plugins(GameEventsPlugin)
         .add_plugins(MachineSystemsPlugin)
         .add_plugins(UIPlugin)
         .add_plugins(SavePlugin)
-        .init_resource::<Inventory>()
-        .insert_resource(GlobalInventory::with_initial_items(game_spec::INITIAL_EQUIPMENT))
+        .add_plugins(DebugPlugin)
+        .insert_resource(Inventory::with_initial_items(idle_factory::game_spec::INITIAL_EQUIPMENT))
         .init_resource::<WorldData>()
         .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
         .init_resource::<CursorLockState>()
@@ -144,11 +121,11 @@ fn main() {
         .init_resource::<ChunkMeshTasks>()
         .init_resource::<CreativeMode>()
         .init_resource::<ContinuousActionTimer>()
-        .init_resource::<E2EExportConfig>()
         .add_event::<TeleportEvent>()
         .add_event::<LookEvent>()
         .add_event::<SetBlockEvent>()
         .add_event::<DebugConveyorEvent>()
+        .add_event::<AssertMachineEvent>()
         .add_systems(Startup, (setup_lighting, setup_player, setup_ui, setup_initial_items, setup_delivery_platform, load_machine_models))
         .add_systems(
             Update,
@@ -178,7 +155,7 @@ fn main() {
             Update,
             (
                 // Quest systems
-                systems::targeting::update_conveyor_shapes,
+                idle_factory::systems::targeting::update_conveyor_shapes,
                 quest_progress_check,
                 quest_claim_rewards,
             ),
@@ -190,7 +167,6 @@ fn main() {
                 update_delivery_ui,
                 update_quest_ui,
                 quest_deliver_button,
-                update_window_title_fps,
             ),
         )
         .add_systems(
@@ -203,7 +179,6 @@ fn main() {
                 update_guide_markers,
             ).after(update_target_block),
         )
-        .add_systems(Update, export_e2e_state)
         .add_systems(
             Update,
             (
@@ -213,6 +188,7 @@ fn main() {
                 handle_setblock_event,
                 handle_spawn_machine_event,
                 handle_debug_conveyor_event,
+                handle_assert_machine_event,
             ),
         )
         .run();
@@ -223,9 +199,11 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use world::ChunkData;
-    use crate::systems::quest::get_main_quests;
-    use crate::utils::ray_aabb_intersection_with_normal;
+    use idle_factory::BlockType;
+    use idle_factory::constants::{HOTBAR_SLOTS, NUM_SLOTS};
+    use idle_factory::world::ChunkData;
+    use idle_factory::systems::quest::get_main_quests;
+    use idle_factory::utils::{ray_aabb_intersection, ray_aabb_intersection_with_normal};
 
     #[test]
     fn test_chunk_generation() {

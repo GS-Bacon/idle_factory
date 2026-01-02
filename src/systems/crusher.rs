@@ -6,7 +6,9 @@ use crate::components::{
     PlayerCamera,
 };
 use crate::player::Inventory;
-use crate::{ray_aabb_intersection, set_ui_open_state, BlockType, Conveyor, Crusher, BLOCK_SIZE, CRUSH_TIME, REACH_DISTANCE};
+use crate::utils::ray_aabb_intersection;
+use super::set_ui_open_state;
+use crate::{BlockType, Conveyor, Crusher, BLOCK_SIZE, CRUSH_TIME, REACH_DISTANCE};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 

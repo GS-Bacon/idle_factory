@@ -29,39 +29,45 @@ $ARGUMENTS
 
 | コマンド | 内容 | 例 |
 |----------|------|-----|
-| `inventory_contains <item> <count>` | インベントリにアイテムがあるか | `/assert inventory_contains iron_ingot 10` |
-| `inventory_empty` | インベントリが空か | `/assert inventory_empty` |
-| `machine_working <x> <y> <z>` | 指定座標の機械が動作中か | `/assert machine_working 10 5 10` |
-| `machine_idle <x> <y> <z>` | 指定座標の機械が待機中か | `/assert machine_idle 10 5 10` |
-| `conveyor_has_item <x> <y> <z>` | コンベア上にアイテムがあるか | `/assert conveyor_has_item 10 5 11` |
-| `quest_completed <id>` | クエストが完了しているか | `/assert quest_completed 1` |
+| `inventory <item> <min_count>` | インベントリにアイテムが最低N個あるか | `/assert inventory iron_ingot 10` |
+| `slot <index> <item> <count>` | 特定スロットにアイテムがN個以上あるか | `/assert slot 0 coal 5` |
+| `machine miner working` | マイナーが稼働中か確認 | `/assert machine miner working` |
+| `machine conveyor items` | コンベアにアイテムがあるか確認 | `/assert machine conveyor items` |
+| `machine <type> count <min>` | 機械の設置数を確認 | `/assert machine miner count 3` |
 
 ## 出力
 
-- **成功**: `[ASSERT OK] condition`
-- **失敗**: `[ASSERT FAIL] condition - expected: X, actual: Y`
+- **成功**: `✓ PASS: <item> >= <count> (actual: <actual>)`
+- **失敗**: `✗ FAIL: <item> < <count> (actual: <actual>)`
 
 ## 実装状況
 
-**現在**: 未実装（タスク #15）
+**現在**: ✅ 実装済み
 
-実装後の期待動作:
-1. 条件をパース
+動作:
+1. 条件をパース（inventory または slot）
 2. ゲーム状態を取得
-3. 比較して結果をログ出力
-4. E2Eテストスクリプトと連携可能
+3. 比較して結果をログ出力（✓ PASS / ✗ FAIL）
 
 ## 関連ファイル
 
-- `src/systems/command_ui.rs` - コマンド処理
+- `src/systems/command/executor.rs:262-317` - コマンド処理
 - `src/player/inventory.rs` - インベントリ
-- `.claude/refactoring-tasks.md` - タスク #15
 
-## 使用例: E2Eテストとの連携
+## 使用例
 
 ```bash
-# シナリオ実行後にアサーション
-/test miner_chain
-# 30秒待機
-/assert inventory_contains iron_ingot 5
+# 生産ラインをセットアップ
+/test production
+
+# 30秒待機後、インベントリを検証
+/assert inventory iron_ingot 5
+
+# 特定スロットを検証
+/assert slot 0 coal 10
+
+# 機械の稼働状態を確認
+/assert machine miner working
+/assert machine conveyor items
+/assert machine miner count 3
 ```

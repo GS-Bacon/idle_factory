@@ -4,8 +4,9 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::{
-    CursorLockState, InteractingFurnace, PlayerCamera, TargetBlock, WorldData, REACH_DISTANCE,
+    CursorLockState, InteractingFurnace, PlayerCamera, TargetBlock, REACH_DISTANCE,
 };
+use crate::world::WorldData;
 
 /// Update target block based on player's view direction
 pub fn update_target_block(

@@ -4,13 +4,13 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::{
-    BlockType, ChunkMesh, ContinuousActionTimer, Conveyor, ConveyorRotationOffset, ConveyorShape,
+    BlockType, ContinuousActionTimer, Conveyor, ConveyorRotationOffset, ConveyorShape,
     ConveyorVisual, CreativeMode, Crusher, DeliveryPlatform, Direction, Furnace,
-    InputStateResourcesWithCursor, Inventory, MachineModels, Miner, PlayerCamera, WorldData,
+    InputStateResourcesWithCursor, Inventory, MachineModels, Miner, PlayerCamera,
     BLOCK_SIZE, CHUNK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE,
     REACH_DISTANCE,
 };
-use crate::player::GlobalInventory;
+use crate::world::{ChunkMesh, WorldData};
 use crate::utils::{
     auto_conveyor_direction, ray_aabb_intersection, ray_aabb_intersection_with_normal,
     yaw_to_direction,
@@ -35,7 +35,6 @@ pub fn block_place(
     mut action_timer: ResMut<ContinuousActionTimer>,
     mut rotation: ResMut<ConveyorRotationOffset>,
     machine_models: Res<MachineModels>,
-    mut global_inventory: ResMut<GlobalInventory>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -287,24 +286,10 @@ pub fn block_place(
             }
         }
 
-        // Check if this is a machine block (uses GlobalInventory) or regular block (uses Inventory)
-        let is_machine = matches!(
-            selected_type,
-            BlockType::MinerBlock | BlockType::ConveyorBlock | BlockType::CrusherBlock | BlockType::FurnaceBlock
-        );
-
-        // Consume from appropriate inventory (unless in creative mode)
-        if !creative_mode.enabled {
-            if is_machine {
-                // Machine blocks: consume from GlobalInventory
-                if !global_inventory.remove_item(selected_type, 1) {
-                    // Not enough in global inventory
-                    return;
-                }
-            } else {
-                // Regular blocks: consume from slot-based Inventory
-                inventory.consume_selected();
-            }
+        // Consume from inventory (unless in creative mode)
+        if !creative_mode.enabled && !inventory.consume_item(selected_type, 1) {
+            // Not enough in inventory
+            return;
         }
 
         let chunk_coord = WorldData::world_to_chunk(place_pos);

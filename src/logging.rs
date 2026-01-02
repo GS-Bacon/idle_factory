@@ -125,9 +125,11 @@ impl Plugin for GameLoggingPlugin {
 
 // ============================================================================
 // Game Event Logging (JSON format)
+// Reserved for future structured logging integration
 // ============================================================================
 
 /// Game event categories
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventCategory {
@@ -140,6 +142,7 @@ pub enum EventCategory {
 }
 
 /// A structured game event for JSON logging
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct GameEvent {
     pub timestamp: f64,
@@ -154,12 +157,14 @@ pub struct GameEvent {
 }
 
 /// Resource for logging game events in JSON format
+#[allow(dead_code)]
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 pub struct EventLogger {
     file: std::sync::Mutex<std::fs::File>,
 }
 
+#[allow(dead_code)]
 #[cfg(not(target_arch = "wasm32"))]
 impl EventLogger {
     /// Create a new event logger
