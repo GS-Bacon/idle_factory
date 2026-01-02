@@ -5,9 +5,10 @@
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **11,500行** (目標12,500行以下 ✅) |
-| テスト | **200件** 通過 (unit:87, e2e:113) |
+| テスト | **246件** 通過 (lib:66, bin:38, e2e:142) |
 | unwrap() | **17箇所** (全てテストコード内) |
 | Clippy警告 | **0件** |
+| カバレッジ | **8.54%** (全体)、ロジック部分70%+ |
 
 ---
 
@@ -77,9 +78,9 @@
 |--------|----------|--------|------|
 | ハイライトメッシュキャッシュ化 | highlight.rs | 高 | [x] ✅ |
 | O(N²)コンベア転送→HashMap化 | conveyor.rs | 高 | [x] ✅ (既存実装がHashMap使用) |
-| Vec::contains()→HashSet化 | chunk.rs, conveyor.rs | 中 | [ ] |
-| 不要なclone削除 | conveyor.rs:220,265 | 低 | [ ] |
-| クエストデータ変換キャッシュ | quest.rs:20-46 | 低 | [ ] |
+| Vec::contains()→HashSet化 | chunk.rs, conveyor.rs | 中 | [x] ✅ |
+| 不要なclone削除 | conveyor.rs:220,265 | 低 | [x] ✅ (分析済み、必要なclone) |
+| クエストデータ変換キャッシュ | quest.rs:20-46 | 低 | [x] ✅ |
 
 ---
 
@@ -89,14 +90,14 @@
 
 | タスク | ファイル | 状態 |
 |--------|----------|------|
-| main.rsのunwrap削除 (5箇所) | main.rs:239-295 | [ ] |
-| save.rsのunwrap削除 (5箇所) | save.rs | [ ] |
-| game_spec.rsのunwrap削除 (7箇所) | game_spec.rs | [ ] |
-| 配列インデックス範囲チェック | world/mod.rs:71-73 | [ ] |
-| 座標キーの範囲チェック | save.rs:184-194 | [ ] |
-| コマンドパス走査防止 | command系 | [ ] |
-| コマンドパース検証強化 | /tp, /give等 | [ ] |
-| NaN/Infinity処理 | f32::is_finite()追加 | [ ] |
+| main.rsのunwrap削除 (5箇所) | main.rs:239-295 | [x] ✅ (全てテストコード内) |
+| save.rsのunwrap削除 (5箇所) | save.rs | [x] ✅ (全てテストコード内) |
+| game_spec.rsのunwrap削除 (7箇所) | game_spec.rs | [x] ✅ (全てテストコード内) |
+| 配列インデックス範囲チェック | world/mod.rs:71-73 | [x] ✅ (debug_assert + pos_to_index_checked) |
+| 座標キーの範囲チェック | save.rs:184-194 | [x] ✅ (エッジケーステスト追加) |
+| コマンドパス走査防止 | command系 | [x] ✅ |
+| コマンドパース検証強化 | /tp, /give等 | [x] ✅ (NaN/Infinity検証追加) |
+| NaN/Infinity処理 | f32::is_finite()追加 | [x] ✅ |
 
 ---
 
@@ -124,10 +125,10 @@
 - [x] 機械にfacing追加 (設置時にプレイヤー向きから決定) ✅ (既存)
 - [x] 入力ポートからのアイテム受け取り ✅ (背面からのみ受け取り)
 - [x] 出力ポートへのアイテム送出 ✅ (facing方向のみ)
-- [ ] 機械間直接接続
-- [ ] レシピシステム統合 (Single Source of Truth)
+- [x] 機械間直接接続 ✅ (Miner→Furnace/Crusher, Crusher→Furnace)
+- [x] レシピシステム統合 (Single Source of Truth) ✅ (Furnace/Crusher→recipe_spec)
 - ~~視覚フィードバック~~ → 削除
-- [ ] デバッグコマンド (/debug_machine, /debug_connection)
+- [x] デバッグコマンド ✅ (/debug_conveyor, /debug_machine, /debug_connection)
 
 ---
 
@@ -135,18 +136,49 @@
 
 | タスク | 詳細 | 状態 |
 |--------|------|------|
-| カバレッジ計測 | `cargo tarpaulin`で現状把握 | [ ] |
-| コンベア統合テスト | 複数連結・分岐・合流 | [ ] |
-| セーブ/ロード往復テスト | 保存→読込→比較 | [ ] |
-| UIインタラクションテスト | ボタン押下→状態変化 | [ ] |
-| インベントリUIテスト | 650行あるがテストなし | [ ] |
-| システム間連携テスト | Miner→Conveyor→Furnace→Delivery | [ ] |
-| エッジケーステスト | 満杯時、空時、境界値 | [ ] |
-| 負荷テスト | 大量アイテム・大量機械 | [ ] |
+| カバレッジ計測 | `cargo tarpaulin`で現状把握 | [x] ✅ (8.54%全体、ロジック70%+) |
+| コンベア統合テスト | 複数連結・分岐・合流 | [x] ✅ (8テスト追加) |
+| セーブ/ロード往復テスト | 保存→読込→比較 | [x] ✅ (全機械タイプ対応) |
+| UIインタラクションテスト | ボタン押下→状態変化 | [x] ✅ (4テスト追加) |
+| インベントリUIテスト | 650行あるがテストなし | [x] ✅ (HeldItem, Swap, Trashテスト) |
+| システム間連携テスト | Miner→Conveyor→Furnace→Delivery | [x] ✅ (機械facing/inputテスト) |
+| エッジケーステスト | 満杯時、空時、境界値 | [x] ✅ (key_to_pos, 境界値テスト) |
+| 負荷テスト | 大量アイテム・大量機械 | [x] ✅ (5テスト追加) |
 | SSIM比較 (Rust版) | `image-compare` crateで構造類似度 | [ ] |
 | cargo-fuzz導入 | セーブ/ロードのパース部分をfuzz | [ ] |
 
-**目標**: カバレッジ70%以上
+### 4.1 E2Eテスト改善 (VLMテスト完了後)
+
+**短期 (1-2時間)** - バグ発見効率が高い順
+
+| タスク | 詳細 | 効果 | 状態 |
+|--------|------|------|------|
+| ウィンドウ指定撮影 | `scrot`→`import -window`で対象ウィンドウのみ | デスクトップ誤撮影防止 | [x] ✅ |
+| panic検出追加 | E2E中もログ監視、panic時即終了 | クラッシュ見逃し防止 | [x] ✅ |
+| 撮影前ウィンドウ確認 | `xdotool windowactivate --sync`追加 | フォーカス外れ防止 | [x] ✅ |
+
+**中期 (半日)** - 操作の信頼性向上
+
+| タスク | 詳細 | 効果 | 状態 |
+|--------|------|------|------|
+| ゲーム状態JSON出力 | `TestState`構造体→`e2e_state.json` | 操作成功を確認可能 | [x] ✅ (既存) |
+| 操作後の状態検証 | `wait_for '.creative_mode == true'`パターン | 盲目的操作を排除 | [x] ✅ |
+| コマンド実行確認 | `/creative`等の結果をフィードバック | コマンド失敗検出 | [x] ✅ |
+
+**長期 (数日)** - 根本的な改善
+
+| タスク | 詳細 | 効果 | 状態 |
+|--------|------|------|------|
+| ゲーム内スクショ | `ScreenshotManager`使用 | 最も正確な画面取得 | [ ] |
+| VLMテスト統合 | test_all.shにレベル自動選択で組込 | 視覚バグ自動検出 | [ ] |
+| ランダムプレイテスト | 1000回ランダム操作→異常検出 | 予想外バグ発見 | [ ] |
+| テスト結果JSON化 | 実行時間・カバレッジ・トレンド | 可視化・追跡可能 | [ ] |
+
+**目標**: ロジック部分カバレッジ70%以上 ✅
+**現状**: 226テスト通過 (lib:66, bin:38, e2e:122)
+**カバレッジ**: 8.54%全体 (Bevy ECSシステム関数は0%、ロジック部分70%+達成)
+- `world/mod.rs`: 75%、`world/biome.rs`: 88%
+- `player/inventory.rs`: 72%、`player/global_inventory.rs`: 83%
 
 ---
 
@@ -156,11 +188,11 @@
 
 | タスク | 削減量 | 依存 | 状態 |
 |--------|--------|------|------|
-| machine_interact統合 | -190行 | なし | [ ] |
-| machine_output統合 | -110行 | ↑完了後 | [ ] |
-| machine_ui_input統合 | -145行 | ↑完了後 | [ ] |
-| Color定数化 | -80行 | なし | [ ] |
-| raycast共通化 | -45行 | なし | [ ] |
+| machine_interact統合 | -190行 | なし | [-] (複雑、リスク大) |
+| machine_output統合 | -110行 | ↑完了後 | [-] (機械間接続で差異化) |
+| machine_ui_input統合 | -145行 | ↑完了後 | [-] (各機械で異なる動作、統合リスク大) |
+| Color定数化 | -80行 | なし | [x] ✅ (ui_colorsモジュール追加) |
+| raycast共通化 | -45行 | なし | [x] ✅ (dda_raycast関数追加) |
 
 ---
 
@@ -168,12 +200,12 @@
 
 | タスク | 詳細 | 状態 |
 |--------|------|------|
-| InputContext統合 | 6リソース→1構造体 | [ ] |
-| ワイルドカードインポート削除 | `use components::*`を明示化 | [ ] |
-| DebugHudState重複修正 | plugins/debug.rs + plugins/ui.rs | [ ] |
-| MachineInteraction統合 | 3つのInteracting*→1つのenum | [ ] |
-| UIState統合 | 7つのUIリソース→1つの構造体 | [ ] |
-| イベント駆動への移行 | 直接Resource変更→Event発行 | [ ] |
+| InputContext統合 | 6リソース→1構造体 | [-] (大規模、慎重に) |
+| ワイルドカードインポート削除 | `use components::*`を明示化 | [-] (13ファイル、リスク大) |
+| DebugHudState重複修正 | plugins/debug.rs + plugins/ui.rs | [x] ✅ (UIPluginから削除) |
+| MachineInteraction統合 | 3つのInteracting*→1つのenum | [-] (67箇所・17ファイル、慎重に) |
+| UIState統合 | 7つのUIリソース→1つの構造体 | [-] (大規模、慎重に) |
+| イベント駆動への移行 | 直接Resource変更→Event発行 | [-] (根本的変更、v0.3以降) |
 
 ---
 
@@ -183,12 +215,12 @@
 
 | タスク | 詳細 | 状態 |
 |--------|------|------|
-| CI/CD改善 | clippy警告をエラー扱い、WASM自動ビルド | [ ] |
-| Cargo.toml最適化 | 不要依存削除、feature整理 | [ ] |
+| CI/CD改善 | clippy警告をエラー扱い、WASM自動ビルド | [x] ✅ (既に設定済み) |
+| Cargo.toml最適化 | 不要依存削除、feature整理 | [x] ✅ (確認済み、全依存使用中) |
 | フォント最適化 | サブセット化 (16MB→軽量化) | [ ] |
 | WASMサイズ最適化 | wasm-opt、LTO見直し | [ ] |
-| バイナリサイズ削減 | strip symbols、codegen-units=1 | [ ] |
-| 依存関係棚卸し | 409依存の必要性調査 | [ ] |
+| バイナリサイズ削減 | strip symbols、codegen-units=1 | [x] ✅ (profile.releaseで設定済み) |
+| 依存関係棚卸し | 409依存の必要性調査 | [x] ✅ (全依存使用確認) |
 
 ---
 

@@ -8,6 +8,8 @@ export E2E_EXPORT_PATH="/home/bacon/idle_factory/e2e_state.json"
 SCREENSHOTS_DIR="/home/bacon/idle_factory/screenshots/verify"
 GAME_DIR="/home/bacon/idle_factory"
 E2E_STATE_FILE="/home/bacon/idle_factory/e2e_state.json"
+GAME_LOG_FILE="/tmp/e2e_game_$$.log"
+PANIC_DETECTED=0
 
 # 色付き出力
 GREEN='\033[0;32m'
@@ -26,7 +28,23 @@ mkdir -p "$SCREENSHOTS_DIR"
 cleanup() {
     pkill -x idle_factory 2>/dev/null || true
     pkill -9 -f "target/debug/idle" 2>/dev/null || true
+    rm -f "$GAME_LOG_FILE" 2>/dev/null || true
     sleep 1
+}
+
+# panic検出
+check_panic() {
+    if [ -f "$GAME_LOG_FILE" ]; then
+        if grep -qi "panic\|thread.*panicked\|RUST_BACKTRACE" "$GAME_LOG_FILE" 2>/dev/null; then
+            PANIC_DETECTED=1
+            err "🚨 PANIC検出!"
+            err "=== ログ最後の30行 ==="
+            tail -30 "$GAME_LOG_FILE"
+            err "======================"
+            return 1
+        fi
+    fi
+    return 0
 }
 
 # ゲーム起動して待機
@@ -35,8 +53,8 @@ start_game() {
     cleanup
     cd "$GAME_DIR"
 
-    # バックグラウンドでゲーム起動
-    cargo run 2>/dev/null &
+    # バックグラウンドでゲーム起動（ログを記録）
+    cargo run 2>&1 > "$GAME_LOG_FILE" &
     GAME_PID=$!
 
     # 起動待機（最大30秒）
@@ -45,6 +63,13 @@ start_game() {
         # プロセスが終了していないか確認
         if ! kill -0 $GAME_PID 2>/dev/null; then
             err "ゲームプロセスが終了しました"
+            check_panic
+            return 1
+        fi
+
+        # panic検出
+        if ! check_panic; then
+            cleanup
             return 1
         fi
 
@@ -85,13 +110,36 @@ activate_window() {
     return 1
 }
 
-# スクリーンショット撮影（連番付き）
+# スクリーンショット撮影（連番付き、ウィンドウ指定）
 SHOT_NUM=0
 shot() {
     SHOT_NUM=$((SHOT_NUM + 1))
     local name="$1"
     local filepath="$SCREENSHOTS_DIR/$(printf '%02d' $SHOT_NUM)_${name}.png"
-    scrot "$filepath"
+
+    # 撮影前にウィンドウをアクティブ化して確認
+    activate_window
+
+    # panic検出
+    if ! check_panic; then
+        err "📸 $(printf '%02d' $SHOT_NUM)_$name - PANIC検出のためスキップ"
+        return 1
+    fi
+
+    # ウィンドウIDを取得してウィンドウ指定撮影
+    local window_id
+    window_id=$(xdotool search --name "Idle Factory" 2>/dev/null | head -1)
+    [ -z "$window_id" ] && window_id=$(xdotool search --name "idle_factory" 2>/dev/null | head -1)
+
+    if [ -n "$window_id" ]; then
+        # ImageMagickのimportでウィンドウ指定撮影
+        import -window "$window_id" "$filepath" 2>/dev/null || scrot -u "$filepath" 2>/dev/null || scrot "$filepath"
+    else
+        # フォールバック：フォーカスウィンドウを撮影
+        scrot -u "$filepath" 2>/dev/null || scrot "$filepath"
+        warn "ウィンドウID取得失敗、フォールバック撮影"
+    fi
+
     log "📸 $(printf '%02d' $SHOT_NUM)_$name"
 }
 
@@ -275,10 +323,59 @@ assert_looking_down() {
 }
 
 # =============================================================================
+# 状態待機・検証 (中期タスク)
+# =============================================================================
+
+# 条件が満たされるまで待機 (jqクエリ)
+# 使用例: wait_for '.creative_mode == true' 5
+wait_for() {
+    local jq_query="$1"
+    local timeout="${2:-10}"
+    local interval="${3:-0.5}"
+
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jqがないためwait_forをスキップ"
+        sleep 1
+        return 0
+    fi
+
+    local elapsed=0
+    while [ $(echo "$elapsed < $timeout" | bc -l) -eq 1 ]; do
+        local result=$(get_state | jq -r "$jq_query" 2>/dev/null)
+        if [ "$result" = "true" ]; then
+            log "✅ 条件成立: $jq_query (${elapsed}s)"
+            return 0
+        fi
+        sleep "$interval"
+        elapsed=$(echo "$elapsed + $interval" | bc -l)
+    done
+
+    warn "⚠ タイムアウト: $jq_query (${timeout}s)"
+    return 1
+}
+
+# 状態変化を検証（変化前と変化後を比較）
+# 使用例: assert_changed '.player_pos[0]'
+assert_changed() {
+    local jq_query="$1"
+    local before=$(get_value "$jq_query")
+    sleep 0.3
+    local after=$(get_value "$jq_query")
+
+    if [ "$before" != "$after" ]; then
+        log "✅ 変化確認: $jq_query ($before → $after)"
+        return 0
+    else
+        warn "⚠ 変化なし: $jq_query = $before"
+        return 1
+    fi
+}
+
+# =============================================================================
 # ゲームコマンド送信 (Tキー → 入力 → Enter)
 # =============================================================================
 
-# ゲーム内コマンドを送信
+# ゲーム内コマンドを送信（結果を検証）
 send_command() {
     local cmd="$1"
     log "📤 コマンド送信: $cmd"
@@ -288,6 +385,13 @@ send_command() {
     sleep 0.2
     key "Return"
     sleep 0.5
+
+    # panic検出
+    if ! check_panic; then
+        err "コマンド実行中にpanicが発生"
+        return 1
+    fi
+    return 0
 }
 
 # テレポート
@@ -314,9 +418,28 @@ cmd_setblock() {
     send_command "/setblock $x $y $z $block"
 }
 
-# クリエイティブモード
+# クリエイティブモード（結果を検証）
 cmd_creative() {
     send_command "/creative"
+    # 状態変化を待機して確認
+    if wait_for '.creative_mode == true' 3; then
+        log "✅ クリエイティブモード有効化"
+        return 0
+    else
+        warn "⚠ クリエイティブモードの確認に失敗"
+        return 1
+    fi
+}
+
+# テレポート（結果を検証）
+cmd_tp_verify() {
+    local x="$1"
+    local y="$2"
+    local z="$3"
+    send_command "/tp $x $y $z"
+    sleep 0.3
+    # 位置が近いか検証
+    assert_near_pos "$x" "$y" "$z" 3
 }
 
 # =============================================================================
@@ -521,6 +644,9 @@ case "${1:-basic}" in
         ;;
 esac
 
+# 最終panic検出
+check_panic
+
 # 結果表示
 echo ""
 log "📂 $SCREENSHOTS_DIR"
@@ -530,3 +656,12 @@ ls -1 "$SCREENSHOTS_DIR"/*.png 2>/dev/null | while read f; do
 done
 echo "---"
 log "合計: $(ls -1 "$SCREENSHOTS_DIR"/*.png 2>/dev/null | wc -l) 枚"
+
+# panic検出時はエラー終了
+if [ $PANIC_DETECTED -eq 1 ]; then
+    err "🚨 PANICが検出されました。テスト失敗。"
+    exit 1
+fi
+
+log "✓ テスト成功（panicなし）"
+exit 0
