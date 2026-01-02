@@ -691,7 +691,8 @@ pub fn update_creative_catalog_sprites(
     for (item, mut image, mut visibility) in query.iter_mut() {
         if let Some(sprite) = item_sprites.get(item.0) {
             image.image = sprite;
-            *visibility = Visibility::Visible;
+            // Use Inherited so visibility follows parent (CreativePanel)
+            *visibility = Visibility::Inherited;
         }
     }
 }

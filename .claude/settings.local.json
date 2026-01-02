@@ -307,7 +307,10 @@
       "Bash(cargo tree:*)",
       "Bash(cargo metadata:*)",
       "Bash(for dep in futures-lite notify crossbeam-channel dot_vox)",
-      "Bash(cut:*)"
+      "Bash(cut:*)",
+      "Bash(DISPLAY=:10 RUST_LOG=info timeout 15 cargo run:*)",
+      "Bash(file:*)",
+      "Bash(cargo fmt:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

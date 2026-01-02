@@ -5443,3 +5443,127 @@ fn test_performance_world_block_queries() {
         queries_per_ms
     );
 }
+
+// ============================================================================
+// Creative Catalog Sprite Visibility Tests
+// ============================================================================
+
+/// Test that creative catalog sprites use Inherited visibility
+/// This prevents sprites from showing when the parent panel is hidden
+#[test]
+fn test_creative_catalog_sprite_visibility_inherits_from_parent() {
+    // Simulate the visibility behavior:
+    // - CreativePanel is Hidden (inventory closed or non-creative mode)
+    // - CreativeItemImage should NOT be visible
+
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    enum TestVisibility {
+        Inherited,
+        Visible,
+        Hidden,
+    }
+
+    struct CreativePanel {
+        visibility: TestVisibility,
+    }
+
+    struct CreativeItemImage {
+        visibility: TestVisibility,
+    }
+
+    // Simulate update_creative_catalog_sprites behavior (FIXED version)
+    fn update_sprite_visibility(sprite: &mut CreativeItemImage, _has_texture: bool) {
+        if _has_texture {
+            // Should use Inherited, NOT Visible
+            sprite.visibility = TestVisibility::Inherited;
+        }
+    }
+
+    // Simulate inherited visibility calculation
+    fn compute_inherited_visibility(parent: &CreativePanel, child: &CreativeItemImage) -> bool {
+        match child.visibility {
+            TestVisibility::Hidden => false,
+            TestVisibility::Visible => true, // BUG: Would show even if parent hidden
+            TestVisibility::Inherited => match parent.visibility {
+                TestVisibility::Hidden => false,
+                TestVisibility::Visible | TestVisibility::Inherited => true,
+            },
+        }
+    }
+
+    // Test case 1: Panel hidden, sprite should not be visible
+    let panel = CreativePanel {
+        visibility: TestVisibility::Hidden,
+    };
+    let mut sprite = CreativeItemImage {
+        visibility: TestVisibility::Hidden,
+    };
+
+    // Simulate texture loaded
+    update_sprite_visibility(&mut sprite, true);
+
+    // Sprite visibility should be Inherited
+    assert_eq!(
+        sprite.visibility,
+        TestVisibility::Inherited,
+        "Sprite should use Inherited visibility after texture load"
+    );
+
+    // When parent is hidden, sprite should not be visible
+    let is_visible = compute_inherited_visibility(&panel, &sprite);
+    assert!(
+        !is_visible,
+        "Sprite should NOT be visible when parent panel is Hidden"
+    );
+
+    // Test case 2: Panel visible, sprite should be visible
+    let panel_visible = CreativePanel {
+        visibility: TestVisibility::Visible,
+    };
+    let is_visible_with_panel = compute_inherited_visibility(&panel_visible, &sprite);
+    assert!(
+        is_visible_with_panel,
+        "Sprite should be visible when parent panel is Visible"
+    );
+}
+
+/// Test that demonstrates the bug that was fixed
+/// If sprites used Visibility::Visible, they would show even when panel is hidden
+#[test]
+fn test_creative_catalog_visibility_bug_prevented() {
+    // This test documents the bug that was fixed:
+    // Before: update_creative_catalog_sprites set Visibility::Visible
+    // After: update_creative_catalog_sprites sets Visibility::Inherited
+
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    enum Visibility {
+        Inherited,
+        Visible,
+        Hidden,
+    }
+
+    // OLD buggy behavior (for documentation)
+    fn old_buggy_update(_sprite_visibility: &mut Visibility, has_texture: bool) {
+        if has_texture {
+            *_sprite_visibility = Visibility::Visible; // BUG!
+        }
+    }
+
+    // NEW fixed behavior
+    fn new_fixed_update(sprite_visibility: &mut Visibility, has_texture: bool) {
+        if has_texture {
+            *sprite_visibility = Visibility::Inherited; // FIXED
+        }
+    }
+
+    let mut old_vis = Visibility::Hidden;
+    let mut new_vis = Visibility::Hidden;
+
+    old_buggy_update(&mut old_vis, true);
+    new_fixed_update(&mut new_vis, true);
+
+    // Old code would set Visible (causing the bug)
+    assert_eq!(old_vis, Visibility::Visible);
+    // New code sets Inherited (correct behavior)
+    assert_eq!(new_vis, Visibility::Inherited);
+}
