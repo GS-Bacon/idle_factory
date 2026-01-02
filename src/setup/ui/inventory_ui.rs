@@ -48,6 +48,7 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                         ..default()
                     },
                     BackgroundColor(Color::srgba(0.08, 0.08, 0.08, 0.9)),
+                    Visibility::Hidden, // Start hidden, shown when inventory open + creative mode
                 ))
                 .with_children(|catalog| {
                     // Creative catalog grid (5x9)

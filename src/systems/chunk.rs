@@ -122,13 +122,18 @@ pub fn receive_chunk_meshes(
 
     #[cfg(target_arch = "wasm32")]
     {
-        // WASM: all pending chunks are already Ready
-        for (&coord, _) in tasks.pending.iter() {
-            if completed.len() >= MAX_CHUNKS_PER_FRAME {
-                break;
+        // WASM: all pending chunks are already Ready - extract the actual data
+        let coords_to_process: Vec<IVec2> = tasks
+            .pending
+            .keys()
+            .take(MAX_CHUNKS_PER_FRAME)
+            .copied()
+            .collect();
+        for coord in coords_to_process {
+            if let Some(PendingChunk::Ready(data)) = tasks.pending.remove(&coord) {
+                tracing::debug!("WASM chunk ready for {:?}", coord);
+                completed.push((coord, data));
             }
-            // Mark for extraction (we'll remove and extract below)
-            completed.push((coord, ChunkMeshData::default()));
         }
     }
 
