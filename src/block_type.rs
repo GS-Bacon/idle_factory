@@ -61,6 +61,12 @@ pub enum BlockType {
         serialize = "furnaceblock"
     )]
     FurnaceBlock,
+    #[strum(
+        serialize = "stone_pickaxe",
+        serialize = "pickaxe",
+        serialize = "stonepickaxe"
+    )]
+    StonePickaxe,
 }
 
 impl BlockType {
@@ -78,6 +84,7 @@ impl BlockType {
             BlockType::CopperIngot => Color::srgb(0.9, 0.5, 0.3),
             BlockType::CrusherBlock => Color::srgb(0.4, 0.3, 0.5),
             BlockType::FurnaceBlock => Color::srgb(0.4, 0.3, 0.3),
+            BlockType::StonePickaxe => Color::srgb(0.6, 0.6, 0.6),
         }
     }
 
@@ -95,6 +102,7 @@ impl BlockType {
             BlockType::CopperIngot => "Copper Ingot",
             BlockType::CrusherBlock => "Crusher",
             BlockType::FurnaceBlock => "Furnace",
+            BlockType::StonePickaxe => "Stone Pickaxe",
         }
     }
 
@@ -112,7 +120,13 @@ impl BlockType {
             BlockType::CopperIngot => "Cu",
             BlockType::CrusherBlock => "Cru",
             BlockType::FurnaceBlock => "Fur",
+            BlockType::StonePickaxe => "Pick",
         }
+    }
+
+    /// Returns true if this block type is a tool
+    pub fn is_tool(&self) -> bool {
+        matches!(self, BlockType::StonePickaxe)
     }
 
     /// Returns true if this block type is a machine (not a regular block)
@@ -218,7 +232,7 @@ mod tests {
     #[test]
     fn test_strum_iter_count() {
         // Verify we have the expected number of block types
-        assert_eq!(BlockType::iter().count(), 11);
+        assert_eq!(BlockType::iter().count(), 12);
     }
 
     #[test]

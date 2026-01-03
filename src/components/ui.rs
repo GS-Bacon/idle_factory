@@ -267,3 +267,13 @@ pub struct GlobalInventoryCategoryTab(pub ItemCategory);
 /// Marker for search input box
 #[derive(Component)]
 pub struct GlobalInventorySearchInput;
+
+// === Breaking Progress UI ===
+
+/// Marker for breaking progress bar container (centered on screen)
+#[derive(Component)]
+pub struct BreakingProgressUI;
+
+/// Marker for breaking progress bar fill
+#[derive(Component)]
+pub struct BreakingProgressBarFill;

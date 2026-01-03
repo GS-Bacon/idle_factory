@@ -88,7 +88,7 @@ impl BiomeMap {
             let dx = pos.x - spawn_center.x;
             let dz = pos.z - spawn_center.y;
 
-            if distance < 5.0 {
+            if distance < 2.0 {
                 // Very close to center - mixed biome
                 return BiomeType::Mixed;
             }

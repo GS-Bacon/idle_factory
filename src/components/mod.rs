@@ -53,6 +53,42 @@ pub struct TargetBlock {
     pub place_highlight_entity: Option<Entity>,
 }
 
+/// Breaking progress state (for time-based block breaking)
+#[derive(Resource, Default)]
+pub struct BreakingProgress {
+    /// Position of block being broken (world block or machine position)
+    pub target_pos: Option<IVec3>,
+    /// Entity being broken (for machines)
+    pub target_entity: Option<Entity>,
+    /// Current progress (0.0 to 1.0)
+    pub progress: f32,
+    /// Total time required to break (seconds)
+    pub total_time: f32,
+    /// Whether breaking a machine (true) or world block (false)
+    pub is_machine: bool,
+}
+
+impl BreakingProgress {
+    /// Reset breaking progress
+    pub fn reset(&mut self) {
+        self.target_pos = None;
+        self.target_entity = None;
+        self.progress = 0.0;
+        self.total_time = 0.0;
+        self.is_machine = false;
+    }
+
+    /// Check if currently breaking something
+    pub fn is_breaking(&self) -> bool {
+        self.target_pos.is_some() || self.target_entity.is_some()
+    }
+
+    /// Check if breaking is complete
+    pub fn is_complete(&self) -> bool {
+        self.progress >= 1.0
+    }
+}
+
 /// Marker component for break target highlight (edges)
 #[derive(Component)]
 pub struct TargetHighlight;

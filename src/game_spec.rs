@@ -123,6 +123,51 @@ pub mod ui_spec {
     pub const CATEGORIES: &[&str] = &["全て", "素材", "機械", "部品"];
 }
 
+/// # ブロック破壊仕様
+///
+/// ブロックや機械を破壊するには時間がかかる。
+/// ツールを持っていると破壊が速くなる。
+///
+/// ## 破壊時間（秒）
+/// - 素手: 基本時間 × 2.0
+/// - 石のピッケル: 基本時間 × 1.0
+///
+/// ## 基本破壊時間
+/// - 地面ブロック（石、草など）: 1.0秒
+/// - 機械（採掘機、コンベアなど）: 0.5秒
+pub mod breaking_spec {
+    use super::BlockType;
+
+    /// 素手の破壊速度係数（遅い）
+    pub const BARE_HAND_MULTIPLIER: f32 = 2.0;
+
+    /// 石のピッケルの破壊速度係数
+    pub const STONE_PICKAXE_MULTIPLIER: f32 = 1.0;
+
+    /// 地面ブロックの基本破壊時間（秒）
+    pub const TERRAIN_BREAK_TIME: f32 = 1.0;
+
+    /// 機械の基本破壊時間（秒）
+    pub const MACHINE_BREAK_TIME: f32 = 0.5;
+
+    /// ブロックタイプに応じた基本破壊時間を取得
+    pub fn get_base_break_time(block_type: BlockType) -> f32 {
+        if block_type.is_machine() {
+            MACHINE_BREAK_TIME
+        } else {
+            TERRAIN_BREAK_TIME
+        }
+    }
+
+    /// ツールに応じた破壊速度係数を取得
+    pub fn get_tool_multiplier(tool: Option<BlockType>) -> f32 {
+        match tool {
+            Some(BlockType::StonePickaxe) => STONE_PICKAXE_MULTIPLIER,
+            _ => BARE_HAND_MULTIPLIER,
+        }
+    }
+}
+
 /// # バイオーム採掘システム仕様
 ///
 /// 採掘機は設置場所のバイオームに応じた確率テーブルで鉱石を生成する。
@@ -185,7 +230,8 @@ pub mod biome_mining_spec {
     ];
 
     /// スポーン地点の保証半径（ブロック単位）
-    pub const SPAWN_GUARANTEE_RADIUS: u32 = 15;
+    /// 納品プラットフォーム中心から10マス以内に鉄・銅・石炭バイオームを保証
+    pub const SPAWN_GUARANTEE_RADIUS: u32 = 10;
 
     /// スポーン地点で保証されるバイオーム
     /// これらが必ずSPAWN_GUARANTEE_RADIUS内に生成される
@@ -198,18 +244,19 @@ pub mod biome_mining_spec {
 /// # 初期支給（全体在庫に追加）
 ///
 /// v0.2 新仕様:
-/// - 採掘機×2, コンベア×30, 精錬炉×1 を全体在庫に支給
+/// - 石のピッケル×1, 採掘機×2, コンベア×90, 精錬炉×1 を全体在庫に支給
 /// - 納品プラットフォームはワールドに設置済み
 /// - 組立機はクエスト報酬でアンロック
 ///
 /// ## 設計意図
-/// - コンベア30本: 納品PFから各鉱石バイオーム（半径15以内）に
-///   往復ラインを敷設可能（片道約10本×3ライン）
+/// - コンベア90本: 納品PFから各鉱石バイオーム（半径10以内）に
+///   余裕を持ってラインを敷設可能
 /// - 採掘機2台: 鉄と石炭（または銅）を同時に採掘開始可能
 /// - 精錬炉1台: インゴット生成でクエスト1をクリア可能
 pub const INITIAL_EQUIPMENT: &[(BlockType, u32)] = &[
+    (BlockType::StonePickaxe, 1),
     (BlockType::MinerBlock, 2),
-    (BlockType::ConveyorBlock, 30),
+    (BlockType::ConveyorBlock, 90),
     (BlockType::FurnaceBlock, 1),
 ];
 
@@ -648,29 +695,12 @@ pub mod recipe_spec {
     // =========================================================================
     // 粉砕レシピ
     // =========================================================================
+    // 将来実装予定:
+    // - 鉱石 → 粉砕鉱石（精錬効率UP）
+    // - インゴット → 金属粉（ワイヤー/回路の材料）
 
-    /// 鉄鉱石 → 鉄鉱石×2（燃料不要）
-    pub const RECIPE_CRUSH_IRON: RecipeSpec = RecipeSpec {
-        id: "crush_iron",
-        machine: MachineType::Crusher,
-        inputs: &[RecipeInput::new(BlockType::IronOre, 1, 0)],
-        outputs: &[RecipeOutput::guaranteed(BlockType::IronOre, 2)],
-        craft_time: 1.5,
-        fuel: None,
-    };
-
-    /// 銅鉱石 → 銅鉱石×2
-    pub const RECIPE_CRUSH_COPPER: RecipeSpec = RecipeSpec {
-        id: "crush_copper",
-        machine: MachineType::Crusher,
-        inputs: &[RecipeInput::new(BlockType::CopperOre, 1, 0)],
-        outputs: &[RecipeOutput::guaranteed(BlockType::CopperOre, 2)],
-        craft_time: 1.5,
-        fuel: None,
-    };
-
-    /// 全粉砕レシピ
-    pub const CRUSHER_RECIPES: &[&RecipeSpec] = &[&RECIPE_CRUSH_IRON, &RECIPE_CRUSH_COPPER];
+    /// 全粉砕レシピ（現在は空、将来拡張）
+    pub const CRUSHER_RECIPES: &[&RecipeSpec] = &[];
 
     // =========================================================================
     // 組立レシピ（将来用）
@@ -710,9 +740,7 @@ pub mod recipe_spec {
         // Furnace
         &RECIPE_SMELT_IRON,
         &RECIPE_SMELT_COPPER,
-        // Crusher
-        &RECIPE_CRUSH_IRON,
-        &RECIPE_CRUSH_COPPER,
+        // Crusher: 将来実装予定
     ];
 
     /// 入力アイテムからレシピを検索（機械タイプ指定）
@@ -992,8 +1020,9 @@ mod tests {
             "smelt_iron"
         );
 
+        // Crusherは現在レシピなし（将来実装予定）
         let copper_crush = find_recipe(MachineType::Crusher, BlockType::CopperOre);
-        assert!(copper_crush.is_some(), "Should find copper crushing recipe");
+        assert!(copper_crush.is_none(), "Crusher has no recipes yet");
     }
 
     /// 燃料要件の検証
@@ -1009,14 +1038,7 @@ mod tests {
         let fuel = iron_smelt.fuel.expect("fuel requirement should exist");
         assert_eq!(fuel.fuel_type, BlockType::Coal);
         assert_eq!(fuel.amount, 1);
-
-        // 粉砕機は燃料不要
-        let iron_crush = find_recipe(MachineType::Crusher, BlockType::IronOre)
-            .expect("iron crush recipe should exist");
-        assert!(
-            iron_crush.fuel.is_none(),
-            "Crusher recipes should not require fuel"
-        );
+        // Crusherは現在レシピなし（将来実装時に燃料不要をテスト）
     }
 
     /// 出力確率の検証
@@ -1050,7 +1072,7 @@ mod tests {
         assert_eq!(furnace_recipes.len(), 2);
 
         let crusher_recipes: Vec<_> = get_recipes_for_machine(MachineType::Crusher).collect();
-        assert_eq!(crusher_recipes.len(), 2);
+        assert_eq!(crusher_recipes.len(), 0); // 将来実装予定
 
         let assembler_recipes: Vec<_> = get_recipes_for_machine(MachineType::Assembler).collect();
         assert_eq!(assembler_recipes.len(), 0); // 将来用

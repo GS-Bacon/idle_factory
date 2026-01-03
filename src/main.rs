@@ -159,6 +159,7 @@ fn main() {
         .init_resource::<GlobalInventoryPage>()
         .init_resource::<GlobalInventoryCategory>()
         .init_resource::<GlobalInventorySearch>()
+        .init_resource::<BreakingProgress>()
         .add_event::<TeleportEvent>()
         .add_event::<LookEvent>()
         .add_event::<SetBlockEvent>()
@@ -525,29 +526,16 @@ mod tests {
     }
 
     #[test]
-    fn test_crusher_can_crush() {
-        assert!(Crusher::can_crush(BlockType::IronOre));
-        assert!(Crusher::can_crush(BlockType::CopperOre));
+    fn test_crusher_no_recipes() {
+        // Currently crusher has no recipes (reserved for future chain-based recipes)
+        assert!(!Crusher::can_crush(BlockType::IronOre));
+        assert!(!Crusher::can_crush(BlockType::CopperOre));
         assert!(!Crusher::can_crush(BlockType::Stone));
         assert!(!Crusher::can_crush(BlockType::IronIngot));
-    }
 
-    #[test]
-    fn test_crusher_get_output_uses_recipe() {
-        // Crusher should double ore output (from recipe system)
-        let iron_output = Crusher::get_crush_output(BlockType::IronOre);
-        assert!(iron_output.is_some());
-        let (item, count) = iron_output.expect("iron ore should be crushable");
-        assert_eq!(item, BlockType::IronOre);
-        assert_eq!(count, 2); // Doubled
-
-        let copper_output = Crusher::get_crush_output(BlockType::CopperOre);
-        assert!(copper_output.is_some());
-        let (item, count) = copper_output.expect("copper ore should be crushable");
-        assert_eq!(item, BlockType::CopperOre);
-        assert_eq!(count, 2); // Doubled
-
-        // Non-crushable items should return None
+        // All outputs should be None
+        assert!(Crusher::get_crush_output(BlockType::IronOre).is_none());
+        assert!(Crusher::get_crush_output(BlockType::CopperOre).is_none());
         assert!(Crusher::get_crush_output(BlockType::Stone).is_none());
     }
 
