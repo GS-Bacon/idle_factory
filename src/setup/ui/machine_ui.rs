@@ -5,8 +5,9 @@
 use crate::components::*;
 use bevy::prelude::*;
 
+use super::{text_font, SLOT_SIZE};
+
 // === Design Rule Constants ===
-const SLOT_SIZE: f32 = 54.0;
 const PANEL_PADDING: f32 = 20.0;
 const HEADER_HEIGHT: f32 = 25.0;
 
@@ -20,7 +21,7 @@ const TEXT_PRIMARY: Color = Color::WHITE;
 const TEXT_SECONDARY: Color = Color::srgb(0.67, 0.67, 0.67);
 
 /// Spawn furnace slot with proper component
-fn spawn_furnace_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType) {
+fn spawn_furnace_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType, font: &Handle<Font>) {
     parent
         .spawn((
             Button,
@@ -40,17 +41,18 @@ fn spawn_furnace_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType) {
             slot.spawn((
                 MachineSlotCount(slot_type),
                 Text::new(""),
-                TextFont {
-                    font_size: 14.0,
-                    ..default()
-                },
+                text_font(font, 14.0),
                 TextColor(TEXT_PRIMARY),
             ));
         });
 }
 
 /// Spawn crusher slot with proper component
-fn spawn_crusher_slot_inner(parent: &mut ChildBuilder, slot_type: MachineSlotType) {
+fn spawn_crusher_slot_inner(
+    parent: &mut ChildBuilder,
+    slot_type: MachineSlotType,
+    font: &Handle<Font>,
+) {
     parent
         .spawn((
             Button,
@@ -70,16 +72,14 @@ fn spawn_crusher_slot_inner(parent: &mut ChildBuilder, slot_type: MachineSlotTyp
             slot.spawn((
                 CrusherSlotCount(slot_type),
                 Text::new(""),
-                TextFont {
-                    font_size: 14.0,
-                    ..default()
-                },
+                text_font(font, 14.0),
                 TextColor(TEXT_PRIMARY),
             ));
         });
 }
 
-pub fn setup_furnace_ui(commands: &mut Commands) {
+pub fn setup_furnace_ui(commands: &mut Commands, font: &Handle<Font>) {
+    let font = font.clone();
     commands
         .spawn((
             FurnaceUI,
@@ -101,6 +101,7 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
             Visibility::Hidden,
         ))
         .with_children(|panel| {
+            let font = font.clone();
             // === Header ===
             panel
                 .spawn((
@@ -118,19 +119,13 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
                 .with_children(|header| {
                     header.spawn((
                         Text::new("Furnace"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
+                        text_font(&font, 16.0),
                         TextColor(TEXT_PRIMARY),
                     ));
                     // Close button placeholder (X)
                     header.spawn((
                         Text::new("×"),
-                        TextFont {
-                            font_size: 18.0,
-                            ..default()
-                        },
+                        text_font(&font, 18.0),
                         TextColor(TEXT_SECONDARY),
                     ));
                 });
@@ -146,6 +141,7 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
             ));
 
             // === Content area ===
+            let font_content = font.clone();
             panel
                 .spawn((Node {
                     flex_direction: FlexDirection::Column,
@@ -156,6 +152,7 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
                 },))
                 .with_children(|content| {
                     // Fuel slot row
+                    let font_row = font_content.clone();
                     content
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
@@ -164,13 +161,10 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
                             ..default()
                         },))
                         .with_children(|row| {
-                            spawn_furnace_slot(row, MachineSlotType::Fuel);
+                            spawn_furnace_slot(row, MachineSlotType::Fuel, &font_row);
                             row.spawn((
                                 Text::new("Fuel"),
-                                TextFont {
-                                    font_size: 12.0,
-                                    ..default()
-                                },
+                                text_font(&font_row, 12.0),
                                 TextColor(TEXT_SECONDARY),
                             ));
                         });
@@ -178,14 +172,12 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
                     // Fire icon (shown when working)
                     content.spawn((
                         Text::new("🔥"),
-                        TextFont {
-                            font_size: 20.0,
-                            ..default()
-                        },
+                        text_font(&font_content, 20.0),
                         TextColor(Color::srgba(1.0, 0.5, 0.0, 0.8)),
                     ));
 
                     // Input -> Output row
+                    let font_io = font_content.clone();
                     content
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
@@ -194,16 +186,13 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
                             ..default()
                         },))
                         .with_children(|row| {
-                            spawn_furnace_slot(row, MachineSlotType::Input);
+                            spawn_furnace_slot(row, MachineSlotType::Input, &font_io);
                             row.spawn((
                                 Text::new("→"),
-                                TextFont {
-                                    font_size: 20.0,
-                                    ..default()
-                                },
+                                text_font(&font_io, 20.0),
                                 TextColor(TEXT_SECONDARY),
                             ));
-                            spawn_furnace_slot(row, MachineSlotType::Output);
+                            spawn_furnace_slot(row, MachineSlotType::Output, &font_io);
                         });
 
                     // Progress bar
@@ -231,17 +220,15 @@ pub fn setup_furnace_ui(commands: &mut Commands) {
                     // Instructions
                     content.spawn((
                         Text::new("E or ESC to close"),
-                        TextFont {
-                            font_size: 11.0,
-                            ..default()
-                        },
+                        text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
                 });
         });
 }
 
-pub fn setup_crusher_ui(commands: &mut Commands) {
+pub fn setup_crusher_ui(commands: &mut Commands, font: &Handle<Font>) {
+    let font = font.clone();
     commands
         .spawn((
             CrusherUI,
@@ -263,6 +250,7 @@ pub fn setup_crusher_ui(commands: &mut Commands) {
             Visibility::Hidden,
         ))
         .with_children(|panel| {
+            let font = font.clone();
             // === Header ===
             panel
                 .spawn((
@@ -280,23 +268,18 @@ pub fn setup_crusher_ui(commands: &mut Commands) {
                 .with_children(|header| {
                     header.spawn((
                         Text::new("Crusher"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
+                        text_font(&font, 16.0),
                         TextColor(TEXT_PRIMARY),
                     ));
                     header.spawn((
                         Text::new("×"),
-                        TextFont {
-                            font_size: 18.0,
-                            ..default()
-                        },
+                        text_font(&font, 18.0),
                         TextColor(TEXT_SECONDARY),
                     ));
                 });
 
             // === Content ===
+            let font_content = font.clone();
             panel
                 .spawn((Node {
                     flex_direction: FlexDirection::Column,
@@ -307,6 +290,7 @@ pub fn setup_crusher_ui(commands: &mut Commands) {
                 },))
                 .with_children(|content| {
                     // Input -> Output row
+                    let font_io = font_content.clone();
                     content
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
@@ -315,16 +299,13 @@ pub fn setup_crusher_ui(commands: &mut Commands) {
                             ..default()
                         },))
                         .with_children(|row| {
-                            spawn_crusher_slot_inner(row, MachineSlotType::Input);
+                            spawn_crusher_slot_inner(row, MachineSlotType::Input, &font_io);
                             row.spawn((
                                 Text::new("→"),
-                                TextFont {
-                                    font_size: 20.0,
-                                    ..default()
-                                },
+                                text_font(&font_io, 20.0),
                                 TextColor(TEXT_SECONDARY),
                             ));
-                            spawn_crusher_slot_inner(row, MachineSlotType::Output);
+                            spawn_crusher_slot_inner(row, MachineSlotType::Output, &font_io);
                         });
 
                     // Progress bar
@@ -352,26 +333,21 @@ pub fn setup_crusher_ui(commands: &mut Commands) {
                     // Info
                     content.spawn((
                         Text::new("Doubles ore output!"),
-                        TextFont {
-                            font_size: 11.0,
-                            ..default()
-                        },
+                        text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
 
                     content.spawn((
                         Text::new("E or ESC to close"),
-                        TextFont {
-                            font_size: 11.0,
-                            ..default()
-                        },
+                        text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
                 });
         });
 }
 
-pub fn setup_miner_ui(commands: &mut Commands) {
+pub fn setup_miner_ui(commands: &mut Commands, font: &Handle<Font>) {
+    let font = font.clone();
     commands
         .spawn((
             MinerUI,
@@ -393,6 +369,7 @@ pub fn setup_miner_ui(commands: &mut Commands) {
             Visibility::Hidden,
         ))
         .with_children(|panel| {
+            let font = font.clone();
             // === Header ===
             panel
                 .spawn((
@@ -410,23 +387,18 @@ pub fn setup_miner_ui(commands: &mut Commands) {
                 .with_children(|header| {
                     header.spawn((
                         Text::new("Miner"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
+                        text_font(&font, 16.0),
                         TextColor(TEXT_PRIMARY),
                     ));
                     header.spawn((
                         Text::new("×"),
-                        TextFont {
-                            font_size: 18.0,
-                            ..default()
-                        },
+                        text_font(&font, 18.0),
                         TextColor(TEXT_SECONDARY),
                     ));
                 });
 
             // === Content ===
+            let font_content = font.clone();
             panel
                 .spawn((Node {
                     flex_direction: FlexDirection::Column,
@@ -437,6 +409,7 @@ pub fn setup_miner_ui(commands: &mut Commands) {
                 },))
                 .with_children(|content| {
                     // Buffer slot
+                    let font_row = font_content.clone();
                     content
                         .spawn((Node {
                             flex_direction: FlexDirection::Row,
@@ -445,6 +418,7 @@ pub fn setup_miner_ui(commands: &mut Commands) {
                             ..default()
                         },))
                         .with_children(|row| {
+                            let font_slot = font_row.clone();
                             row.spawn((
                                 Button,
                                 MinerBufferButton,
@@ -463,15 +437,13 @@ pub fn setup_miner_ui(commands: &mut Commands) {
                                 slot.spawn((
                                     MinerBufferCountText,
                                     Text::new(""),
-                                    TextFont {
-                                        font_size: 14.0,
-                                        ..default()
-                                    },
+                                    text_font(&font_slot, 14.0),
                                     TextColor(TEXT_PRIMARY),
                                 ));
                             });
 
                             // Clear button
+                            let font_btn = font_row.clone();
                             row.spawn((
                                 Button,
                                 MinerClearButton,
@@ -489,10 +461,7 @@ pub fn setup_miner_ui(commands: &mut Commands) {
                             .with_children(|btn| {
                                 btn.spawn((
                                     Text::new("Clear"),
-                                    TextFont {
-                                        font_size: 12.0,
-                                        ..default()
-                                    },
+                                    text_font(&font_btn, 12.0),
                                     TextColor(TEXT_PRIMARY),
                                 ));
                             });
@@ -501,19 +470,13 @@ pub fn setup_miner_ui(commands: &mut Commands) {
                     // Instructions
                     content.spawn((
                         Text::new("Click buffer to take items"),
-                        TextFont {
-                            font_size: 11.0,
-                            ..default()
-                        },
+                        text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
 
                     content.spawn((
                         Text::new("E or ESC to close"),
-                        TextFont {
-                            font_size: 11.0,
-                            ..default()
-                        },
+                        text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
                 });

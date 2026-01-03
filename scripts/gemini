@@ -1,0 +1,170 @@
+#!/bin/bash
+# Gemini簡易ラッパー - プリセット付き
+# 使い方: ./scripts/gemini <command> [args...]
+#
+# コマンド:
+#   review <files>     - コードレビュー
+#   arch <files>       - アーキテクチャ評価
+#   math <質問>        - 数学・座標計算の検証
+#   bug <説明>         - バグ分析
+#   ask <質問> [files] - 自由質問（従来通り）
+#   diff               - git diffをレビュー
+
+set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TIMEOUT="${GEMINI_TIMEOUT:-120}"
+
+# 色
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+usage() {
+    cat <<EOF
+使い方: gemini <command> [args...]
+
+コマンド:
+  review <files>      コードレビュー（品質・バグ・改善点）
+  arch [files]        アーキテクチャ評価（デフォルト: src/*.rs）
+  math <質問>         数学・座標・回転計算の検証
+  bug <説明>          バグ分析・原因特定
+  ask <質問> [files]  自由質問
+  diff                git diffをレビュー
+  help                このヘルプを表示
+
+例:
+  gemini review src/conveyor.rs
+  gemini arch
+  gemini math "Vec3::NEG_Z を Y軸で90度回転させると？"
+  gemini bug "コンベアが逆方向に動く"
+  gemini diff
+EOF
+    exit 1
+}
+
+run_gemini() {
+    local prompt="$1"
+    shift
+    local files=("$@")
+
+    local file_args=""
+    for f in "${files[@]}"; do
+        if [[ -f "$f" ]]; then
+            file_args="$file_args @$f"
+        fi
+    done
+
+    echo -e "${YELLOW}🤖 Gemini に質問中...${NC}" >&2
+
+    if timeout "$TIMEOUT" gemini $file_args "$prompt" --approval-mode yolo 2>&1; then
+        echo -e "${GREEN}✅ 完了${NC}" >&2
+    else
+        local code=$?
+        if [[ $code -eq 124 ]]; then
+            echo -e "${RED}❌ タイムアウト (${TIMEOUT}秒)${NC}" >&2
+        else
+            echo -e "${RED}❌ エラー (code: $code)${NC}" >&2
+        fi
+        return $code
+    fi
+}
+
+# コマンド処理
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+    review|r)
+        if [[ $# -eq 0 ]]; then
+            echo "使い方: gemini review <files>" >&2
+            exit 1
+        fi
+        PROMPT="このコードをレビューしてください。
+以下の観点で簡潔に指摘してください:
+1. バグ・潜在的問題
+2. パフォーマンス
+3. 可読性・保守性
+4. Bevy/Rustのベストプラクティスとの差異
+
+各項目は箇条書きで、行番号を付けてください。"
+        run_gemini "$PROMPT" "$@"
+        ;;
+
+    arch|a)
+        FILES=("$@")
+        if [[ ${#FILES[@]} -eq 0 ]]; then
+            FILES=(src/*.rs)
+        fi
+        PROMPT="このRust/Bevyプロジェクトのアーキテクチャを評価してください。
+以下の観点で分析してください:
+1. モジュール構成の良し悪し
+2. 依存関係の問題
+3. Bevyプラグインパターンとの適合度
+4. 改善提案（優先度順）
+
+簡潔に、具体的なファイル名と行番号を示してください。"
+        run_gemini "$PROMPT" "${FILES[@]}"
+        ;;
+
+    math|m)
+        if [[ $# -eq 0 ]]; then
+            echo "使い方: gemini math <質問>" >&2
+            exit 1
+        fi
+        QUESTION="$*"
+        PROMPT="以下の数学的な質問に答えてください。計算過程を示してください。
+
+質問: $QUESTION
+
+ゲーム開発（Bevy/glam）のコンテキストで回答してください。
+座標系: 右手系、Y-up
+Vec3, Quat などの型を使用しています。"
+        run_gemini "$PROMPT"
+        ;;
+
+    bug|b)
+        if [[ $# -eq 0 ]]; then
+            echo "使い方: gemini bug <説明> [files]" >&2
+            exit 1
+        fi
+        # 最初の引数は説明、残りはファイル
+        DESC="$1"
+        shift || true
+        PROMPT="以下のバグを分析してください:
+
+症状: $DESC
+
+考えられる原因を優先度順に3つ挙げ、それぞれの確認方法を示してください。
+コードが提供されている場合は、該当箇所を特定してください。"
+        run_gemini "$PROMPT" "$@"
+        ;;
+
+    diff|d)
+        DIFF=$(git diff HEAD 2>/dev/null || git diff 2>/dev/null || echo "")
+        if [[ -z "$DIFF" ]]; then
+            echo "変更がありません" >&2
+            exit 0
+        fi
+        PROMPT="以下のgit diffをレビューしてください。
+問題点、改善点があれば指摘してください。
+
+\`\`\`diff
+$DIFF
+\`\`\`"
+        run_gemini "$PROMPT"
+        ;;
+
+    ask|q)
+        "$SCRIPT_DIR/ask_gemini.sh" "$@"
+        ;;
+
+    help|h|--help|-h)
+        usage
+        ;;
+
+    *)
+        echo -e "${RED}不明なコマンド: $CMD${NC}" >&2
+        usage
+        ;;
+esac

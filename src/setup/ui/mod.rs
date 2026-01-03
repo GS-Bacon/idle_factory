@@ -11,106 +11,25 @@ pub use machine_ui::{setup_crusher_ui, setup_furnace_ui, setup_miner_ui};
 use crate::components::*;
 use bevy::prelude::*;
 
+/// Helper to create TextFont with the game font
+pub fn text_font(font: &Handle<Font>, size: f32) -> TextFont {
+    TextFont {
+        font: font.clone(),
+        font_size: size,
+        ..default()
+    }
+}
+
 /// Minecraft-style slot size (18px in MC scaled to 50px for this game)
-pub const SLOT_SIZE: f32 = 50.0;
+pub const SLOT_SIZE: f32 = 52.0;
 pub const SLOT_GAP: f32 = 3.0;
 pub const SLOT_BORDER: f32 = 2.0;
-pub const SPRITE_SIZE: f32 = 46.0;
-
-/// Helper to spawn a machine UI slot (fuel/input/output)
-pub fn spawn_machine_slot(
-    parent: &mut ChildBuilder,
-    slot_type: MachineSlotType,
-    label: &str,
-    color: Color,
-) {
-    parent
-        .spawn((
-            Button,
-            MachineSlotButton(slot_type),
-            Node {
-                width: Val::Px(60.0),
-                height: Val::Px(60.0),
-                border: UiRect::all(Val::Px(2.0)),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(color),
-            BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
-        ))
-        .with_children(|slot| {
-            // Label
-            slot.spawn((
-                Text::new(label),
-                TextFont {
-                    font_size: 10.0,
-                    ..default()
-                },
-                TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
-            ));
-            // Count
-            slot.spawn((
-                MachineSlotCount(slot_type),
-                Text::new("0"),
-                TextFont {
-                    font_size: 16.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-}
-
-/// Helper to spawn a crusher UI slot (input/output only, no fuel)
-pub fn spawn_crusher_slot(
-    parent: &mut ChildBuilder,
-    slot_type: MachineSlotType,
-    label: &str,
-    color: Color,
-) {
-    parent
-        .spawn((
-            Button,
-            CrusherSlotButton(slot_type),
-            Node {
-                width: Val::Px(55.0),
-                height: Val::Px(55.0),
-                border: UiRect::all(Val::Px(2.0)),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(color),
-            BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
-        ))
-        .with_children(|slot| {
-            // Label
-            slot.spawn((
-                Text::new(label),
-                TextFont {
-                    font_size: 10.0,
-                    ..default()
-                },
-                TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
-            ));
-            // Count
-            slot.spawn((
-                CrusherSlotCount(slot_type),
-                Text::new("0"),
-                TextFont {
-                    font_size: 16.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-}
+pub const SPRITE_SIZE: f32 = 48.0;
+/// Size for held item display (slightly larger for visibility)
+pub const HELD_ITEM_SIZE: f32 = 56.0;
 
 /// Helper to spawn an inventory slot button (Minecraft-style)
-pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
+pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize, font: &Handle<Font>) {
     parent
         .spawn((
             Button,
@@ -141,10 +60,7 @@ pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
             // Item count (bottom-right)
             btn.spawn((
                 Text::new(""),
-                TextFont {
-                    font_size: 14.0,
-                    ..default()
-                },
+                text_font(font, 14.0),
                 TextColor(Color::WHITE),
                 Node {
                     position_type: PositionType::Absolute,
@@ -156,7 +72,9 @@ pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize) {
         });
 }
 
-pub fn setup_ui(mut commands: Commands) {
+pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
+    let font = &game_font.0;
+
     // Hotbar UI - centered at bottom
     commands
         .spawn((
@@ -177,6 +95,7 @@ pub fn setup_ui(mut commands: Commands) {
         .with_children(|parent| {
             // Create 9 hotbar slots
             for i in 0..9 {
+                let font = font.clone();
                 parent
                     .spawn((
                         HotbarSlot(i),
@@ -196,10 +115,7 @@ pub fn setup_ui(mut commands: Commands) {
                         // Slot number
                         slot.spawn((
                             Text::new(format!("{}", i + 1)),
-                            TextFont {
-                                font_size: 10.0,
-                                ..default()
-                            },
+                            text_font(&font, 10.0),
                             TextColor(Color::srgba(0.6, 0.6, 0.6, 1.0)),
                             Node {
                                 position_type: PositionType::Absolute,
@@ -223,10 +139,7 @@ pub fn setup_ui(mut commands: Commands) {
                         slot.spawn((
                             HotbarSlotCount(i),
                             Text::new(""),
-                            TextFont {
-                                font_size: 12.0,
-                                ..default()
-                            },
+                            text_font(&font, 12.0),
                             TextColor(Color::WHITE),
                             Node {
                                 position_type: PositionType::Absolute,
@@ -243,10 +156,7 @@ pub fn setup_ui(mut commands: Commands) {
     commands.spawn((
         HotbarItemNameText,
         Text::new(""),
-        TextFont {
-            font_size: 16.0,
-            ..default()
-        },
+        text_font(font, 16.0),
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
@@ -275,25 +185,22 @@ pub fn setup_ui(mut commands: Commands) {
     ));
 
     // Furnace UI panel (hidden by default)
-    setup_furnace_ui(&mut commands);
+    setup_furnace_ui(&mut commands, font);
 
     // Crusher UI panel (hidden by default)
-    setup_crusher_ui(&mut commands);
+    setup_crusher_ui(&mut commands, font);
 
     // Miner UI panel (hidden by default)
-    setup_miner_ui(&mut commands);
+    setup_miner_ui(&mut commands, font);
 
     // Inventory UI panel (hidden by default)
-    setup_inventory_ui(&mut commands);
+    setup_inventory_ui(&mut commands, font);
 
     // Inventory tooltip (hidden by default, shown on hover)
     commands.spawn((
         InventoryTooltip,
         Text::new(""),
-        TextFont {
-            font_size: 12.0,
-            ..default()
-        },
+        text_font(font, 12.0),
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
@@ -307,17 +214,19 @@ pub fn setup_ui(mut commands: Commands) {
     ));
 
     // Held item display (follows cursor when dragging)
+    // Use GlobalZIndex to render on top of all other UI
     commands
         .spawn((
             HeldItemDisplay,
             Node {
                 position_type: PositionType::Absolute,
-                width: Val::Px(SPRITE_SIZE),
-                height: Val::Px(SPRITE_SIZE),
+                width: Val::Px(HELD_ITEM_SIZE),
+                height: Val::Px(HELD_ITEM_SIZE),
                 top: Val::Px(0.0),
                 left: Val::Px(0.0),
                 ..default()
             },
+            GlobalZIndex(100), // Render on top of everything
             Visibility::Hidden,
         ))
         .with_children(|parent| {
@@ -326,8 +235,8 @@ pub fn setup_ui(mut commands: Commands) {
                 HeldItemImage,
                 ImageNode::default(),
                 Node {
-                    width: Val::Px(SPRITE_SIZE),
-                    height: Val::Px(SPRITE_SIZE),
+                    width: Val::Px(HELD_ITEM_SIZE),
+                    height: Val::Px(HELD_ITEM_SIZE),
                     ..default()
                 },
             ));
@@ -336,10 +245,7 @@ pub fn setup_ui(mut commands: Commands) {
     commands.spawn((
         HeldItemText,
         Text::new(""),
-        TextFont {
-            font_size: 12.0,
-            ..default()
-        },
+        text_font(font, 14.0),
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
@@ -347,10 +253,12 @@ pub fn setup_ui(mut commands: Commands) {
             left: Val::Px(0.0),
             ..default()
         },
+        GlobalZIndex(101), // On top of held item
         Visibility::Hidden,
     ));
 
     // Quest UI panel (top-right)
+    let font_clone = font.clone();
     commands
         .spawn((
             QuestUI,
@@ -368,22 +276,17 @@ pub fn setup_ui(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 Text::new("Quests"),
-                TextFont {
-                    font_size: 16.0,
-                    ..default()
-                },
+                text_font(&font_clone, 16.0),
                 TextColor(Color::srgb(1.0, 0.9, 0.5)),
             ));
             parent.spawn((
                 QuestUIText,
                 Text::new("Loading..."),
-                TextFont {
-                    font_size: 12.0,
-                    ..default()
-                },
+                text_font(&font_clone, 12.0),
                 TextColor(Color::WHITE),
             ));
             // Deliver button (shown when quest is completable)
+            let font_btn = font_clone.clone();
             parent
                 .spawn((
                     Button,
@@ -404,16 +307,14 @@ pub fn setup_ui(mut commands: Commands) {
                 .with_children(|btn| {
                     btn.spawn((
                         Text::new("納品"),
-                        TextFont {
-                            font_size: 14.0,
-                            ..default()
-                        },
+                        text_font(&font_btn, 14.0),
                         TextColor(Color::WHITE),
                     ));
                 });
         });
 
     // Command input UI (hidden by default)
+    let font_cmd = font.clone();
     commands
         .spawn((
             CommandInputUI,
@@ -423,6 +324,8 @@ pub fn setup_ui(mut commands: Commands) {
                 left: Val::Px(10.0),
                 padding: UiRect::all(Val::Px(8.0)),
                 min_width: Val::Px(300.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(4.0),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
@@ -432,15 +335,37 @@ pub fn setup_ui(mut commands: Commands) {
             parent.spawn((
                 CommandInputText,
                 Text::new("> "),
-                TextFont {
-                    font_size: 14.0,
-                    ..default()
-                },
+                text_font(&font_cmd, 14.0),
                 TextColor(Color::WHITE),
             ));
+            // Suggestions container
+            let font_sug = font_cmd.clone();
+            parent
+                .spawn((
+                    CommandSuggestionsUI,
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        padding: UiRect::top(Val::Px(4.0)),
+                        ..default()
+                    },
+                    Visibility::Hidden,
+                ))
+                .with_children(|suggestions| {
+                    // Pre-spawn suggestion text slots (up to 5)
+                    for i in 0..5 {
+                        suggestions.spawn((
+                            CommandSuggestionText(i),
+                            Text::new(""),
+                            text_font(&font_sug, 12.0),
+                            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                            Visibility::Hidden,
+                        ));
+                    }
+                });
         });
 
     // Tutorial popup (shown at game start, dismiss on any input)
+    let font_tut = font.clone();
     commands
         .spawn((
             TutorialPopup,
@@ -462,10 +387,7 @@ pub fn setup_ui(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 Text::new("Welcome to Idle Factory!"),
-                TextFont {
-                    font_size: 24.0,
-                    ..default()
-                },
+                text_font(&font_tut, 24.0),
                 TextColor(Color::srgb(1.0, 0.9, 0.5)),
             ));
             parent.spawn((
@@ -483,10 +405,7 @@ pub fn setup_ui(mut commands: Commands) {
                      ESC - Pause\n\n\
                      Press any key to start...",
                 ),
-                TextFont {
-                    font_size: 14.0,
-                    ..default()
-                },
+                text_font(&font_tut, 14.0),
                 TextColor(Color::WHITE),
             ));
         });

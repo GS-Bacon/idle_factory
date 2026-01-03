@@ -129,20 +129,41 @@
 ### 使い方
 
 ```bash
-# 基本：質問のみ
-./scripts/ask_gemini.sh "Rustのunwrap()の代替を3つ挙げて"
+# コードレビュー
+gemini review src/conveyor.rs
 
-# ファイル指定（コンテキスト付き）
-./scripts/ask_gemini.sh "このコードをレビューして" src/main.rs
+# アーキテクチャ評価（デフォルト: src/*.rs）
+gemini arch
 
-# 複数ファイル指定
-./scripts/ask_gemini.sh "アーキテクチャを評価して" src/*.rs
+# 数学・座標計算の検証
+gemini math "Vec3::NEG_Z を Y軸で90度回転させると？"
 
-# パイプで質問
-echo "質問内容" | ./scripts/ask_gemini.sh
+# バグ分析
+gemini bug "コンベアが逆方向に動く" src/conveyor.rs
 
-# タイムアウト変更（デフォルト120秒）
-GEMINI_TIMEOUT=180 ./scripts/ask_gemini.sh "詳細なレビュー" src/main.rs
+# git diffをレビュー
+gemini diff
+
+# 自由質問（従来通り）
+gemini ask "質問" src/main.rs
+```
+
+### コマンド一覧
+
+| コマンド | 用途 | 例 |
+|----------|------|-----|
+| `review` | コードレビュー | `gemini review src/*.rs` |
+| `arch` | アーキテクチャ評価 | `gemini arch` |
+| `math` | 数学・座標計算 | `gemini math "回転行列"` |
+| `bug` | バグ分析 | `gemini bug "症状" file.rs` |
+| `diff` | git diffレビュー | `gemini diff` |
+| `ask` | 自由質問 | `gemini ask "質問" files...` |
+
+### セットアップ
+
+```bash
+# PATHに追加（オプション）
+ln -sf /home/bacon/idle_factory/scripts/gemini ~/.local/bin/gemini
 ```
 
 ### 連携パターン
@@ -220,8 +241,8 @@ Claude Vision APIでスクリーンショットの視覚バグを検出。
 | `.claude/build.md` | ビルド最適化、プロファイル設定 |
 | `.specify/memory/input-rules.md` | 入力マトリクス |
 | `.specify/memory/modeling-rules.md` | 3Dモデル作成ルール |
-| `scripts/ask_gemini.sh` | Gemini質問スクリプト |
-| `scripts/watch_gemini.sh` | Gemini出力監視スクリプト |
+| `scripts/gemini` | Gemini連携（メイン） |
+| `scripts/ask_gemini.sh` | Gemini自由質問（低レベル） |
 | `scripts/vlm_check.sh` | VLMビジュアルチェック |
 | `scripts/vlm_check/README.md` | VLMチェック詳細ドキュメント |
 

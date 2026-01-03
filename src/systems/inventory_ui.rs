@@ -51,12 +51,24 @@ pub fn inventory_toggle(
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
     command_state: Res<CommandInputState>,
-    cursor_state: Res<CursorLockState>,
+    mut cursor_state: ResMut<CursorLockState>,
     creative_mode: Res<CreativeMode>,
     mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
+    mut overlay_query: Query<
+        &mut Visibility,
+        (
+            With<InventoryBackgroundOverlay>,
+            Without<InventoryUI>,
+            Without<CreativePanel>,
+        ),
+    >,
     mut creative_panel_query: Query<
         (&mut Visibility, &mut Node),
-        (With<CreativePanel>, Without<InventoryUI>),
+        (
+            With<CreativePanel>,
+            Without<InventoryUI>,
+            Without<InventoryBackgroundOverlay>,
+        ),
     >,
     mut windows: Query<&mut Window>,
 ) {
@@ -100,6 +112,16 @@ pub fn inventory_toggle(
                 Visibility::Hidden
             };
         }
+
+        // Show/hide background overlay
+        for mut vis in overlay_query.iter_mut() {
+            *vis = if inventory_open.0 {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        }
+
         info!(
             "[INVENTORY] Updated {} UI entities, now open={}",
             ui_count, inventory_open.0
@@ -135,7 +157,7 @@ pub fn inventory_toggle(
         }
     }
 
-    // ESC to close
+    // ESC to close (just close inventory, don't trigger pause)
     if inventory_open.0 && key_input.just_pressed(KeyCode::Escape) {
         inventory_open.0 = false;
 
@@ -146,18 +168,25 @@ pub fn inventory_toggle(
             *vis = Visibility::Hidden;
         }
 
+        // Hide background overlay
+        for mut vis in overlay_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+
         // Also hide creative panel
         for (mut vis, mut node) in creative_panel_query.iter_mut() {
             *vis = Visibility::Hidden;
             node.display = Display::None;
         }
 
-        // Re-lock cursor after closing inventory
+        // Re-lock cursor after closing inventory (keep playing, don't pause)
         if let Ok(mut window) = windows.get_single_mut() {
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
             set_ui_open_state(false);
         }
+        // Ensure we don't get paused by toggle_cursor_lock running after this
+        cursor_state.paused = false;
     }
 }
 
@@ -591,8 +620,8 @@ pub fn update_inventory_tooltip(
     inventory_open: Res<InventoryOpen>,
     inventory: Res<Inventory>,
     windows: Query<&Window>,
-    slot_query: Query<(&Interaction, &InventorySlotUI, &GlobalTransform)>,
-    creative_query: Query<(&Interaction, &CreativeItemButton, &GlobalTransform)>,
+    slot_query: Query<(&Interaction, &InventorySlotUI)>,
+    creative_query: Query<(&Interaction, &CreativeItemButton)>,
     mut tooltip_query: Query<(&mut Node, &mut Visibility, &Children), With<InventoryTooltip>>,
     mut text_query: Query<&mut Text>,
 ) {
@@ -607,13 +636,12 @@ pub fn update_inventory_tooltip(
     }
 
     // Find hovered slot (inventory slots)
-    let mut hovered_item: Option<(BlockType, Option<u32>, Vec2)> = None;
-    for (interaction, slot_ui, global_transform) in slot_query.iter() {
+    let mut hovered_item: Option<(BlockType, Option<u32>)> = None;
+    for (interaction, slot_ui) in slot_query.iter() {
         if *interaction == Interaction::Hovered {
             let slot_idx = slot_ui.0;
             if let Some((block_type, count)) = inventory.slots[slot_idx] {
-                let pos = global_transform.translation();
-                hovered_item = Some((block_type, Some(count), Vec2::new(pos.x, pos.y)));
+                hovered_item = Some((block_type, Some(count)));
                 break;
             }
         }
@@ -621,25 +649,24 @@ pub fn update_inventory_tooltip(
 
     // Check creative catalog items if no inventory slot is hovered
     if hovered_item.is_none() {
-        for (interaction, creative_btn, global_transform) in creative_query.iter() {
+        for (interaction, creative_btn) in creative_query.iter() {
             if *interaction == Interaction::Hovered {
-                let pos = global_transform.translation();
-                hovered_item = Some((creative_btn.0, None, Vec2::new(pos.x, pos.y)));
+                hovered_item = Some((creative_btn.0, None));
                 break;
             }
         }
     }
 
-    if let Some((block_type, count_opt, slot_pos)) = hovered_item {
+    if let Some((block_type, count_opt)) = hovered_item {
         *visibility = Visibility::Inherited;
 
-        // Position tooltip near the slot (offset to the right and up)
+        // Position tooltip near the mouse cursor
         if let Ok(window) = windows.get_single() {
-            let half_width = window.width() / 2.0;
-            let half_height = window.height() / 2.0;
-            // Convert from global UI coords to absolute position
-            node.left = Val::Px(slot_pos.x + half_width + 45.0);
-            node.top = Val::Px(half_height - slot_pos.y - 10.0);
+            if let Some(cursor_pos) = window.cursor_position() {
+                // Offset tooltip to bottom-right of cursor
+                node.left = Val::Px(cursor_pos.x + 15.0);
+                node.top = Val::Px(cursor_pos.y + 15.0);
+            }
         }
 
         // Update tooltip text

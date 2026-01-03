@@ -3,7 +3,7 @@
 use crate::components::*;
 use bevy::prelude::*;
 
-use super::{spawn_inventory_slot, SLOT_BORDER, SLOT_GAP, SLOT_SIZE, SPRITE_SIZE};
+use super::{spawn_inventory_slot, text_font, SLOT_BORDER, SLOT_GAP, SLOT_SIZE, SPRITE_SIZE};
 
 /// Calculate inventory UI width based on slot size
 fn inventory_ui_width() -> f32 {
@@ -11,8 +11,24 @@ fn inventory_ui_width() -> f32 {
     SLOT_SIZE * 9.0 + SLOT_GAP * 8.0 + 16.0
 }
 
-pub fn setup_inventory_ui(commands: &mut Commands) {
+pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
     let ui_width = inventory_ui_width();
+
+    // Background overlay (darkens the screen when inventory is open)
+    commands.spawn((
+        InventoryBackgroundOverlay,
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(0.0),
+            left: Val::Px(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)), // 50% black overlay
+        GlobalZIndex(40),                                  // Below inventory UI
+        Visibility::Hidden,
+    ));
 
     commands
         .spawn((
@@ -31,6 +47,7 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                 ..default()
             },
             BackgroundColor(Color::srgba(0.12, 0.12, 0.12, 0.96)), // MC-style dark gray
+            GlobalZIndex(50),                                      // Above overlay, below held item
             Visibility::Hidden,
         ))
         .with_children(|parent| {
@@ -92,10 +109,7 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                                         // Text fallback
                                         btn.spawn((
                                             Text::new(block_type.short_name()),
-                                            TextFont {
-                                                font_size: 9.0,
-                                                ..default()
-                                            },
+                                            text_font(font, 9.0),
                                             TextColor(Color::WHITE),
                                         ));
                                     });
@@ -121,7 +135,7 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                             .with_children(|row_node| {
                                 for col in 0..9 {
                                     let slot_idx = 9 + row * 9 + col;
-                                    spawn_inventory_slot(row_node, slot_idx);
+                                    spawn_inventory_slot(row_node, slot_idx, font);
                                 }
                             });
                     }
@@ -147,7 +161,7 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                 },))
                 .with_children(|hotbar_row| {
                     for slot_idx in 0..9 {
-                        spawn_inventory_slot(hotbar_row, slot_idx);
+                        spawn_inventory_slot(hotbar_row, slot_idx, font);
                     }
                 });
 
@@ -189,10 +203,7 @@ pub fn setup_inventory_ui(commands: &mut Commands) {
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("X"),
-                                TextFont {
-                                    font_size: 16.0,
-                                    ..default()
-                                },
+                                text_font(font, 16.0),
                                 TextColor(Color::srgba(1.0, 0.5, 0.5, 1.0)),
                             ));
                         });

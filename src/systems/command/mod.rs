@@ -17,7 +17,7 @@ pub use handlers::{
     handle_assert_machine_event, handle_debug_event, handle_look_event, handle_screenshot_event,
     handle_setblock_event, handle_spawn_machine_event, handle_teleport_event,
 };
-pub use ui::{command_input_handler, command_input_toggle};
+pub use ui::{command_input_handler, command_input_toggle, update_command_suggestions};
 
 /// E2E test command events
 #[derive(Event)]

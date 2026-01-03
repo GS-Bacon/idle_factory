@@ -57,6 +57,11 @@ pub fn block_place(
         return;
     };
 
+    // Don't allow placing non-placeable items (tools, ingots, etc.)
+    if !selected_type.is_placeable() {
+        return;
+    }
+
     let Ok((camera_transform, player_camera)) = camera_query.get_single() else {
         return;
     };

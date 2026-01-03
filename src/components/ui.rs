@@ -13,6 +13,10 @@ pub struct InventoryOpen(pub bool);
 #[derive(Component)]
 pub struct InventoryUI;
 
+/// Marker for inventory background overlay (darkens screen)
+#[derive(Component)]
+pub struct InventoryBackgroundOverlay;
+
 /// Marker for an inventory slot button (index 0-35)
 #[derive(Component)]
 pub struct InventorySlotUI(pub usize);
@@ -164,7 +168,32 @@ pub struct CommandInputState {
     pub text: String,
     /// Skip input this frame (to avoid T/slash being added when opening)
     pub skip_input_frame: bool,
+    /// Currently selected suggestion index
+    pub suggestion_index: usize,
 }
+
+/// Available command suggestions
+pub const COMMAND_SUGGESTIONS: &[&str] = &[
+    "/creative",
+    "/survival",
+    "/give",
+    "/clear",
+    "/save",
+    "/load",
+    "/tp",
+    "/look",
+    "/setblock",
+    "/spawn_machine",
+    "/screenshot",
+];
+
+/// Marker for command suggestions UI
+#[derive(Component)]
+pub struct CommandSuggestionsUI;
+
+/// Marker for command suggestion text
+#[derive(Component)]
+pub struct CommandSuggestionText(pub usize);
 
 /// Marker for command input UI container
 #[derive(Component)]

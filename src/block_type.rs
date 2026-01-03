@@ -129,6 +129,15 @@ impl BlockType {
         matches!(self, BlockType::StonePickaxe)
     }
 
+    /// Returns true if this block type can be placed in the world
+    /// Tools and processed materials cannot be placed
+    pub fn is_placeable(&self) -> bool {
+        !matches!(
+            self,
+            BlockType::StonePickaxe | BlockType::IronIngot | BlockType::CopperIngot
+        )
+    }
+
     /// Returns true if this block type is a machine (not a regular block)
     #[allow(dead_code)]
     pub fn is_machine(&self) -> bool {

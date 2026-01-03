@@ -4,11 +4,13 @@
 //! - Toggle visibility with T or /
 //! - Text input handling
 //! - Command execution on Enter
+//! - Command suggestions/autocomplete with Tab
 
 use crate::components::*;
 use crate::events::SpawnMachineEvent;
 use crate::player::Inventory;
 use crate::systems::inventory_ui::set_ui_open_state;
+use crate::{GlobalInventoryOpen, InteractingMiner};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
@@ -16,6 +18,20 @@ use super::executor::execute_command;
 use super::{
     AssertMachineEvent, DebugEvent, LookEvent, ScreenshotEvent, SetBlockEvent, TeleportEvent,
 };
+
+/// Get matching command suggestions for the current input
+fn get_suggestions(input: &str) -> Vec<&'static str> {
+    if input.is_empty() {
+        return Vec::new();
+    }
+    let input_lower = input.to_lowercase();
+    COMMAND_SUGGESTIONS
+        .iter()
+        .filter(|cmd| cmd.to_lowercase().starts_with(&input_lower))
+        .copied()
+        .take(5)
+        .collect()
+}
 
 /// Toggle command input with T or / key
 #[allow(clippy::too_many_arguments)]
@@ -27,10 +43,17 @@ pub fn command_input_toggle(
     mut windows: Query<&mut Window>,
     interacting_furnace: Res<InteractingFurnace>,
     interacting_crusher: Res<InteractingCrusher>,
-    creative_inv_open: Res<InventoryOpen>,
+    interacting_miner: Res<InteractingMiner>,
+    inventory_open: Res<InventoryOpen>,
+    global_inv_open: Res<GlobalInventoryOpen>,
 ) {
     // Don't open if other UI is open
-    if interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || creative_inv_open.0 {
+    if interacting_furnace.0.is_some()
+        || interacting_crusher.0.is_some()
+        || interacting_miner.0.is_some()
+        || inventory_open.0
+        || global_inv_open.0
+    {
         return;
     }
 
@@ -94,6 +117,7 @@ pub fn command_input_handler(
     if key_input.just_pressed(KeyCode::Escape) {
         command_state.open = false;
         command_state.text.clear();
+        command_state.suggestion_index = 0;
 
         for mut vis in ui_query.iter_mut() {
             *vis = Visibility::Hidden;
@@ -108,12 +132,23 @@ pub fn command_input_handler(
         return;
     }
 
+    // Tab to autocomplete from suggestions
+    if key_input.just_pressed(KeyCode::Tab) {
+        let suggestions = get_suggestions(&command_state.text);
+        if !suggestions.is_empty() {
+            let idx = command_state.suggestion_index % suggestions.len();
+            command_state.text = suggestions[idx].to_string();
+            command_state.suggestion_index = (idx + 1) % suggestions.len();
+        }
+    }
+
     // Enter to execute command
     if key_input.just_pressed(KeyCode::Enter) {
         let command = command_state.text.clone();
-        println!(">>> ENTER pressed, command: '{}'", command);
+        info!("Command executed: '{}'", command);
         command_state.open = false;
         command_state.text.clear();
+        command_state.suggestion_index = 0;
 
         for mut vis in ui_query.iter_mut() {
             *vis = Visibility::Hidden;
@@ -147,6 +182,7 @@ pub fn command_input_handler(
     // Backspace to delete character
     if key_input.just_pressed(KeyCode::Backspace) {
         command_state.text.pop();
+        command_state.suggestion_index = 0;
     }
 
     // Handle character input (skip if just opened to avoid T/slash being added)
@@ -154,11 +190,15 @@ pub fn command_input_handler(
         command_state.skip_input_frame = false;
     } else {
         for key in key_input.get_just_pressed() {
+            if *key == KeyCode::Tab {
+                continue; // Skip tab, handled above
+            }
             if let Some(c) = keycode_to_char(
                 *key,
                 key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight),
             ) {
                 command_state.text.push(c);
+                command_state.suggestion_index = 0;
             }
         }
     }
@@ -166,6 +206,70 @@ pub fn command_input_handler(
     // Update display text
     for mut text in text_query.iter_mut() {
         text.0 = format!("> {}|", command_state.text);
+    }
+}
+
+/// Update command suggestions display (separate system to reduce parameter count)
+#[allow(clippy::type_complexity)]
+pub fn update_command_suggestions(
+    command_state: Res<CommandInputState>,
+    mut suggestions_ui_query: Query<
+        &mut Visibility,
+        (With<CommandSuggestionsUI>, Without<CommandInputUI>),
+    >,
+    mut suggestion_text_query: Query<
+        (
+            &CommandSuggestionText,
+            &mut Text,
+            &mut TextColor,
+            &mut Visibility,
+        ),
+        (
+            Without<CommandInputText>,
+            Without<CommandSuggestionsUI>,
+            Without<CommandInputUI>,
+        ),
+    >,
+) {
+    if !command_state.open {
+        // Hide everything when closed
+        for mut vis in suggestions_ui_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+        for (_, _, _, mut vis) in suggestion_text_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+        return;
+    }
+
+    let suggestions = get_suggestions(&command_state.text);
+    let has_suggestions = !suggestions.is_empty();
+
+    // Show/hide suggestions container
+    for mut vis in suggestions_ui_query.iter_mut() {
+        *vis = if has_suggestions {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+
+    // Update suggestion text slots
+    for (suggestion_slot, mut text, mut color, mut vis) in suggestion_text_query.iter_mut() {
+        let idx = suggestion_slot.0;
+        if idx < suggestions.len() {
+            text.0 = suggestions[idx].to_string();
+            // Highlight selected suggestion
+            *color = if idx == command_state.suggestion_index % suggestions.len().max(1) {
+                TextColor(Color::srgb(1.0, 1.0, 0.5))
+            } else {
+                TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0))
+            };
+            *vis = Visibility::Visible;
+        } else {
+            text.0.clear();
+            *vis = Visibility::Hidden;
+        }
     }
 }
 
