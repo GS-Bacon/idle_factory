@@ -11,6 +11,13 @@ pub const BLOCK_SIZE: f32 = 1.0;
 /// Player movement speed
 pub const PLAYER_SPEED: f32 = 5.0;
 
+/// Survival mode physics constants
+pub const GRAVITY: f32 = 20.0; // Gravity acceleration (blocks/sec^2)
+pub const JUMP_VELOCITY: f32 = 8.0; // Initial jump velocity
+pub const PLAYER_HEIGHT: f32 = 1.8; // Player collision height
+pub const PLAYER_WIDTH: f32 = 0.6; // Player collision width
+pub const TERMINAL_VELOCITY: f32 = 50.0; // Max fall speed
+
 /// Maximum distance for block interaction
 pub const REACH_DISTANCE: f32 = 5.0;
 

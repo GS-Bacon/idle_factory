@@ -15,6 +15,24 @@ pub struct PlayerCamera {
     pub yaw: f32,
 }
 
+/// Player physics state for survival mode
+#[derive(Component)]
+pub struct PlayerPhysics {
+    /// Current velocity (y component is vertical velocity)
+    pub velocity: Vec3,
+    /// Whether player is on the ground
+    pub on_ground: bool,
+}
+
+impl Default for PlayerPhysics {
+    fn default() -> Self {
+        Self {
+            velocity: Vec3::ZERO,
+            on_ground: false,
+        }
+    }
+}
+
 /// Tracks cursor lock state and handles mouse input for both local and RDP environments
 #[derive(Resource, Default)]
 pub struct CursorLockState {

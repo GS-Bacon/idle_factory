@@ -9,6 +9,7 @@ pub fn setup_player(mut commands: Commands) {
     commands
         .spawn((
             Player,
+            PlayerPhysics::default(),
             Transform::from_xyz(8.0, 12.0, 20.0),
             Visibility::default(),
         ))

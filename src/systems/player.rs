@@ -2,10 +2,14 @@
 
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
-    InteractingCrusher, InteractingFurnace, InventoryOpen, Player, PlayerCamera, TutorialPopup,
-    TutorialShown,
+    InteractingCrusher, InteractingFurnace, InventoryOpen, Player, PlayerCamera, PlayerPhysics,
+    TutorialPopup, TutorialShown,
 };
-use crate::{KEY_ROTATION_SPEED, MOUSE_SENSITIVITY, PLAYER_SPEED};
+use crate::world::WorldData;
+use crate::{
+    CreativeMode, GRAVITY, JUMP_VELOCITY, KEY_ROTATION_SPEED, MOUSE_SENSITIVITY, PLAYER_HEIGHT,
+    PLAYER_SPEED, PLAYER_WIDTH, TERMINAL_VELOCITY,
+};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
@@ -204,13 +208,16 @@ pub fn tutorial_dismiss(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn player_move(
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<&mut Transform, With<Player>>,
+    mut player_query: Query<(&mut Transform, &mut PlayerPhysics), With<Player>>,
     camera_query: Query<&PlayerCamera>,
     input_resources: InputStateResourcesWithCursor,
     tutorial_shown: Res<TutorialShown>,
+    creative_mode: Res<CreativeMode>,
+    world_data: Res<WorldData>,
 ) {
     // Block movement while tutorial is showing
     if !tutorial_shown.0 {
@@ -223,43 +230,189 @@ pub fn player_move(
         return;
     }
 
-    let Ok(mut player_transform) = player_query.get_single_mut() else {
+    let Ok((mut player_transform, mut physics)) = player_query.get_single_mut() else {
         return;
     };
     let Ok(camera) = camera_query.get_single() else {
         return;
     };
 
-    let mut direction = Vec3::ZERO;
-
     // Calculate forward/right from yaw (more stable than transform.forward())
     let (sin_yaw, cos_yaw) = camera.yaw.sin_cos();
     let forward = Vec3::new(-sin_yaw, 0.0, -cos_yaw);
     let right = Vec3::new(cos_yaw, 0.0, -sin_yaw);
 
+    let dt = time.delta_secs();
+
+    if creative_mode.enabled {
+        // Creative mode: fly movement
+        let mut direction = Vec3::ZERO;
+
+        if key_input.pressed(KeyCode::KeyW) {
+            direction += forward;
+        }
+        if key_input.pressed(KeyCode::KeyS) {
+            direction -= forward;
+        }
+        if key_input.pressed(KeyCode::KeyA) {
+            direction -= right;
+        }
+        if key_input.pressed(KeyCode::KeyD) {
+            direction += right;
+        }
+        if key_input.pressed(KeyCode::Space) {
+            direction.y += 1.0;
+        }
+        if key_input.pressed(KeyCode::ShiftLeft) {
+            direction.y -= 1.0;
+        }
+
+        if direction.length_squared() > 0.0 {
+            direction = direction.normalize();
+            player_transform.translation += direction * PLAYER_SPEED * dt;
+        }
+    } else {
+        // Survival mode: physics-based movement
+        survival_movement(
+            &mut player_transform,
+            &mut physics,
+            &key_input,
+            &world_data,
+            forward,
+            right,
+            dt,
+        );
+    }
+}
+
+/// Survival mode movement with gravity, jumping, and collision
+fn survival_movement(
+    player_transform: &mut Transform,
+    physics: &mut PlayerPhysics,
+    key_input: &ButtonInput<KeyCode>,
+    world_data: &WorldData,
+    forward: Vec3,
+    right: Vec3,
+    dt: f32,
+) {
+    // Get horizontal movement input
+    let mut horizontal = Vec3::ZERO;
     if key_input.pressed(KeyCode::KeyW) {
-        direction += forward;
+        horizontal += forward;
     }
     if key_input.pressed(KeyCode::KeyS) {
-        direction -= forward;
+        horizontal -= forward;
     }
     if key_input.pressed(KeyCode::KeyA) {
-        direction -= right;
+        horizontal -= right;
     }
     if key_input.pressed(KeyCode::KeyD) {
-        direction += right;
-    }
-    if key_input.pressed(KeyCode::Space) {
-        direction.y += 1.0;
-    }
-    if key_input.pressed(KeyCode::ShiftLeft) {
-        direction.y -= 1.0;
+        horizontal += right;
     }
 
-    if direction.length_squared() > 0.0 {
-        direction = direction.normalize();
-        player_transform.translation += direction * PLAYER_SPEED * time.delta_secs();
+    // Normalize horizontal movement
+    if horizontal.length_squared() > 0.0 {
+        horizontal = horizontal.normalize() * PLAYER_SPEED;
     }
+
+    // Apply gravity
+    physics.velocity.y -= GRAVITY * dt;
+    physics.velocity.y = physics.velocity.y.max(-TERMINAL_VELOCITY);
+
+    // Jump if on ground and space pressed
+    if physics.on_ground && key_input.just_pressed(KeyCode::Space) {
+        physics.velocity.y = JUMP_VELOCITY;
+        physics.on_ground = false;
+    }
+
+    // Calculate new position
+    let mut new_pos = player_transform.translation;
+    new_pos.x += horizontal.x * dt;
+    new_pos.z += horizontal.z * dt;
+    new_pos.y += physics.velocity.y * dt;
+
+    // Check collision and resolve
+    let half_width = PLAYER_WIDTH / 2.0;
+
+    // Check ground collision (feet position)
+    let feet_y = new_pos.y - PLAYER_HEIGHT / 2.0;
+    let ground_check_y = (feet_y - 0.01) as i32;
+
+    // Check if player would be inside a block
+    let mut on_ground = false;
+
+    // Check 4 corners at feet level
+    for &(dx, dz) in &[
+        (-half_width, -half_width),
+        (half_width, -half_width),
+        (-half_width, half_width),
+        (half_width, half_width),
+    ] {
+        let check_x = (new_pos.x + dx) as i32;
+        let check_z = (new_pos.z + dz) as i32;
+
+        // Check block below feet (Some = solid, None = air)
+        if world_data
+            .get_block(IVec3::new(check_x, ground_check_y, check_z))
+            .is_some()
+        {
+            // Standing on a block
+            on_ground = true;
+            let ground_top = (ground_check_y + 1) as f32;
+            if new_pos.y - PLAYER_HEIGHT / 2.0 < ground_top {
+                new_pos.y = ground_top + PLAYER_HEIGHT / 2.0;
+                physics.velocity.y = 0.0;
+            }
+        }
+
+        // Check horizontal collision at multiple heights
+        for h in [0.0, PLAYER_HEIGHT / 2.0, PLAYER_HEIGHT - 0.1] {
+            let check_y = (new_pos.y - PLAYER_HEIGHT / 2.0 + h) as i32;
+            if world_data
+                .get_block(IVec3::new(check_x, check_y, check_z))
+                .is_some()
+            {
+                // Collision - push player out
+                let block_center_x = check_x as f32 + 0.5;
+                let block_center_z = check_z as f32 + 0.5;
+
+                // Determine which direction to push
+                let push_x = new_pos.x - block_center_x;
+                let push_z = new_pos.z - block_center_z;
+
+                if push_x.abs() > push_z.abs() {
+                    new_pos.x = if push_x > 0.0 {
+                        block_center_x + 0.5 + half_width + 0.01
+                    } else {
+                        block_center_x - 0.5 - half_width - 0.01
+                    };
+                } else {
+                    new_pos.z = if push_z > 0.0 {
+                        block_center_z + 0.5 + half_width + 0.01
+                    } else {
+                        block_center_z - 0.5 - half_width - 0.01
+                    };
+                }
+            }
+        }
+
+        // Check ceiling collision
+        let head_y = (new_pos.y + PLAYER_HEIGHT / 2.0 + 0.01) as i32;
+        if world_data
+            .get_block(IVec3::new(check_x, head_y, check_z))
+            .is_some()
+        {
+            // Hit ceiling
+            let ceiling_bottom = head_y as f32;
+            new_pos.y = ceiling_bottom - PLAYER_HEIGHT / 2.0 - 0.01;
+            if physics.velocity.y > 0.0 {
+                physics.velocity.y = 0.0;
+            }
+        }
+    }
+
+    physics.on_ground = on_ground;
+    player_transform.translation = new_pos;
 }
 
 /// Tick all action timers (separate system to reduce parameter count)
