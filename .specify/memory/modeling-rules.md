@@ -91,3 +91,24 @@ for vox in assets/models/**/*.vox; do
     blender --background --python tools/vox_to_gltf.py -- "$vox" "${vox%.vox}.glb"
 done
 ```
+
+## 配置時の座標
+
+VOXモデルの原点は**底面中央**（XY中央、Z=0から開始）。
+
+配置時の座標計算：
+```rust
+// VOXモデル使用時 - 底面が原点なのでY+0.5不要
+let model_transform = Transform::from_translation(Vec3::new(
+    place_pos.x as f32 * BLOCK_SIZE + 0.5,
+    place_pos.y as f32 * BLOCK_SIZE,        // ← Yオフセットなし
+    place_pos.z as f32 * BLOCK_SIZE + 0.5,
+));
+
+// フォールバック（キューブメッシュ）使用時 - 中心が原点なのでY+0.5必要
+let cube_transform = Transform::from_translation(Vec3::new(
+    place_pos.x as f32 * BLOCK_SIZE + 0.5,
+    place_pos.y as f32 * BLOCK_SIZE + 0.5,  // ← Yオフセットあり
+    place_pos.z as f32 * BLOCK_SIZE + 0.5,
+));
+```

@@ -3,7 +3,7 @@
 //! NOTE: Initial equipment is now managed by GlobalInventory (see main.rs).
 //! This file only handles spawning initial world objects (like the starter furnace).
 
-use crate::components::Furnace;
+use crate::components::{Direction, Furnace};
 use crate::BLOCK_SIZE;
 use bevy::prelude::*;
 
@@ -19,12 +19,15 @@ pub fn setup_initial_items(
     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
 
     // Spawn a furnace near player spawn point (8, 8, 18)
+    // Furnace faces North, so input is from South (back)
     let furnace_pos = IVec3::new(10, 8, 18);
+    let furnace_facing = Direction::North;
     let furnace_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.4, 0.3, 0.3), // Dark reddish-brown for furnace
         ..default()
     });
 
+    // Using cube mesh fallback, so Y offset is +0.5 (center origin)
     commands.spawn((
         Mesh3d(cube_mesh.clone()),
         MeshMaterial3d(furnace_material),
@@ -32,7 +35,12 @@ pub fn setup_initial_items(
             furnace_pos.x as f32 * BLOCK_SIZE + 0.5,
             furnace_pos.y as f32 * BLOCK_SIZE + 0.5,
             furnace_pos.z as f32 * BLOCK_SIZE + 0.5,
-        )),
-        Furnace::default(),
+        ))
+        .with_rotation(furnace_facing.to_rotation()),
+        Furnace {
+            position: furnace_pos,
+            facing: furnace_facing,
+            ..default()
+        },
     ));
 }

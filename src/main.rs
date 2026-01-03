@@ -134,6 +134,10 @@ fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     app.add_plugins(idle_factory::vox_loader::VoxLoaderPlugin);
 
+    // Add auto-updater plugin (native only)
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(idle_factory::UpdaterPlugin);
+
     app.add_plugins(GameEventsPlugin)
         .add_plugins(MachineSystemsPlugin)
         .add_plugins(UIPlugin)

@@ -296,16 +296,16 @@ pub fn block_place(
                     "Miner placed"
                 );
 
-                let transform = Transform::from_translation(Vec3::new(
-                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                    place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                ));
-
                 if let Some(model) = machine_models.miner.clone() {
+                    // VOX model has origin at bottom center, so Y offset is 0
+                    let model_transform = Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                    ));
                     commands.spawn((
                         SceneRoot(model),
-                        transform.with_rotation(player_facing.to_rotation()),
+                        model_transform.with_rotation(player_facing.to_rotation()),
                         GlobalTransform::default(),
                         Visibility::default(),
                         InheritedVisibility::default(),
@@ -317,6 +317,12 @@ pub fn block_place(
                         },
                     ));
                 } else {
+                    // Fallback cube mesh has center origin, so Y offset is +0.5
+                    let cube_transform = Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                    ));
                     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                     let material = materials.add(StandardMaterial {
                         base_color: selected_type.color(),
@@ -325,7 +331,7 @@ pub fn block_place(
                     commands.spawn((
                         Mesh3d(cube_mesh),
                         MeshMaterial3d(material),
-                        transform.with_rotation(player_facing.to_rotation()),
+                        cube_transform.with_rotation(player_facing.to_rotation()),
                         Miner {
                             position: place_pos,
                             facing: player_facing,
@@ -455,16 +461,16 @@ pub fn block_place(
                     "Crusher placed"
                 );
 
-                let transform = Transform::from_translation(Vec3::new(
-                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                    place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                ));
-
                 if let Some(model) = machine_models.crusher.clone() {
+                    // VOX model has origin at bottom center, so Y offset is 0
+                    let model_transform = Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                    ));
                     commands.spawn((
                         SceneRoot(model),
-                        transform.with_rotation(player_facing.to_rotation()),
+                        model_transform.with_rotation(player_facing.to_rotation()),
                         GlobalTransform::default(),
                         Visibility::default(),
                         InheritedVisibility::default(),
@@ -476,6 +482,12 @@ pub fn block_place(
                         },
                     ));
                 } else {
+                    // Fallback cube mesh has center origin, so Y offset is +0.5
+                    let cube_transform = Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                    ));
                     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                     let material = materials.add(StandardMaterial {
                         base_color: selected_type.color(),
@@ -484,7 +496,7 @@ pub fn block_place(
                     commands.spawn((
                         Mesh3d(cube_mesh),
                         MeshMaterial3d(material),
-                        transform.with_rotation(player_facing.to_rotation()),
+                        cube_transform.with_rotation(player_facing.to_rotation()),
                         Crusher {
                             position: place_pos,
                             facing: player_facing,
@@ -502,16 +514,16 @@ pub fn block_place(
                     "Furnace placed"
                 );
 
-                let transform = Transform::from_translation(Vec3::new(
-                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                    place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                ));
-
                 if let Some(model) = machine_models.furnace.clone() {
+                    // VOX model has origin at bottom center, so Y offset is 0
+                    let model_transform = Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                    ));
                     commands.spawn((
                         SceneRoot(model),
-                        transform.with_rotation(player_facing.to_rotation()),
+                        model_transform.with_rotation(player_facing.to_rotation()),
                         GlobalTransform::default(),
                         Visibility::default(),
                         InheritedVisibility::default(),
@@ -523,6 +535,12 @@ pub fn block_place(
                         },
                     ));
                 } else {
+                    // Fallback cube mesh has center origin, so Y offset is +0.5
+                    let cube_transform = Transform::from_translation(Vec3::new(
+                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                    ));
                     let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
                     let material = materials.add(StandardMaterial {
                         base_color: selected_type.color(),
@@ -531,7 +549,7 @@ pub fn block_place(
                     commands.spawn((
                         Mesh3d(cube_mesh),
                         MeshMaterial3d(material),
-                        transform.with_rotation(player_facing.to_rotation()),
+                        cube_transform.with_rotation(player_facing.to_rotation()),
                         Furnace {
                             position: place_pos,
                             facing: player_facing,

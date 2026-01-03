@@ -287,5 +287,18 @@ for row in 0..3 {
 
 ## 参照実装
 
-- `src/main.rs` - 現在の全UI実装
-- 将来的に `src/ui/` に分割予定
+- `src/setup/ui/machine_ui.rs` - 機械UI（Furnace, Crusher, Miner）**デザインルール準拠**
+- `src/setup/ui/inventory_ui.rs` - インベントリUI
+- `src/systems/inventory_ui.rs` - インベントリロジック
+
+---
+
+## 変更履歴
+
+### 2026-01-03
+- 機械UI（Furnace, Crusher, Miner）をデザインルールに準拠させた
+  - スロットサイズ54x54px
+  - カラーパレット統一（PANEL_BG, SLOT_BG, SLOT_BORDER等）
+  - ヘッダー構造（タイトル + 閉じるボタン）
+  - プログレスバー高さ8px、緑色進行表示
+- VOXモデルのY座標オフセット修正（底面原点対応）

@@ -42,6 +42,7 @@ fn return_held_item_to_inventory(inventory: &mut Inventory, held_item: &mut Held
 
 /// Toggle inventory with E key (works in both survival and creative mode)
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn inventory_toggle(
     key_input: Res<ButtonInput<KeyCode>>,
     mut inventory_open: ResMut<InventoryOpen>,
@@ -53,7 +54,10 @@ pub fn inventory_toggle(
     cursor_state: Res<CursorLockState>,
     creative_mode: Res<CreativeMode>,
     mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
-    mut creative_panel_query: Query<&mut Visibility, (With<CreativePanel>, Without<InventoryUI>)>,
+    mut creative_panel_query: Query<
+        (&mut Visibility, &mut Node),
+        (With<CreativePanel>, Without<InventoryUI>),
+    >,
     mut windows: Query<&mut Window>,
 ) {
     // Don't toggle if other UIs are open or game is paused (input matrix: E key)
@@ -106,12 +110,15 @@ pub fn inventory_toggle(
         }
 
         // Show/hide creative panel based on creative mode
-        for mut vis in creative_panel_query.iter_mut() {
-            *vis = if inventory_open.0 && creative_mode.enabled {
-                Visibility::Visible
+        // Use Display::None to also remove layout space in survival mode
+        for (mut vis, mut node) in creative_panel_query.iter_mut() {
+            if inventory_open.0 && creative_mode.enabled {
+                *vis = Visibility::Visible;
+                node.display = Display::Flex;
             } else {
-                Visibility::Hidden
-            };
+                *vis = Visibility::Hidden;
+                node.display = Display::None;
+            }
         }
 
         // Unlock/lock cursor
@@ -140,8 +147,9 @@ pub fn inventory_toggle(
         }
 
         // Also hide creative panel
-        for mut vis in creative_panel_query.iter_mut() {
+        for (mut vis, mut node) in creative_panel_query.iter_mut() {
             *vis = Visibility::Hidden;
+            node.display = Display::None;
         }
 
         // Re-lock cursor after closing inventory
