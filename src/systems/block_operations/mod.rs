@@ -13,7 +13,7 @@ pub use placement::block_place;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use crate::{Conveyor, Crusher, Furnace, Miner};
+use crate::{Conveyor, Crusher, DeliveryPlatform, Furnace, Miner};
 
 /// Bundled machine queries for block_break system (reduces parameter count)
 #[derive(SystemParam)]
@@ -22,6 +22,7 @@ pub struct MachineBreakQueries<'w, 's> {
     pub miner: Query<'w, 's, (Entity, &'static Miner, &'static GlobalTransform)>,
     pub crusher: Query<'w, 's, (Entity, &'static Crusher, &'static GlobalTransform)>,
     pub furnace: Query<'w, 's, (Entity, &'static Furnace, &'static GlobalTransform)>,
+    pub platform: Query<'w, 's, &'static Transform, With<DeliveryPlatform>>,
 }
 
 /// Bundled machine queries for block_place system (reduces parameter count)

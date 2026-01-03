@@ -164,6 +164,8 @@ fn main() {
         .init_resource::<GlobalInventoryCategory>()
         .init_resource::<GlobalInventorySearch>()
         .init_resource::<BreakingProgress>()
+        // Sky blue background color (simple skybox)
+        .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)))
         .add_event::<TeleportEvent>()
         .add_event::<LookEvent>()
         .add_event::<SetBlockEvent>()

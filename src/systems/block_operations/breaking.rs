@@ -7,8 +7,9 @@ use crate::game_spec::breaking_spec;
 use crate::utils::ray_aabb_intersection;
 use crate::world::{ChunkMesh, WorldData};
 use crate::{
-    BlockType, BreakingProgress, ConveyorItemVisual, CursorLockState, InputStateResources,
-    Inventory, TargetBlock, BLOCK_SIZE, CHUNK_SIZE, REACH_DISTANCE,
+    BlockType, BreakingProgress, ConveyorItemVisual, CreativeMode, CursorLockState,
+    InputStateResources, Inventory, TargetBlock, BLOCK_SIZE, CHUNK_SIZE, PLATFORM_SIZE,
+    REACH_DISTANCE,
 };
 
 use super::MachineBreakQueries;
@@ -39,6 +40,7 @@ pub fn block_break(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut breaking_progress: ResMut<BreakingProgress>,
     time: Res<Time>,
+    creative_mode: Res<CreativeMode>,
 ) {
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
@@ -76,6 +78,7 @@ pub fn block_break(
     let half_size = BLOCK_SIZE / 2.0;
 
     // Find the closest target (machine or world block)
+    let platform_transform = machines.platform.get_single().ok();
     let current_target = find_break_target(
         ray_origin,
         ray_direction,
@@ -83,6 +86,7 @@ pub fn block_break(
         &machines,
         &target_block,
         &world_data,
+        platform_transform,
     );
 
     let Some(target) = current_target else {
@@ -126,9 +130,13 @@ pub fn block_break(
         }
     }
 
-    // Update progress
-    let delta = time.delta_secs();
-    breaking_progress.progress += delta / total_time;
+    // Update progress (instant break in creative mode)
+    if creative_mode.enabled {
+        breaking_progress.progress = 1.0;
+    } else {
+        let delta = time.delta_secs();
+        breaking_progress.progress += delta / total_time;
+    }
 
     // Check if breaking is complete
     if breaking_progress.progress >= 1.0 {
@@ -168,8 +176,23 @@ fn find_break_target(
     machines: &MachineBreakQueries,
     target_block: &TargetBlock,
     world_data: &WorldData,
+    platform_transform: Option<&Transform>,
 ) -> Option<BreakTarget> {
     let mut closest: Option<(BreakTarget, f32)> = None;
+
+    // Calculate platform intersection distance (blocks break target if closer)
+    let platform_hit_distance: Option<f32> = platform_transform.and_then(|pt| {
+        let platform_center = pt.translation;
+        let platform_half_x = (PLATFORM_SIZE as f32 * BLOCK_SIZE) / 2.0;
+        let platform_half_y = BLOCK_SIZE * 0.1;
+        let platform_half_z = platform_half_x;
+        let platform_min =
+            platform_center - Vec3::new(platform_half_x, platform_half_y, platform_half_z);
+        let platform_max =
+            platform_center + Vec3::new(platform_half_x, platform_half_y, platform_half_z);
+        ray_aabb_intersection(ray_origin, ray_direction, platform_min, platform_max)
+            .filter(|&t| t > 0.0 && t < REACH_DISTANCE)
+    });
 
     // Check conveyors
     for (entity, _conveyor, conveyor_transform) in machines.conveyor.iter() {
@@ -244,7 +267,14 @@ fn find_break_target(
                 );
                 let dist = (block_center - ray_origin).length();
 
-                if dist < REACH_DISTANCE && closest.as_ref().is_none_or(|(_, d)| dist < *d) {
+                // Don't allow breaking if platform is closer (prevents mining through platform)
+                let platform_blocks =
+                    platform_hit_distance.is_some_and(|platform_dist| platform_dist < dist);
+
+                if dist < REACH_DISTANCE
+                    && !platform_blocks
+                    && closest.as_ref().is_none_or(|(_, d)| dist < *d)
+                {
                     closest = Some((BreakTarget::WorldBlock(break_pos, block_type), dist));
                 }
             }

@@ -38,13 +38,10 @@ pub fn update_guide_markers(
         return;
     };
 
-    // Only show guides for placeable machines
+    // Only show guides for placeable machines (not Miner - too noisy)
     if !matches!(
         block_type,
-        BlockType::MinerBlock
-            | BlockType::ConveyorBlock
-            | BlockType::FurnaceBlock
-            | BlockType::CrusherBlock
+        BlockType::ConveyorBlock | BlockType::FurnaceBlock | BlockType::CrusherBlock
     ) {
         return;
     }
@@ -54,10 +51,6 @@ pub fn update_guide_markers(
 
     // Generate guide positions based on selected item
     let guide_positions = match block_type {
-        BlockType::MinerBlock => {
-            // Show positions outside delivery platform edges
-            generate_miner_guide_positions()
-        }
         BlockType::ConveyorBlock => {
             // Show positions extending from existing machines
             generate_conveyor_guide_positions(
@@ -104,36 +97,6 @@ pub fn update_guide_markers(
         }
     }
     // Note: pulse effect would require material recreation each frame - skipped for performance
-}
-
-/// Generate guide positions for miners (outside delivery platform edges)
-fn generate_miner_guide_positions() -> Vec<IVec3> {
-    let mut positions = Vec::new();
-
-    // Delivery platform: origin (20, 8, 10), size 12x12
-    // Show positions 2-3 blocks outside each edge at Y=8
-
-    // North of platform (z = 8, 9)
-    for x in (20..32).step_by(3) {
-        positions.push(IVec3::new(x, 8, 8));
-    }
-
-    // South of platform (z = 23, 24)
-    for x in (20..32).step_by(3) {
-        positions.push(IVec3::new(x, 8, 23));
-    }
-
-    // West of platform (x = 18)
-    for z in (10..22).step_by(3) {
-        positions.push(IVec3::new(18, 8, z));
-    }
-
-    // East of platform (x = 33)
-    for z in (10..22).step_by(3) {
-        positions.push(IVec3::new(33, 8, z));
-    }
-
-    positions
 }
 
 /// Generate guide positions for conveyors (extending from existing machines)

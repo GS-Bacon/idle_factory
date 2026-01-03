@@ -42,22 +42,6 @@ pub fn execute_command(
     match parts[0] {
         "/creative" | "creative" => {
             creative_mode.enabled = true;
-            // Give all items when entering creative mode
-            let all_items = [
-                BlockType::Stone,
-                BlockType::Grass,
-                BlockType::IronOre,
-                BlockType::Coal,
-                BlockType::IronIngot,
-                BlockType::CopperOre,
-                BlockType::CopperIngot,
-                BlockType::MinerBlock,
-                BlockType::ConveyorBlock,
-                BlockType::CrusherBlock,
-            ];
-            for (i, block_type) in all_items.iter().take(9).enumerate() {
-                inventory.slots[i] = Some((*block_type, 64));
-            }
             info!("Creative mode enabled");
         }
         "/survival" | "survival" => {
