@@ -159,3 +159,35 @@ pub fn select_block_type(
         }
     }
 }
+
+/// Update 3D held item display based on selected hotbar item
+pub fn update_held_item_3d(
+    inventory: Res<Inventory>,
+    cache: Option<Res<HeldItem3DCache>>,
+    mut query: Query<(&mut MeshMaterial3d<StandardMaterial>, &mut Visibility), With<HeldItem3D>>,
+) {
+    let Some(cache) = cache else {
+        return;
+    };
+
+    let Ok((mut material, mut visibility)) = query.get_single_mut() else {
+        return;
+    };
+
+    // Only update when inventory changes
+    if !inventory.is_changed() {
+        return;
+    }
+
+    // Get selected block type
+    if let Some(block_type) = inventory.selected_block() {
+        // Show the item with appropriate material
+        if let Some(block_material) = cache.materials.get(&block_type) {
+            material.0 = block_material.clone();
+            *visibility = Visibility::Inherited;
+        }
+    } else {
+        // No item selected - hide
+        *visibility = Visibility::Hidden;
+    }
+}

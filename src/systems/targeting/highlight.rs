@@ -3,13 +3,20 @@
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 
-use crate::meshes::{create_conveyor_wireframe_mesh, create_wireframe_cube_mesh};
+use crate::meshes::{
+    create_arrow_mesh, create_conveyor_mesh, create_conveyor_wireframe_mesh,
+    create_wireframe_cube_mesh,
+};
 use crate::player::Inventory;
 use crate::utils::{auto_conveyor_direction, yaw_to_direction};
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, Crusher, Direction, Furnace, Miner,
+    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, Crusher, Direction, Furnace, Miner,
     PlaceHighlight, PlayerCamera, TargetBlock, TargetHighlight,
 };
+
+/// Marker for conveyor preview arrow
+#[derive(Component)]
+pub struct ConveyorPreviewArrow;
 
 /// Cached meshes for highlight wireframes (avoid recreation every frame)
 #[derive(Resource)]
@@ -19,8 +26,19 @@ pub struct HighlightMeshCache {
     pub conveyor_south: Handle<Mesh>,
     pub conveyor_east: Handle<Mesh>,
     pub conveyor_west: Handle<Mesh>,
+    // Solid conveyor preview meshes (semi-transparent)
+    pub conveyor_solid: Handle<Mesh>,
+    // Arrow meshes for direction
+    pub arrow_north: Handle<Mesh>,
+    pub arrow_south: Handle<Mesh>,
+    pub arrow_east: Handle<Mesh>,
+    pub arrow_west: Handle<Mesh>,
     pub red_material: Handle<StandardMaterial>,
     pub green_material: Handle<StandardMaterial>,
+    // Semi-transparent green for conveyor preview
+    pub conveyor_preview_material: Handle<StandardMaterial>,
+    // White for arrow
+    pub arrow_material: Handle<StandardMaterial>,
 }
 
 impl HighlightMeshCache {
@@ -30,6 +48,15 @@ impl HighlightMeshCache {
             Direction::South => self.conveyor_south.clone(),
             Direction::East => self.conveyor_east.clone(),
             Direction::West => self.conveyor_west.clone(),
+        }
+    }
+
+    pub fn get_arrow_mesh(&self, dir: Direction) -> Handle<Mesh> {
+        match dir {
+            Direction::North => self.arrow_north.clone(),
+            Direction::South => self.arrow_south.clone(),
+            Direction::East => self.arrow_east.clone(),
+            Direction::West => self.arrow_west.clone(),
         }
     }
 }
@@ -46,6 +73,13 @@ pub fn setup_highlight_cache(
         conveyor_south: meshes.add(create_conveyor_wireframe_mesh(Direction::South)),
         conveyor_east: meshes.add(create_conveyor_wireframe_mesh(Direction::East)),
         conveyor_west: meshes.add(create_conveyor_wireframe_mesh(Direction::West)),
+        // Solid conveyor mesh for preview
+        conveyor_solid: meshes.add(create_conveyor_mesh(ConveyorShape::Straight)),
+        // Arrow meshes
+        arrow_north: meshes.add(create_arrow_mesh(Direction::North)),
+        arrow_south: meshes.add(create_arrow_mesh(Direction::South)),
+        arrow_east: meshes.add(create_arrow_mesh(Direction::East)),
+        arrow_west: meshes.add(create_arrow_mesh(Direction::West)),
         red_material: materials.add(StandardMaterial {
             base_color: Color::srgb(1.0, 0.2, 0.2),
             unlit: true,
@@ -53,6 +87,19 @@ pub fn setup_highlight_cache(
         }),
         green_material: materials.add(StandardMaterial {
             base_color: Color::srgb(0.2, 1.0, 0.2),
+            unlit: true,
+            ..default()
+        }),
+        // Semi-transparent green for conveyor preview
+        conveyor_preview_material: materials.add(StandardMaterial {
+            base_color: Color::srgba(0.2, 0.8, 0.2, 0.5),
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            ..default()
+        }),
+        // Bright white for arrow visibility
+        arrow_material: materials.add(StandardMaterial {
+            base_color: Color::srgb(1.0, 1.0, 1.0),
             unlit: true,
             ..default()
         }),
@@ -168,36 +215,58 @@ pub fn update_target_highlight(
         }
     }
 
-    // === Place target (green wireframe) - only show if player has a placeable item ===
+    // === Place target - only show if player has a placeable item ===
     if let Some(pos) = target.place_target.filter(|_| has_placeable_item) {
         let center = Vec3::new(pos.x as f32 + 0.5, pos.y as f32 + 0.5, pos.z as f32 + 0.5);
 
-        // Despawn old entity if exists
+        // Despawn old entity if exists (recursively to remove arrow child)
         if let Some(entity) = target.place_highlight_entity.take() {
             if place_query.get(entity).is_ok() {
-                commands.entity(entity).despawn();
+                commands.entity(entity).despawn_recursive();
             }
         }
 
-        // Use cached mesh (no recreation every frame)
-        let mesh = if let Some(dir) = place_direction {
-            cache.get_conveyor_mesh(dir)
+        // For conveyor: use semi-transparent solid model + arrow
+        // For other items: use green wireframe
+        let entity = if let Some(dir) = place_direction {
+            // Conveyor preview: semi-transparent solid + arrow child
+            let rotation = dir.to_rotation();
+            commands
+                .spawn((
+                    Mesh3d(cache.conveyor_solid.clone()),
+                    MeshMaterial3d(cache.conveyor_preview_material.clone()),
+                    Transform::from_translation(center).with_rotation(rotation),
+                    PlaceHighlight,
+                    NotShadowCaster,
+                ))
+                .with_children(|parent| {
+                    // Arrow on top (in local space, so no rotation needed)
+                    parent.spawn((
+                        Mesh3d(cache.get_arrow_mesh(dir)),
+                        MeshMaterial3d(cache.arrow_material.clone()),
+                        // Arrow is defined in world space, so reverse rotation for local
+                        Transform::from_rotation(rotation.inverse()),
+                        ConveyorPreviewArrow,
+                        NotShadowCaster,
+                    ));
+                })
+                .id()
         } else {
-            cache.cube_mesh.clone()
+            // Other items: green wireframe
+            commands
+                .spawn((
+                    Mesh3d(cache.cube_mesh.clone()),
+                    MeshMaterial3d(cache.green_material.clone()),
+                    Transform::from_translation(center),
+                    PlaceHighlight,
+                    NotShadowCaster,
+                ))
+                .id()
         };
-        let entity = commands
-            .spawn((
-                Mesh3d(mesh),
-                MeshMaterial3d(cache.green_material.clone()),
-                Transform::from_translation(center),
-                PlaceHighlight,
-                NotShadowCaster,
-            ))
-            .id();
         target.place_highlight_entity = Some(entity);
     } else if let Some(entity) = target.place_highlight_entity.take() {
         if place_query.get(entity).is_ok() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).despawn_recursive();
         }
     }
 }

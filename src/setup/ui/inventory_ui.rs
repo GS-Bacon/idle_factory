@@ -90,8 +90,9 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                             border: UiRect::all(Val::Px(SLOT_BORDER)),
                                             ..default()
                                         },
+                                        // Same colors as inventory slots (spawn_inventory_slot)
                                         BackgroundColor(Color::srgba(0.14, 0.14, 0.14, 0.95)),
-                                        BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0)),
+                                        BorderColor(Color::srgba(0.25, 0.25, 0.25, 1.0)),
                                     ))
                                     .with_children(|btn| {
                                         // Sprite image

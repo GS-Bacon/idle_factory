@@ -132,6 +132,83 @@ pub fn create_conveyor_wireframe_mesh(direction: Direction) -> Mesh {
     mesh
 }
 
+/// Create arrow mesh for direction indication (LineList)
+pub fn create_arrow_mesh(direction: Direction) -> Mesh {
+    let arrow_y = 0.35; // Above conveyor
+    let arrow_base = 0.0;
+    let arrow_tip = 0.4;
+    let arrow_wing = 0.2;
+
+    let arrow_points = match direction {
+        Direction::East => [
+            (
+                Vec3::new(arrow_base, arrow_y, 0.0),
+                Vec3::new(arrow_tip, arrow_y, 0.0),
+            ),
+            (
+                Vec3::new(arrow_tip, arrow_y, 0.0),
+                Vec3::new(arrow_tip - arrow_wing, arrow_y, arrow_wing),
+            ),
+            (
+                Vec3::new(arrow_tip, arrow_y, 0.0),
+                Vec3::new(arrow_tip - arrow_wing, arrow_y, -arrow_wing),
+            ),
+        ],
+        Direction::West => [
+            (
+                Vec3::new(-arrow_base, arrow_y, 0.0),
+                Vec3::new(-arrow_tip, arrow_y, 0.0),
+            ),
+            (
+                Vec3::new(-arrow_tip, arrow_y, 0.0),
+                Vec3::new(-arrow_tip + arrow_wing, arrow_y, arrow_wing),
+            ),
+            (
+                Vec3::new(-arrow_tip, arrow_y, 0.0),
+                Vec3::new(-arrow_tip + arrow_wing, arrow_y, -arrow_wing),
+            ),
+        ],
+        Direction::North => [
+            (
+                Vec3::new(0.0, arrow_y, arrow_base),
+                Vec3::new(0.0, arrow_y, arrow_tip),
+            ),
+            (
+                Vec3::new(0.0, arrow_y, arrow_tip),
+                Vec3::new(arrow_wing, arrow_y, arrow_tip - arrow_wing),
+            ),
+            (
+                Vec3::new(0.0, arrow_y, arrow_tip),
+                Vec3::new(-arrow_wing, arrow_y, arrow_tip - arrow_wing),
+            ),
+        ],
+        Direction::South => [
+            (
+                Vec3::new(0.0, arrow_y, -arrow_base),
+                Vec3::new(0.0, arrow_y, -arrow_tip),
+            ),
+            (
+                Vec3::new(0.0, arrow_y, -arrow_tip),
+                Vec3::new(arrow_wing, arrow_y, -arrow_tip + arrow_wing),
+            ),
+            (
+                Vec3::new(0.0, arrow_y, -arrow_tip),
+                Vec3::new(-arrow_wing, arrow_y, -arrow_tip + arrow_wing),
+            ),
+        ],
+    };
+
+    let mut positions: Vec<[f32; 3]> = Vec::with_capacity(6);
+    for (a, b) in arrow_points {
+        positions.push(a.to_array());
+        positions.push(b.to_array());
+    }
+
+    let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh
+}
+
 /// Create a wireframe cube mesh (12 edges)
 pub fn create_wireframe_cube_mesh() -> Mesh {
     let half = BLOCK_SIZE * 0.505; // Slightly larger to avoid z-fighting

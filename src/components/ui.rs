@@ -306,3 +306,16 @@ pub struct BreakingProgressUI;
 /// Marker for breaking progress bar fill
 #[derive(Component)]
 pub struct BreakingProgressBarFill;
+
+// === 3D Held Item Display ===
+
+/// Marker for 3D held item display (first-person view in bottom-right)
+#[derive(Component)]
+pub struct HeldItem3D;
+
+/// Cached materials for held item 3D display
+#[derive(Resource)]
+pub struct HeldItem3DCache {
+    pub cube_mesh: Handle<Mesh>,
+    pub materials: std::collections::HashMap<BlockType, Handle<StandardMaterial>>,
+}
