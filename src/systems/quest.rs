@@ -190,15 +190,18 @@ pub fn update_quest_ui(
     platform_query: Query<&DeliveryPlatform>,
     global_inventory: Res<GlobalInventory>,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
-    mut button_query: Query<(&mut Visibility, &mut BackgroundColor), With<QuestDeliverButton>>,
+    mut button_query: Query<
+        (&mut Visibility, &mut BackgroundColor),
+        (With<QuestDeliverButton>, Without<QuestProgressBarFill>),
+    >,
     mut progress_item_query: Query<
         (&QuestProgressItem, &mut Visibility),
-        Without<QuestDeliverButton>,
+        (Without<QuestDeliverButton>, Without<QuestProgressBarFill>),
     >,
     mut progress_text_query: Query<(&QuestProgressText, &mut Text), Without<QuestUIText>>,
     mut progress_fill_query: Query<
         (&QuestProgressBarFill, &mut Node, &mut BackgroundColor),
-        Without<QuestProgressItem>,
+        (Without<QuestProgressItem>, Without<QuestDeliverButton>),
     >,
     quest_cache: Res<QuestCache>,
 ) {
