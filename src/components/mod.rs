@@ -129,6 +129,130 @@ pub struct TutorialShown(pub bool);
 #[derive(Component)]
 pub struct TutorialPopup;
 
+// =============================================================================
+// Tutorial Quest System
+// =============================================================================
+
+/// Tutorial actions that can trigger quest completion
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TutorialAction {
+    /// Move a certain distance
+    Move { distance: u32 },
+    /// Break any block
+    BreakBlock,
+    /// Open inventory
+    OpenInventory,
+    /// Place a specific machine type
+    PlaceMachine(BlockType),
+    /// Place consecutive conveyors
+    PlaceConveyors { count: u32 },
+    /// Create a valid machine connection line
+    CreateConnection,
+    /// Produce a specific item
+    ProduceItem(BlockType),
+}
+
+/// Tutorial step definition
+pub struct TutorialStep {
+    pub id: &'static str,
+    pub description: &'static str,
+    pub hint: &'static str,
+    pub action: TutorialAction,
+}
+
+/// All tutorial steps
+pub const TUTORIAL_STEPS: &[TutorialStep] = &[
+    TutorialStep {
+        id: "tut_move",
+        description: "WASDで移動しよう",
+        hint: "WASDキーで移動、マウスで視点操作",
+        action: TutorialAction::Move { distance: 20 },
+    },
+    TutorialStep {
+        id: "tut_break",
+        description: "ブロックを掘ろう",
+        hint: "左クリックで採掘",
+        action: TutorialAction::BreakBlock,
+    },
+    TutorialStep {
+        id: "tut_inventory",
+        description: "Eでインベントリを開こう",
+        hint: "Eキーでインベントリを開閉",
+        action: TutorialAction::OpenInventory,
+    },
+    TutorialStep {
+        id: "tut_place_miner",
+        description: "採掘機を設置しよう",
+        hint: "ホットバーから採掘機を選択して右クリック",
+        action: TutorialAction::PlaceMachine(BlockType::MinerBlock),
+    },
+    TutorialStep {
+        id: "tut_place_conveyor",
+        description: "コンベアを3個繋げよう",
+        hint: "コンベアを選択して連続設置",
+        action: TutorialAction::PlaceConveyors { count: 3 },
+    },
+    TutorialStep {
+        id: "tut_place_furnace",
+        description: "精錬炉を設置しよう",
+        hint: "コンベアの先に精錬炉を設置",
+        action: TutorialAction::PlaceMachine(BlockType::FurnaceBlock),
+    },
+    TutorialStep {
+        id: "tut_first_ingot",
+        description: "インゴットを作ろう",
+        hint: "採掘機→コンベア→精錬炉の接続を待つ",
+        action: TutorialAction::ProduceItem(BlockType::IronIngot),
+    },
+];
+
+/// Tutorial progress tracking
+#[derive(Resource, Default)]
+pub struct TutorialProgress {
+    /// Current tutorial step index (0-based)
+    pub current_step: usize,
+    /// Whether all tutorials are completed
+    pub completed: bool,
+    /// Accumulated move distance for move tutorial
+    pub move_distance: f32,
+    /// Consecutive conveyor placement count
+    pub conveyor_count: u32,
+    /// Last conveyor position (for consecutive check)
+    pub last_conveyor_pos: Option<IVec3>,
+}
+
+impl TutorialProgress {
+    /// Get current tutorial step, if any
+    pub fn current(&self) -> Option<&'static TutorialStep> {
+        if self.completed {
+            None
+        } else {
+            TUTORIAL_STEPS.get(self.current_step)
+        }
+    }
+
+    /// Advance to next step
+    pub fn advance(&mut self) {
+        self.current_step += 1;
+        // Reset tracking values
+        self.move_distance = 0.0;
+        self.conveyor_count = 0;
+        self.last_conveyor_pos = None;
+
+        if self.current_step >= TUTORIAL_STEPS.len() {
+            self.completed = true;
+        }
+    }
+}
+
+/// Marker for tutorial UI panel
+#[derive(Component)]
+pub struct TutorialPanel;
+
+/// Marker for tutorial step text
+#[derive(Component)]
+pub struct TutorialStepText;
+
 /// Quest definition
 /// Note: systems/quest.rs has its own QuestDef struct
 #[allow(dead_code)]

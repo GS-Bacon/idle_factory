@@ -33,3 +33,10 @@ pub struct MachinePlaceQueries<'w, 's> {
     pub crusher: Query<'w, 's, (&'static Crusher, &'static Transform)>,
     pub furnace: Query<'w, 's, &'static Transform, With<Furnace>>,
 }
+
+/// Bundled chunk render assets (reduces parameter count)
+#[derive(SystemParam)]
+pub struct ChunkAssets<'w> {
+    pub meshes: ResMut<'w, Assets<Mesh>>,
+    pub materials: ResMut<'w, Assets<StandardMaterial>>,
+}

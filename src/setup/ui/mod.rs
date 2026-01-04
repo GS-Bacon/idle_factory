@@ -504,21 +504,55 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
             ));
             parent.spawn((
                 Text::new(
-                    "Controls:\n\
-                     WASD - Move\n\
-                     Mouse - Look around\n\
-                     Left Click - Break blocks\n\
-                     Right Click - Place/Interact\n\
-                     E - Open inventory\n\
-                     1-9 / Scroll - Select hotbar\n\
-                     R - Rotate conveyor\n\
-                     T or / - Open command input\n\
-                     F3 - Debug info\n\
-                     ESC - Pause\n\n\
-                     Press any key to start...",
+                    "操作方法:\n\
+                     WASD - 移動\n\
+                     マウス - 視点操作\n\
+                     左クリック - ブロック採掘\n\
+                     右クリック - 設置/操作\n\
+                     E - インベントリ\n\
+                     1-9/スクロール - ホットバー選択\n\
+                     R - コンベア回転\n\
+                     T or / - コマンド入力\n\
+                     F3 - デバッグ情報\n\
+                     ESC - ポーズ\n\n\
+                     任意のキーでスタート...",
                 ),
                 text_font(&font_tut, 14.0),
                 TextColor(Color::WHITE),
+            ));
+        });
+
+    // Tutorial progress panel (shown during tutorial, hidden after completion)
+    let font_panel = font.clone();
+    commands
+        .spawn((
+            TutorialPanel,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(60.0),
+                left: Val::Percent(50.0),
+                margin: UiRect {
+                    left: Val::Px(-180.0),
+                    ..default()
+                },
+                width: Val::Px(360.0),
+                padding: UiRect::all(Val::Px(12.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(6.0),
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.92)),
+            BorderColor(QUEST_BORDER_COLOR),
+            BorderRadius::all(Val::Px(8.0)),
+            Visibility::Hidden, // Hidden until tutorial popup is dismissed
+        ))
+        .with_children(|panel| {
+            panel.spawn((
+                TutorialStepText,
+                Text::new("📖 チュートリアル"),
+                text_font(&font_panel, 14.0),
+                TextColor(QUEST_HEADER_COLOR),
             ));
         });
 }

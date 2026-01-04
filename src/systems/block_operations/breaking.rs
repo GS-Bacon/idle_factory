@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::game_spec::breaking_spec;
+use crate::systems::TutorialEvent;
 use crate::utils::ray_aabb_intersection;
 use crate::world::{ChunkMesh, WorldData};
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
     REACH_DISTANCE,
 };
 
-use super::MachineBreakQueries;
+use super::{ChunkAssets, MachineBreakQueries};
 
 /// What type of thing we're trying to break
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -36,11 +37,11 @@ pub fn block_break(
     input_resources: InputStateResources,
     target_block: Res<TargetBlock>,
     mut world_data: ResMut<WorldData>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut chunk_assets: ChunkAssets,
     mut breaking_progress: ResMut<BreakingProgress>,
     time: Res<Time>,
     creative_mode: Res<CreativeMode>,
+    mut tutorial_events: EventWriter<TutorialEvent>,
 ) {
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
@@ -158,12 +159,14 @@ pub fn block_break(
                     pos,
                     block_type,
                     &mut world_data,
-                    &mut meshes,
-                    &mut materials,
+                    &mut chunk_assets.meshes,
+                    &mut chunk_assets.materials,
                     &mut inventory,
                 );
             }
         }
+        // Send tutorial event for block breaking
+        tutorial_events.send(TutorialEvent::BlockBroken);
         breaking_progress.reset();
     }
 }

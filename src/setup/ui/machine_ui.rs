@@ -5,22 +5,25 @@
 use crate::components::*;
 use bevy::prelude::*;
 
-use super::{text_font, SLOT_SIZE};
+use super::{
+    text_font, QUEST_BORDER_COLOR, QUEST_PROGRESS_COLOR, QUEST_RADIUS, SLOT_BG, SLOT_BORDER,
+    SLOT_BORDER_COLOR, SLOT_RADIUS, SLOT_SIZE,
+};
 
 // === Design Rule Constants ===
 const PANEL_PADDING: f32 = 20.0;
-const HEADER_HEIGHT: f32 = 25.0;
+const HEADER_HEIGHT: f32 = 30.0;
 
-// Colors from design rules
-const PANEL_BG: Color = Color::srgba(0.12, 0.12, 0.12, 0.9);
-const SLOT_BG: Color = Color::srgb(0.2, 0.2, 0.2);
-const SLOT_BORDER: Color = Color::srgb(0.33, 0.33, 0.33);
-const PROGRESS_BG: Color = Color::srgb(0.13, 0.13, 0.13);
-const PROGRESS_FILL: Color = Color::srgb(0.30, 0.69, 0.31);
+// Factory theme colors (consistent with other UI)
+const PANEL_BG: Color = Color::srgba(0.10, 0.10, 0.10, 0.95);
+const PANEL_BORDER: Color = QUEST_BORDER_COLOR;
+const PROGRESS_BG: Color = Color::srgb(0.15, 0.15, 0.2);
+const PROGRESS_FILL: Color = QUEST_PROGRESS_COLOR; // Orange theme
 const TEXT_PRIMARY: Color = Color::WHITE;
 const TEXT_SECONDARY: Color = Color::srgb(0.67, 0.67, 0.67);
+const HEADER_COLOR: Color = Color::srgb(1.0, 0.8, 0.0); // Yellow header
 
-/// Spawn furnace slot with proper component
+/// Spawn furnace slot with Factory theme
 fn spawn_furnace_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType, font: &Handle<Font>) {
     parent
         .spawn((
@@ -29,13 +32,14 @@ fn spawn_furnace_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType, fon
             Node {
                 width: Val::Px(SLOT_SIZE),
                 height: Val::Px(SLOT_SIZE),
-                border: UiRect::all(Val::Px(1.0)),
+                border: UiRect::all(Val::Px(SLOT_BORDER)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },
             BackgroundColor(SLOT_BG),
-            BorderColor(SLOT_BORDER),
+            BorderColor(SLOT_BORDER_COLOR),
+            BorderRadius::all(Val::Px(SLOT_RADIUS)),
         ))
         .with_children(|slot| {
             slot.spawn((
@@ -47,7 +51,7 @@ fn spawn_furnace_slot(parent: &mut ChildBuilder, slot_type: MachineSlotType, fon
         });
 }
 
-/// Spawn crusher slot with proper component
+/// Spawn crusher slot with Factory theme
 fn spawn_crusher_slot_inner(
     parent: &mut ChildBuilder,
     slot_type: MachineSlotType,
@@ -60,13 +64,14 @@ fn spawn_crusher_slot_inner(
             Node {
                 width: Val::Px(SLOT_SIZE),
                 height: Val::Px(SLOT_SIZE),
-                border: UiRect::all(Val::Px(1.0)),
+                border: UiRect::all(Val::Px(SLOT_BORDER)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },
             BackgroundColor(SLOT_BG),
-            BorderColor(SLOT_BORDER),
+            BorderColor(SLOT_BORDER_COLOR),
+            BorderRadius::all(Val::Px(SLOT_RADIUS)),
         ))
         .with_children(|slot| {
             slot.spawn((
@@ -97,36 +102,31 @@ pub fn setup_furnace_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ..default()
             },
             BackgroundColor(PANEL_BG),
-            BorderColor(SLOT_BORDER),
+            BorderColor(PANEL_BORDER),
+            BorderRadius::all(Val::Px(QUEST_RADIUS)),
             Visibility::Hidden,
         ))
         .with_children(|panel| {
             let font = font.clone();
-            // === Header ===
+            // === Header (Factory theme) ===
             panel
                 .spawn((
                     Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(HEADER_HEIGHT),
-                        padding: UiRect::horizontal(Val::Px(10.0)),
-                        justify_content: JustifyContent::SpaceBetween,
+                        padding: UiRect::horizontal(Val::Px(12.0)),
+                        justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border: UiRect::bottom(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderColor(SLOT_BORDER),
+                    BorderColor(PANEL_BORDER),
                 ))
                 .with_children(|header| {
                     header.spawn((
-                        Text::new("Furnace"),
+                        Text::new("🔥 精錬炉"),
                         text_font(&font, 16.0),
-                        TextColor(TEXT_PRIMARY),
-                    ));
-                    // Close button placeholder (X)
-                    header.spawn((
-                        Text::new("×"),
-                        text_font(&font, 18.0),
-                        TextColor(TEXT_SECONDARY),
+                        TextColor(HEADER_COLOR),
                     ));
                 });
 
@@ -219,7 +219,7 @@ pub fn setup_furnace_ui(commands: &mut Commands, font: &Handle<Font>) {
 
                     // Instructions
                     content.spawn((
-                        Text::new("E or ESC to close"),
+                        Text::new("E/ESC で閉じる"),
                         text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
@@ -246,35 +246,31 @@ pub fn setup_crusher_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ..default()
             },
             BackgroundColor(PANEL_BG),
-            BorderColor(SLOT_BORDER),
+            BorderColor(PANEL_BORDER),
+            BorderRadius::all(Val::Px(QUEST_RADIUS)),
             Visibility::Hidden,
         ))
         .with_children(|panel| {
             let font = font.clone();
-            // === Header ===
+            // === Header (Factory theme) ===
             panel
                 .spawn((
                     Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(HEADER_HEIGHT),
-                        padding: UiRect::horizontal(Val::Px(10.0)),
-                        justify_content: JustifyContent::SpaceBetween,
+                        padding: UiRect::horizontal(Val::Px(12.0)),
+                        justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border: UiRect::bottom(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderColor(SLOT_BORDER),
+                    BorderColor(PANEL_BORDER),
                 ))
                 .with_children(|header| {
                     header.spawn((
-                        Text::new("Crusher"),
+                        Text::new("⚙ 粉砕機"),
                         text_font(&font, 16.0),
-                        TextColor(TEXT_PRIMARY),
-                    ));
-                    header.spawn((
-                        Text::new("×"),
-                        text_font(&font, 18.0),
-                        TextColor(TEXT_SECONDARY),
+                        TextColor(HEADER_COLOR),
                     ));
                 });
 
@@ -332,13 +328,13 @@ pub fn setup_crusher_ui(commands: &mut Commands, font: &Handle<Font>) {
 
                     // Info
                     content.spawn((
-                        Text::new("Doubles ore output!"),
+                        Text::new("鉱石を2倍に増やす"),
                         text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
 
                     content.spawn((
-                        Text::new("E or ESC to close"),
+                        Text::new("E/ESC で閉じる"),
                         text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
@@ -365,35 +361,31 @@ pub fn setup_miner_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ..default()
             },
             BackgroundColor(PANEL_BG),
-            BorderColor(SLOT_BORDER),
+            BorderColor(PANEL_BORDER),
+            BorderRadius::all(Val::Px(QUEST_RADIUS)),
             Visibility::Hidden,
         ))
         .with_children(|panel| {
             let font = font.clone();
-            // === Header ===
+            // === Header (Factory theme) ===
             panel
                 .spawn((
                     Node {
                         width: Val::Percent(100.0),
                         height: Val::Px(HEADER_HEIGHT),
-                        padding: UiRect::horizontal(Val::Px(10.0)),
-                        justify_content: JustifyContent::SpaceBetween,
+                        padding: UiRect::horizontal(Val::Px(12.0)),
+                        justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border: UiRect::bottom(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderColor(SLOT_BORDER),
+                    BorderColor(PANEL_BORDER),
                 ))
                 .with_children(|header| {
                     header.spawn((
-                        Text::new("Miner"),
+                        Text::new("⛏ 採掘機"),
                         text_font(&font, 16.0),
-                        TextColor(TEXT_PRIMARY),
-                    ));
-                    header.spawn((
-                        Text::new("×"),
-                        text_font(&font, 18.0),
-                        TextColor(TEXT_SECONDARY),
+                        TextColor(HEADER_COLOR),
                     ));
                 });
 
@@ -425,13 +417,14 @@ pub fn setup_miner_ui(commands: &mut Commands, font: &Handle<Font>) {
                                 Node {
                                     width: Val::Px(SLOT_SIZE),
                                     height: Val::Px(SLOT_SIZE),
-                                    border: UiRect::all(Val::Px(1.0)),
+                                    border: UiRect::all(Val::Px(SLOT_BORDER)),
                                     justify_content: JustifyContent::Center,
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
                                 BackgroundColor(SLOT_BG),
-                                BorderColor(SLOT_BORDER),
+                                BorderColor(SLOT_BORDER_COLOR),
+                                BorderRadius::all(Val::Px(SLOT_RADIUS)),
                             ))
                             .with_children(|slot| {
                                 slot.spawn((
@@ -469,13 +462,13 @@ pub fn setup_miner_ui(commands: &mut Commands, font: &Handle<Font>) {
 
                     // Instructions
                     content.spawn((
-                        Text::new("Click buffer to take items"),
+                        Text::new("バッファをクリックでアイテム取得"),
                         text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));
 
                     content.spawn((
-                        Text::new("E or ESC to close"),
+                        Text::new("E/ESC で閉じる"),
                         text_font(&font_content, 11.0),
                         TextColor(TEXT_SECONDARY),
                     ));

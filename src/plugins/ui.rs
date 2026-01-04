@@ -7,14 +7,15 @@ use bevy::prelude::*;
 use crate::systems::{
     command_input_handler, command_input_toggle, creative_inventory_click,
     inventory_continuous_shift_click, inventory_slot_click, inventory_toggle,
-    inventory_update_slots, spawn_breaking_progress_ui, trash_slot_click,
+    inventory_update_slots, process_tutorial_events, spawn_breaking_progress_ui,
+    track_inventory_open, track_movement, track_production, trash_slot_click,
     update_breaking_progress_ui, update_command_suggestions, update_creative_catalog_sprites,
     update_held_item_3d, update_held_item_display, update_hotbar_item_name, update_hotbar_ui,
-    update_inventory_tooltip,
+    update_inventory_tooltip, update_tutorial_ui, TutorialEvent,
 };
 use crate::{
     CommandInputState, GuideMarkers, HeldItem, InventoryOpen, ItemSprites, TargetBlock,
-    TutorialShown,
+    TutorialProgress, TutorialShown,
 };
 
 /// Plugin for all UI-related systems
@@ -26,10 +27,14 @@ impl Plugin for UIPlugin {
         app.init_resource::<TargetBlock>()
             .init_resource::<InventoryOpen>()
             .init_resource::<TutorialShown>()
+            .init_resource::<TutorialProgress>()
             .init_resource::<HeldItem>()
             .init_resource::<CommandInputState>()
             .init_resource::<GuideMarkers>()
             .init_resource::<ItemSprites>();
+
+        // Tutorial event
+        app.add_event::<TutorialEvent>();
 
         // Spawn breaking progress UI
         app.add_systems(Startup, spawn_breaking_progress_ui);
@@ -60,6 +65,17 @@ impl Plugin for UIPlugin {
                     command_input_toggle,
                     command_input_handler,
                     update_command_suggestions,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    // Tutorial systems
+                    track_movement,
+                    track_inventory_open,
+                    track_production,
+                    process_tutorial_events,
+                    update_tutorial_ui,
                 ),
             );
     }

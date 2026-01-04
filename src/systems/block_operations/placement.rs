@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
+use crate::systems::TutorialEvent;
 use crate::utils::{
     auto_conveyor_direction, dda_raycast, ray_aabb_intersection, ray_aabb_intersection_with_normal,
     yaw_to_direction,
@@ -34,6 +35,7 @@ pub fn block_place(
     mut action_timer: ResMut<ContinuousActionTimer>,
     mut rotation: ResMut<ConveyorRotationOffset>,
     machine_models: Res<MachineModels>,
+    mut tutorial_events: EventWriter<TutorialEvent>,
 ) {
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -344,6 +346,8 @@ pub fn block_place(
                         },
                     ));
                 }
+                // Tutorial event for miner placement
+                tutorial_events.send(TutorialEvent::MachinePlaced(BlockType::MinerBlock));
             }
             BlockType::ConveyorBlock => {
                 let front_pos = place_pos + facing_direction.to_ivec3();
@@ -458,6 +462,10 @@ pub fn block_place(
                         });
                 }
                 rotation.offset = 0;
+                // Tutorial event for conveyor placement
+                tutorial_events.send(TutorialEvent::ConveyorPlaced {
+                    position: place_pos,
+                });
             }
             BlockType::CrusherBlock => {
                 info!(
@@ -511,6 +519,8 @@ pub fn block_place(
                         },
                     ));
                 }
+                // Tutorial event for crusher placement
+                tutorial_events.send(TutorialEvent::MachinePlaced(BlockType::CrusherBlock));
             }
             BlockType::FurnaceBlock => {
                 info!(
@@ -564,6 +574,8 @@ pub fn block_place(
                         },
                     ));
                 }
+                // Tutorial event for furnace placement
+                tutorial_events.send(TutorialEvent::MachinePlaced(BlockType::FurnaceBlock));
             }
             _ => {
                 info!(category = "BLOCK", action = "place", ?place_pos, block_type = ?selected_type, "Block placed");
