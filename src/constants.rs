@@ -46,7 +46,7 @@ pub const CONVEYOR_BELT_WIDTH: f32 = 0.8; // Belt width (fraction of BLOCK_SIZE,
 pub const CONVEYOR_BELT_HEIGHT: f32 = 0.2; // Belt height (fraction of BLOCK_SIZE)
 
 /// Delivery platform
-pub const PLATFORM_SIZE: i32 = 12;
+pub const PLATFORM_SIZE: i32 = 8;
 
 /// Inventory
 pub const HOTBAR_SLOTS: usize = 9;

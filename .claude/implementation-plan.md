@@ -334,11 +334,361 @@ Phase 7 (インフラ)       → 他と並行OK
 
 ---
 
+## Phase 10: プラットフォーム再設計
+
+**概要**: 納品プラットフォームを「8×8固定サイズの巨大倉庫」として再設計
+
+### 新仕様
+
+- **サイズ**: 8×8ブロック固定、高さ1ブロック
+- **収納ポート**: 各辺6個（四隅除外）、合計24ポート/個
+- **インベントリ**: 無限容量、全プラットフォームで共有（= GlobalInventory）
+- **増設**: 横並べ・積み上げ可能
+
+### 用語定義
+
+- **収納**: コンベア経由でプラットフォームにアイテムが入ること
+- **納品**: クエストのためにインベントリからアイテムを消費すること
+
+### 10.1 定数・BlockType追加
+
+| タスク | ファイル | 状態 |
+|--------|----------|------|
+| PLATFORM_SIZE=8 | src/constants.rs | [x] ✅ (既存定義あり) |
+| PlatformBlock追加 | src/block_type.rs | [x] ✅ |
+
+### 10.2 コンポーネント簡素化
+
+| タスク | ファイル | 状態 |
+|--------|----------|------|
+| DeliveryPlatform.delivered削除 | src/components/mod.rs | [x] ✅ |
+| position: IVec3追加 | src/components/mod.rs | [x] ✅ |
+
+### 10.3 納品ロジック変更
+
+| タスク | ファイル | 状態 |
+|--------|----------|------|
+| platform.delivered参照を全削除 | src/systems/quest.rs | [x] ✅ |
+| platform_query削除 | src/systems/quest.rs | [x] ✅ |
+| can_deliver簡略化 | src/systems/quest.rs | [x] ✅ |
+| quest_deliver_button簡略化 | src/systems/quest.rs | [x] ✅ |
+| update_quest_ui進捗表示変更 | src/systems/quest.rs | [x] ✅ |
+
+### 10.4 収納ロジック変更（HashSet方式）
+
+| タスク | ファイル | 状態 |
+|--------|----------|------|
+| build_valid_ports関数追加 | src/systems/conveyor.rs | [x] ✅ (setup_delivery_platformで動的生成) |
+| 四隅を収納ポートから除外 | src/systems/conveyor.rs | [x] ✅ |
+| 複数プラットフォーム対応 | src/systems/conveyor.rs | [x] ✅ (GlobalInventory経由) |
+
+### 10.5 配置システム変更
+
+| タスク | ファイル | 状態 |
+|--------|----------|------|
+| setup_delivery_platform削除 | src/systems/quest.rs | [ ] 将来タスク |
+| PlatformBlock配置対応 | src/systems/block_operations/placement.rs | [ ] 将来タスク |
+
+### 10.6 初期アイテム・モデル
+
+| タスク | ファイル | 状態 |
+|--------|----------|------|
+| PlatformBlock×1初期支給 | src/main.rs | [ ] 将来タスク |
+| VOXモデル作成 | assets/models/machines/platform.vox | [ ] 将来タスク |
+
+### 10.7 セーブデータ・テスト
+
+| タスク | ファイル | 状態 |
+|--------|----------|------|
+| delivered削除対応 | src/save.rs | [x] ✅ |
+| 関連テスト更新 | tests/*.rs | [x] ✅ |
+
+### 実装順序
+
+```
+10.1 定数・BlockType → 10.2 コンポーネント → 10.3 納品ロジック
+→ 10.4 収納ロジック → 10.5 配置システム → 10.6 初期アイテム・モデル
+→ 10.7 セーブ・テスト
+```
+
+### 削除したコード ✅
+
+- ~~`setup_delivery_platform()` 関数~~ → 将来タスク
+- `DeliveryPlatform.delivered` フィールド ✅
+- `delivered` を参照する全てのロジック ✅
+- `can_deliver_from_global_inventory()` の platform 引数 ✅
+- セーブ/ロードの`delivery.delivered`操作 ✅ → GlobalInventory経由に変更
+
+---
+
+## Phase 11: ゲームデータ外部化
+
+**概要**: 頻繁に調整するゲームデータをJSONに外出しし、再コンパイルなしでバランス調整可能に
+
+### 設計方針
+
+- **外出し対象**: 変更頻度が高いデータのみ
+- **型定義はRust側に残す**: 型安全性を維持
+- **JSON Schema**: VSCodeでバリデーション・補完を効かせる
+
+### 11.1 外出し対象
+
+| データ | 現在の場所 | 変更頻度 | 外出し |
+|--------|-----------|---------|--------|
+| レシピ | `game_spec.rs` | 高 | ✅ `recipes.json` |
+| クエスト | `game_spec.rs` | 高 | ✅ `quests.json` |
+| 機械パラメータ | `game_spec.rs` | 中 | ✅ `machines.json` |
+| 物理定数 | `constants.rs` | 低 | ❌ |
+| UIサイズ・色 | 各所 | 低 | ❌ |
+| キーバインド | `input.rs` | 低 | ❌ |
+| BlockType | `block_type.rs` | 低 | ❌ |
+
+### 11.2 ファイル構成
+
+```
+assets/data/
+  recipes.json      # レシピ定義（精錬、粉砕など）
+  quests.json       # メインクエスト・サブクエスト
+  machines.json     # 処理時間、燃料効率、入出力ポート
+  schema/
+    recipes.schema.json
+    quests.schema.json
+    machines.schema.json
+```
+
+### 11.3 実装タスク
+
+| タスク | 詳細 | 状態 |
+|--------|------|------|
+| `assets/data/` ディレクトリ作成 | | [ ] |
+| `recipes.json` 作成 | 現在の `FURNACE_RECIPES`, `CRUSHER_RECIPES` を移行 | [ ] |
+| `quests.json` 作成 | `MAIN_QUESTS`, `SUB_QUESTS` を移行 | [ ] |
+| `machines.json` 作成 | 処理時間、燃料消費量、ポート設定 | [ ] |
+| JSON Schema作成 | VSCode補完・バリデーション用 | [ ] |
+| ローダー実装 | `game_spec.rs` でJSON読み込み | [ ] |
+| エラーハンドリング | ファイル不在・パースエラー時のフォールバック | [ ] |
+| テスト追加 | JSON読み込みテスト | [ ] |
+
+### 11.4 将来拡張（v0.3以降）
+
+- Web GUIエディタ（プレイヤーフィードバックが増えた時）
+- Modding対応（ユーザーがレシピを追加）
+
+---
+
+## Phase 12: 機械システムのコンポーネント化 (v0.3)
+
+**概要**: Bevy ECSパターンに従い、機械の共通機能をコンポーネントに分離
+
+**注意**: Geminiレビューにより、Phase 12（機械）を先に、Phase 13（BlockType）を後に実施することを推奨。
+理由: 機械システムを先に抽象化すれば、BlockType変更時の修正箇所が「汎用機械システム」に集約される。
+
+### 設計方針
+
+**現状の問題**:
+- Miner(355行), Furnace(~300行), Crusher(328行) が似たパターンを個別実装
+- 新機械追加時に大量のボイラープレートが必要
+
+**Bevy的アプローチ**: 巨大Structではなく、機能をComponentに分割
+
+### 12.1 共通コンポーネント定義
+
+```rust
+// 共通コンポーネント
+#[derive(Component)]
+struct WorldPosition(IVec3);
+
+#[derive(Component)]
+struct Facing(Direction);
+
+#[derive(Component)]
+struct InputSlot {
+    item: Option<BlockType>,
+    count: u32,
+    max: u32,
+    filter: Option<BlockCategory>, // 入力制限
+}
+
+#[derive(Component)]
+struct OutputSlot {
+    item: Option<BlockType>,
+    count: u32,
+}
+
+#[derive(Component)]
+struct ProcessingState {
+    progress: f32,
+    speed: f32,
+}
+
+#[derive(Component)]
+struct MachineConfig {
+    machine_type: MachineType, // Recipe検索用
+    energy_consumption: u32,
+}
+
+// バンドル定義
+#[derive(Bundle)]
+struct StandardMachineBundle {
+    pos: WorldPosition,
+    facing: Facing,
+    input: InputSlot,
+    output: OutputSlot,
+    process: ProcessingState,
+    config: MachineConfig,
+}
+```
+
+### 12.2 汎用処理システム
+
+```rust
+fn machine_processing_system(
+    time: Res<Time>,
+    mut query: Query<(&mut InputSlot, &mut OutputSlot, &mut ProcessingState, &MachineConfig)>
+) {
+    for (input, output, process, config) in query.iter_mut() {
+        // 共通の「入力消費 -> 進捗 -> 出力生成」ロジック
+        // レシピは config.machine_type を使って検索
+    }
+}
+```
+
+### 12.3 実装タスク
+
+| タスク | 詳細 | 状態 |
+|--------|------|------|
+| 共通コンポーネント作成 | InputSlot, OutputSlot, ProcessingState | [ ] |
+| MachineConfig作成 | machine_type, energy_consumption | [ ] |
+| 汎用処理システム実装 | machine_processing_system | [ ] |
+| Assemblerを新方式で実装 | 新システムの実証 | [ ] |
+| Furnaceリファクタ | 新コンポーネント構成に置き換え | [ ] |
+| Crusherリファクタ | 同上 | [ ] |
+| Minerリファクタ | InputSlotなしの特殊ケース | [ ] |
+| 旧コード削除 | 旧Miner, Furnace, Crusher struct | [ ] |
+| テスト更新 | 新コンポーネント対応 | [ ] |
+
+### 12.4 移行戦略
+
+1. **新しい機械から作る**: 既存コードをいじらず、Assemblerを新システムで実装
+2. **新システムの実証**: Assemblerが動くことを確認
+3. **既存機械の置き換え**: Furnace → Crusher → Miner の順で移行
+4. **旧コードの削除**: 最後に旧struct群を削除
+
+---
+
+## Phase 13: BlockType階層化 (v0.3)
+
+**概要**: BlockType enumを役割別に分離し、新アイテム追加時の変更範囲を局所化
+
+**注意**: Phase 12（機械システム）完了後に実施。先に実施すると702箇所の変更が必要。
+
+### 設計方針
+
+**現状の問題**:
+- 15種類が1つのenumに混在（地形・鉱石・機械・アイテム・ツール）
+- 702箇所、31ファイルで使用
+- is_machine(), is_ore() 等のヘルパーに新種追加し忘れるリスク
+
+**段階的移行アプローチ**: 一気に702箇所を変更せず、段階的に移行
+
+### 13.1 新Enum定義
+
+```rust
+enum TerrainBlock { Stone, Grass }
+enum OreBlock { IronOre, CopperOre, Coal }
+enum MachineBlock { Miner, Conveyor, Furnace, Crusher, Assembler, Platform }
+enum ProcessedItem { IronIngot, CopperIngot, IronDust, CopperDust }
+enum Tool { StonePickaxe }
+
+enum GameItem {
+    Terrain(TerrainBlock),
+    Ore(OreBlock),
+    Machine(MachineBlock),
+    Processed(ProcessedItem),
+    Tool(Tool),
+}
+```
+
+### 13.2 移行戦略（3段階）
+
+**Phase 13-A: 新Enum定義と相互変換**
+- 新しいenum群を定義
+- BlockTypeは削除せず「マスターID」として残す
+- `BlockType::as_game_item()` と `From<OreBlock> for BlockType` を実装
+
+**Phase 13-B: ロジックの移行（データはそのまま）**
+- BlockTypeを保存・通信用の軽量ID (Copy可能) として維持
+- 計算・判定を行う場所でのみ `let item = block.as_game_item();` してパターンマッチ
+- データ構造（Vec<BlockType>やComponent）はまだ書き換えない
+
+**Phase 13-C: 完全移行（必要な場合のみ）**
+- パフォーマンスや型安全性が必要な場合のみ、ストレージ層もGameItemに置き換え
+- BevyのComponentとしてはフラットなenum (BlockType) の方が扱いやすい場合もあり、13-Bで止めるのも現実的
+
+### 13.3 実装タスク
+
+| タスク | 詳細 | 状態 |
+|--------|------|------|
+| **Phase 13-A** | | |
+| 新enum群定義 | TerrainBlock, OreBlock, MachineBlock, ProcessedItem, Tool | [ ] |
+| GameItem enum定義 | 統合enum | [ ] |
+| 相互変換実装 | as_game_item(), From/Into traits | [ ] |
+| **Phase 13-B** | | |
+| machine_processing_system更新 | GameItemベースの判定に変更 | [ ] |
+| レシピシステム更新 | GameItem対応 | [ ] |
+| UI更新 | カテゴリ表示対応 | [ ] |
+| **Phase 13-C（オプション）** | | |
+| Component定義更新 | 必要に応じてGameItemに変更 | [ ] |
+| 全システム移行 | BlockType参照を完全削除 | [ ] |
+
+---
+
+## アーキテクチャレビュー結果サマリー (2026-01-04)
+
+### Claude分析
+
+| 問題点 | 影響度 | 改善案 |
+|--------|--------|--------|
+| BlockType密結合 | 高 | Phase 13で階層化 |
+| 機械システム重複 | 中 | Phase 12でコンポーネント化 |
+| UIコード肥大化 | 中 | ロジック/UI分離（将来） |
+| InputState分散 | 低 | Phase 6で統合 |
+
+### Gemini分析
+
+| 評価 | 詳細 |
+|------|------|
+| ✅ Plugin構成 | 適切に分離 |
+| ✅ ECS準拠 | Bevyパターンに従っている |
+| ✅ イベント駆動 | システム間が疎結合 |
+| ✅ game_spec | Single Source of Truth |
+
+### 合見積結論
+
+**実施順序**: Phase 12 (機械) → Phase 13 (BlockType)
+
+| Phase | タスク | 推定工数 | トリガー |
+|-------|--------|----------|----------|
+| 12 | 機械コンポーネント化 | 2-3日 | 次の新機械追加時 |
+| 13-A | 新Enum定義 | 半日 | Phase 12完了後 |
+| 13-B | ロジック移行 | 1-2日 | 13-A完了後 |
+| 13-C | 完全移行 | 1-2日 | 必要に応じて |
+
+---
+
 ## 次のアクション
 
-**Phase 1-7 はほぼ完了** ✅
+**Phase 1-7, 10 (基本部分) 完了** ✅
 
+### 短期（v0.2完成）
 1. **Phase 9**: チュートリアルクエスト実装
 2. **Phase 8**: UIテーマ刷新（Factoryテーマ適用）
-3. **Phase 5/6**: 残りのコードダイエット・アーキテクチャ改善（オプション）
-4. **v0.3機能**: 将来機能リストから選択して実装
+
+### 中期（拡張性改善 - トリガー駆動）
+3. **Phase 11**: ゲームデータ外部化 → バランス調整が増えたら
+4. **Phase 12**: 機械コンポーネント化 → **次の新機械追加時**
+5. **Phase 13**: BlockType階層化 → Phase 12完了後
+
+### 長期（オプション）
+6. **Phase 5/6**: 残りのコードダイエット・アーキテクチャ改善
+7. **v0.3機能**: 電力システム、流体パイプ、マルチプレイ等

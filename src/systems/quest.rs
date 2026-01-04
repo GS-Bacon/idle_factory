@@ -96,31 +96,15 @@ pub fn get_quests() -> Vec<QuestDef> {
     get_main_quests()
 }
 
-/// Check quest progress (supports multiple required items)
-pub fn quest_progress_check(
-    platform_query: Query<&DeliveryPlatform>,
-    mut current_quest: ResMut<CurrentQuest>,
-    quest_cache: Res<QuestCache>,
-) {
+/// Check quest progress - quests are completed via deliver button, not automatic
+pub fn quest_progress_check(mut current_quest: ResMut<CurrentQuest>, quest_cache: Res<QuestCache>) {
+    // Quest completion is now handled by quest_deliver_button
+    // This function only validates that the quest index is valid
     if current_quest.completed {
         return;
     }
 
-    let Ok(platform) = platform_query.get_single() else {
-        return;
-    };
-
-    let Some(quest) = quest_cache.main_quests.get(current_quest.index) else {
-        return;
-    };
-
-    // Check if all required items are delivered
-    let all_satisfied = quest.required_items.iter().all(|(item, amount)| {
-        let delivered = platform.delivered.get(item).copied().unwrap_or(0);
-        delivered >= *amount
-    });
-
-    if all_satisfied {
+    if current_quest.index >= quest_cache.main_quests.len() {
         current_quest.completed = true;
     }
 }
@@ -166,28 +150,17 @@ pub fn quest_claim_rewards(
 }
 
 /// Check if GlobalInventory has enough items to deliver for the current quest
-fn can_deliver_from_global_inventory(
-    global_inventory: &GlobalInventory,
-    quest: &QuestDef,
-    platform: Option<&DeliveryPlatform>,
-) -> bool {
-    for (item, required) in &quest.required_items {
-        let already_delivered = platform
-            .map(|p| p.delivered.get(item).copied().unwrap_or(0))
-            .unwrap_or(0);
-        let remaining = required.saturating_sub(already_delivered);
-        if remaining > 0 && global_inventory.get_count(*item) < remaining {
-            return false;
-        }
-    }
-    true
+fn can_deliver_from_global_inventory(global_inventory: &GlobalInventory, quest: &QuestDef) -> bool {
+    quest
+        .required_items
+        .iter()
+        .all(|(item, required)| global_inventory.get_count(*item) >= *required)
 }
 
 /// Update quest UI (supports multiple required items with progress bars)
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_quest_ui(
     current_quest: Res<CurrentQuest>,
-    platform_query: Query<&DeliveryPlatform>,
     global_inventory: Res<GlobalInventory>,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
     mut button_query: Query<
@@ -222,7 +195,6 @@ pub fn update_quest_ui(
     }
 
     let quest = &quest_cache.main_quests[current_quest.index];
-    let platform = platform_query.get_single().ok();
 
     if current_quest.completed && !current_quest.rewards_claimed {
         // Quest complete - show rewards
@@ -246,14 +218,11 @@ pub fn update_quest_ui(
         // Show quest description
         **text = quest.description.to_string();
 
-        // Update progress bars for each required item
+        // Update progress bars for each required item (based on GlobalInventory)
         for (i, (item, required)) in quest.required_items.iter().enumerate() {
-            let delivered = platform
-                .map(|p| p.delivered.get(item).copied().unwrap_or(0))
-                .unwrap_or(0);
             let in_storage = global_inventory.get_count(*item);
             let progress_pct = if *required > 0 {
-                (delivered as f32 / *required as f32 * 100.0).min(100.0)
+                (in_storage as f32 / *required as f32 * 100.0).min(100.0)
             } else {
                 100.0
             };
@@ -268,14 +237,17 @@ pub fn update_quest_ui(
             // Update text
             for (progress_text, mut txt) in progress_text_query.iter_mut() {
                 if progress_text.0 == i {
-                    let status_icon = if delivered >= *required { "✓" } else { "○" };
+                    let status_icon = if in_storage >= *required {
+                        "✓"
+                    } else {
+                        "○"
+                    };
                     **txt = format!(
-                        "{} {} ({}/{}) [在庫:{}]",
+                        "{} {} ({}/{})",
                         status_icon,
                         item.name(),
-                        delivered.min(*required),
+                        in_storage.min(*required),
                         required,
-                        in_storage
                     );
                 }
             }
@@ -285,10 +257,8 @@ pub fn update_quest_ui(
                 if fill.0 == i {
                     node.width = Val::Percent(progress_pct);
                     // Color based on progress
-                    *bg = if delivered >= *required {
-                        BackgroundColor(Color::srgba(0.2, 0.7, 0.3, 1.0)) // Green when complete
-                    } else if in_storage >= required.saturating_sub(delivered) {
-                        BackgroundColor(Color::srgba(0.5, 0.7, 0.2, 1.0)) // Yellow-green when can deliver
+                    *bg = if in_storage >= *required {
+                        BackgroundColor(Color::srgba(0.2, 0.7, 0.3, 1.0)) // Green when ready
                     } else {
                         BackgroundColor(Color::srgba(0.3, 0.5, 0.6, 1.0)) // Blue when in progress
                     };
@@ -304,7 +274,7 @@ pub fn update_quest_ui(
         }
 
         // Show deliver button if can deliver from GlobalInventory
-        let can_deliver = can_deliver_from_global_inventory(&global_inventory, quest, platform);
+        let can_deliver = can_deliver_from_global_inventory(&global_inventory, quest);
         for (mut vis, mut bg) in button_query.iter_mut() {
             if can_deliver {
                 *vis = Visibility::Visible;
@@ -316,12 +286,11 @@ pub fn update_quest_ui(
     }
 }
 
-/// Handle deliver button click - consume from GlobalInventory and deliver to platform
+/// Handle deliver button click - consume from GlobalInventory to complete quest
 #[allow(clippy::type_complexity)]
 pub fn quest_deliver_button(
     mut current_quest: ResMut<CurrentQuest>,
     mut global_inventory: ResMut<GlobalInventory>,
-    mut platform_query: Query<&mut DeliveryPlatform>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor, &mut BorderColor),
         (Changed<Interaction>, With<QuestDeliverButton>),
@@ -336,39 +305,21 @@ pub fn quest_deliver_button(
         return;
     };
 
-    let Ok(mut platform) = platform_query.get_single_mut() else {
-        return;
-    };
-
     for (interaction, mut bg_color, mut border_color) in button_query.iter_mut() {
         match *interaction {
             Interaction::Pressed => {
-                // Consume items from GlobalInventory and deliver to platform
-                let mut success = true;
+                // Check if we can deliver all items
+                if !can_deliver_from_global_inventory(&global_inventory, quest) {
+                    continue;
+                }
+
+                // Consume items from GlobalInventory
                 for (item, required) in &quest.required_items {
-                    let already_delivered = platform.delivered.get(item).copied().unwrap_or(0);
-                    let remaining = required.saturating_sub(already_delivered);
-                    if remaining > 0 {
-                        if global_inventory.remove_item(*item, remaining) {
-                            *platform.delivered.entry(*item).or_insert(0) += remaining;
-                        } else {
-                            success = false;
-                            break;
-                        }
-                    }
+                    global_inventory.remove_item(*item, *required);
                 }
 
-                if success {
-                    // Check if quest is now complete
-                    let all_satisfied = quest.required_items.iter().all(|(item, amount)| {
-                        let delivered = platform.delivered.get(item).copied().unwrap_or(0);
-                        delivered >= *amount
-                    });
-                    if all_satisfied {
-                        current_quest.completed = true;
-                    }
-                }
-
+                // Mark quest as complete
+                current_quest.completed = true;
                 *border_color = BorderColor(Color::srgb(0.5, 1.0, 0.5));
             }
             Interaction::Hovered => {
@@ -389,7 +340,7 @@ pub fn setup_delivery_platform(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Platform position: 12x12 area starting at (20, 8, 10)
+    // Platform position: 8x8 area starting at (20, 8, 10)
     let platform_origin = IVec3::new(20, 8, 10);
 
     // Create platform mesh (flat plate)
@@ -405,7 +356,6 @@ pub fn setup_delivery_platform(
     });
 
     // Spawn platform entity
-    // Platform center: origin + half_size (in blocks), then offset by 0.5 for grid alignment
     commands.spawn((
         Mesh3d(platform_mesh),
         MeshMaterial3d(platform_material),
@@ -414,11 +364,10 @@ pub fn setup_delivery_platform(
             platform_origin.y as f32 * BLOCK_SIZE + 0.1,
             platform_origin.z as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
         )),
-        DeliveryPlatform::default(),
+        DeliveryPlatform::new(platform_origin),
     ));
 
-    // Spawn delivery port markers (visual indicators at edges)
-    // Use tall vertical markers for better visibility
+    // Spawn delivery port markers (visual indicators at edges, excluding corners)
     let port_mesh = meshes.add(Cuboid::new(
         BLOCK_SIZE * 0.3,
         BLOCK_SIZE * 0.8,
@@ -430,29 +379,29 @@ pub fn setup_delivery_platform(
         ..default()
     });
 
-    // Create 16 ports along edges (4 per side)
-    let port_positions = [
-        // North edge (z = 10)
-        IVec3::new(22, 8, 10),
-        IVec3::new(25, 8, 10),
-        IVec3::new(28, 8, 10),
-        IVec3::new(31, 8, 10),
-        // South edge (z = 21)
-        IVec3::new(22, 8, 21),
-        IVec3::new(25, 8, 21),
-        IVec3::new(28, 8, 21),
-        IVec3::new(31, 8, 21),
-        // West edge (x = 20)
-        IVec3::new(20, 8, 12),
-        IVec3::new(20, 8, 15),
-        IVec3::new(20, 8, 18),
-        IVec3::new(20, 8, 21),
-        // East edge (x = 31)
-        IVec3::new(31, 8, 12),
-        IVec3::new(31, 8, 15),
-        IVec3::new(31, 8, 18),
-        IVec3::new(31, 8, 21),
-    ];
+    // Create ports along edges (6 per side, excluding corners)
+    let mut port_positions = Vec::new();
+    let size = PLATFORM_SIZE;
+    let ox = platform_origin.x;
+    let oy = platform_origin.y;
+    let oz = platform_origin.z;
+
+    // North edge (z = oz, x from ox+1 to ox+size-2)
+    for x in 1..size - 1 {
+        port_positions.push(IVec3::new(ox + x, oy, oz));
+    }
+    // South edge (z = oz+size-1, x from ox+1 to ox+size-2)
+    for x in 1..size - 1 {
+        port_positions.push(IVec3::new(ox + x, oy, oz + size - 1));
+    }
+    // West edge (x = ox, z from oz+1 to oz+size-2)
+    for z in 1..size - 1 {
+        port_positions.push(IVec3::new(ox, oy, oz + z));
+    }
+    // East edge (x = ox+size-1, z from oz+1 to oz+size-2)
+    for z in 1..size - 1 {
+        port_positions.push(IVec3::new(ox + size - 1, oy, oz + z));
+    }
 
     for port_pos in port_positions {
         commands.spawn((
@@ -467,28 +416,21 @@ pub fn setup_delivery_platform(
     }
 }
 
-/// Update delivery UI text
+/// Update delivery UI text (now just shows platform status)
 pub fn update_delivery_ui(
     platform_query: Query<&DeliveryPlatform>,
     mut text_query: Query<&mut Text, With<DeliveryUIText>>,
 ) {
-    let Ok(platform) = platform_query.get_single() else {
+    let Ok(_platform) = platform_query.get_single() else {
+        if let Ok(mut text) = text_query.get_single_mut() {
+            **text = "プラットフォームを設置してください".to_string();
+        }
         return;
     };
 
-    let Ok(mut text) = text_query.get_single_mut() else {
-        return;
-    };
-
-    if platform.delivered.is_empty() {
-        **text = "=== Deliveries ===\nNo items delivered".to_string();
-    } else {
-        let items: Vec<String> = platform
-            .delivered
-            .iter()
-            .map(|(block_type, count)| format!("{}: {}", block_type.name(), count))
-            .collect();
-        **text = format!("=== Deliveries ===\n{}", items.join("\n"));
+    // Platform is active - items go directly to GlobalInventory
+    if let Ok(mut text) = text_query.get_single_mut() {
+        **text = "✓ プラットフォーム稼働中".to_string();
     }
 }
 

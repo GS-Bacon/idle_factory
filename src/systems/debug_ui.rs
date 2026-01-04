@@ -253,7 +253,7 @@ pub fn export_e2e_state(
     cursor_state: Res<CursorLockState>,
     target_block: Res<TargetBlock>,
     current_quest: Res<CurrentQuest>,
-    platform_query: Query<&DeliveryPlatform>,
+    global_inventory: Res<crate::player::GlobalInventory>,
     conveyor_query: Query<&Conveyor>,
     miner_query: Query<&Miner>,
     furnace_query: Query<(&Furnace, &Transform)>,
@@ -307,15 +307,12 @@ pub fn export_e2e_state(
     let quests = crate::systems::quest::get_main_quests();
     let quest = if current_quest.index < quests.len() {
         let q = &quests[current_quest.index];
-        let platform = platform_query.get_single().ok();
         let required_items: Vec<String> = q
             .required_items
             .iter()
             .map(|(item, amount)| {
-                let delivered = platform
-                    .map(|p| p.delivered.get(item).copied().unwrap_or(0))
-                    .unwrap_or(0);
-                format!("{}:{}/{}", item.name(), delivered, amount)
+                let in_storage = global_inventory.get_count(*item);
+                format!("{}:{}/{}", item.name(), in_storage, amount)
             })
             .collect();
         E2EQuestState {

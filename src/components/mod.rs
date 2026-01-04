@@ -354,11 +354,17 @@ pub struct QuestProgressText(pub usize);
 #[derive(Component)]
 pub struct QuestDeliverButton;
 
-/// Delivery platform - accepts items for delivery quests
-#[derive(Component, Default)]
+/// Delivery platform - accepts items from conveyors and stores in GlobalInventory
+#[derive(Component)]
 pub struct DeliveryPlatform {
-    /// Total items delivered (by type)
-    pub delivered: HashMap<BlockType, u32>,
+    /// Position of the platform origin (bottom-left corner)
+    pub position: IVec3,
+}
+
+impl DeliveryPlatform {
+    pub fn new(position: IVec3) -> Self {
+        Self { position }
+    }
 }
 
 /// Marker for delivery platform UI

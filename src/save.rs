@@ -141,6 +141,7 @@ pub enum BlockTypeSave {
     AssemblerBlock,
     IronDust,
     CopperDust,
+    PlatformBlock,
 }
 
 impl From<BlockType> for BlockTypeSave {
@@ -161,6 +162,7 @@ impl From<BlockType> for BlockTypeSave {
             BlockType::AssemblerBlock => BlockTypeSave::AssemblerBlock,
             BlockType::IronDust => BlockTypeSave::IronDust,
             BlockType::CopperDust => BlockTypeSave::CopperDust,
+            BlockType::PlatformBlock => BlockTypeSave::PlatformBlock,
         }
     }
 }
@@ -183,6 +185,7 @@ impl From<BlockTypeSave> for BlockType {
             BlockTypeSave::AssemblerBlock => BlockType::AssemblerBlock,
             BlockTypeSave::IronDust => BlockType::IronDust,
             BlockTypeSave::CopperDust => BlockType::CopperDust,
+            BlockTypeSave::PlatformBlock => BlockType::PlatformBlock,
         }
     }
 }

@@ -1,6 +1,7 @@
 //! Conveyor systems: transfer, visuals
 
 use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
+use crate::player::GlobalInventory;
 use crate::{
     BlockType, Conveyor, ConveyorItemVisual, ConveyorShape, Crusher, DeliveryPlatform, Direction,
     Furnace, MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
@@ -17,7 +18,8 @@ pub fn conveyor_transfer(
     mut conveyor_query: Query<(Entity, &mut Conveyor)>,
     mut furnace_query: Query<(&Transform, &mut Furnace)>,
     mut crusher_query: Query<&mut Crusher>,
-    mut platform_query: Query<(&Transform, &mut DeliveryPlatform)>,
+    platform_query: Query<(&Transform, &DeliveryPlatform)>,
+    mut global_inventory: ResMut<GlobalInventory>,
 ) {
     // Build lookup maps
     let conveyor_positions: HashMap<IVec3, Entity> = conveyor_query
@@ -370,12 +372,10 @@ pub fn conveyor_transfer(
                 }
             }
             TransferTarget::Delivery => {
-                // Deliver the item to platform
-                if let Some((_, mut platform)) = platform_query.iter_mut().next() {
-                    let count = platform.delivered.entry(item.block_type).or_insert(0);
-                    *count += 1;
-                    info!(category = "QUEST", action = "deliver", item = ?item.block_type, total = *count, "Item delivered");
-                }
+                // Deliver the item to GlobalInventory
+                global_inventory.add_item(item.block_type, 1);
+                let total = global_inventory.get_count(item.block_type);
+                info!(category = "QUEST", action = "deliver", item = ?item.block_type, total = total, "Item delivered to storage");
                 if let Some(visual) = item.visual_entity {
                     commands.entity(visual).despawn();
                 }

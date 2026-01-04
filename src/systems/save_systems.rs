@@ -20,9 +20,10 @@ pub fn collect_save_data(
     conveyor_query: &Query<&Conveyor>,
     furnace_query: &Query<(&Furnace, &GlobalTransform)>,
     crusher_query: &Query<&Crusher>,
-    delivery_query: &Query<&DeliveryPlatform>,
+    _delivery_query: &Query<&DeliveryPlatform>,
     current_quest: &CurrentQuest,
     creative_mode: &CreativeMode,
+    global_inventory: &crate::player::GlobalInventory,
 ) -> save::SaveData {
     use save::*;
 
@@ -186,17 +187,8 @@ pub fn collect_save_data(
         }));
     }
 
-    // Collect quest data
-    let delivered: std::collections::HashMap<BlockTypeSave, u32> = delivery_query
-        .iter()
-        .next()
-        .map(|d| {
-            d.delivered
-                .iter()
-                .map(|(bt, count)| ((*bt).into(), *count))
-                .collect()
-        })
-        .unwrap_or_default();
+    // Collect quest data (delivered items are now stored in GlobalInventory, saved via global_inventory field)
+    let delivered: std::collections::HashMap<BlockTypeSave, u32> = std::collections::HashMap::new();
 
     let quest_data = QuestSaveData {
         current_index: current_quest.index,
@@ -210,8 +202,14 @@ pub fn collect_save_data(
         creative: creative_mode.enabled,
     };
 
-    // Global inventory is now merged with regular inventory (legacy field kept for compatibility)
-    let global_inventory_data = GlobalInventorySaveData::default();
+    // Save GlobalInventory items
+    let global_inventory_data = GlobalInventorySaveData {
+        items: global_inventory
+            .items()
+            .iter()
+            .map(|(bt, count)| ((*bt).into(), *count))
+            .collect(),
+    };
 
     SaveData {
         version: save::SAVE_VERSION.to_string(),
@@ -278,6 +276,7 @@ pub fn handle_save_event(
     delivery_query: Query<&DeliveryPlatform>,
     current_quest: Res<CurrentQuest>,
     creative_mode: Res<CreativeMode>,
+    global_inventory: Res<crate::player::GlobalInventory>,
     mut save_load_state: ResMut<SaveLoadState>,
 ) {
     for event in events.read() {
@@ -293,6 +292,7 @@ pub fn handle_save_event(
             &delivery_query,
             &current_quest,
             &creative_mode,
+            &global_inventory,
         );
 
         match save::save_game(&save_data, &event.filename) {
@@ -326,7 +326,7 @@ pub fn handle_load_event(
     mut world_data: ResMut<WorldData>,
     mut current_quest: ResMut<CurrentQuest>,
     mut creative_mode: ResMut<CreativeMode>,
-    mut delivery_query: Query<&mut DeliveryPlatform>,
+    mut global_inventory: ResMut<crate::player::GlobalInventory>,
     // All machine entities to despawn (combined query)
     machine_entities: Query<
         Entity,
@@ -558,13 +558,18 @@ pub fn handle_load_event(
                 current_quest.completed = data.quests.completed;
                 current_quest.rewards_claimed = data.quests.rewards_claimed;
 
-                // Apply delivery platform state
-                if let Ok(mut delivery) = delivery_query.get_single_mut() {
-                    delivery.delivered.clear();
-                    for (bt, count) in &data.quests.delivered {
-                        delivery.delivered.insert(bt.clone().into(), *count);
-                    }
+                // Restore GlobalInventory (from legacy quests.delivered for backward compatibility)
+                let mut restored_items = std::collections::HashMap::new();
+                for (bt, count) in &data.quests.delivered {
+                    let block_type: BlockType = bt.clone().into();
+                    *restored_items.entry(block_type).or_insert(0) += count;
                 }
+                // Also restore from global_inventory.items if present
+                for (bt, count) in &data.global_inventory.items {
+                    let block_type: BlockType = bt.clone().into();
+                    *restored_items.entry(block_type).or_insert(0) += count;
+                }
+                global_inventory.set_items(restored_items);
 
                 // Apply game mode
                 creative_mode.enabled = data.mode.creative;

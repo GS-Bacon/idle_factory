@@ -77,6 +77,12 @@ pub enum BlockType {
     IronDust,
     #[strum(serialize = "copper_dust", serialize = "copperdust")]
     CopperDust,
+    #[strum(
+        serialize = "platform_block",
+        serialize = "platform",
+        serialize = "platformblock"
+    )]
+    PlatformBlock,
 }
 
 impl BlockType {
@@ -98,6 +104,7 @@ impl BlockType {
             BlockType::AssemblerBlock => Color::srgb(0.3, 0.5, 0.4),
             BlockType::IronDust => Color::srgb(0.7, 0.7, 0.75),
             BlockType::CopperDust => Color::srgb(0.85, 0.55, 0.4),
+            BlockType::PlatformBlock => Color::srgb(0.2, 0.5, 0.3),
         }
     }
 
@@ -119,6 +126,7 @@ impl BlockType {
             BlockType::AssemblerBlock => "Assembler",
             BlockType::IronDust => "Iron Dust",
             BlockType::CopperDust => "Copper Dust",
+            BlockType::PlatformBlock => "Platform",
         }
     }
 
@@ -140,6 +148,7 @@ impl BlockType {
             BlockType::AssemblerBlock => "Asm",
             BlockType::IronDust => "FeD",
             BlockType::CopperDust => "CuD",
+            BlockType::PlatformBlock => "Plt",
         }
     }
 
@@ -272,7 +281,7 @@ mod tests {
     #[test]
     fn test_strum_iter_count() {
         // Verify we have the expected number of block types
-        assert_eq!(BlockType::iter().count(), 15);
+        assert_eq!(BlockType::iter().count(), 16);
     }
 
     #[test]
