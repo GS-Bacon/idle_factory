@@ -446,6 +446,7 @@ pub fn handle_load_event(
                                 Conveyor {
                                     position: pos,
                                     direction,
+                                    output_direction: direction, // Will be updated by update_conveyor_shapes
                                     items,
                                     last_output_index: conveyor_data.last_output_index,
                                     last_input_source: conveyor_data.last_input_source,

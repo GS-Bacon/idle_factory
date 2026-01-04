@@ -202,9 +202,29 @@ impl ActiveSubQuests {
 #[derive(Component)]
 pub struct QuestUI;
 
-/// Marker for quest UI text
+/// Marker for quest UI text (title/description)
 #[derive(Component)]
 pub struct QuestUIText;
+
+/// Marker for quest progress container (holds progress bars)
+#[derive(Component)]
+pub struct QuestProgressContainer;
+
+/// Individual progress item row (item icon + progress bar + text)
+#[derive(Component)]
+pub struct QuestProgressItem(pub usize);
+
+/// Progress bar background
+#[derive(Component)]
+pub struct QuestProgressBarBg(pub usize);
+
+/// Progress bar fill
+#[derive(Component)]
+pub struct QuestProgressBarFill(pub usize);
+
+/// Progress bar text (delivered/required)
+#[derive(Component)]
+pub struct QuestProgressText(pub usize);
 
 /// Marker for quest deliver button
 #[derive(Component)]

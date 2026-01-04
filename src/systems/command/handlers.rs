@@ -135,6 +135,7 @@ pub fn handle_spawn_machine_event(
                         Conveyor {
                             position: pos,
                             direction,
+                            output_direction: direction,
                             items: Vec::new(),
                             last_output_index: 0,
                             last_input_source: 0,
@@ -158,6 +159,7 @@ pub fn handle_spawn_machine_event(
                         Conveyor {
                             position: pos,
                             direction,
+                            output_direction: direction,
                             items: Vec::new(),
                             last_output_index: 0,
                             last_input_source: 0,

@@ -396,6 +396,7 @@ pub fn block_place(
                         Conveyor {
                             position: place_pos,
                             direction: final_direction,
+                            output_direction: final_direction, // Will be updated by update_conveyor_shapes
                             items: Vec::new(),
                             last_output_index: 0,
                             last_input_source: 0,
@@ -436,6 +437,7 @@ pub fn block_place(
                             Conveyor {
                                 position: place_pos,
                                 direction: final_direction,
+                                output_direction: final_direction,
                                 items: Vec::new(),
                                 last_output_index: 0,
                                 last_input_source: 0,

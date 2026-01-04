@@ -99,8 +99,8 @@ pub fn conveyor_transfer(
                 }
                 rotated
             } else {
-                // Normal conveyor: front only
-                vec![conveyor.position + conveyor.direction.to_ivec3()]
+                // Normal conveyor: use output_direction (may differ for corners)
+                vec![conveyor.position + conveyor.output_direction.to_ivec3()]
             };
 
             // Try each output position in order

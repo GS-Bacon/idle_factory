@@ -98,8 +98,10 @@ pub enum ConveyorShape {
 pub struct Conveyor {
     /// World position of this conveyor
     pub position: IVec3,
-    /// Direction items move
+    /// Direction items move (primary facing direction)
     pub direction: Direction,
+    /// Actual output direction (may differ from direction for corners)
+    pub output_direction: Direction,
     /// Items on this conveyor (sorted by progress, max CONVEYOR_MAX_ITEMS)
     pub items: Vec<ConveyorItem>,
     /// Index for round-robin output (splitter mode)

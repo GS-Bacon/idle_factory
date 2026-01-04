@@ -3,7 +3,10 @@
 use crate::components::*;
 use bevy::prelude::*;
 
-use super::{spawn_inventory_slot, text_font, SLOT_BORDER, SLOT_GAP, SLOT_SIZE, SPRITE_SIZE};
+use super::{
+    spawn_inventory_slot, text_font, QUEST_BG, QUEST_BORDER_COLOR, QUEST_RADIUS, SLOT_BG,
+    SLOT_BORDER, SLOT_BORDER_COLOR, SLOT_GAP, SLOT_RADIUS, SLOT_SIZE, SPRITE_SIZE,
+};
 
 /// Calculate inventory UI width based on slot size
 fn inventory_ui_width() -> f32 {
@@ -37,17 +40,20 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(15.0),
                 left: Val::Percent(50.0),
-                padding: UiRect::all(Val::Px(8.0)),
+                padding: UiRect::all(Val::Px(12.0)),
                 margin: UiRect {
                     left: Val::Px(-ui_width / 2.0),
                     ..default()
                 },
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(4.0),
+                border: UiRect::all(Val::Px(2.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.12, 0.12, 0.12, 0.96)), // MC-style dark gray
-            GlobalZIndex(50),                                      // Above overlay, below held item
+            BackgroundColor(QUEST_BG),
+            BorderColor(QUEST_BORDER_COLOR),
+            BorderRadius::all(Val::Px(QUEST_RADIUS)),
+            GlobalZIndex(50), // Above overlay, below held item
             Visibility::Hidden,
         ))
         .with_children(|parent| {
@@ -65,6 +71,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                         ..default()
                     },
                     BackgroundColor(Color::srgba(0.08, 0.08, 0.08, 0.9)),
+                    BorderRadius::all(Val::Px(SLOT_RADIUS)),
                     Visibility::Hidden, // Start hidden, shown when inventory open + creative mode
                 ))
                 .with_children(|catalog| {
@@ -90,9 +97,10 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                             border: UiRect::all(Val::Px(SLOT_BORDER)),
                                             ..default()
                                         },
-                                        // Same colors as inventory slots (spawn_inventory_slot)
-                                        BackgroundColor(Color::srgba(0.14, 0.14, 0.14, 0.95)),
-                                        BorderColor(Color::srgba(0.25, 0.25, 0.25, 1.0)),
+                                        // Factory theme colors
+                                        BackgroundColor(SLOT_BG),
+                                        BorderColor(SLOT_BORDER_COLOR),
+                                        BorderRadius::all(Val::Px(SLOT_RADIUS)),
                                     ))
                                     .with_children(|btn| {
                                         // Sprite image
@@ -142,7 +150,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                     }
                 });
 
-            // Separator line
+            // Separator line (Factory orange tint)
             parent.spawn((
                 Node {
                     width: Val::Percent(100.0),
@@ -150,7 +158,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                     margin: UiRect::vertical(Val::Px(4.0)),
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.8)),
+                BackgroundColor(Color::srgba(1.0, 0.53, 0.0, 0.4)), // Orange tint
             ));
 
             // === Hotbar slots (1x9, slots 0-8) ===
@@ -166,7 +174,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                     }
                 });
 
-            // Separator line
+            // Separator line (Factory orange tint)
             parent.spawn((
                 Node {
                     width: Val::Percent(100.0),
@@ -174,7 +182,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                     margin: UiRect::vertical(Val::Px(4.0)),
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.8)),
+                BackgroundColor(Color::srgba(1.0, 0.53, 0.0, 0.4)), // Orange tint
             ));
 
             // === Bottom row: Trash slot ===
@@ -198,14 +206,15 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                 border: UiRect::all(Val::Px(SLOT_BORDER)),
                                 ..default()
                             },
-                            BackgroundColor(Color::srgba(0.35, 0.15, 0.15, 0.95)),
-                            BorderColor(Color::srgba(0.5, 0.25, 0.25, 1.0)),
+                            BackgroundColor(Color::srgba(0.4, 0.15, 0.1, 0.95)),
+                            BorderColor(Color::srgb(0.8, 0.3, 0.2)), // Red-orange
+                            BorderRadius::all(Val::Px(SLOT_RADIUS)),
                         ))
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("X"),
                                 text_font(font, 16.0),
-                                TextColor(Color::srgba(1.0, 0.5, 0.5, 1.0)),
+                                TextColor(Color::srgb(1.0, 0.5, 0.4)),
                             ));
                         });
                 });

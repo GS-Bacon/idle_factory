@@ -153,48 +153,57 @@ pub fn update_conveyor_shapes(
             .filter(|&&b| b)
             .count();
 
-        // Determine new shape using the auto-connect logic
-        let new_shape = if input_count >= 2 {
-            // Input 2+: TJunction (merge)
-            ConveyorShape::TJunction
+        // Determine new shape and output direction using the auto-connect logic
+        let (new_shape, new_output_dir) = if input_count >= 2 {
+            // Input 2+: TJunction (merge) - output is always forward
+            (ConveyorShape::TJunction, conveyor.direction)
         } else if input_count == 1 {
             if has_back_input {
                 // Back input
                 if wait_count >= 2 {
-                    ConveyorShape::Splitter
+                    (ConveyorShape::Splitter, conveyor.direction)
                 } else if right_waiting && !front_waiting {
-                    ConveyorShape::CornerRight
+                    // Back in, right out
+                    (ConveyorShape::CornerRight, conveyor.direction.right())
                 } else if left_waiting && !front_waiting {
-                    ConveyorShape::CornerLeft
+                    // Back in, left out
+                    (ConveyorShape::CornerLeft, conveyor.direction.left())
                 } else {
-                    ConveyorShape::Straight
+                    (ConveyorShape::Straight, conveyor.direction)
                 }
             } else if has_left_input {
                 // Left input
                 if front_waiting && right_waiting {
-                    ConveyorShape::Splitter
+                    (ConveyorShape::Splitter, conveyor.direction)
                 } else if right_waiting && !front_waiting {
-                    ConveyorShape::CornerRight // left in, right out
+                    // Left in, right out (U-turn)
+                    (ConveyorShape::CornerRight, conveyor.direction.right())
                 } else {
-                    ConveyorShape::CornerLeft // left in, front out
+                    // Left in, front out
+                    (ConveyorShape::CornerLeft, conveyor.direction)
                 }
             } else if has_right_input {
                 // Right input
                 if front_waiting && left_waiting {
-                    ConveyorShape::Splitter
+                    (ConveyorShape::Splitter, conveyor.direction)
                 } else if left_waiting && !front_waiting {
-                    ConveyorShape::CornerLeft // right in, left out
+                    // Right in, left out (U-turn)
+                    (ConveyorShape::CornerLeft, conveyor.direction.left())
                 } else {
-                    ConveyorShape::CornerRight // right in, front out
+                    // Right in, front out
+                    (ConveyorShape::CornerRight, conveyor.direction)
                 }
             } else {
                 // Front input (head-on)
-                ConveyorShape::Straight
+                (ConveyorShape::Straight, conveyor.direction)
             }
         } else {
             // Input 0: Straight
-            ConveyorShape::Straight
+            (ConveyorShape::Straight, conveyor.direction)
         };
+
+        // Update output direction
+        conveyor.output_direction = new_output_dir;
 
         // Only update if shape changed
         if conveyor.shape != new_shape {
@@ -210,6 +219,7 @@ pub fn update_conveyor_shapes(
                     let conv_data = Conveyor {
                         position: conveyor.position,
                         direction: conveyor.direction,
+                        output_direction: new_output_dir,
                         items: std::mem::take(&mut conveyor.items),
                         last_output_index: conveyor.last_output_index,
                         last_input_source: conveyor.last_input_source,

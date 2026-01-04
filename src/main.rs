@@ -480,6 +480,7 @@ mod tests {
         let conveyor = Conveyor {
             position: IVec3::ZERO,
             direction: Direction::North,
+            output_direction: Direction::North,
             items: vec![],
             last_output_index: 0,
             last_input_source: 0,
@@ -494,6 +495,7 @@ mod tests {
         let mut conveyor = Conveyor {
             position: IVec3::ZERO,
             direction: Direction::North,
+            output_direction: Direction::North,
             items: vec![],
             last_output_index: 0,
             last_input_source: 0,
@@ -605,6 +607,7 @@ mod tests {
         let conveyor = Conveyor {
             position: IVec3::new(5, 0, 5),
             direction: Direction::North,
+            output_direction: Direction::North,
             items: vec![],
             last_output_index: 0,
             last_input_source: 0,
@@ -698,6 +701,7 @@ mod tests {
         let conveyor = Conveyor {
             position: IVec3::new(5, 0, 5),
             direction: Direction::East,
+            output_direction: Direction::East,
             items: vec![],
             last_output_index: 0,
             last_input_source: 0,
@@ -719,6 +723,7 @@ mod tests {
         let conveyor = Conveyor {
             position: IVec3::new(5, 0, 5),
             direction: Direction::East,
+            output_direction: Direction::East,
             items: vec![],
             last_output_index: 0,
             last_input_source: 0,
@@ -747,6 +752,7 @@ mod tests {
         let mut conveyor = Conveyor {
             position: IVec3::ZERO,
             direction: Direction::North,
+            output_direction: Direction::North,
             items: vec![],
             last_output_index: 0,
             last_input_source: 0,
@@ -774,6 +780,7 @@ mod tests {
         let mut conveyor = Conveyor {
             position: IVec3::ZERO,
             direction: Direction::North,
+            output_direction: Direction::North,
             items: vec![],
             last_output_index: 0,
             last_input_source: 0,
@@ -811,6 +818,7 @@ mod tests {
             let conveyor = Conveyor {
                 position: IVec3::new(10, 0, 10),
                 direction: dir,
+                output_direction: dir,
                 items: vec![],
                 last_output_index: 0,
                 last_input_source: 0,

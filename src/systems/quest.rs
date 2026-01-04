@@ -183,14 +183,23 @@ fn can_deliver_from_global_inventory(
     true
 }
 
-/// Update quest UI (supports multiple required items)
-#[allow(clippy::type_complexity)]
+/// Update quest UI (supports multiple required items with progress bars)
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_quest_ui(
     current_quest: Res<CurrentQuest>,
     platform_query: Query<&DeliveryPlatform>,
     global_inventory: Res<GlobalInventory>,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
     mut button_query: Query<(&mut Visibility, &mut BackgroundColor), With<QuestDeliverButton>>,
+    mut progress_item_query: Query<
+        (&QuestProgressItem, &mut Visibility),
+        Without<QuestDeliverButton>,
+    >,
+    mut progress_text_query: Query<(&QuestProgressText, &mut Text), Without<QuestUIText>>,
+    mut progress_fill_query: Query<
+        (&QuestProgressBarFill, &mut Node, &mut BackgroundColor),
+        Without<QuestProgressItem>,
+    >,
     quest_cache: Res<QuestCache>,
 ) {
     let Ok(mut text) = text_query.get_single_mut() else {
@@ -198,9 +207,12 @@ pub fn update_quest_ui(
     };
 
     if current_quest.index >= quest_cache.main_quests.len() {
-        **text = "=== Quest ===\nAll quests completed!".to_string();
-        // Hide deliver button
+        **text = "🎉 全クエスト完了！".to_string();
+        // Hide deliver button and progress bars
         for (mut vis, _) in button_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+        for (_, mut vis) in progress_item_query.iter_mut() {
             *vis = Visibility::Hidden;
         }
         return;
@@ -210,52 +222,90 @@ pub fn update_quest_ui(
     let platform = platform_query.get_single().ok();
 
     if current_quest.completed && !current_quest.rewards_claimed {
+        // Quest complete - show rewards
         let rewards: Vec<String> = quest
             .rewards
             .iter()
-            .map(|(bt, amt)| format!("{} x{}", bt.name(), amt))
+            .map(|(bt, amt)| format!("  {} ×{}", bt.name(), amt))
             .collect();
         **text = format!(
-            "=== Quest Complete! ===\n{}\n\nRewards:\n{}\n\n[Q] Claim Rewards",
-            quest.description,
+            "✓ クエスト完了！\n\n報酬:\n{}\n\n[Q] 報酬を受け取る",
             rewards.join("\n")
         );
-        // Hide deliver button when completed
+        // Hide deliver button and progress bars when completed
         for (mut vis, _) in button_query.iter_mut() {
             *vis = Visibility::Hidden;
         }
+        for (_, mut vis) in progress_item_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
     } else {
-        // Show progress for each required item
-        let progress: Vec<String> = quest
-            .required_items
-            .iter()
-            .map(|(item, amount)| {
-                let delivered = platform
-                    .map(|p| p.delivered.get(item).copied().unwrap_or(0))
-                    .unwrap_or(0);
-                let in_storage = global_inventory.get_count(*item);
-                format!(
-                    "{}: {}/{} (Storage: {})",
-                    item.name(),
-                    delivered.min(*amount),
-                    amount,
-                    in_storage
-                )
-            })
-            .collect();
+        // Show quest description
+        **text = quest.description.to_string();
 
-        **text = format!(
-            "=== Quest ===\n{}\n{}",
-            quest.description,
-            progress.join("\n")
-        );
+        // Update progress bars for each required item
+        for (i, (item, required)) in quest.required_items.iter().enumerate() {
+            let delivered = platform
+                .map(|p| p.delivered.get(item).copied().unwrap_or(0))
+                .unwrap_or(0);
+            let in_storage = global_inventory.get_count(*item);
+            let progress_pct = if *required > 0 {
+                (delivered as f32 / *required as f32 * 100.0).min(100.0)
+            } else {
+                100.0
+            };
+
+            // Update visibility
+            for (progress_item, mut vis) in progress_item_query.iter_mut() {
+                if progress_item.0 == i {
+                    *vis = Visibility::Visible;
+                }
+            }
+
+            // Update text
+            for (progress_text, mut txt) in progress_text_query.iter_mut() {
+                if progress_text.0 == i {
+                    let status_icon = if delivered >= *required { "✓" } else { "○" };
+                    **txt = format!(
+                        "{} {} ({}/{}) [在庫:{}]",
+                        status_icon,
+                        item.name(),
+                        delivered.min(*required),
+                        required,
+                        in_storage
+                    );
+                }
+            }
+
+            // Update progress bar fill
+            for (fill, mut node, mut bg) in progress_fill_query.iter_mut() {
+                if fill.0 == i {
+                    node.width = Val::Percent(progress_pct);
+                    // Color based on progress
+                    *bg = if delivered >= *required {
+                        BackgroundColor(Color::srgba(0.2, 0.7, 0.3, 1.0)) // Green when complete
+                    } else if in_storage >= required.saturating_sub(delivered) {
+                        BackgroundColor(Color::srgba(0.5, 0.7, 0.2, 1.0)) // Yellow-green when can deliver
+                    } else {
+                        BackgroundColor(Color::srgba(0.3, 0.5, 0.6, 1.0)) // Blue when in progress
+                    };
+                }
+            }
+        }
+
+        // Hide unused progress slots
+        for (progress_item, mut vis) in progress_item_query.iter_mut() {
+            if progress_item.0 >= quest.required_items.len() {
+                *vis = Visibility::Hidden;
+            }
+        }
 
         // Show deliver button if can deliver from GlobalInventory
         let can_deliver = can_deliver_from_global_inventory(&global_inventory, quest, platform);
         for (mut vis, mut bg) in button_query.iter_mut() {
             if can_deliver {
                 *vis = Visibility::Visible;
-                *bg = BackgroundColor(Color::srgba(0.2, 0.5, 0.2, 0.95));
+                *bg = BackgroundColor(Color::srgba(0.15, 0.5, 0.2, 0.95));
             } else {
                 *vis = Visibility::Hidden;
             }
