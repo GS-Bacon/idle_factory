@@ -138,6 +138,9 @@ pub enum BlockTypeSave {
     CrusherBlock,
     FurnaceBlock,
     StonePickaxe,
+    AssemblerBlock,
+    IronDust,
+    CopperDust,
 }
 
 impl From<BlockType> for BlockTypeSave {
@@ -155,6 +158,9 @@ impl From<BlockType> for BlockTypeSave {
             BlockType::CrusherBlock => BlockTypeSave::CrusherBlock,
             BlockType::FurnaceBlock => BlockTypeSave::FurnaceBlock,
             BlockType::StonePickaxe => BlockTypeSave::StonePickaxe,
+            BlockType::AssemblerBlock => BlockTypeSave::AssemblerBlock,
+            BlockType::IronDust => BlockTypeSave::IronDust,
+            BlockType::CopperDust => BlockTypeSave::CopperDust,
         }
     }
 }
@@ -174,6 +180,9 @@ impl From<BlockTypeSave> for BlockType {
             BlockTypeSave::CrusherBlock => BlockType::CrusherBlock,
             BlockTypeSave::FurnaceBlock => BlockType::FurnaceBlock,
             BlockTypeSave::StonePickaxe => BlockType::StonePickaxe,
+            BlockTypeSave::AssemblerBlock => BlockType::AssemblerBlock,
+            BlockTypeSave::IronDust => BlockType::IronDust,
+            BlockTypeSave::CopperDust => BlockType::CopperDust,
         }
     }
 }

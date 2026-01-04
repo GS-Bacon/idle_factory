@@ -67,6 +67,16 @@ pub enum BlockType {
         serialize = "stonepickaxe"
     )]
     StonePickaxe,
+    #[strum(
+        serialize = "assembler_block",
+        serialize = "assembler",
+        serialize = "assemblerblock"
+    )]
+    AssemblerBlock,
+    #[strum(serialize = "iron_dust", serialize = "irondust")]
+    IronDust,
+    #[strum(serialize = "copper_dust", serialize = "copperdust")]
+    CopperDust,
 }
 
 impl BlockType {
@@ -85,6 +95,9 @@ impl BlockType {
             BlockType::CrusherBlock => Color::srgb(0.4, 0.3, 0.5),
             BlockType::FurnaceBlock => Color::srgb(0.4, 0.3, 0.3),
             BlockType::StonePickaxe => Color::srgb(0.6, 0.6, 0.6),
+            BlockType::AssemblerBlock => Color::srgb(0.3, 0.5, 0.4),
+            BlockType::IronDust => Color::srgb(0.7, 0.7, 0.75),
+            BlockType::CopperDust => Color::srgb(0.85, 0.55, 0.4),
         }
     }
 
@@ -103,6 +116,9 @@ impl BlockType {
             BlockType::CrusherBlock => "Crusher",
             BlockType::FurnaceBlock => "Furnace",
             BlockType::StonePickaxe => "Stone Pickaxe",
+            BlockType::AssemblerBlock => "Assembler",
+            BlockType::IronDust => "Iron Dust",
+            BlockType::CopperDust => "Copper Dust",
         }
     }
 
@@ -121,6 +137,9 @@ impl BlockType {
             BlockType::CrusherBlock => "Cru",
             BlockType::FurnaceBlock => "Fur",
             BlockType::StonePickaxe => "Pick",
+            BlockType::AssemblerBlock => "Asm",
+            BlockType::IronDust => "FeD",
+            BlockType::CopperDust => "CuD",
         }
     }
 
@@ -134,7 +153,11 @@ impl BlockType {
     pub fn is_placeable(&self) -> bool {
         !matches!(
             self,
-            BlockType::StonePickaxe | BlockType::IronIngot | BlockType::CopperIngot
+            BlockType::StonePickaxe
+                | BlockType::IronIngot
+                | BlockType::CopperIngot
+                | BlockType::IronDust
+                | BlockType::CopperDust
         )
     }
 
@@ -147,6 +170,7 @@ impl BlockType {
                 | BlockType::ConveyorBlock
                 | BlockType::CrusherBlock
                 | BlockType::FurnaceBlock
+                | BlockType::AssemblerBlock
         )
     }
 
@@ -168,8 +192,15 @@ impl BlockType {
         match self {
             BlockType::IronOre => Some(BlockType::IronIngot),
             BlockType::CopperOre => Some(BlockType::CopperIngot),
+            BlockType::IronDust => Some(BlockType::IronIngot),
+            BlockType::CopperDust => Some(BlockType::CopperIngot),
             _ => None,
         }
+    }
+
+    /// Returns true if this block type is dust (crushed ore)
+    pub fn is_dust(&self) -> bool {
+        matches!(self, BlockType::IronDust | BlockType::CopperDust)
     }
 }
 
@@ -241,7 +272,7 @@ mod tests {
     #[test]
     fn test_strum_iter_count() {
         // Verify we have the expected number of block types
-        assert_eq!(BlockType::iter().count(), 12);
+        assert_eq!(BlockType::iter().count(), 15);
     }
 
     #[test]
@@ -250,10 +281,12 @@ mod tests {
         assert!(BlockType::ConveyorBlock.is_machine());
         assert!(BlockType::CrusherBlock.is_machine());
         assert!(BlockType::FurnaceBlock.is_machine());
+        assert!(BlockType::AssemblerBlock.is_machine());
 
         assert!(!BlockType::Stone.is_machine());
         assert!(!BlockType::IronOre.is_machine());
         assert!(!BlockType::IronIngot.is_machine());
+        assert!(!BlockType::IronDust.is_machine());
     }
 
     #[test]
@@ -286,10 +319,27 @@ mod tests {
             BlockType::CopperOre.smelt_result(),
             Some(BlockType::CopperIngot)
         );
+        assert_eq!(
+            BlockType::IronDust.smelt_result(),
+            Some(BlockType::IronIngot)
+        );
+        assert_eq!(
+            BlockType::CopperDust.smelt_result(),
+            Some(BlockType::CopperIngot)
+        );
 
         assert_eq!(BlockType::Stone.smelt_result(), None);
         assert_eq!(BlockType::Coal.smelt_result(), None);
         assert_eq!(BlockType::IronIngot.smelt_result(), None);
+    }
+
+    #[test]
+    fn test_block_type_is_dust() {
+        assert!(BlockType::IronDust.is_dust());
+        assert!(BlockType::CopperDust.is_dust());
+
+        assert!(!BlockType::IronOre.is_dust());
+        assert!(!BlockType::IronIngot.is_dust());
     }
 
     #[test]

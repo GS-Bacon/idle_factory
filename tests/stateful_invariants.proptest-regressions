@@ -1,0 +1,11 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 1d02fc3a33cee5f0e18f07f803a99a759e99e71a2ca4bbee8a79f3c48ecfb7e5 # shrinks to ops = [PlaceBlock { x: 6, y: 10, z: 0 }, MoveRight(1.5868024), MoveLeft(0.1), MoveRight(0.1), MoveBack(0.1), MoveRight(1.9542657), MoveForward(0.1), MoveForward(0.1), MoveForward(0.1), MoveForward(0.1)]
+cc 340a0026ebc4a1652747b5e70b0d0c7a99aadc5966b00b4de1697d4a71d24646 # shrinks to ops = [Teleport { x: -4.7224317, y: 10.0, z: 0.0 }, MoveForward(0.1), MoveForward(0.1), MoveLeft(1.6984168), MoveLeft(1.493771), MoveLeft(1.5155473), MoveLeft(1.5562044), MoveLeft(1.3326304), MoveLeft(1.9454198), MoveForward(0.1), BreakBlock { x: 0, y: 9, z: 0 }]
+cc b8b285989f935e49413003d6b23f181e958ab0c45a1ea0191e990ec1d0e99ba5 # shrinks to ops = [Teleport { x: -1.1479087, y: 11.0, z: -6.3824034 }, MoveLeft(1.5131811), MoveForward(1.1482632), MoveRight(1.0795568), MoveBack(0.65688324), MoveLeft(0.6020172), MoveRight(0.24304795), MoveRight(1.9177784), MoveForward(0.319214), MoveBack(1.0659146), BreakBlock { x: 2, y: 9, z: -2 }, MoveLeft(0.49265158), MoveBack(0.7963904), MoveRight(0.1), MoveLeft(1.9709316)]
+cc 3479b2d01180458484d3232a8f9e191beec802cff63d67052e4a76cebff909d1 # shrinks to ops = [MoveForward(0.1), MoveBack(1.6456379), MoveBack(1.224207), MoveBack(0.62646085), MoveBack(1.7078036), MoveBack(1.6372392), MoveBack(1.9132366), MoveBack(1.9273212), MoveForward(0.1), MoveRight(1.5612175)]
+cc 7aa114dfd1e104bcc0b3f97431a38520ca2cfd27ed901894adb56f10c730fff5 # shrinks to ops = [PlaceBlock { x: 9, y: 14, z: -7 }, Teleport { x: 9.070751, y: 14.843845, z: -6.289434 }, MoveForward(0.1), MoveForward(0.1), MoveForward(0.1), MoveForward(0.1), MoveForward(0.1), MoveForward(0.1), MoveForward(0.1), MoveForward(0.1)]

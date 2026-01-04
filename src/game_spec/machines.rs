@@ -91,7 +91,17 @@ pub const FURNACE: MachineSpec = MachineSpec {
         IoPort {
             side: PortSide::Back,
             is_input: true,
-            slot_id: 0,
+            slot_id: 0, // 鉱石入力
+        },
+        IoPort {
+            side: PortSide::Left,
+            is_input: true,
+            slot_id: 1, // 燃料入力（左）
+        },
+        IoPort {
+            side: PortSide::Right,
+            is_input: true,
+            slot_id: 1, // 燃料入力（右）
         },
         IoPort {
             side: PortSide::Front,
@@ -128,8 +138,41 @@ pub const CRUSHER: MachineSpec = MachineSpec {
     auto_generate: false,
 };
 
+/// Assembler
+pub const ASSEMBLER: MachineSpec = MachineSpec {
+    id: "assembler",
+    name: "組立機",
+    block_type: BlockType::AssemblerBlock,
+    ports: &[
+        IoPort {
+            side: PortSide::Back,
+            is_input: true,
+            slot_id: 0, // 主素材入力
+        },
+        IoPort {
+            side: PortSide::Left,
+            is_input: true,
+            slot_id: 1, // 副素材入力（左）
+        },
+        IoPort {
+            side: PortSide::Right,
+            is_input: true,
+            slot_id: 1, // 副素材入力（右）
+        },
+        IoPort {
+            side: PortSide::Front,
+            is_input: false,
+            slot_id: 0,
+        },
+    ],
+    buffer_size: 32,
+    process_time: 3.0,
+    requires_fuel: false,
+    auto_generate: false,
+};
+
 /// All machines
-pub const ALL_MACHINES: &[&MachineSpec] = &[&MINER, &FURNACE, &CRUSHER];
+pub const ALL_MACHINES: &[&MachineSpec] = &[&MINER, &FURNACE, &CRUSHER, &ASSEMBLER];
 
 /// Get machine spec from BlockType
 pub fn get_machine_spec(block_type: BlockType) -> Option<&'static MachineSpec> {
@@ -291,14 +334,21 @@ mod tests {
         assert!(miner_inputs.is_empty());
         assert_eq!(miner_outputs.len(), 1);
 
+        // Furnace: 3 inputs (ore + fuel left + fuel right), 1 output
         let furnace_inputs: Vec<_> = get_input_ports(&FURNACE).collect();
         let furnace_outputs: Vec<_> = get_output_ports(&FURNACE).collect();
-        assert_eq!(furnace_inputs.len(), 1);
+        assert_eq!(furnace_inputs.len(), 3);
         assert_eq!(furnace_outputs.len(), 1);
 
         let crusher_inputs: Vec<_> = get_input_ports(&CRUSHER).collect();
         let crusher_outputs: Vec<_> = get_output_ports(&CRUSHER).collect();
         assert_eq!(crusher_inputs.len(), 1);
         assert_eq!(crusher_outputs.len(), 1);
+
+        // Assembler: 3 inputs (main + sub left + sub right), 1 output
+        let assembler_inputs: Vec<_> = get_input_ports(&ASSEMBLER).collect();
+        let assembler_outputs: Vec<_> = get_output_ports(&ASSEMBLER).collect();
+        assert_eq!(assembler_inputs.len(), 3);
+        assert_eq!(assembler_outputs.len(), 1);
     }
 }

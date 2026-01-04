@@ -133,18 +133,157 @@ pub const RECIPE_SMELT_COPPER: RecipeSpec = RecipeSpec {
 pub const FURNACE_RECIPES: &[&RecipeSpec] = &[&RECIPE_SMELT_IRON, &RECIPE_SMELT_COPPER];
 
 // =============================================================================
-// Crusher Recipes (future)
+// Crusher Recipes
 // =============================================================================
 
-/// All crusher recipes (currently empty)
-pub const CRUSHER_RECIPES: &[&RecipeSpec] = &[];
+/// Iron ore -> Iron dust x2 (doubles output)
+pub const RECIPE_CRUSH_IRON: RecipeSpec = RecipeSpec {
+    id: "crush_iron",
+    machine: MachineType::Crusher,
+    inputs: &[RecipeInput::new(BlockType::IronOre, 1, 0)],
+    outputs: &[RecipeOutput::guaranteed(BlockType::IronDust, 2)],
+    craft_time: 1.5,
+    fuel: None,
+};
+
+/// Copper ore -> Copper dust x2 (doubles output)
+pub const RECIPE_CRUSH_COPPER: RecipeSpec = RecipeSpec {
+    id: "crush_copper",
+    machine: MachineType::Crusher,
+    inputs: &[RecipeInput::new(BlockType::CopperOre, 1, 0)],
+    outputs: &[RecipeOutput::guaranteed(BlockType::CopperDust, 2)],
+    craft_time: 1.5,
+    fuel: None,
+};
+
+/// All crusher recipes
+pub const CRUSHER_RECIPES: &[&RecipeSpec] = &[&RECIPE_CRUSH_IRON, &RECIPE_CRUSH_COPPER];
+
+// =============================================================================
+// Dust Smelting Recipes (more efficient - no fuel needed for dust)
+// =============================================================================
+
+/// Iron dust -> Iron ingot (no fuel - dust is pre-processed)
+pub const RECIPE_SMELT_IRON_DUST: RecipeSpec = RecipeSpec {
+    id: "smelt_iron_dust",
+    machine: MachineType::Furnace,
+    inputs: &[RecipeInput::new(BlockType::IronDust, 1, 0)],
+    outputs: &[RecipeOutput::guaranteed(BlockType::IronIngot, 1)],
+    craft_time: 1.5, // Faster than ore
+    fuel: None,      // No fuel needed for dust
+};
+
+/// Copper dust -> Copper ingot (no fuel - dust is pre-processed)
+pub const RECIPE_SMELT_COPPER_DUST: RecipeSpec = RecipeSpec {
+    id: "smelt_copper_dust",
+    machine: MachineType::Furnace,
+    inputs: &[RecipeInput::new(BlockType::CopperDust, 1, 0)],
+    outputs: &[RecipeOutput::guaranteed(BlockType::CopperIngot, 1)],
+    craft_time: 1.5, // Faster than ore
+    fuel: None,      // No fuel needed for dust
+};
+
+/// All dust smelting recipes
+pub const DUST_SMELT_RECIPES: &[&RecipeSpec] =
+    &[&RECIPE_SMELT_IRON_DUST, &RECIPE_SMELT_COPPER_DUST];
+
+// =============================================================================
+// Assembler Recipes
+// =============================================================================
+
+/// Conveyor crafting: Iron ingot x2 -> Conveyor x5
+pub const RECIPE_CRAFT_CONVEYOR: RecipeSpec = RecipeSpec {
+    id: "craft_conveyor",
+    machine: MachineType::Assembler,
+    inputs: &[RecipeInput::new(BlockType::IronIngot, 2, 0)],
+    outputs: &[RecipeOutput::guaranteed(BlockType::ConveyorBlock, 5)],
+    craft_time: 2.0,
+    fuel: None,
+};
+
+/// Miner crafting: Iron ingot x5 + Stone x10 -> Miner x1
+pub const RECIPE_CRAFT_MINER: RecipeSpec = RecipeSpec {
+    id: "craft_miner",
+    machine: MachineType::Assembler,
+    inputs: &[
+        RecipeInput::new(BlockType::IronIngot, 5, 0),
+        RecipeInput::new(BlockType::Stone, 10, 1),
+    ],
+    outputs: &[RecipeOutput::guaranteed(BlockType::MinerBlock, 1)],
+    craft_time: 5.0,
+    fuel: None,
+};
+
+/// Furnace crafting: Iron ingot x8 + Stone x20 -> Furnace x1
+pub const RECIPE_CRAFT_FURNACE: RecipeSpec = RecipeSpec {
+    id: "craft_furnace",
+    machine: MachineType::Assembler,
+    inputs: &[
+        RecipeInput::new(BlockType::IronIngot, 8, 0),
+        RecipeInput::new(BlockType::Stone, 20, 1),
+    ],
+    outputs: &[RecipeOutput::guaranteed(BlockType::FurnaceBlock, 1)],
+    craft_time: 6.0,
+    fuel: None,
+};
+
+/// Crusher crafting: Iron ingot x10 + Copper ingot x5 -> Crusher x1
+pub const RECIPE_CRAFT_CRUSHER: RecipeSpec = RecipeSpec {
+    id: "craft_crusher",
+    machine: MachineType::Assembler,
+    inputs: &[
+        RecipeInput::new(BlockType::IronIngot, 10, 0),
+        RecipeInput::new(BlockType::CopperIngot, 5, 1),
+    ],
+    outputs: &[RecipeOutput::guaranteed(BlockType::CrusherBlock, 1)],
+    craft_time: 8.0,
+    fuel: None,
+};
+
+/// Assembler crafting: Iron ingot x15 + Copper ingot x10 -> Assembler x1
+pub const RECIPE_CRAFT_ASSEMBLER: RecipeSpec = RecipeSpec {
+    id: "craft_assembler",
+    machine: MachineType::Assembler,
+    inputs: &[
+        RecipeInput::new(BlockType::IronIngot, 15, 0),
+        RecipeInput::new(BlockType::CopperIngot, 10, 1),
+    ],
+    outputs: &[RecipeOutput::guaranteed(BlockType::AssemblerBlock, 1)],
+    craft_time: 10.0,
+    fuel: None,
+};
+
+/// All assembler recipes
+pub const ASSEMBLER_RECIPES: &[&RecipeSpec] = &[
+    &RECIPE_CRAFT_CONVEYOR,
+    &RECIPE_CRAFT_MINER,
+    &RECIPE_CRAFT_FURNACE,
+    &RECIPE_CRAFT_CRUSHER,
+    &RECIPE_CRAFT_ASSEMBLER,
+];
 
 // =============================================================================
 // All Recipes
 // =============================================================================
 
 /// All recipes list
-pub const ALL_RECIPES: &[&RecipeSpec] = &[&RECIPE_SMELT_IRON, &RECIPE_SMELT_COPPER];
+pub const ALL_RECIPES: &[&RecipeSpec] = &[
+    // Furnace - ore smelting
+    &RECIPE_SMELT_IRON,
+    &RECIPE_SMELT_COPPER,
+    // Furnace - dust smelting
+    &RECIPE_SMELT_IRON_DUST,
+    &RECIPE_SMELT_COPPER_DUST,
+    // Crusher
+    &RECIPE_CRUSH_IRON,
+    &RECIPE_CRUSH_COPPER,
+    // Assembler
+    &RECIPE_CRAFT_CONVEYOR,
+    &RECIPE_CRAFT_MINER,
+    &RECIPE_CRAFT_FURNACE,
+    &RECIPE_CRAFT_CRUSHER,
+    &RECIPE_CRAFT_ASSEMBLER,
+];
 
 /// Find recipe by input item and machine type
 pub fn find_recipe(machine: MachineType, input: BlockType) -> Option<&'static RecipeSpec> {
@@ -190,8 +329,10 @@ mod tests {
         assert!(iron_smelt.is_some());
         assert_eq!(iron_smelt.unwrap().id, "smelt_iron");
 
+        // Crusher recipes now exist
         let copper_crush = find_recipe(MachineType::Crusher, BlockType::CopperOre);
-        assert!(copper_crush.is_none());
+        assert!(copper_crush.is_some());
+        assert_eq!(copper_crush.unwrap().id, "crush_copper");
     }
 
     #[test]
@@ -224,13 +365,30 @@ mod tests {
 
     #[test]
     fn test_get_recipes_for_machine() {
+        // Furnace: 4 recipes (ore x2 + dust x2)
         let furnace_recipes: Vec<_> = get_recipes_for_machine(MachineType::Furnace).collect();
-        assert_eq!(furnace_recipes.len(), 2);
+        assert_eq!(furnace_recipes.len(), 4);
 
+        // Crusher: 2 recipes (iron + copper)
         let crusher_recipes: Vec<_> = get_recipes_for_machine(MachineType::Crusher).collect();
-        assert_eq!(crusher_recipes.len(), 0);
+        assert_eq!(crusher_recipes.len(), 2);
 
+        // Assembler: 5 recipes (conveyor, miner, furnace, crusher, assembler)
         let assembler_recipes: Vec<_> = get_recipes_for_machine(MachineType::Assembler).collect();
-        assert_eq!(assembler_recipes.len(), 0);
+        assert_eq!(assembler_recipes.len(), 5);
+    }
+
+    #[test]
+    fn test_crusher_doubles_output() {
+        let iron_crush = find_recipe(MachineType::Crusher, BlockType::IronOre).unwrap();
+        assert_eq!(iron_crush.outputs[0].count, 2); // Ore -> Dust x2
+        assert!(iron_crush.fuel.is_none()); // No fuel needed
+    }
+
+    #[test]
+    fn test_dust_smelting_no_fuel() {
+        let iron_dust_smelt = find_recipe(MachineType::Furnace, BlockType::IronDust).unwrap();
+        assert!(iron_dust_smelt.fuel.is_none()); // No fuel for dust
+        assert!(iron_dust_smelt.craft_time < 2.0); // Faster than ore
     }
 }

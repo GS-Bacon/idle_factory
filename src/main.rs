@@ -532,16 +532,22 @@ mod tests {
     }
 
     #[test]
-    fn test_crusher_no_recipes() {
-        // Currently crusher has no recipes (reserved for future chain-based recipes)
-        assert!(!Crusher::can_crush(BlockType::IronOre));
-        assert!(!Crusher::can_crush(BlockType::CopperOre));
-        assert!(!Crusher::can_crush(BlockType::Stone));
-        assert!(!Crusher::can_crush(BlockType::IronIngot));
+    fn test_crusher_has_recipes() {
+        // Crusher now has recipes for ore -> dust (doubles output)
+        assert!(Crusher::can_crush(BlockType::IronOre));
+        assert!(Crusher::can_crush(BlockType::CopperOre));
+        assert!(!Crusher::can_crush(BlockType::Stone)); // Stone can't be crushed
+        assert!(!Crusher::can_crush(BlockType::IronIngot)); // Ingots can't be crushed
 
-        // All outputs should be None
-        assert!(Crusher::get_crush_output(BlockType::IronOre).is_none());
-        assert!(Crusher::get_crush_output(BlockType::CopperOre).is_none());
+        // Ore outputs should be dust (with count 2 = doubling)
+        assert_eq!(
+            Crusher::get_crush_output(BlockType::IronOre),
+            Some((BlockType::IronDust, 2))
+        );
+        assert_eq!(
+            Crusher::get_crush_output(BlockType::CopperOre),
+            Some((BlockType::CopperDust, 2))
+        );
         assert!(Crusher::get_crush_output(BlockType::Stone).is_none());
     }
 

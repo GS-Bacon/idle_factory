@@ -1,12 +1,14 @@
 #!/bin/bash
 # Random Play Test - Extended random testing with anomaly detection
 # Runs 1000+ random operations and monitors for crashes, hangs, and anomalies
+# Now includes runtime invariant checking for "unplayable" bugs
 #
 # Usage: ./scripts/random_play_test.sh [iterations] [timeout_minutes]
 
 set -e
 
 command -v xdotool >/dev/null 2>&1 || { echo "xdotool required"; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "jq required"; exit 1; }
 
 ITERATIONS=${1:-1000}
 TIMEOUT_MINUTES=${2:-30}
@@ -16,8 +18,11 @@ LOG_DIR="logs/random_play"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE="$LOG_DIR/random_$TIMESTAMP.log"
 REPORT_FILE="$LOG_DIR/report_$TIMESTAMP.json"
+BUG_REPORT_DIR="$LOG_DIR/bugs_$TIMESTAMP"
 
 export DISPLAY=${DISPLAY:-:10}
+export E2E_EXPORT=1
+export E2E_EXPORT_PATH="/tmp/e2e_state.json"
 
 mkdir -p "$LOG_DIR"
 
@@ -42,7 +47,7 @@ WINDOW_ID=$(xdotool search --name "$GAME_WINDOW" 2>/dev/null | head -1 || true)
 if [ -z "$WINDOW_ID" ]; then
     log "Starting game..."
     cd /home/bacon/idle_factory
-    cargo run &
+    cargo run --bin idle_factory &
     GAME_PID=$!
     sleep 15
     WINDOW_ID=$(xdotool search --name "$GAME_WINDOW" 2>/dev/null | head -1)
@@ -80,11 +85,16 @@ COMMANDS=(
 CRASHES=0
 HANGS=0
 ERRORS=0
+VIOLATIONS=0
+STUCK_DETECTED=0
+EMBEDDED_DETECTED=0
+FELL_DETECTED=0
 CMD_COUNT=0
 KEY_COUNT=0
 CLICK_COUNT=0
 START_TIME=$(date +%s)
 LAST_CHECK_TIME=$START_TIME
+LAST_INVARIANT_CHECK=$START_TIME
 
 # Helper function to type a command character by character
 type_char() {
@@ -133,10 +143,76 @@ check_for_errors() {
     return 0
 }
 
+# Check for invariant violations in E2E state
+check_invariants() {
+    local state_file="$E2E_EXPORT_PATH"
+    if [ ! -f "$state_file" ]; then
+        return 0  # No state file yet
+    fi
+
+    local state=$(cat "$state_file" 2>/dev/null || echo "{}")
+
+    # Check for violations
+    local violation_count=$(echo "$state" | jq '.violations | length' 2>/dev/null || echo 0)
+    if [ "$violation_count" -gt 0 ]; then
+        VIOLATIONS=$((VIOLATIONS + violation_count))
+
+        # Check violation types
+        echo "$state" | jq -r '.violations[]' 2>/dev/null | while read -r v; do
+            if echo "$v" | grep -q "STUCK"; then
+                STUCK_DETECTED=$((STUCK_DETECTED + 1))
+            elif echo "$v" | grep -q "EMBEDDED"; then
+                EMBEDDED_DETECTED=$((EMBEDDED_DETECTED + 1))
+            elif echo "$v" | grep -q "FELL"; then
+                FELL_DETECTED=$((FELL_DETECTED + 1))
+            fi
+        done
+
+        # Save bug report
+        save_bug_report "$state" "$violation_count"
+        return 1
+    fi
+
+    # Check for stuck (even if not yet logged as violation)
+    local stuck_frames=$(echo "$state" | jq '.stuck_frames // 0' 2>/dev/null || echo 0)
+    if [ "$stuck_frames" -gt 120 ]; then
+        warn "Player potentially stuck ($stuck_frames frames)"
+    fi
+
+    # Check for falling through world
+    local y_pos=$(echo "$state" | jq '.player_pos[1] // 0' 2>/dev/null || echo 0)
+    if [ $(echo "$y_pos < -5" | bc -l 2>/dev/null || echo 0) -eq 1 ]; then
+        warn "Player falling through world (Y=$y_pos)"
+    fi
+
+    return 0
+}
+
+# Save bug report with state and screenshot
+save_bug_report() {
+    local state="$1"
+    local violation_count="$2"
+    local bug_id=$(date +%H%M%S)
+
+    mkdir -p "$BUG_REPORT_DIR"
+
+    # Save state
+    echo "$state" > "$BUG_REPORT_DIR/bug_${bug_id}_state.json"
+
+    # Take screenshot
+    scrot "$BUG_REPORT_DIR/bug_${bug_id}_screenshot.png" 2>/dev/null || true
+
+    # Log violations
+    echo "$state" | jq -r '.violations[]' 2>/dev/null >> "$BUG_REPORT_DIR/bug_${bug_id}_violations.txt"
+
+    warn "Bug report saved: $BUG_REPORT_DIR/bug_${bug_id}_*"
+}
+
 # Periodic health check
 health_check() {
     local current_time=$(date +%s)
     local elapsed=$((current_time - LAST_CHECK_TIME))
+    local invariant_elapsed=$((current_time - LAST_INVARIANT_CHECK))
 
     # Check every 30 seconds
     if [ $elapsed -ge 30 ]; then
@@ -155,6 +231,13 @@ health_check() {
             ERRORS=$((ERRORS + 1))
         fi
     fi
+
+    # Check invariants every 5 seconds
+    if [ $invariant_elapsed -ge 5 ]; then
+        LAST_INVARIANT_CHECK=$current_time
+        check_invariants || true  # Don't fail test on violation, just record
+    fi
+
     return 0
 }
 
@@ -227,6 +310,7 @@ log "Actions: $ACTIONS (keys: $KEY_COUNT, commands: $CMD_COUNT, clicks: $CLICK_C
 log "Crashes: $CRASHES"
 log "Hangs: $HANGS"
 log "Errors: $ERRORS"
+log "Violations: $VIOLATIONS (stuck: $STUCK_DETECTED, embedded: $EMBEDDED_DETECTED, fell: $FELL_DETECTED)"
 
 # Generate JSON report
 cat << EOF > "$REPORT_FILE"
@@ -247,6 +331,13 @@ cat << EOF > "$REPORT_FILE"
         "hangs": $HANGS,
         "errors": $ERRORS
     },
+    "playability_bugs": {
+        "total": $VIOLATIONS,
+        "stuck": $STUCK_DETECTED,
+        "embedded": $EMBEDDED_DETECTED,
+        "fell_through_world": $FELL_DETECTED,
+        "bug_reports_dir": "$BUG_REPORT_DIR"
+    },
     "result": $([ $CRASHES -eq 0 ] && [ $HANGS -eq 0 ] && echo '"PASS"' || echo '"FAIL"')
 }
 EOF
@@ -265,5 +356,11 @@ if [ $CRASHES -gt 0 ] || [ $HANGS -gt 0 ]; then
     exit 1
 fi
 
-log "Test PASSED: No crashes or hangs detected"
+if [ $VIOLATIONS -gt 0 ]; then
+    warn "Test PASSED with WARNINGS: $VIOLATIONS playability bugs detected"
+    warn "Check bug reports in: $BUG_REPORT_DIR"
+    exit 0  # Not a hard failure, but noted
+fi
+
+log "Test PASSED: No crashes, hangs, or playability bugs detected"
 exit 0

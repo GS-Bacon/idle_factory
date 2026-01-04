@@ -310,7 +310,10 @@
       "Bash(cut:*)",
       "Bash(DISPLAY=:10 RUST_LOG=info timeout 15 cargo run:*)",
       "Bash(file:*)",
-      "Bash(cargo fmt:*)"
+      "Bash(cargo fmt:*)",
+      "Bash(timeout 120 gemini ask:*)",
+      "Bash(timeout 180 gemini ask \"このゲームの仕様ファイル群を分析し、ゲームデザインとしての矛盾やおかしい点を検証してください。\n\n特に以下の5つの観点で詳細に分析してください:\n1. 数値バランス（採掘速度1.5秒、精錬2秒、燃料消費等）\n2. ゲームフローの整合性（初期装備→クエスト進行→アンロック）\n3. 機械の入出力ルールの一貫性\n4. クエスト報酬とコストのバランス\n5. 論理的な矛盾（例：粉砕機のレシピが空など）\n\n日本語で回答してください。\" src/game_spec/mod.rs src/game_spec/machines.rs src/game_spec/recipes.rs)",
+      "Bash(timeout 180 gemini ask \"先ほどの仕様検証で発見した問題点を修正する改善計画を立ててください。\n\n## 発見した問題点（優先度順）\n1. 粉砕機レシピが空（CRUSHER_RECIPES = &[]）\n2. 精錬炉の入力ポートが1つしかない（鉱石+燃料で2つ必要）\n3. 機械を作成する手段がない（Assembler未実装）\n4. クエストのunlocksが矛盾（初期装備で持っているものをアンロック）\n5. 燃料効率が悪い（インゴット1個に石炭1個）\n6. サブクエスト報酬が魅力薄い\n\n## 制約\n- Idleゲームなので手動操作は最小限に\n- 序盤は簡単に、徐々に複雑化\n- 既存のBlockTypeを活用（新規追加は最小限）\n\n以下の形式で回答してください：\n1. 各問題の具体的な修正案（コード変更の方針）\n2. 修正の優先順位と依存関係\n3. 実装順序（どの順番で直すべきか）\n\n日本語で回答してください。\" src/game_spec/mod.rs src/game_spec/machines.rs src/game_spec/recipes.rs)"
     ]
   },
   "enableAllProjectMcpServers": true,

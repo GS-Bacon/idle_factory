@@ -9,7 +9,7 @@ pub mod recipes;
 // Re-exports for convenience
 pub use machines::{
     get_input_ports, get_machine_spec, get_output_ports, IoPort, MachineSpec, MachineState,
-    PortSide, ALL_MACHINES, CRUSHER, FURNACE, MINER,
+    PortSide, ALL_MACHINES, ASSEMBLER, CRUSHER, FURNACE, MINER,
 };
 pub use recipes::{
     find_recipe, get_recipes_for_machine, FuelRequirement, MachineType, RecipeInput, RecipeOutput,
@@ -126,7 +126,7 @@ pub mod biome_mining_spec {
 
     pub const SPAWN_GUARANTEE_RADIUS: u32 = 10;
     pub const GUARANTEED_SPAWN_BIOMES: &[&str] = &["iron", "coal", "copper"];
-    pub const UNMAILABLE_BIOMES: &[&str] = &["ocean", "lava", "void"];
+    pub const UNMINEABLE_BIOMES: &[&str] = &["ocean", "lava", "void"];
 }
 
 // =============================================================================
@@ -182,16 +182,22 @@ pub const MAIN_QUESTS: &[QuestSpec] = &[
         quest_type: QuestType::Main,
         description: "鉄インゴットを10個納品せよ",
         required_items: &[(BlockType::IronIngot, 10)],
-        rewards: &[(BlockType::MinerBlock, 2), (BlockType::ConveyorBlock, 20)],
-        unlocks: &[BlockType::MinerBlock],
+        rewards: &[
+            (BlockType::AssemblerBlock, 1),
+            (BlockType::ConveyorBlock, 20),
+        ],
+        unlocks: &[BlockType::AssemblerBlock], // Unlock Assembler (machine crafting)
     },
     QuestSpec {
         id: "main_2",
         quest_type: QuestType::Main,
         description: "銅インゴットを30個納品せよ",
         required_items: &[(BlockType::CopperIngot, 30)],
-        rewards: &[(BlockType::CrusherBlock, 2)],
-        unlocks: &[BlockType::CrusherBlock],
+        rewards: &[
+            (BlockType::CrusherBlock, 2),
+            (BlockType::FurnaceBlock, 1), // Extra furnace for parallel production
+        ],
+        unlocks: &[BlockType::CrusherBlock], // Unlock Crusher (ore doubling)
     },
     QuestSpec {
         id: "main_3",
@@ -201,20 +207,20 @@ pub const MAIN_QUESTS: &[QuestSpec] = &[
         rewards: &[
             (BlockType::MinerBlock, 4),
             (BlockType::ConveyorBlock, 50),
-            (BlockType::FurnaceBlock, 4),
+            (BlockType::FurnaceBlock, 2),
         ],
-        unlocks: &[BlockType::FurnaceBlock],
+        unlocks: &[], // No new unlocks - player can now craft everything
     },
 ];
 
-/// Sub quests
+/// Sub quests (rewards are now more useful - machines instead of raw resources)
 pub const SUB_QUESTS: &[QuestSpec] = &[
     QuestSpec {
         id: "sub_iron_100",
         quest_type: QuestType::Sub,
         description: "鉄インゴット100個を納品",
         required_items: &[(BlockType::IronIngot, 100)],
-        rewards: &[(BlockType::IronOre, 200)],
+        rewards: &[(BlockType::MinerBlock, 2), (BlockType::ConveyorBlock, 30)],
         unlocks: &[],
     },
     QuestSpec {
@@ -222,7 +228,7 @@ pub const SUB_QUESTS: &[QuestSpec] = &[
         quest_type: QuestType::Sub,
         description: "銅インゴット100個を納品",
         required_items: &[(BlockType::CopperIngot, 100)],
-        rewards: &[(BlockType::CopperOre, 200)],
+        rewards: &[(BlockType::FurnaceBlock, 2), (BlockType::ConveyorBlock, 30)],
         unlocks: &[],
     },
     QuestSpec {
@@ -230,7 +236,7 @@ pub const SUB_QUESTS: &[QuestSpec] = &[
         quest_type: QuestType::Sub,
         description: "石炭200個を納品",
         required_items: &[(BlockType::Coal, 200)],
-        rewards: &[(BlockType::IronIngot, 100)],
+        rewards: &[(BlockType::CrusherBlock, 1)],
         unlocks: &[],
     },
 ];
@@ -248,13 +254,16 @@ mod tests {
         let q1_total: u32 = MAIN_QUESTS[0].required_items.iter().map(|(_, n)| n).sum();
         assert!(q1_total <= 20, "Quest 1 should be easy for early game");
 
-        for quest in MAIN_QUESTS {
-            assert!(
-                !quest.unlocks.is_empty(),
-                "Main quest {} should unlock something",
-                quest.id
-            );
-        }
+        // First two quests should unlock new mechanics
+        assert!(
+            !MAIN_QUESTS[0].unlocks.is_empty(),
+            "Quest 1 should unlock Assembler"
+        );
+        assert!(
+            !MAIN_QUESTS[1].unlocks.is_empty(),
+            "Quest 2 should unlock Crusher"
+        );
+        // Quest 3 doesn't need to unlock anything - player can craft all machines now
     }
 
     #[test]

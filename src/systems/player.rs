@@ -366,7 +366,9 @@ fn survival_movement(
         }
 
         // Check horizontal collision at multiple heights
-        for h in [0.0, PLAYER_HEIGHT / 2.0, PLAYER_HEIGHT - 0.1] {
+        // Skip h=0.0 (feet level) as that's where ground blocks are - checking it causes
+        // false positives when standing on ground
+        for h in [0.3, PLAYER_HEIGHT / 2.0, PLAYER_HEIGHT - 0.1] {
             let check_y = (new_pos.y - PLAYER_HEIGHT / 2.0 + h) as i32;
             if world_data
                 .get_block(IVec3::new(check_x, check_y, check_z))

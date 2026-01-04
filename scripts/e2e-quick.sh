@@ -54,7 +54,7 @@ start_game() {
     cd "$GAME_DIR"
 
     # バックグラウンドでゲーム起動（ログを記録）
-    cargo run 2>&1 > "$GAME_LOG_FILE" &
+    cargo run --bin idle_factory 2>&1 > "$GAME_LOG_FILE" &
     GAME_PID=$!
 
     # 起動待機（最大30秒）
@@ -614,6 +614,213 @@ test_full() {
 }
 
 # =============================================================================
+# コリジョン・プレイアビリティテスト
+# =============================================================================
+
+# 不変量違反をチェック
+assert_no_violations() {
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jqがないため違反検証をスキップ"
+        return 0
+    fi
+
+    local state=$(get_state)
+    local violations=$(echo "$state" | jq '.violations | length' 2>/dev/null || echo 0)
+
+    if [ "$violations" -eq 0 ]; then
+        log "✅ 違反なし"
+        return 0
+    else
+        err "❌ 違反検出: $violations 件"
+        echo "$state" | jq -r '.violations[]' 2>/dev/null | while read v; do
+            err "   - $v"
+        done
+        return 1
+    fi
+}
+
+# プレイヤーが地面にいるか検証
+assert_on_ground() {
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jqがないため検証をスキップ"
+        return 0
+    fi
+
+    local state=$(get_state)
+    local on_ground=$(echo "$state" | jq '.on_ground // false' 2>/dev/null)
+
+    if [ "$on_ground" = "true" ]; then
+        log "✅ プレイヤーは地面にいる"
+        return 0
+    else
+        err "❌ プレイヤーが地面にいない"
+        return 1
+    fi
+}
+
+# スタックしていないか検証
+assert_not_stuck() {
+    local threshold="${1:-60}"  # デフォルト60フレーム（1秒）
+
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jqがないため検証をスキップ"
+        return 0
+    fi
+
+    local state=$(get_state)
+    local stuck_frames=$(echo "$state" | jq '.stuck_frames // 0' 2>/dev/null)
+
+    if [ "$stuck_frames" -lt "$threshold" ]; then
+        log "✅ スタックなし (frames=$stuck_frames < $threshold)"
+        return 0
+    else
+        err "❌ スタック検出 (frames=$stuck_frames >= $threshold)"
+        return 1
+    fi
+}
+
+# プレイヤーがブロックに埋まっていないか検証
+assert_not_embedded() {
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jqがないため検証をスキップ"
+        return 0
+    fi
+
+    local state=$(get_state)
+    local violations=$(echo "$state" | jq '.violations[]' 2>/dev/null | grep -c "EMBEDDED" || echo 0)
+
+    if [ "$violations" -eq 0 ]; then
+        log "✅ 埋まりなし"
+        return 0
+    else
+        err "❌ 埋まり検出"
+        return 1
+    fi
+}
+
+# キーを押し続ける
+hold_key() {
+    local key="$1"
+    local duration="$2"
+
+    xdotool keydown "$key"
+    sleep "$duration"
+    xdotool keyup "$key"
+    sleep 0.2
+}
+
+test_collision() {
+    log "=== コリジョンテスト ==="
+
+    start_game || return 1
+
+    activate_window
+    click 640 360  # ポーズ解除
+    sleep 1
+
+    # サバイバルモードにする
+    send_command "/survival"
+    sleep 0.5
+
+    # ----- テスト1: 壁衝突テスト -----
+    log "--- テスト1: 壁衝突 ---"
+
+    # 既知の位置にテレポート
+    send_command "/tp 10 10 10"
+    sleep 0.5
+    shot "col_start"
+
+    # 壁を設置
+    send_command "/setblock 10 10 12 stone"
+    sleep 0.3
+
+    # 壁に向かって歩く（3秒間）
+    log "壁に向かって3秒歩く..."
+    local before_pos=$(get_player_pos)
+    send_command "/look 0 180"  # 南向き
+    sleep 0.3
+    hold_key "w" 3
+
+    shot "col_wall"
+    log_state "壁衝突後"
+
+    # 埋まりがないか検証
+    assert_not_embedded || warn "壁衝突テストで埋まり検出"
+
+    # ----- テスト2: 落下テスト -----
+    log "--- テスト2: 落下テスト ---"
+
+    # 高い位置にテレポート
+    send_command "/tp 20 30 20"
+    sleep 0.3
+    shot "col_fall_start"
+
+    # 落下を待つ（5秒）
+    log "落下中...（5秒待機）"
+    sleep 5
+    shot "col_fall_end"
+    log_state "落下後"
+
+    # 地面に着地しているか検証
+    assert_on_ground || warn "落下テストで着地確認失敗"
+
+    # 違反がないか検証
+    assert_no_violations || warn "落下テストで違反検出"
+
+    # ----- テスト3: 移動テスト -----
+    log "--- テスト3: 移動確認テスト ---"
+
+    send_command "/tp 30 10 30"
+    sleep 0.5
+
+    local start_pos=$(get_value '.player_pos[0]')
+    log "開始位置: X=$start_pos"
+
+    # 前に2秒歩く
+    send_command "/look 0 0"  # 北向き
+    sleep 0.3
+    hold_key "w" 2
+
+    local end_pos=$(get_value '.player_pos[2]')
+    log "終了位置: Z=$end_pos"
+    shot "col_move"
+
+    # 移動できたか（スタックしていないか）
+    assert_not_stuck 30 || warn "移動テストでスタック検出"
+
+    # ----- テスト4: ジャンプテスト -----
+    log "--- テスト4: ジャンプテスト ---"
+
+    send_command "/tp 40 10 40"
+    sleep 0.5
+
+    local before_y=$(get_value '.player_pos[1]')
+    key "space"
+    sleep 0.3
+    local during_y=$(get_value '.player_pos[1]')
+    sleep 1
+    local after_y=$(get_value '.player_pos[1]')
+
+    log "ジャンプ: Y=$before_y → $during_y → $after_y"
+    shot "col_jump"
+
+    if [ $(echo "$during_y > $before_y" | bc -l 2>/dev/null || echo 0) -eq 1 ]; then
+        log "✅ ジャンプ成功"
+    else
+        warn "⚠ ジャンプ確認失敗"
+    fi
+
+    # 最終確認
+    log "--- 最終確認 ---"
+    assert_no_violations
+    assert_not_stuck
+    assert_not_embedded
+
+    cleanup
+    log "=== コリジョンテスト完了 ==="
+}
+
+# =============================================================================
 # ビジュアル比較 (smart_compare)
 # =============================================================================
 
@@ -728,13 +935,17 @@ case "${1:-basic}" in
     full|all|f)
         test_full
         ;;
+    collision|col)
+        test_collision
+        ;;
     *)
-        echo "使い方: $0 [basic|conveyor|machines|full|compare|save-baseline]"
+        echo "使い方: $0 [basic|conveyor|machines|collision|full|compare|save-baseline]"
         echo ""
         echo "テスト実行:"
         echo "  basic (b)         - 基本テスト（6枚）"
         echo "  conveyor (c)      - コンベアテスト（8枚）"
         echo "  machines (m)      - 機械テスト（6枚）"
+        echo "  collision (col)   - コリジョンテスト（壁衝突・落下・移動・ジャンプ）"
         echo "  full (f)          - 全テスト（20枚）"
         echo ""
         echo "ビジュアル比較:"

@@ -1,6 +1,6 @@
 //! Debug HUD systems
 
-use crate::components::*;
+use crate::components::{PlayerPhysics, *};
 use crate::world::WorldData;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::prelude::*;
@@ -180,6 +180,11 @@ pub struct E2EGameState {
     pub conveyors: Vec<E2EConveyorInfo>,
     pub machines: Vec<E2EMachineInfo>,
     pub floating_blocks: Vec<[i32; 3]>,
+    // Playability detection fields
+    pub on_ground: bool,
+    pub velocity: [f32; 3],
+    pub stuck_frames: u32,
+    pub violations: Vec<String>,
 }
 
 /// Quest state for E2E testing
@@ -242,7 +247,7 @@ impl Default for E2EExportConfig {
 pub fn export_e2e_state(
     config: Res<E2EExportConfig>,
     diagnostics: Res<DiagnosticsStore>,
-    player_query: Query<&Transform, With<Player>>,
+    player_query: Query<(&Transform, Option<&PlayerPhysics>), With<Player>>,
     camera_query: Query<&PlayerCamera>,
     world_data: Res<WorldData>,
     creative_mode: Res<CreativeMode>,
@@ -254,6 +259,8 @@ pub fn export_e2e_state(
     miner_query: Query<&Miner>,
     furnace_query: Query<(&Furnace, &Transform)>,
     crusher_query: Query<&Crusher>,
+    stuck_detector: Res<super::invariants::StuckDetector>,
+    violation_log: Res<super::invariants::ViolationLog>,
 ) {
     if !config.enabled {
         return;
@@ -264,17 +271,26 @@ pub fn export_e2e_state(
         .and_then(|d| d.smoothed())
         .unwrap_or(0.0) as f32;
 
-    let (player_pos, camera_pitch, camera_yaw) = if let Ok(transform) = player_query.get_single() {
-        let pos = transform.translation;
-        let (pitch, yaw) = if let Ok(camera) = camera_query.get_single() {
-            (camera.pitch, camera.yaw)
+    let (player_pos, camera_pitch, camera_yaw, on_ground, velocity) =
+        if let Ok((transform, physics)) = player_query.get_single() {
+            let pos = transform.translation;
+            let (pitch, yaw) = if let Ok(camera) = camera_query.get_single() {
+                (camera.pitch, camera.yaw)
+            } else {
+                (0.0, 0.0)
+            };
+            let (on_ground, vel) = if let Some(phys) = physics {
+                (
+                    phys.on_ground,
+                    [phys.velocity.x, phys.velocity.y, phys.velocity.z],
+                )
+            } else {
+                (true, [0.0, 0.0, 0.0]) // Creative mode: always on ground
+            };
+            ([pos.x, pos.y, pos.z], pitch, yaw, on_ground, vel)
         } else {
-            (0.0, 0.0)
+            ([0.0, 0.0, 0.0], 0.0, 0.0, false, [0.0, 0.0, 0.0])
         };
-        ([pos.x, pos.y, pos.z], pitch, yaw)
-    } else {
-        ([0.0, 0.0, 0.0], 0.0, 0.0)
-    };
 
     let target_break = target_block.break_target.map(|p| [p.x, p.y, p.z]);
     let target_place = target_block.place_target.map(|p| [p.x, p.y, p.z]);
@@ -373,6 +389,13 @@ pub fn export_e2e_state(
     // Check for floating blocks (machines not on solid ground)
     let floating_blocks = check_floating_blocks(&conveyors, &machines, &world_data);
 
+    // Collect violations as strings
+    let violations: Vec<String> = violation_log
+        .violations
+        .iter()
+        .map(|v| format!("{}", v))
+        .collect();
+
     let state = E2EGameState {
         player_pos,
         camera_pitch,
@@ -387,6 +410,10 @@ pub fn export_e2e_state(
         conveyors,
         machines,
         floating_blocks,
+        on_ground,
+        velocity,
+        stuck_frames: stuck_detector.stuck_frames,
+        violations,
     };
 
     if let Ok(json) = serde_json::to_string_pretty(&state) {
