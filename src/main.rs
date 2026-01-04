@@ -548,7 +548,7 @@ mod tests {
     #[test]
     fn test_furnace_uses_recipe_system() {
         // Verify furnace smelt output matches recipe system
-        use idle_factory::game_spec::recipe_spec::{find_recipe, MachineType};
+        use idle_factory::game_spec::{find_recipe, MachineType};
 
         let iron_output = Furnace::get_smelt_output(BlockType::IronOre);
         let recipe = find_recipe(MachineType::Furnace, BlockType::IronOre);

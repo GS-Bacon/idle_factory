@@ -1,0 +1,304 @@
+//! Machine specification
+//!
+//! All machines are defined as `MachineSpec`.
+
+use crate::BlockType;
+
+/// Machine facing direction (player's direction at placement)
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(dead_code)]
+pub enum MachineFacing {
+    North, // -Z
+    South, // +Z
+    East,  // +X
+    West,  // -X
+}
+
+/// I/O port position
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PortSide {
+    Front, // Front of machine
+    Back,  // Back of machine
+    #[allow(dead_code)]
+    Left, // Left side
+    #[allow(dead_code)]
+    Right, // Right side
+    #[allow(dead_code)]
+    Top, // Top of machine
+    #[allow(dead_code)]
+    Bottom, // Bottom (unused but for future)
+}
+
+/// I/O port definition
+#[derive(Clone, Copy, Debug)]
+pub struct IoPort {
+    /// Port position
+    pub side: PortSide,
+    /// Is input port (false = output)
+    pub is_input: bool,
+    /// Slot ID (for multiple inputs/outputs)
+    pub slot_id: u8,
+}
+
+/// Machine specification
+#[derive(Clone, Debug)]
+pub struct MachineSpec {
+    /// Machine ID
+    pub id: &'static str,
+    /// Display name
+    pub name: &'static str,
+    /// Corresponding BlockType
+    pub block_type: BlockType,
+    /// I/O ports
+    pub ports: &'static [IoPort],
+    /// Internal buffer size (per slot)
+    pub buffer_size: u32,
+    /// Base processing time (seconds)
+    pub process_time: f32,
+    /// Requires fuel
+    pub requires_fuel: bool,
+    /// Auto-generates resources (like miner)
+    #[allow(dead_code)]
+    pub auto_generate: bool,
+}
+
+// =============================================================================
+// Machine Definitions
+// =============================================================================
+
+/// Miner
+pub const MINER: MachineSpec = MachineSpec {
+    id: "miner",
+    name: "採掘機",
+    block_type: BlockType::MinerBlock,
+    ports: &[IoPort {
+        side: PortSide::Front,
+        is_input: false,
+        slot_id: 0,
+    }],
+    buffer_size: 64,
+    process_time: 1.5,
+    requires_fuel: false,
+    auto_generate: true,
+};
+
+/// Furnace
+pub const FURNACE: MachineSpec = MachineSpec {
+    id: "furnace",
+    name: "精錬炉",
+    block_type: BlockType::FurnaceBlock,
+    ports: &[
+        IoPort {
+            side: PortSide::Back,
+            is_input: true,
+            slot_id: 0,
+        },
+        IoPort {
+            side: PortSide::Front,
+            is_input: false,
+            slot_id: 0,
+        },
+    ],
+    buffer_size: 64,
+    process_time: 2.0,
+    requires_fuel: true,
+    auto_generate: false,
+};
+
+/// Crusher
+pub const CRUSHER: MachineSpec = MachineSpec {
+    id: "crusher",
+    name: "粉砕機",
+    block_type: BlockType::CrusherBlock,
+    ports: &[
+        IoPort {
+            side: PortSide::Back,
+            is_input: true,
+            slot_id: 0,
+        },
+        IoPort {
+            side: PortSide::Front,
+            is_input: false,
+            slot_id: 0,
+        },
+    ],
+    buffer_size: 64,
+    process_time: 1.5,
+    requires_fuel: false,
+    auto_generate: false,
+};
+
+/// All machines
+pub const ALL_MACHINES: &[&MachineSpec] = &[&MINER, &FURNACE, &CRUSHER];
+
+/// Get machine spec from BlockType
+pub fn get_machine_spec(block_type: BlockType) -> Option<&'static MachineSpec> {
+    ALL_MACHINES
+        .iter()
+        .find(|m| m.block_type == block_type)
+        .copied()
+}
+
+/// Get input ports for a machine
+pub fn get_input_ports(spec: &MachineSpec) -> impl Iterator<Item = &IoPort> {
+    spec.ports.iter().filter(|p| p.is_input)
+}
+
+/// Get output ports for a machine
+pub fn get_output_ports(spec: &MachineSpec) -> impl Iterator<Item = &IoPort> {
+    spec.ports.iter().filter(|p| !p.is_input)
+}
+
+// =============================================================================
+// Machine Speed Spec
+// =============================================================================
+
+/// Miner mining interval (seconds/item)
+#[allow(dead_code)]
+pub const MINER_INTERVAL: f32 = 1.5;
+
+/// Furnace smelting time (seconds/item)
+#[allow(dead_code)]
+pub const FURNACE_SMELT_TIME: f32 = 2.0;
+
+/// Crusher crushing time (seconds/item)
+#[allow(dead_code)]
+pub const CRUSHER_CRUSH_TIME: f32 = 1.5;
+
+/// Assembler base time (seconds/item)
+#[allow(dead_code)]
+pub const ASSEMBLER_BASE_TIME: f32 = 3.0;
+
+/// Conveyor speed (blocks/second)
+#[allow(dead_code)]
+pub const CONVEYOR_SPEED: f32 = 2.0;
+
+// =============================================================================
+// Machine Connection Spec
+// =============================================================================
+
+/// Enable direct machine-to-machine connection
+#[allow(dead_code)]
+pub const ENABLE_DIRECT_CONNECTION: bool = true;
+
+/// Direct connection transfer interval (seconds/item)
+#[allow(dead_code)]
+pub const DIRECT_TRANSFER_INTERVAL: f32 = 0.0;
+
+/// Wait when receiver buffer is full
+#[allow(dead_code)]
+pub const WAIT_ON_FULL_BUFFER: bool = true;
+
+// =============================================================================
+// Machine Rendering Spec
+// =============================================================================
+
+/// Render machines as blocks
+#[allow(dead_code)]
+pub const RENDER_AS_BLOCK: bool = true;
+
+/// Machine block size
+#[allow(dead_code)]
+pub const MACHINE_BLOCK_SIZE: f32 = 1.0;
+
+/// Show direction indicator
+#[allow(dead_code)]
+pub const SHOW_DIRECTION_INDICATOR: bool = true;
+
+/// Show I/O ports visually
+#[allow(dead_code)]
+pub const SHOW_IO_PORTS: bool = true;
+
+/// Machine state
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(dead_code)]
+pub enum MachineState {
+    Idle,
+    Working,
+}
+
+/// Smoke particle settings
+pub mod smoke {
+    #[allow(dead_code)]
+    pub const ENABLED: bool = true;
+    #[allow(dead_code)]
+    pub const SMOKE_MACHINES: &[&str] = &["furnace", "crusher"];
+    #[allow(dead_code)]
+    pub const SPAWN_INTERVAL: f32 = 0.3;
+    #[allow(dead_code)]
+    pub const RISE_SPEED: f32 = 0.5;
+    #[allow(dead_code)]
+    pub const LIFETIME: f32 = 1.5;
+    #[allow(dead_code)]
+    pub const SIZE: f32 = 0.15;
+    #[allow(dead_code)]
+    pub const COLOR: (f32, f32, f32, f32) = (0.5, 0.5, 0.5, 0.6);
+}
+
+/// State visual settings
+pub mod state_visuals {
+    #[allow(dead_code)]
+    pub const WORKING_BRIGHTNESS: f32 = 1.3;
+    #[allow(dead_code)]
+    pub const WORKING_EMISSIVE: bool = true;
+    #[allow(dead_code)]
+    pub const EMISSIVE_COLOR_FURNACE: (f32, f32, f32) = (1.0, 0.5, 0.1);
+    #[allow(dead_code)]
+    pub const EMISSIVE_COLOR_CRUSHER: (f32, f32, f32) = (0.3, 0.5, 1.0);
+    #[allow(dead_code)]
+    pub const EMISSIVE_COLOR_MINER: (f32, f32, f32) = (0.2, 0.8, 0.3);
+    #[allow(dead_code)]
+    pub const EMISSIVE_INTENSITY: f32 = 0.5;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_machine_spec() {
+        assert!(!ALL_MACHINES.is_empty());
+
+        for machine in ALL_MACHINES {
+            assert!(
+                !machine.ports.is_empty(),
+                "Machine {} should have ports",
+                machine.id
+            );
+            assert!(
+                machine.buffer_size > 0,
+                "Machine {} should have buffer",
+                machine.id
+            );
+        }
+
+        let miner = get_machine_spec(BlockType::MinerBlock);
+        assert!(miner.is_some());
+        assert_eq!(miner.unwrap().id, "miner");
+
+        let furnace = get_machine_spec(BlockType::FurnaceBlock);
+        assert!(furnace.is_some());
+        assert_eq!(furnace.unwrap().id, "furnace");
+
+        let stone = get_machine_spec(BlockType::Stone);
+        assert!(stone.is_none());
+    }
+
+    #[test]
+    fn test_io_ports() {
+        let miner_inputs: Vec<_> = get_input_ports(&MINER).collect();
+        let miner_outputs: Vec<_> = get_output_ports(&MINER).collect();
+        assert!(miner_inputs.is_empty());
+        assert_eq!(miner_outputs.len(), 1);
+
+        let furnace_inputs: Vec<_> = get_input_ports(&FURNACE).collect();
+        let furnace_outputs: Vec<_> = get_output_ports(&FURNACE).collect();
+        assert_eq!(furnace_inputs.len(), 1);
+        assert_eq!(furnace_outputs.len(), 1);
+
+        let crusher_inputs: Vec<_> = get_input_ports(&CRUSHER).collect();
+        let crusher_outputs: Vec<_> = get_output_ports(&CRUSHER).collect();
+        assert_eq!(crusher_inputs.len(), 1);
+        assert_eq!(crusher_outputs.len(), 1);
+    }
+}

@@ -1,7 +1,7 @@
 //! Machine components: Miner, Conveyor, Furnace, Crusher
 
 use crate::constants::*;
-use crate::game_spec::recipe_spec::{find_recipe, MachineType};
+use crate::game_spec::{find_recipe, MachineType};
 use crate::BlockType;
 use bevy::prelude::*;
 use std::f32::consts::PI;
