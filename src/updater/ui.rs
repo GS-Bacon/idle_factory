@@ -8,6 +8,7 @@ use super::state::{UpdatePhase, UpdateState};
 const PANEL_BG: Color = Color::srgba(0.12, 0.12, 0.12, 0.95);
 const TEXT_PRIMARY: Color = Color::WHITE;
 const TEXT_SECONDARY: Color = Color::srgb(0.67, 0.67, 0.67);
+const TEXT_ERROR: Color = Color::srgb(1.0, 0.4, 0.4);
 const BUTTON_BG: Color = Color::srgb(0.25, 0.25, 0.30);
 const BUTTON_HOVER: Color = Color::srgb(0.35, 0.35, 0.42);
 const BORDER_COLOR: Color = Color::srgb(0.33, 0.33, 0.33);
@@ -46,12 +47,14 @@ pub fn spawn_update_ui(mut commands: Commands) {
             },
             BackgroundColor(PANEL_BG),
             BorderColor(BORDER_COLOR),
+            BorderRadius::all(Val::Px(8.0)),
+            GlobalZIndex(110), // Above PauseUI (100) so update button is clickable during pause
             Visibility::Hidden,
         ))
         .with_children(|parent| {
             // Title
             parent.spawn((
-                Text::new("Update Available"),
+                Text::new("🔄 アップデート"),
                 TextFont {
                     font_size: 18.0,
                     ..default()
@@ -80,9 +83,9 @@ pub fn spawn_update_ui(mut commands: Commands) {
                 },))
                 .with_children(|row| {
                     // Dismiss button
-                    spawn_button(row, "Later", DismissButton);
+                    spawn_button(row, "後で", DismissButton);
                     // Update button
-                    spawn_button(row, "Update Now", UpdateButton);
+                    spawn_button(row, "今すぐ更新", UpdateButton);
                 });
         });
 }
@@ -101,6 +104,7 @@ fn spawn_button<T: Component>(parent: &mut ChildBuilder, label: &str, marker: T)
             },
             BackgroundColor(BUTTON_BG),
             BorderColor(BORDER_COLOR),
+            BorderRadius::all(Val::Px(4.0)),
         ))
         .with_children(|btn| {
             btn.spawn((
@@ -119,7 +123,7 @@ fn spawn_button<T: Component>(parent: &mut ChildBuilder, label: &str, marker: T)
 pub fn update_notification_ui(
     state: Res<UpdateState>,
     mut ui_query: Query<&mut Visibility, With<UpdateNotificationUI>>,
-    mut status_query: Query<&mut Text, With<UpdateStatusText>>,
+    mut status_query: Query<(&mut Text, &mut TextColor), With<UpdateStatusText>>,
     mut update_btn_query: Query<
         &mut Visibility,
         (
@@ -149,8 +153,9 @@ pub fn update_notification_ui(
         UpdatePhase::Available { version, .. } => {
             *ui_vis = Visibility::Visible;
 
-            if let Ok(mut text) = status_query.get_single_mut() {
-                text.0 = format!("New version v{} is available!", version);
+            if let Ok((mut text, mut color)) = status_query.get_single_mut() {
+                text.0 = format!("新バージョン v{} が利用可能です！", version);
+                *color = TextColor(TEXT_SECONDARY);
             }
 
             // Show update and dismiss buttons
@@ -165,8 +170,25 @@ pub fn update_notification_ui(
         UpdatePhase::Failed(error) => {
             *ui_vis = Visibility::Visible;
 
-            if let Ok(mut text) = status_query.get_single_mut() {
-                text.0 = format!("Update failed: {}", error);
+            if let Ok((mut text, mut color)) = status_query.get_single_mut() {
+                // Make error message more user-friendly
+                let (user_message, is_success) = if error
+                    .contains("ブラウザでダウンロードページを開きました")
+                {
+                    // Browser was opened successfully - show as info rather than error
+                    ("✓ ブラウザでダウンロードページを\n開きました。手動でダウンロード\nしてください。".to_string(), true)
+                } else if error.contains("Updater not found") {
+                    ("アップデータが見つかりません。".to_string(), false)
+                } else {
+                    (format!("更新失敗: {}", error), false)
+                };
+                text.0 = user_message;
+                // Use green-ish color for success (browser opened), red for errors
+                *color = if is_success {
+                    TextColor(Color::srgb(0.5, 0.9, 0.5))
+                } else {
+                    TextColor(TEXT_ERROR)
+                };
             }
 
             // Show dismiss button only

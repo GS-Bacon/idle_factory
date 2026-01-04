@@ -163,7 +163,7 @@ fn poll_check_result(mut channels: ResMut<UpdateChannels>, mut state: ResMut<Upd
 /// Handle start update events - launch external updater and exit game.
 fn handle_start_update(
     mut events: EventReader<StartUpdateEvent>,
-    state: Res<UpdateState>,
+    mut state: ResMut<UpdateState>,
     mut exit: EventWriter<AppExit>,
 ) {
     for _ in events.read() {
@@ -191,15 +191,30 @@ fn handle_start_update(
             }
             Err(e) => {
                 tracing::error!("Failed to get executable path: {}", e);
+                state.phase =
+                    UpdatePhase::Failed(format!("実行ファイルパスを取得できません: {}", e));
                 continue;
             }
         };
 
         if !updater_path.exists() {
-            tracing::error!("Updater not found at {:?}", updater_path);
+            tracing::warn!(
+                "Updater not found at {:?}, opening browser instead",
+                updater_path
+            );
             // Fallback: open download URL in browser
-            if let Err(e) = open::that(&download_url) {
-                tracing::error!("Failed to open browser: {}", e);
+            match open::that(&download_url) {
+                Ok(_) => {
+                    tracing::info!("Opened download page in browser");
+                    // Show success message - user can download manually
+                    state.phase = UpdatePhase::Failed(
+                        "Updater not found - ブラウザでダウンロードページを開きました".to_string(),
+                    );
+                }
+                Err(e) => {
+                    tracing::error!("Failed to open browser: {}", e);
+                    state.phase = UpdatePhase::Failed(format!("ブラウザを開けません: {}", e));
+                }
             }
             continue;
         }
@@ -217,8 +232,19 @@ fn handle_start_update(
             Err(e) => {
                 tracing::error!("Failed to launch updater: {}", e);
                 // Fallback: open download URL in browser
-                if let Err(e) = open::that(&download_url) {
-                    tracing::error!("Failed to open browser: {}", e);
+                match open::that(&download_url) {
+                    Ok(_) => {
+                        state.phase = UpdatePhase::Failed(
+                            "アップデータ起動失敗 - ブラウザでダウンロードページを開きました"
+                                .to_string(),
+                        );
+                    }
+                    Err(e2) => {
+                        state.phase = UpdatePhase::Failed(format!(
+                            "アップデータ起動失敗、ブラウザも開けません: {}",
+                            e2
+                        ));
+                    }
                 }
             }
         }
