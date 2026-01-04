@@ -2,7 +2,7 @@
 set -e
 
 echo "Building WASM..."
-cargo build --release --target wasm32-unknown-unknown
+cargo build --release --target wasm32-unknown-unknown --bin idle_factory
 
 echo "Generating JS bindings with wasm-bindgen..."
 wasm-bindgen --out-dir web --target web \
@@ -11,7 +11,7 @@ wasm-bindgen --out-dir web --target web \
 # Optimize WASM if wasm-opt is available
 if command -v wasm-opt &> /dev/null; then
     echo "Optimizing WASM with wasm-opt..."
-    wasm-opt -Oz web/idle_factory_bg.wasm -o web/idle_factory_bg.wasm
+    wasm-opt -Oz --enable-bulk-memory --enable-mutable-globals --enable-sign-ext --enable-nontrapping-float-to-int web/idle_factory_bg.wasm -o web/idle_factory_bg.wasm
     echo "WASM optimized!"
 else
     echo "Note: wasm-opt not found. Install binaryen for smaller WASM files."

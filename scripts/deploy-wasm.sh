@@ -13,7 +13,7 @@ sudo systemctl stop idle-factory-web 2>/dev/null || true
 
 # WASMビルド
 echo "Building WASM..."
-cargo build --release --target wasm32-unknown-unknown
+cargo build --release --target wasm32-unknown-unknown --bin idle_factory
 
 # JSバインディング生成
 echo "Generating JS bindings..."
