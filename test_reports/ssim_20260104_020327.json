@@ -1,0 +1,41 @@
+{
+  "results": [
+    {
+      "file": "01_initial.png",
+      "passed": true,
+      "ssim": 1.0
+    },
+    {
+      "file": "02_started.png",
+      "passed": true,
+      "ssim": 1.0
+    },
+    {
+      "file": "03_inventory.png",
+      "passed": true,
+      "ssim": 1.0
+    },
+    {
+      "file": "04_closed.png",
+      "passed": true,
+      "ssim": 1.0
+    },
+    {
+      "file": "05_debug.png",
+      "passed": true,
+      "ssim": 1.0
+    },
+    {
+      "file": "06_conveyor_mode.png",
+      "passed": true,
+      "ssim": 1.0
+    }
+  ],
+  "summary": {
+    "failed": 0,
+    "passed": 6,
+    "total": 6
+  },
+  "test": "ssim_visual_regression",
+  "threshold": 0.95
+}
