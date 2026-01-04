@@ -12,10 +12,10 @@ const REPO_NAME: &str = "idle_factory";
 /// Current application version (from Cargo.toml at compile time).
 pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// GitHub API URL for latest release
+/// GitHub API URL for latest release (uses 'latest' tag, not the "Latest" marked release)
 fn get_releases_url() -> String {
     format!(
-        "https://api.github.com/repos/{}/{}/releases/latest",
+        "https://api.github.com/repos/{}/{}/releases/tags/latest",
         REPO_OWNER, REPO_NAME
     )
 }
@@ -56,16 +56,15 @@ pub fn check_for_update() -> UpdateCheckResult {
         }
     };
 
-    // Extract version (tag_name, strip 'v' prefix if present)
-    let tag_name = match json["tag_name"].as_str() {
-        Some(t) => t,
+    // Extract version from asset name (e.g., "idle_factory_0.2.3_linux.tar.gz" -> "0.2.3")
+    // We use asset names because the 'latest' tag doesn't contain version info
+    let latest_version = match extract_version_from_assets(&json) {
+        Some(v) => v,
         None => {
-            tracing::warn!("No tag_name in release");
-            return UpdateCheckResult::Error("Invalid release format".to_string());
+            tracing::warn!("Could not extract version from assets");
+            return UpdateCheckResult::Error("No valid assets found".to_string());
         }
     };
-
-    let latest_version = tag_name.strip_prefix('v').unwrap_or(tag_name);
     tracing::info!("Latest version: v{}", latest_version);
 
     // Compare versions
@@ -77,7 +76,7 @@ pub fn check_for_update() -> UpdateCheckResult {
         }
     };
 
-    let latest_semver = match semver::Version::parse(latest_version) {
+    let latest_semver = match semver::Version::parse(&latest_version) {
         Ok(v) => v,
         Err(e) => {
             tracing::warn!("Invalid latest version format: {}", e);
@@ -132,6 +131,32 @@ fn get_platform_download_url(release_json: &serde_json::Value) -> String {
         "https://github.com/{}/{}/releases/tag/{}",
         REPO_OWNER, REPO_NAME, tag
     )
+}
+
+/// Extract the highest version from asset names.
+/// Looks for patterns like "idle_factory_X.Y.Z_platform.ext"
+fn extract_version_from_assets(release_json: &serde_json::Value) -> Option<String> {
+    let assets = release_json["assets"].as_array()?;
+
+    let mut highest_version: Option<semver::Version> = None;
+
+    for asset in assets {
+        if let Some(name) = asset["name"].as_str() {
+            // Match pattern: idle_factory_X.Y.Z_
+            if let Some(start) = name.strip_prefix("idle_factory_") {
+                if let Some(version_end) = start.find('_') {
+                    let version_str = &start[..version_end];
+                    if let Ok(version) = semver::Version::parse(version_str) {
+                        if highest_version.as_ref().is_none_or(|h| version > *h) {
+                            highest_version = Some(version);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    highest_version.map(|v| v.to_string())
 }
 
 #[cfg(test)]
