@@ -180,8 +180,8 @@ pub fn update_conveyor_shapes(
                     // Left in, right out (U-turn)
                     (ConveyorShape::CornerRight, conveyor.direction.right())
                 } else {
-                    // Left in, front out
-                    (ConveyorShape::CornerLeft, conveyor.direction)
+                    // Left in, front out: item turns RIGHT
+                    (ConveyorShape::CornerRight, conveyor.direction)
                 }
             } else if has_right_input {
                 // Right input
@@ -191,8 +191,8 @@ pub fn update_conveyor_shapes(
                     // Right in, left out (U-turn)
                     (ConveyorShape::CornerLeft, conveyor.direction.left())
                 } else {
-                    // Right in, front out
-                    (ConveyorShape::CornerRight, conveyor.direction)
+                    // Right in, front out: item turns LEFT
+                    (ConveyorShape::CornerLeft, conveyor.direction)
                 }
             } else {
                 // Front input (head-on)

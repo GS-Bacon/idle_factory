@@ -291,6 +291,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     ));
 
     // Quest UI panel (top-right) - Factory theme
+    // Start hidden if tutorial is active (controlled by update_tutorial_ui)
     let font_clone = font.clone();
     commands
         .spawn((
@@ -309,6 +310,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
             BackgroundColor(QUEST_BG),
             BorderColor(QUEST_BORDER_COLOR),
             BorderRadius::all(Val::Px(QUEST_RADIUS)),
+            Visibility::Hidden, // Hidden until tutorial completes
         ))
         .with_children(|parent| {
             // Header with quest icon
@@ -557,21 +559,23 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
             ));
         });
 
-    // Biome HUD - top left, always visible
+    // Biome HUD - top left, always visible (Factory theme)
     commands.spawn((
         BiomeHudText,
         Text::new("バイオーム: 読み込み中..."),
-        text_font(font, 12.0),
-        TextColor(Color::srgba(0.9, 0.9, 0.9, 0.8)),
+        text_font(font, 13.0),
+        TextColor(Color::srgba(0.9, 0.9, 0.9, 1.0)),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
             left: Val::Px(10.0),
-            padding: UiRect::all(Val::Px(4.0)),
+            padding: UiRect::all(Val::Px(QUEST_PADDING)),
+            border: UiRect::all(Val::Px(QUEST_BORDER_WIDTH)),
             ..default()
         },
-        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.4)),
-        BorderRadius::all(Val::Px(4.0)),
+        BackgroundColor(QUEST_BG),
+        BorderColor(QUEST_BORDER_COLOR),
+        BorderRadius::all(Val::Px(QUEST_RADIUS)),
     ));
 
     // Pause overlay - shown when ESC pressed

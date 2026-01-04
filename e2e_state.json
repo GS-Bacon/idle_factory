@@ -1,8 +1,8 @@
 {
   "player_pos": [
-    7.6899996,
     8.0,
-    20.31
+    9.0,
+    20.0
   ],
   "camera_pitch": 0.0,
   "camera_yaw": 0.0,
@@ -11,7 +11,7 @@
   "target_block_type": "None",
   "creative_mode": false,
   "paused": false,
-  "fps": 11.113449,
+  "fps": 10.896055,
   "quest": {
     "index": 0,
     "completed": false,
@@ -31,16 +31,5 @@
     0.0
   ],
   "stuck_frames": 0,
-  "violations": [
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)",
-    "EMBEDDED: Player at (7.7,8.0,20.3) inside block at (7,7,20)"
-  ]
+  "violations": []
 }
