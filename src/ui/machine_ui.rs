@@ -3,12 +3,11 @@
 //! Follows design rules from .specify/memory/ui-design-rules.md
 
 use crate::components::*;
-use bevy::prelude::*;
-
-use super::{
+use crate::setup::ui::{
     text_font, QUEST_BORDER_COLOR, QUEST_PROGRESS_COLOR, QUEST_RADIUS, SLOT_BG, SLOT_BORDER,
     SLOT_BORDER_COLOR, SLOT_RADIUS, SLOT_SIZE,
 };
+use bevy::prelude::*;
 
 // === Design Rule Constants ===
 const PANEL_PADDING: f32 = 20.0;

@@ -5,33 +5,32 @@
 pub mod block_operations;
 pub mod chunk;
 pub mod command;
-pub mod conveyor;
-pub mod crusher;
 pub mod debug_ui;
-pub mod furnace;
 pub mod hotbar;
 pub mod invariants;
 pub mod inventory_ui;
-pub mod miner;
 pub mod player;
 pub mod quest;
-pub mod save_systems;
 pub mod targeting;
 pub mod tutorial;
 
 pub use block_operations::*;
 pub use chunk::*;
 pub use command::*;
-pub use conveyor::*;
-pub use crusher::*;
 pub use debug_ui::*;
-pub use furnace::*;
 pub use hotbar::*;
 pub use invariants::*;
 pub use inventory_ui::*;
-pub use miner::*;
 pub use player::*;
 pub use quest::*;
-pub use save_systems::*;
 pub use targeting::*;
 pub use tutorial::*;
+
+// Re-export conveyor systems from logistics module
+pub use crate::logistics::conveyor::*;
+
+// Re-export machine systems from machines module
+pub use crate::machines::{crusher::*, furnace::*, miner::*};
+
+// Re-export save systems from save module
+pub use crate::save::systems::*;

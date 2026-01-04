@@ -3,10 +3,11 @@
 //! Creates all UI panels (hotbar, machine UIs, inventory, quests, etc.)
 
 mod inventory_ui;
-mod machine_ui;
 
 pub use inventory_ui::setup_inventory_ui;
-pub use machine_ui::{setup_crusher_ui, setup_furnace_ui, setup_miner_ui};
+
+// Re-export machine UI setup from ui module
+pub use crate::ui::machine_ui::{setup_crusher_ui, setup_furnace_ui, setup_miner_ui};
 
 use crate::components::*;
 use bevy::prelude::*;
@@ -555,4 +556,21 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
                 TextColor(QUEST_HEADER_COLOR),
             ));
         });
+
+    // Biome HUD - top left, always visible
+    commands.spawn((
+        BiomeHudText,
+        Text::new("⛏ バイオーム: 読み込み中..."),
+        text_font(font, 12.0),
+        TextColor(Color::srgba(0.9, 0.9, 0.9, 0.8)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            padding: UiRect::all(Val::Px(4.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.4)),
+        BorderRadius::all(Val::Px(4.0)),
+    ));
 }

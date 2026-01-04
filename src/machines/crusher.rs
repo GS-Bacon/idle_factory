@@ -1,12 +1,12 @@
 //! Crusher systems: processing, UI interaction, output to conveyor
 
-use super::set_ui_open_state;
 use crate::components::{
     CommandInputState, CrusherProgressBar, CrusherSlotButton, CrusherSlotCount, CrusherUI,
     CursorLockState, InteractingCrusher, InteractingFurnace, InventoryOpen, MachineSlotType,
     PlayerCamera,
 };
 use crate::player::Inventory;
+use crate::systems::set_ui_open_state;
 use crate::utils::ray_aabb_intersection;
 use crate::{BlockType, Conveyor, Crusher, Furnace, BLOCK_SIZE, CRUSH_TIME, REACH_DISTANCE};
 use bevy::prelude::*;

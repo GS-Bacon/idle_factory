@@ -1,7 +1,7 @@
 //! Debug HUD systems
 
-use crate::components::{PlayerPhysics, *};
-use crate::world::WorldData;
+use crate::components::{BiomeHudText, PlayerPhysics, *};
+use crate::world::{BiomeMap, WorldData};
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::prelude::*;
 use serde::Serialize;
@@ -147,11 +147,19 @@ pub fn update_debug_hud(
         format!("\nConveyor: {}", conveyor_info)
     };
 
+    // Get biome info at player position (actual biome shown in BiomeHUD)
+    let biome_str = if player_query.get_single().is_ok() {
+        "Biome: (see HUD)".to_string()
+    } else {
+        "Biome: N/A".to_string()
+    };
+
     text.0 = format!(
-        "FPS: {:.0}\nPos: {}\nDir: {}\nTarget: {} ({})\nPlace: {}\nChunks: {}\nMode: {}{}{}",
+        "FPS: {:.0}\nPos: {}\nDir: {}\n{}\nTarget: {} ({})\nPlace: {}\nChunks: {}\nMode: {}{}{}",
         fps,
         pos_str,
         dir_str,
+        biome_str,
         break_str,
         block_type_str,
         place_str,
@@ -160,6 +168,52 @@ pub fn update_debug_hud(
         pause_str,
         conveyor_line
     );
+}
+
+/// Update biome HUD with current biome at player position
+/// Uses Local<IVec3> to only update when position changes (optimization)
+pub fn update_biome_hud(
+    player_query: Query<&Transform, With<Player>>,
+    biome_map: Res<BiomeMap>,
+    mut biome_text_query: Query<&mut Text, With<BiomeHudText>>,
+    mut last_block_pos: Local<IVec3>,
+) {
+    let Ok(transform) = player_query.get_single() else {
+        return;
+    };
+
+    let Ok(mut text) = biome_text_query.get_single_mut() else {
+        return;
+    };
+
+    // Get block position from player position
+    let pos = IVec3::new(
+        transform.translation.x.floor() as i32,
+        transform.translation.y.floor() as i32,
+        transform.translation.z.floor() as i32,
+    );
+
+    // Only update if position changed (optimization)
+    if pos == *last_block_pos {
+        return;
+    }
+    *last_block_pos = pos;
+
+    // Get biome at player position
+    let biome = biome_map.get_biome(pos);
+
+    // Format probability table for display
+    let table = biome.get_probability_table();
+    let probs: Vec<String> = table
+        .iter()
+        .map(|(bt, prob)| format!("{}: {}%", bt.name(), prob))
+        .collect();
+
+    if probs.is_empty() {
+        text.0 = format!("⛏ {}", biome.name());
+    } else {
+        text.0 = format!("⛏ {} ({})", biome.name(), probs.join(", "));
+    }
 }
 
 /// Game state for E2E testing - exported to JSON file

@@ -1,0 +1,66 @@
+{
+  "machines": [
+    {
+      "id": "miner",
+      "name": "採掘機",
+      "block_type": "miner_block",
+      "ports": [
+        {"side": "front", "is_input": false, "slot_id": 0}
+      ],
+      "buffer_size": 64,
+      "process_time": 1.5,
+      "requires_fuel": false,
+      "auto_generate": true
+    },
+    {
+      "id": "furnace",
+      "name": "精錬炉",
+      "block_type": "furnace_block",
+      "ports": [
+        {"side": "back", "is_input": true, "slot_id": 0},
+        {"side": "left", "is_input": true, "slot_id": 1},
+        {"side": "right", "is_input": true, "slot_id": 1},
+        {"side": "front", "is_input": false, "slot_id": 0}
+      ],
+      "buffer_size": 64,
+      "process_time": 2.0,
+      "requires_fuel": true,
+      "auto_generate": false
+    },
+    {
+      "id": "crusher",
+      "name": "粉砕機",
+      "block_type": "crusher_block",
+      "ports": [
+        {"side": "back", "is_input": true, "slot_id": 0},
+        {"side": "front", "is_input": false, "slot_id": 0}
+      ],
+      "buffer_size": 64,
+      "process_time": 1.5,
+      "requires_fuel": false,
+      "auto_generate": false
+    },
+    {
+      "id": "assembler",
+      "name": "組立機",
+      "block_type": "assembler_block",
+      "ports": [
+        {"side": "back", "is_input": true, "slot_id": 0},
+        {"side": "left", "is_input": true, "slot_id": 1},
+        {"side": "right", "is_input": true, "slot_id": 1},
+        {"side": "front", "is_input": false, "slot_id": 0}
+      ],
+      "buffer_size": 32,
+      "process_time": 3.0,
+      "requires_fuel": false,
+      "auto_generate": false
+    }
+  ],
+  "constants": {
+    "miner_interval": 1.5,
+    "furnace_smelt_time": 2.0,
+    "crusher_crush_time": 1.5,
+    "assembler_base_time": 3.0,
+    "conveyor_speed": 2.0
+  }
+}

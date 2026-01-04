@@ -1,0 +1,70 @@
+{
+  "main_quests": [
+    {
+      "id": "main_1",
+      "description": "鉄インゴットを10個納品せよ",
+      "required_items": [{"item": "iron_ingot", "count": 10}],
+      "rewards": [
+        {"item": "assembler_block", "count": 1},
+        {"item": "conveyor_block", "count": 20}
+      ],
+      "unlocks": ["assembler_block"]
+    },
+    {
+      "id": "main_2",
+      "description": "銅インゴットを30個納品せよ",
+      "required_items": [{"item": "copper_ingot", "count": 30}],
+      "rewards": [
+        {"item": "crusher_block", "count": 2},
+        {"item": "furnace_block", "count": 1}
+      ],
+      "unlocks": ["crusher_block"]
+    },
+    {
+      "id": "main_3",
+      "description": "鉄インゴット100個を納品せよ",
+      "required_items": [{"item": "iron_ingot", "count": 100}],
+      "rewards": [
+        {"item": "miner_block", "count": 4},
+        {"item": "conveyor_block", "count": 50},
+        {"item": "furnace_block", "count": 2}
+      ],
+      "unlocks": []
+    }
+  ],
+  "sub_quests": [
+    {
+      "id": "sub_iron_100",
+      "description": "鉄インゴット100個を納品",
+      "required_items": [{"item": "iron_ingot", "count": 100}],
+      "rewards": [
+        {"item": "miner_block", "count": 2},
+        {"item": "conveyor_block", "count": 30}
+      ],
+      "unlocks": []
+    },
+    {
+      "id": "sub_copper_100",
+      "description": "銅インゴット100個を納品",
+      "required_items": [{"item": "copper_ingot", "count": 100}],
+      "rewards": [
+        {"item": "furnace_block", "count": 2},
+        {"item": "conveyor_block", "count": 30}
+      ],
+      "unlocks": []
+    },
+    {
+      "id": "sub_coal_200",
+      "description": "石炭200個を納品",
+      "required_items": [{"item": "coal", "count": 200}],
+      "rewards": [{"item": "crusher_block", "count": 1}],
+      "unlocks": []
+    }
+  ],
+  "initial_equipment": [
+    {"item": "stone_pickaxe", "count": 1},
+    {"item": "miner_block", "count": 2},
+    {"item": "conveyor_block", "count": 90},
+    {"item": "furnace_block", "count": 1}
+  ]
+}

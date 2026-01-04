@@ -1,0 +1,104 @@
+{
+  "recipes": [
+    {
+      "id": "smelt_iron",
+      "machine": "furnace",
+      "inputs": [{"item": "iron_ore", "count": 1, "slot": 0}],
+      "outputs": [{"item": "iron_ingot", "count": 1, "chance": 1.0}],
+      "craft_time": 2.0,
+      "fuel": {"fuel_type": "coal", "amount": 1}
+    },
+    {
+      "id": "smelt_copper",
+      "machine": "furnace",
+      "inputs": [{"item": "copper_ore", "count": 1, "slot": 0}],
+      "outputs": [{"item": "copper_ingot", "count": 1, "chance": 1.0}],
+      "craft_time": 2.0,
+      "fuel": {"fuel_type": "coal", "amount": 1}
+    },
+    {
+      "id": "smelt_iron_dust",
+      "machine": "furnace",
+      "inputs": [{"item": "iron_dust", "count": 1, "slot": 0}],
+      "outputs": [{"item": "iron_ingot", "count": 1, "chance": 1.0}],
+      "craft_time": 1.5,
+      "fuel": null
+    },
+    {
+      "id": "smelt_copper_dust",
+      "machine": "furnace",
+      "inputs": [{"item": "copper_dust", "count": 1, "slot": 0}],
+      "outputs": [{"item": "copper_ingot", "count": 1, "chance": 1.0}],
+      "craft_time": 1.5,
+      "fuel": null
+    },
+    {
+      "id": "crush_iron",
+      "machine": "crusher",
+      "inputs": [{"item": "iron_ore", "count": 1, "slot": 0}],
+      "outputs": [{"item": "iron_dust", "count": 2, "chance": 1.0}],
+      "craft_time": 1.5,
+      "fuel": null
+    },
+    {
+      "id": "crush_copper",
+      "machine": "crusher",
+      "inputs": [{"item": "copper_ore", "count": 1, "slot": 0}],
+      "outputs": [{"item": "copper_dust", "count": 2, "chance": 1.0}],
+      "craft_time": 1.5,
+      "fuel": null
+    },
+    {
+      "id": "craft_conveyor",
+      "machine": "assembler",
+      "inputs": [{"item": "iron_ingot", "count": 2, "slot": 0}],
+      "outputs": [{"item": "conveyor_block", "count": 5, "chance": 1.0}],
+      "craft_time": 2.0,
+      "fuel": null
+    },
+    {
+      "id": "craft_miner",
+      "machine": "assembler",
+      "inputs": [
+        {"item": "iron_ingot", "count": 5, "slot": 0},
+        {"item": "stone", "count": 10, "slot": 1}
+      ],
+      "outputs": [{"item": "miner_block", "count": 1, "chance": 1.0}],
+      "craft_time": 5.0,
+      "fuel": null
+    },
+    {
+      "id": "craft_furnace",
+      "machine": "assembler",
+      "inputs": [
+        {"item": "iron_ingot", "count": 8, "slot": 0},
+        {"item": "stone", "count": 20, "slot": 1}
+      ],
+      "outputs": [{"item": "furnace_block", "count": 1, "chance": 1.0}],
+      "craft_time": 6.0,
+      "fuel": null
+    },
+    {
+      "id": "craft_crusher",
+      "machine": "assembler",
+      "inputs": [
+        {"item": "iron_ingot", "count": 10, "slot": 0},
+        {"item": "copper_ingot", "count": 5, "slot": 1}
+      ],
+      "outputs": [{"item": "crusher_block", "count": 1, "chance": 1.0}],
+      "craft_time": 8.0,
+      "fuel": null
+    },
+    {
+      "id": "craft_assembler",
+      "machine": "assembler",
+      "inputs": [
+        {"item": "iron_ingot", "count": 15, "slot": 0},
+        {"item": "copper_ingot", "count": 10, "slot": 1}
+      ],
+      "outputs": [{"item": "assembler_block", "count": 1, "chance": 1.0}],
+      "craft_time": 10.0,
+      "fuel": null
+    }
+  ]
+}

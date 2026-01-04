@@ -28,6 +28,18 @@ pub enum BiomeType {
 }
 
 impl BiomeType {
+    /// Get the display name for this biome
+    pub fn name(&self) -> &'static str {
+        match self {
+            BiomeType::Iron => "鉄鉱脈",
+            BiomeType::Copper => "銅鉱脈",
+            BiomeType::Coal => "石炭層",
+            BiomeType::Stone => "岩盤地帯",
+            BiomeType::Mixed => "混合鉱床",
+            BiomeType::Unmailable => "採掘不可",
+        }
+    }
+
     /// Get the probability table for this biome
     pub fn get_probability_table(&self) -> &'static [(BlockType, u32)] {
         match self {

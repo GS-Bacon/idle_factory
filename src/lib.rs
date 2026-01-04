@@ -5,10 +5,14 @@
 pub mod block_type;
 pub mod components;
 pub mod constants;
+pub mod core;
 pub mod debug;
 pub mod events;
+pub mod game_data;
 pub mod game_spec;
 pub mod logging;
+pub mod logistics;
+pub mod machines;
 pub mod meshes;
 pub mod player;
 pub mod plugins;
@@ -17,13 +21,14 @@ pub mod save;
 pub mod setup;
 pub mod systems;
 pub mod ui;
+#[cfg(feature = "updater")]
 pub mod updater;
 pub mod utils;
 pub mod vox_loader;
 pub mod world;
 
 // Re-export commonly used types at crate root
-pub use block_type::BlockType;
+pub use block_type::{BlockCategory, BlockType};
 pub use components::*;
 pub use constants::*;
 pub use player::Inventory;
@@ -48,4 +53,5 @@ pub use plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 pub use vox_loader::VoxLoaderPlugin;
 
 // Re-export updater plugin
+#[cfg(feature = "updater")]
 pub use updater::UpdaterPlugin;

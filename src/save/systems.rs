@@ -1,9 +1,9 @@
 //! Save/Load system implementations
 
+use super::format as save;
 use crate::components::*;
 use crate::components::{Furnace, LoadGameEvent, SaveGameEvent};
 use crate::player::Inventory;
-use crate::save;
 use crate::world::WorldData;
 use crate::{BlockType, Direction, BLOCK_SIZE};
 use bevy::prelude::*;

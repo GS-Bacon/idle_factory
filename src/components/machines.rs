@@ -428,6 +428,189 @@ impl MachineModels {
     }
 }
 
+// =============================================================================
+// ECS Composition Components (Phase B architecture)
+// =============================================================================
+
+/// Input port definition for machines that accept items
+#[derive(Clone, Debug)]
+pub struct InputPort {
+    /// Direction relative to machine facing (Back = behind machine)
+    pub direction: PortDirection,
+    /// Optional filter for accepted item types
+    pub filter: Option<Vec<BlockType>>,
+}
+
+/// Output port definition for machines that eject items
+#[derive(Clone, Debug)]
+pub struct OutputPort {
+    /// Direction relative to machine facing (Front = in front of machine)
+    pub direction: PortDirection,
+}
+
+/// Port direction relative to machine facing
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PortDirection {
+    Front,
+    Back,
+    Left,
+    Right,
+}
+
+/// Component for machines that accept items through input ports
+#[derive(Component, Clone, Debug)]
+pub struct ItemAcceptor {
+    /// Input ports
+    pub ports: Vec<InputPort>,
+}
+
+impl Default for ItemAcceptor {
+    fn default() -> Self {
+        Self {
+            ports: vec![InputPort {
+                direction: PortDirection::Back,
+                filter: None,
+            }],
+        }
+    }
+}
+
+/// Component for machines that eject items through output ports
+#[derive(Component, Clone, Debug)]
+pub struct ItemEjector {
+    /// Output ports
+    pub ports: Vec<OutputPort>,
+}
+
+impl Default for ItemEjector {
+    fn default() -> Self {
+        Self {
+            ports: vec![OutputPort {
+                direction: PortDirection::Front,
+            }],
+        }
+    }
+}
+
+/// Component for machines that process recipes
+#[derive(Component, Clone, Debug, Default)]
+pub struct Crafter {
+    /// Current recipe ID being processed (if any)
+    pub recipe_id: Option<&'static str>,
+    /// Processing progress (0.0 to 1.0)
+    pub progress: f32,
+    /// Speed multiplier (1.0 = normal speed)
+    pub speed_multiplier: f32,
+}
+
+/// Component for machine's item inventory
+#[derive(Component, Clone, Debug, Default)]
+pub struct MachineInventory {
+    /// Input slots
+    pub input_slots: Vec<Option<(BlockType, u32)>>,
+    /// Output slots
+    pub output_slots: Vec<Option<(BlockType, u32)>>,
+    /// Fuel slot (for furnaces)
+    pub fuel_slot: Option<(BlockType, u32)>,
+}
+
+impl MachineInventory {
+    /// Create with specified slot counts
+    pub fn new(input_count: usize, output_count: usize, _has_fuel: bool) -> Self {
+        // Note: fuel_slot is always initialized as None; has_fuel is reserved for future use
+        Self {
+            input_slots: vec![None; input_count],
+            output_slots: vec![None; output_count],
+            fuel_slot: None,
+        }
+    }
+}
+
+/// Component for machines that consume power (future use)
+#[derive(Component, Clone, Debug, Default)]
+pub struct PowerConsumer {
+    /// Required power per tick
+    pub required_power: f32,
+    /// Currently available power
+    pub current_power: f32,
+}
+
+// =============================================================================
+// Machine Descriptor (for UI auto-generation)
+// =============================================================================
+
+/// Machine category for grouping in UI
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MachineCategory {
+    /// Resource production (miner)
+    Production,
+    /// Item processing (furnace, crusher)
+    Processing,
+    /// Item logistics (conveyor, inserter)
+    Logistics,
+    /// Storage
+    Storage,
+}
+
+/// Machine metadata for UI auto-generation
+#[derive(Clone, Debug)]
+pub struct MachineDescriptor {
+    /// Unique machine ID
+    pub id: &'static str,
+    /// Display name (localized)
+    pub display_name: &'static str,
+    /// Category for UI grouping
+    pub category: MachineCategory,
+    /// Number of input slots
+    pub input_slots: u8,
+    /// Number of output slots
+    pub output_slots: u8,
+    /// Whether machine has a fuel slot
+    pub has_fuel_slot: bool,
+    /// Whether machine has recipe selection
+    pub has_recipe_select: bool,
+    /// Power consumption (None = no power required)
+    pub power_consumption: Option<f32>,
+}
+
+impl MachineDescriptor {
+    /// Miner descriptor
+    pub const MINER: Self = Self {
+        id: "miner",
+        display_name: "採掘機",
+        category: MachineCategory::Production,
+        input_slots: 0,
+        output_slots: 1,
+        has_fuel_slot: false,
+        has_recipe_select: false,
+        power_consumption: None,
+    };
+
+    /// Furnace descriptor
+    pub const FURNACE: Self = Self {
+        id: "furnace",
+        display_name: "精錬炉",
+        category: MachineCategory::Processing,
+        input_slots: 1,
+        output_slots: 1,
+        has_fuel_slot: true,
+        has_recipe_select: false,
+        power_consumption: None,
+    };
+
+    /// Crusher descriptor
+    pub const CRUSHER: Self = Self {
+        id: "crusher",
+        display_name: "粉砕機",
+        category: MachineCategory::Processing,
+        input_slots: 1,
+        output_slots: 1,
+        has_fuel_slot: false,
+        has_recipe_select: false,
+        power_consumption: None,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,5 +625,19 @@ mod tests {
         assert_eq!(Direction::South.right(), Direction::West);
         assert_eq!(Direction::West.left(), Direction::South);
         assert_eq!(Direction::West.right(), Direction::North);
+    }
+
+    #[test]
+    fn test_machine_inventory_new() {
+        let inv = MachineInventory::new(2, 1, true);
+        assert_eq!(inv.input_slots.len(), 2);
+        assert_eq!(inv.output_slots.len(), 1);
+    }
+
+    #[test]
+    fn test_machine_descriptor_constants() {
+        assert_eq!(MachineDescriptor::MINER.id, "miner");
+        assert_eq!(MachineDescriptor::FURNACE.has_fuel_slot, true);
+        assert_eq!(MachineDescriptor::CRUSHER.input_slots, 1);
     }
 }

@@ -1,12 +1,12 @@
 //! Miner systems: mining, UI interaction, output to conveyor
 
-use super::set_ui_open_state;
 use crate::components::{
     CommandInputState, CursorLockState, InteractingCrusher, InteractingFurnace, InteractingMiner,
     InventoryOpen, MinerBufferButton, MinerBufferCountText, MinerClearButton, MinerUI,
     PlayerCamera,
 };
 use crate::player::Inventory;
+use crate::systems::set_ui_open_state;
 use crate::utils::ray_aabb_intersection;
 use crate::world::{mining_random, BiomeMap};
 use crate::{Conveyor, Crusher, Furnace, Miner, BLOCK_SIZE, MINE_TIME, REACH_DISTANCE};

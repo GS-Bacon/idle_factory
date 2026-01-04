@@ -1,67 +1,13 @@
-//! Idle Factory - Milestone 1: Minimal Voxel Game
-//! Goal: Walk, mine blocks, collect in inventory
+//! Idle Factory - Voxel Factory Game
+//!
+//! Main entry point for the game binary.
 
-// Use library crate for all game logic
+use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
 use bevy::window::PresentMode;
-use idle_factory::components::*;
-use idle_factory::events::GameEventsPlugin;
 use idle_factory::logging;
-use idle_factory::player::{GlobalInventory, Inventory};
-use idle_factory::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
-use idle_factory::setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
-use idle_factory::systems::{
-    // Block operation systems
-    block_break,
-    block_place,
-    handle_assert_machine_event,
-    handle_debug_event,
-    handle_look_event,
-    handle_screenshot_event,
-    handle_setblock_event,
-    handle_spawn_machine_event,
-    handle_teleport_event,
-    // Quest systems
-    load_machine_models,
-    // Player systems
-    player_look,
-    player_move,
-    quest_claim_rewards,
-    quest_deliver_button,
-    quest_progress_check,
-    // Chunk systems
-    receive_chunk_meshes,
-    // Targeting systems
-    rotate_conveyor_placement,
-    // UI systems
-    select_block_type,
-    setup_delivery_platform,
-    setup_highlight_cache,
-    spawn_chunk_tasks,
-    tick_action_timers,
-    toggle_cursor_lock,
-    tutorial_dismiss,
-    unload_distant_chunks,
-    update_conveyor_shapes,
-    update_delivery_ui,
-    update_guide_markers,
-    update_quest_ui,
-    update_target_block,
-    update_target_highlight,
-    AssertMachineEvent,
-    DebugEvent,
-    LookEvent,
-    ScreenshotEvent,
-    SetBlockEvent,
-    // Command events and handlers
-    TeleportEvent,
-};
-use idle_factory::ui::{
-    global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
-    global_inventory_toggle, setup_global_inventory_ui, update_global_inventory_ui,
-};
-use idle_factory::world::{BiomeMap, ChunkMeshTasks, WorldData};
+use idle_factory::plugins::GamePlugin;
 
 fn main() {
     // Initialize logging before anything else
@@ -69,174 +15,52 @@ fn main() {
 
     let mut app = App::new();
 
-    // Disable pipelined rendering for lower input lag
-    // Disable LogPlugin to use custom tracing-subscriber instead
-    use bevy::log::LogPlugin;
-    // Use current working directory for assets (not executable path)
-    app.add_plugins((DefaultPlugins
-        .build()
-        .disable::<PipelinedRenderingPlugin>()
-        .disable::<LogPlugin>()
-        .set(AssetPlugin {
-            file_path: "assets".to_string(),
-            ..default()
-        })
-        .set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Idle Factory".into(),
-                present_mode: PresentMode::AutoNoVsync,
-                desired_maximum_frame_latency: std::num::NonZeroU32::new(1),
+    // Configure DefaultPlugins
+    app.add_plugins(
+        DefaultPlugins
+            .build()
+            .disable::<PipelinedRenderingPlugin>() // Lower input lag
+            .disable::<LogPlugin>() // Use custom tracing-subscriber
+            .set(AssetPlugin {
+                file_path: "assets".to_string(),
+                ..default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Idle Factory".into(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    desired_maximum_frame_latency: std::num::NonZeroU32::new(1),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }),));
+    );
 
     // Add VOX loader plugin for hot reload
     app.add_plugins(idle_factory::vox_loader::VoxLoaderPlugin);
 
-    // Add auto-updater plugin
+    // Add auto-updater plugin (only when feature enabled)
+    #[cfg(feature = "updater")]
     app.add_plugins(idle_factory::UpdaterPlugin);
 
-    app.add_plugins(GameEventsPlugin)
-        .add_plugins(MachineSystemsPlugin)
-        .add_plugins(UIPlugin)
-        .add_plugins(SavePlugin)
-        .add_plugins(DebugPlugin)
-        .insert_resource(Inventory::with_initial_items(
-            idle_factory::game_spec::INITIAL_EQUIPMENT,
-        ))
-        .insert_resource(GlobalInventory::with_items(
-            idle_factory::game_spec::INITIAL_EQUIPMENT,
-        ))
-        .init_resource::<WorldData>()
-        .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
-        .init_resource::<CursorLockState>()
-        .init_resource::<CurrentQuest>()
-        .init_resource::<idle_factory::systems::quest::QuestCache>()
-        .init_resource::<ActiveSubQuests>()
-        .init_resource::<GameFont>()
-        .init_resource::<ChunkMeshTasks>()
-        .init_resource::<CreativeMode>()
-        .init_resource::<ContinuousActionTimer>()
-        .init_resource::<GlobalInventoryOpen>()
-        .init_resource::<GlobalInventoryPage>()
-        .init_resource::<GlobalInventoryCategory>()
-        .init_resource::<GlobalInventorySearch>()
-        .init_resource::<BreakingProgress>()
-        // Sky blue background color (simple skybox)
-        .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)))
-        .add_event::<TeleportEvent>()
-        .add_event::<LookEvent>()
-        .add_event::<SetBlockEvent>()
-        .add_event::<DebugEvent>()
-        .add_event::<AssertMachineEvent>()
-        .add_event::<ScreenshotEvent>()
-        .add_systems(
-            Startup,
-            (
-                setup_lighting,
-                setup_player,
-                setup_ui,
-                setup_initial_items,
-                setup_delivery_platform,
-                load_machine_models,
-                setup_highlight_cache,
-                setup_global_inventory_ui,
-            ),
-        )
-        .add_systems(
-            Update,
-            (
-                // Chunk systems: spawn → receive (ordered)
-                spawn_chunk_tasks,
-                receive_chunk_meshes,
-                unload_distant_chunks,
-            )
-                .chain(),
-        )
-        .add_systems(
-            Update,
-            (
-                // Player systems: look → move (camera affects movement direction)
-                toggle_cursor_lock,
-                player_look,
-                player_move,
-                tick_action_timers,
-            ),
-        )
-        .add_systems(Update, tutorial_dismiss)
-        // Targeting must run before block operations
-        .add_systems(Update, update_target_block)
-        .add_systems(
-            Update,
-            (block_break, block_place).after(update_target_block),
-        )
-        .add_systems(Update, select_block_type)
-        .add_systems(
-            Update,
-            (
-                // Quest systems
-                idle_factory::systems::targeting::update_conveyor_shapes,
-                quest_progress_check,
-                quest_claim_rewards,
-            ),
-        )
-        .add_systems(
-            Update,
-            (
-                // Quest UI systems
-                update_delivery_ui,
-                update_quest_ui,
-                quest_deliver_button,
-            ),
-        )
-        .add_systems(
-            Update,
-            (
-                // Global inventory UI systems
-                global_inventory_toggle,
-                global_inventory_page_nav,
-                global_inventory_category_click,
-                global_inventory_search_input,
-                update_global_inventory_ui,
-            ),
-        )
-        .add_systems(
-            Update,
-            (
-                // Targeting highlight (after target_block update)
-                update_target_highlight,
-                rotate_conveyor_placement,
-                update_conveyor_shapes,
-                update_guide_markers,
-            )
-                .after(update_target_block),
-        )
-        .add_systems(
-            Update,
-            (
-                // E2E command handlers
-                handle_teleport_event,
-                handle_look_event,
-                handle_setblock_event,
-                handle_spawn_machine_event,
-                handle_debug_event,
-                handle_assert_machine_event,
-                handle_screenshot_event,
-            ),
-        )
-        .run();
+    // Add main game plugin
+    app.add_plugins(GamePlugin);
+
+    app.run();
 }
 
 // === Tests ===
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use idle_factory::constants::{HOTBAR_SLOTS, NUM_SLOTS};
+    use bevy::prelude::*;
+    use idle_factory::components::*;
+    use idle_factory::constants::{CONVEYOR_MAX_ITEMS, HOTBAR_SLOTS, NUM_SLOTS};
+    use idle_factory::game_spec::{find_recipe, MachineType};
+    use idle_factory::player::Inventory;
     use idle_factory::systems::quest::get_main_quests;
     use idle_factory::utils::{ray_aabb_intersection, ray_aabb_intersection_with_normal};
-    use idle_factory::world::ChunkData;
+    use idle_factory::world::{ChunkData, WorldData};
     use idle_factory::BlockType;
 
     #[test]

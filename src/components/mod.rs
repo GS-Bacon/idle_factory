@@ -40,6 +40,10 @@ pub struct DebugHudState {
 #[derive(Component)]
 pub struct DebugHudText;
 
+/// Marker for biome HUD text (always visible, shows current biome)
+#[derive(Component)]
+pub struct BiomeHudText;
+
 /// Target block for highlighting (what the player is looking at)
 #[derive(Resource, Default)]
 pub struct TargetBlock {

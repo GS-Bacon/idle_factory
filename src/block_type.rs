@@ -1,8 +1,56 @@
 //! Block type definitions
+//!
+//! BlockType is the core enum for all items in the game.
+//! Each block type belongs to a category for organization and behavior.
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
+
+// =============================================================================
+// Block Categories
+// =============================================================================
+
+/// Category of a block type for organization and behavior
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum BlockCategory {
+    /// Natural terrain blocks (Stone, Grass)
+    Terrain,
+    /// Raw ore blocks (IronOre, CopperOre, Coal)
+    Ore,
+    /// Machine blocks that can be placed and interacted with
+    Machine,
+    /// Processed materials (ingots, dust)
+    Processed,
+    /// Tools and equipment
+    Tool,
+}
+
+impl BlockCategory {
+    /// Get display name for this category
+    pub fn name(&self) -> &'static str {
+        match self {
+            BlockCategory::Terrain => "地形",
+            BlockCategory::Ore => "鉱石",
+            BlockCategory::Machine => "機械",
+            BlockCategory::Processed => "素材",
+            BlockCategory::Tool => "道具",
+        }
+    }
+
+    /// Check if items in this category can be placed in the world
+    pub fn is_placeable(&self) -> bool {
+        matches!(
+            self,
+            BlockCategory::Terrain | BlockCategory::Ore | BlockCategory::Machine
+        )
+    }
+
+    /// Check if items in this category are consumable materials
+    pub fn is_material(&self) -> bool {
+        matches!(self, BlockCategory::Ore | BlockCategory::Processed)
+    }
+}
 
 /// Types of blocks in the game
 #[derive(
@@ -211,6 +259,59 @@ impl BlockType {
     pub fn is_dust(&self) -> bool {
         matches!(self, BlockType::IronDust | BlockType::CopperDust)
     }
+
+    /// Get the category of this block type
+    pub fn category(&self) -> BlockCategory {
+        match self {
+            // Terrain
+            BlockType::Stone | BlockType::Grass => BlockCategory::Terrain,
+            // Ores
+            BlockType::IronOre | BlockType::CopperOre | BlockType::Coal => BlockCategory::Ore,
+            // Machines
+            BlockType::MinerBlock
+            | BlockType::ConveyorBlock
+            | BlockType::CrusherBlock
+            | BlockType::FurnaceBlock
+            | BlockType::AssemblerBlock
+            | BlockType::PlatformBlock => BlockCategory::Machine,
+            // Processed materials
+            BlockType::IronIngot
+            | BlockType::CopperIngot
+            | BlockType::IronDust
+            | BlockType::CopperDust => BlockCategory::Processed,
+            // Tools
+            BlockType::StonePickaxe => BlockCategory::Tool,
+        }
+    }
+
+    /// Returns true if this block type is in the given category
+    pub fn is_category(&self, category: BlockCategory) -> bool {
+        self.category() == category
+    }
+
+    /// Get all block types in a given category
+    pub fn all_in_category(category: BlockCategory) -> Vec<BlockType> {
+        use strum::IntoEnumIterator;
+        BlockType::iter()
+            .filter(|bt| bt.category() == category)
+            .collect()
+    }
+
+    /// Convert to a "game item" representation (for future inventory system)
+    /// This returns the same BlockType for now, but provides a semantic distinction
+    pub fn as_item(&self) -> BlockType {
+        *self
+    }
+
+    /// Get the base material for crafted items
+    /// For example: IronIngot -> IronOre, CopperDust -> CopperOre
+    pub fn base_ore(&self) -> Option<BlockType> {
+        match self {
+            BlockType::IronIngot | BlockType::IronDust => Some(BlockType::IronOre),
+            BlockType::CopperIngot | BlockType::CopperDust => Some(BlockType::CopperOre),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -360,5 +461,81 @@ mod tests {
     fn test_block_type_equality() {
         assert_eq!(BlockType::Stone, BlockType::Stone);
         assert_ne!(BlockType::Stone, BlockType::Grass);
+    }
+
+    #[test]
+    fn test_block_category() {
+        // Terrain
+        assert_eq!(BlockType::Stone.category(), BlockCategory::Terrain);
+        assert_eq!(BlockType::Grass.category(), BlockCategory::Terrain);
+
+        // Ore
+        assert_eq!(BlockType::IronOre.category(), BlockCategory::Ore);
+        assert_eq!(BlockType::CopperOre.category(), BlockCategory::Ore);
+        assert_eq!(BlockType::Coal.category(), BlockCategory::Ore);
+
+        // Machine
+        assert_eq!(BlockType::MinerBlock.category(), BlockCategory::Machine);
+        assert_eq!(BlockType::FurnaceBlock.category(), BlockCategory::Machine);
+        assert_eq!(BlockType::ConveyorBlock.category(), BlockCategory::Machine);
+
+        // Processed
+        assert_eq!(BlockType::IronIngot.category(), BlockCategory::Processed);
+        assert_eq!(BlockType::IronDust.category(), BlockCategory::Processed);
+
+        // Tool
+        assert_eq!(BlockType::StonePickaxe.category(), BlockCategory::Tool);
+    }
+
+    #[test]
+    fn test_is_category() {
+        assert!(BlockType::Stone.is_category(BlockCategory::Terrain));
+        assert!(!BlockType::Stone.is_category(BlockCategory::Machine));
+
+        assert!(BlockType::MinerBlock.is_category(BlockCategory::Machine));
+        assert!(!BlockType::MinerBlock.is_category(BlockCategory::Ore));
+    }
+
+    #[test]
+    fn test_all_in_category() {
+        let machines = BlockType::all_in_category(BlockCategory::Machine);
+        assert!(machines.contains(&BlockType::MinerBlock));
+        assert!(machines.contains(&BlockType::FurnaceBlock));
+        assert!(machines.contains(&BlockType::ConveyorBlock));
+        assert!(!machines.contains(&BlockType::Stone));
+
+        let ores = BlockType::all_in_category(BlockCategory::Ore);
+        assert_eq!(ores.len(), 3); // IronOre, CopperOre, Coal
+    }
+
+    #[test]
+    fn test_base_ore() {
+        assert_eq!(BlockType::IronIngot.base_ore(), Some(BlockType::IronOre));
+        assert_eq!(BlockType::IronDust.base_ore(), Some(BlockType::IronOre));
+        assert_eq!(
+            BlockType::CopperIngot.base_ore(),
+            Some(BlockType::CopperOre)
+        );
+        assert_eq!(BlockType::CopperDust.base_ore(), Some(BlockType::CopperOre));
+        assert_eq!(BlockType::Stone.base_ore(), None);
+        assert_eq!(BlockType::IronOre.base_ore(), None);
+    }
+
+    #[test]
+    fn test_category_is_placeable() {
+        assert!(BlockCategory::Terrain.is_placeable());
+        assert!(BlockCategory::Ore.is_placeable());
+        assert!(BlockCategory::Machine.is_placeable());
+        assert!(!BlockCategory::Processed.is_placeable());
+        assert!(!BlockCategory::Tool.is_placeable());
+    }
+
+    #[test]
+    fn test_category_is_material() {
+        assert!(BlockCategory::Ore.is_material());
+        assert!(BlockCategory::Processed.is_material());
+        assert!(!BlockCategory::Terrain.is_material());
+        assert!(!BlockCategory::Machine.is_material());
+        assert!(!BlockCategory::Tool.is_material());
     }
 }

@@ -334,7 +334,11 @@
       "Bash(head -20 echo \"\" echo \"ui/ が使うモジュール:\" grep -h \"^use crate::\" src/ui/*.rs)",
       "Bash(for d in */)",
       "Bash(# systems/ の内訳 cd /home/bacon/idle_factory/src/systems wc -l *.rs */**.rs)",
-      "Bash(# setup/ の内訳 cd /home/bacon/idle_factory/src/setup wc -l *.rs ui/*.rs)"
+      "Bash(# setup/ の内訳 cd /home/bacon/idle_factory/src/setup wc -l *.rs ui/*.rs)",
+      "Bash(git -C /home/bacon/idle_factory log --oneline --all)",
+      "Bash(systemctl --user daemon-reload:*)",
+      "Bash(systemctl:*)",
+      "Bash(./scripts/generate-blog.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

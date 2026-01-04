@@ -2,6 +2,9 @@
 
 use crate::components::*;
 use crate::player::Inventory;
+use crate::setup::ui::{
+    SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
+};
 use crate::{BlockType, HOTBAR_SLOTS, MAX_STACK_SIZE, NUM_SLOTS};
 use bevy::color::Srgba;
 use bevy::prelude::*;
@@ -204,8 +207,8 @@ pub fn creative_inventory_click(
                 // Add 64 of this item to selected slot
                 let slot = inventory.selected_slot;
                 inventory.slots[slot] = Some((block_type, 64));
-                // Visual feedback
-                *border_color = BorderColor(Color::srgb(1.0, 1.0, 0.0));
+                // Visual feedback (selected/pressed uses yellow border)
+                *border_color = BorderColor(SLOT_SELECTED_BORDER);
             }
             Interaction::Hovered => {
                 // Highlight on hover
@@ -343,16 +346,16 @@ pub fn inventory_slot_click(
                     }
                 }
 
-                // Visual feedback
-                *border_color = BorderColor(Color::srgb(1.0, 1.0, 0.0));
+                // Visual feedback (selected/pressed uses yellow border)
+                *border_color = BorderColor(SLOT_SELECTED_BORDER);
             }
             Interaction::Hovered => {
-                *border_color = BorderColor(Color::srgb(0.7, 0.7, 0.7));
-                *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.9));
+                *border_color = BorderColor(SLOT_HOVER_BORDER);
+                *bg_color = BackgroundColor(SLOT_HOVER_BG);
             }
             Interaction::None => {
-                *border_color = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
-                *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9));
+                *border_color = BorderColor(SLOT_BORDER_COLOR);
+                *bg_color = BackgroundColor(SLOT_BG);
             }
         }
     }
@@ -508,11 +511,11 @@ pub fn inventory_update_slots(
                 }
             }
         } else {
-            // Empty slot - respect hover state
+            // Empty slot - respect hover state using theme colors
             *bg_color = BackgroundColor(match interaction {
-                Interaction::Hovered => Color::srgba(0.25, 0.25, 0.25, 0.9),
-                Interaction::Pressed => Color::srgba(0.2, 0.2, 0.2, 0.9),
-                Interaction::None => Color::srgba(0.14, 0.14, 0.14, 0.95),
+                Interaction::Hovered => SLOT_HOVER_BG,
+                Interaction::Pressed => SLOT_BG,
+                Interaction::None => SLOT_BG,
             });
 
             for &child in children.iter() {
