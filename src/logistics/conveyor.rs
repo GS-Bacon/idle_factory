@@ -308,23 +308,45 @@ pub fn conveyor_transfer(
                         furnace_transform.translation.z.floor() as i32,
                     );
                     if pos == furnace_pos {
-                        // Check if conveyor is at input port (back of furnace)
-                        let input_port = furnace.position + furnace.facing.opposite().to_ivec3();
-                        if action.source_pos != input_port {
-                            break; // Not at input port, reject
+                        // Calculate input ports based on furnace facing direction
+                        // FURNACE spec: Back=ore(slot0), Left=fuel(slot1), Right=fuel(slot1)
+                        let back_port = furnace.position + furnace.facing.opposite().to_ivec3();
+                        let left_port = furnace.position + furnace.facing.left().to_ivec3();
+                        let right_port = furnace.position + furnace.facing.right().to_ivec3();
+
+                        // Determine which port the conveyor is at
+                        let at_back = action.source_pos == back_port;
+                        let at_left = action.source_pos == left_port;
+                        let at_right = action.source_pos == right_port;
+
+                        if !at_back && !at_left && !at_right {
+                            break; // Not at any input port, reject
                         }
 
+                        // Accept items based on port type
                         let can_accept = match item.block_type {
-                            BlockType::Coal => furnace.fuel < 64,
-                            BlockType::IronOre | BlockType::CopperOre => {
-                                furnace.can_add_input(item.block_type) && furnace.input_count < 64
+                            BlockType::Coal => {
+                                // Fuel only from left or right ports
+                                (at_left || at_right) && furnace.fuel < 64
+                            }
+                            BlockType::IronOre
+                            | BlockType::CopperOre
+                            | BlockType::IronDust
+                            | BlockType::CopperDust => {
+                                // Ore/Dust only from back port
+                                at_back
+                                    && furnace.can_add_input(item.block_type)
+                                    && furnace.input_count < 64
                             }
                             _ => false,
                         };
                         if can_accept {
                             match item.block_type {
                                 BlockType::Coal => furnace.fuel += 1,
-                                BlockType::IronOre | BlockType::CopperOre => {
+                                BlockType::IronOre
+                                | BlockType::CopperOre
+                                | BlockType::IronDust
+                                | BlockType::CopperDust => {
                                     furnace.input_type = Some(item.block_type);
                                     furnace.input_count += 1;
                                 }

@@ -4,10 +4,11 @@ use crate::components::{
     CommandInputState, CursorLockState, FurnaceUI, InteractingFurnace, InventoryOpen,
     MachineProgressBar, MachineSlotButton, MachineSlotCount, MachineSlotType, PlayerCamera,
 };
+use crate::game_spec::{find_recipe, MachineType};
 use crate::player::Inventory;
 use crate::systems::set_ui_open_state;
 use crate::utils::ray_aabb_intersection;
-use crate::{BlockType, Conveyor, Furnace, BLOCK_SIZE, REACH_DISTANCE, SMELT_TIME};
+use crate::{BlockType, Conveyor, Furnace, BLOCK_SIZE, REACH_DISTANCE};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
@@ -23,7 +24,7 @@ pub fn furnace_interact(
     mut windows: Query<&mut Window>,
     inventory_open: Res<InventoryOpen>,
     command_state: Res<CommandInputState>,
-    cursor_state: Res<CursorLockState>,
+    mut cursor_state: ResMut<CursorLockState>,
 ) {
     // Don't process when inventory, command input is open or game is paused (input matrix: Right Click)
     if inventory_open.0 || command_state.open || cursor_state.paused {
@@ -48,6 +49,8 @@ pub fn furnace_interact(
             set_ui_open_state(false);
         } else {
             // E key: Keep cursor locked (no browser interference)
+            // Set flag to prevent inventory from opening this frame
+            cursor_state.skip_inventory_toggle = true;
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
             set_ui_open_state(false);
@@ -145,17 +148,21 @@ pub fn furnace_ui_input(
                         }
                     }
                     MachineSlotType::Input => {
-                        // Add ore from inventory (prioritize iron, then copper)
-                        if furnace.can_add_input(BlockType::IronOre)
-                            && inventory.consume_item(BlockType::IronOre, 1)
-                        {
-                            furnace.input_type = Some(BlockType::IronOre);
-                            furnace.input_count += 1;
-                        } else if furnace.can_add_input(BlockType::CopperOre)
-                            && inventory.consume_item(BlockType::CopperOre, 1)
-                        {
-                            furnace.input_type = Some(BlockType::CopperOre);
-                            furnace.input_count += 1;
+                        // Add ore or dust from inventory (prioritize same type, then iron, then copper)
+                        let smeltables = [
+                            BlockType::IronOre,
+                            BlockType::CopperOre,
+                            BlockType::IronDust,
+                            BlockType::CopperDust,
+                        ];
+                        for smeltable in smeltables {
+                            if furnace.can_add_input(smeltable)
+                                && inventory.consume_item(smeltable, 1)
+                            {
+                                furnace.input_type = Some(smeltable);
+                                furnace.input_count += 1;
+                                break;
+                            }
                         }
                     }
                     MachineSlotType::Output => {
@@ -195,11 +202,12 @@ pub fn furnace_ui_input(
     }
 }
 
-/// Smelting logic - convert ore + coal to ingot
+/// Smelting logic - convert ore/dust + coal to ingot
+/// Uses recipe system for craft time (ore=2.0s, dust=1.5s)
 pub fn furnace_smelting(time: Res<Time>, mut furnace_query: Query<&mut Furnace>) {
     for mut furnace in furnace_query.iter_mut() {
-        // Need fuel, input ore, and valid recipe to smelt
-        let Some(input_ore) = furnace.input_type else {
+        // Need input ore/dust and valid recipe to smelt
+        let Some(input_item) = furnace.input_type else {
             furnace.progress = 0.0;
             continue;
         };
@@ -209,7 +217,13 @@ pub fn furnace_smelting(time: Res<Time>, mut furnace_query: Query<&mut Furnace>)
             continue;
         }
 
-        let output_ingot = Furnace::get_smelt_output(input_ore);
+        // Get recipe (uses recipe system as Single Source of Truth)
+        let Some(recipe) = find_recipe(MachineType::Furnace, input_item) else {
+            furnace.progress = 0.0;
+            continue;
+        };
+
+        let output_ingot = recipe.outputs.first().map(|o| o.item);
 
         // Check output slot compatibility
         let output_compatible = match (furnace.output_type, output_ingot) {
@@ -219,7 +233,8 @@ pub fn furnace_smelting(time: Res<Time>, mut furnace_query: Query<&mut Furnace>)
         };
 
         if output_compatible {
-            furnace.progress += time.delta_secs() / SMELT_TIME;
+            // Use recipe craft_time (ore=2.0s, dust=1.5s)
+            furnace.progress += time.delta_secs() / recipe.craft_time;
 
             // When progress reaches 1.0, complete smelting
             if furnace.progress >= 1.0 {

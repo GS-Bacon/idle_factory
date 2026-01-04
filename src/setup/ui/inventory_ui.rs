@@ -70,7 +70,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                         overflow: Overflow::clip_y(), // Enable vertical scroll
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.08, 0.08, 0.08, 0.9)),
+                    BackgroundColor(QUEST_BG),
                     BorderRadius::all(Val::Px(SLOT_RADIUS)),
                     Visibility::Hidden, // Start hidden, shown when inventory open + creative mode
                 ))
@@ -118,7 +118,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                         // Text fallback
                                         btn.spawn((
                                             Text::new(block_type.short_name()),
-                                            text_font(font, 9.0),
+                                            text_font(font, 12.0),
                                             TextColor(Color::WHITE),
                                         ));
                                     });

@@ -400,15 +400,12 @@ pub struct MachineModels {
 
 impl MachineModels {
     /// Get conveyor model handle for a given shape
-    /// Note: Corner models are swapped because the model files define left/right
-    /// from the perspective of entering the corner, while the code defines it
-    /// from the perspective of exiting the corner.
     pub fn get_conveyor_model(&self, shape: ConveyorShape) -> Option<Handle<Scene>> {
         match shape {
             ConveyorShape::Straight => self.conveyor_straight.clone(),
-            // Swap left and right to match model design
-            ConveyorShape::CornerLeft => self.conveyor_corner_right.clone(),
-            ConveyorShape::CornerRight => self.conveyor_corner_left.clone(),
+            // No swap - logic correctly identifies turn direction
+            ConveyorShape::CornerLeft => self.conveyor_corner_left.clone(),
+            ConveyorShape::CornerRight => self.conveyor_corner_right.clone(),
             ConveyorShape::TJunction => self.conveyor_t_junction.clone(),
             ConveyorShape::Splitter => self.conveyor_splitter.clone(),
         }

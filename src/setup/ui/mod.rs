@@ -30,9 +30,9 @@ pub const SLOT_SIZE: f32 = 60.0;
 pub const SLOT_GAP: f32 = 3.0;
 pub const SLOT_BORDER: f32 = 2.0;
 pub const SLOT_RADIUS: f32 = 6.0;
-pub const SPRITE_SIZE: f32 = 34.0;
+pub const SPRITE_SIZE: f32 = 68.0; // 2x larger for better visibility
 /// Size for held item display (slightly larger for visibility)
-pub const HELD_ITEM_SIZE: f32 = 56.0;
+pub const HELD_ITEM_SIZE: f32 = 112.0; // 2x larger
 
 // Slot colors
 pub const SLOT_BG: Color = Color::srgba(0.18, 0.18, 0.18, 0.90);
@@ -322,7 +322,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
                     ..default()
                 })
                 .with_child((
-                    Text::new("☰ クエスト"),
+                    Text::new("[Q] クエスト"),
                     text_font(&font_clone, 16.0),
                     TextColor(QUEST_HEADER_COLOR),
                 ));
@@ -420,7 +420,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
                     Visibility::Hidden,
                 ))
                 .with_child((
-                    Text::new("📦 納品する"),
+                    Text::new("[D] 納品する"),
                     text_font(&font_btn, 14.0),
                     TextColor(Color::WHITE),
                 ));
@@ -551,7 +551,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
         .with_children(|panel| {
             panel.spawn((
                 TutorialStepText,
-                Text::new("📖 チュートリアル"),
+                Text::new("[T] チュートリアル"),
                 text_font(&font_panel, 14.0),
                 TextColor(QUEST_HEADER_COLOR),
             ));
@@ -560,7 +560,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     // Biome HUD - top left, always visible
     commands.spawn((
         BiomeHudText,
-        Text::new("⛏ バイオーム: 読み込み中..."),
+        Text::new("バイオーム: 読み込み中..."),
         text_font(font, 12.0),
         TextColor(Color::srgba(0.9, 0.9, 0.9, 0.8)),
         Node {
@@ -573,4 +573,38 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
         BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.4)),
         BorderRadius::all(Val::Px(4.0)),
     ));
+
+    // Pause overlay - shown when ESC pressed
+    let font_pause = font.clone();
+    commands
+        .spawn((
+            PauseUI,
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(0.0),
+                left: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(20.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
+            GlobalZIndex(100),  // Above all other UI
+            Visibility::Hidden, // Start hidden
+        ))
+        .with_children(|pause| {
+            pause.spawn((
+                Text::new("PAUSED"),
+                text_font(&font_pause, 48.0),
+                TextColor(Color::WHITE),
+            ));
+            pause.spawn((
+                Text::new("クリックでゲーム再開"),
+                text_font(&font_pause, 18.0),
+                TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+            ));
+        });
 }

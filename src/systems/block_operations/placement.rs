@@ -256,6 +256,13 @@ pub fn block_place(
                 dir = dir.rotate_cw();
             }
             dir
+        } else if selected_type.is_machine() {
+            // Apply rotation offset to all directional machines
+            let mut dir = player_facing;
+            for _ in 0..rotation.offset {
+                dir = dir.rotate_cw();
+            }
+            dir
         } else {
             player_facing
         };

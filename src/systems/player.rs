@@ -2,8 +2,8 @@
 
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
-    InteractingCrusher, InteractingFurnace, InventoryOpen, Player, PlayerCamera, PlayerPhysics,
-    TutorialPopup, TutorialShown,
+    InteractingCrusher, InteractingFurnace, InventoryOpen, PauseUI, Player, PlayerCamera,
+    PlayerPhysics, TutorialPopup, TutorialShown,
 };
 use crate::world::WorldData;
 use crate::{
@@ -415,4 +415,20 @@ pub fn tick_action_timers(time: Res<Time>, mut action_timer: ResMut<ContinuousAc
     action_timer.break_timer.tick(time.delta());
     action_timer.place_timer.tick(time.delta());
     action_timer.inventory_timer.tick(time.delta());
+}
+
+/// Update pause UI visibility based on cursor lock state
+pub fn update_pause_ui(
+    cursor_state: Res<CursorLockState>,
+    mut pause_query: Query<&mut Visibility, With<PauseUI>>,
+) {
+    let Ok(mut visibility) = pause_query.get_single_mut() else {
+        return;
+    };
+
+    *visibility = if cursor_state.paused {
+        Visibility::Visible
+    } else {
+        Visibility::Hidden
+    };
 }

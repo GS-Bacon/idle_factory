@@ -160,27 +160,27 @@ pub const RECIPE_CRUSH_COPPER: RecipeSpec = RecipeSpec {
 pub const CRUSHER_RECIPES: &[&RecipeSpec] = &[&RECIPE_CRUSH_IRON, &RECIPE_CRUSH_COPPER];
 
 // =============================================================================
-// Dust Smelting Recipes (more efficient - no fuel needed for dust)
+// Dust Smelting Recipes (faster than ore smelting - 1.5s vs 2.0s)
 // =============================================================================
 
-/// Iron dust -> Iron ingot (no fuel - dust is pre-processed)
+/// Iron dust -> Iron ingot (requires fuel, faster than ore)
 pub const RECIPE_SMELT_IRON_DUST: RecipeSpec = RecipeSpec {
     id: "smelt_iron_dust",
     machine: MachineType::Furnace,
     inputs: &[RecipeInput::new(BlockType::IronDust, 1, 0)],
     outputs: &[RecipeOutput::guaranteed(BlockType::IronIngot, 1)],
     craft_time: 1.5, // Faster than ore
-    fuel: None,      // No fuel needed for dust
+    fuel: Some(FuelRequirement::new(BlockType::Coal, 1)),
 };
 
-/// Copper dust -> Copper ingot (no fuel - dust is pre-processed)
+/// Copper dust -> Copper ingot (requires fuel, faster than ore)
 pub const RECIPE_SMELT_COPPER_DUST: RecipeSpec = RecipeSpec {
     id: "smelt_copper_dust",
     machine: MachineType::Furnace,
     inputs: &[RecipeInput::new(BlockType::CopperDust, 1, 0)],
     outputs: &[RecipeOutput::guaranteed(BlockType::CopperIngot, 1)],
     craft_time: 1.5, // Faster than ore
-    fuel: None,      // No fuel needed for dust
+    fuel: Some(FuelRequirement::new(BlockType::Coal, 1)),
 };
 
 /// All dust smelting recipes
@@ -386,9 +386,9 @@ mod tests {
     }
 
     #[test]
-    fn test_dust_smelting_no_fuel() {
+    fn test_dust_smelting_faster() {
         let iron_dust_smelt = find_recipe(MachineType::Furnace, BlockType::IronDust).unwrap();
-        assert!(iron_dust_smelt.fuel.is_none()); // No fuel for dust
-        assert!(iron_dust_smelt.craft_time < 2.0); // Faster than ore
+        assert!(iron_dust_smelt.fuel.is_some()); // Dust also needs fuel
+        assert!(iron_dust_smelt.craft_time < 2.0); // Faster than ore (1.5s vs 2.0s)
     }
 }

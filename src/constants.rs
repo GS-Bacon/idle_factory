@@ -14,7 +14,7 @@ pub const PLAYER_SPEED: f32 = 5.0;
 /// Survival mode physics constants
 pub const GRAVITY: f32 = 20.0; // Gravity acceleration (blocks/sec^2)
 pub const JUMP_VELOCITY: f32 = 8.0; // Initial jump velocity
-pub const PLAYER_HEIGHT: f32 = 1.8; // Player collision height
+pub const PLAYER_HEIGHT: f32 = 2.0; // Player collision height (2 blocks tall)
 pub const PLAYER_WIDTH: f32 = 0.6; // Player collision width
 pub const TERMINAL_VELOCITY: f32 = 50.0; // Max fall speed
 
@@ -28,11 +28,12 @@ pub const VIEW_DISTANCE: i32 = 3;
 pub const MOUSE_SENSITIVITY: f32 = 0.002;
 pub const KEY_ROTATION_SPEED: f32 = 2.0;
 
-/// Machine timings
-pub const SMELT_TIME: f32 = 3.0;
-pub const CRUSH_TIME: f32 = 4.0;
-pub const MINE_TIME: f32 = 5.0;
-pub const CONVEYOR_SPEED: f32 = 1.0;
+/// Machine timings (synced with game_spec/machines.rs)
+pub const SMELT_TIME: f32 = 2.0; // Furnace ore smelting time
+pub const SMELT_TIME_DUST: f32 = 1.5; // Furnace dust smelting time (faster, no fuel)
+pub const CRUSH_TIME: f32 = 1.5; // Crusher processing time
+pub const MINE_TIME: f32 = 1.5; // Miner mining interval
+pub const CONVEYOR_SPEED: f32 = 2.0; // Conveyor blocks/second
 
 /// Conveyor settings
 pub const CONVEYOR_MAX_ITEMS: usize = 3; // Maximum items per conveyor

@@ -16,9 +16,9 @@ use crate::systems::{
     handle_screenshot_event, handle_setblock_event, handle_spawn_machine_event,
     handle_teleport_event, load_machine_models, player_look, player_move, quest_claim_rewards,
     quest_deliver_button, quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement,
-    select_block_type, setup_delivery_platform, setup_highlight_cache, spawn_chunk_tasks,
-    tick_action_timers, toggle_cursor_lock, tutorial_dismiss, unload_distant_chunks,
-    update_conveyor_shapes, update_delivery_ui, update_guide_markers, update_quest_ui,
+    select_block_type, setup_highlight_cache, spawn_chunk_tasks, tick_action_timers,
+    toggle_cursor_lock, tutorial_dismiss, unload_distant_chunks, update_conveyor_shapes,
+    update_delivery_ui, update_guide_markers, update_pause_ui, update_quest_ui,
     update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent, LookEvent,
     ScreenshotEvent, SetBlockEvent, TeleportEvent,
 };
@@ -79,7 +79,7 @@ impl Plugin for GamePlugin {
                 setup_player,
                 setup_ui,
                 setup_initial_items,
-                setup_delivery_platform,
+                // setup_delivery_platform removed - now a tutorial reward
                 load_machine_models,
                 setup_highlight_cache,
                 setup_global_inventory_ui,
@@ -112,6 +112,7 @@ impl GamePlugin {
                 player_look,
                 player_move,
                 tick_action_timers,
+                update_pause_ui,
             ),
         );
 

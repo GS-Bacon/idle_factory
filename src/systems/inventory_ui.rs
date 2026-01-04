@@ -61,6 +61,12 @@ pub fn inventory_toggle(
     >,
     mut windows: Query<&mut Window>,
 ) {
+    // Clear the skip flag (used to prevent inventory opening when machine UI closes with E)
+    if cursor_state.skip_inventory_toggle {
+        cursor_state.skip_inventory_toggle = false;
+        return;
+    }
+
     // Don't toggle if other UIs are open or game is paused (input matrix: E key)
     if interacting_furnace.0.is_some()
         || interacting_crusher.0.is_some()
@@ -183,7 +189,7 @@ pub fn inventory_toggle(
 pub fn creative_inventory_click(
     creative_inv_open: Res<InventoryOpen>,
     creative_mode: Res<CreativeMode>,
-    mut inventory: ResMut<Inventory>,
+    mut held_item: ResMut<HeldItem>,
     mut interaction_query: Query<
         (
             &Interaction,
@@ -204,9 +210,9 @@ pub fn creative_inventory_click(
 
         match *interaction {
             Interaction::Pressed => {
-                // Add 64 of this item to selected slot
-                let slot = inventory.selected_slot;
-                inventory.slots[slot] = Some((block_type, 64));
+                // Pick up 64 of this item for drag and drop
+                // Replace any existing held item (in creative mode, no item loss)
+                held_item.0 = Some((block_type, 64));
                 // Visual feedback (selected/pressed uses yellow border)
                 *border_color = BorderColor(SLOT_SELECTED_BORDER);
             }

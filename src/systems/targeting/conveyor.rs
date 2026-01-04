@@ -10,17 +10,18 @@ use crate::{
     Furnace, InputStateResourcesWithCursor, MachineModels,
 };
 
-/// Handle R key to rotate conveyor placement direction
+/// Handle R key to rotate conveyor/machine placement direction
 pub fn rotate_conveyor_placement(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut rotation: ResMut<ConveyorRotationOffset>,
     inventory: Res<Inventory>,
     input_resources: InputStateResourcesWithCursor,
 ) {
-    // Only active when placing conveyors
+    // Only active when placing conveyors or machines
     let selected = inventory.get_selected_type();
-    if selected != Some(BlockType::ConveyorBlock) {
-        // Reset rotation when not placing conveyor
+    let is_rotatable = selected.is_some_and(|bt| bt == BlockType::ConveyorBlock || bt.is_machine());
+    if !is_rotatable {
+        // Reset rotation when not placing rotatable block
         rotation.offset = 0;
         return;
     }

@@ -136,14 +136,15 @@ impl ChunkData {
 
                 // Only generate blocks up to GROUND_LEVEL (y <= 7)
                 for y in 0..=GROUND_LEVEL {
-                    // Skip ground layer in delivery platform area
-                    if y == GROUND_LEVEL && Self::is_platform_area(world_x, world_z) {
-                        continue;
-                    }
+                    // Platform area: generate stone at ground level (no skip)
+                    // This ensures no "hole" appears under the delivery platform
 
                     let block_type = if y == GROUND_LEVEL {
-                        // Surface layer: show ore in patches based on biome
-                        if is_ore_patch && !Self::is_platform_area(world_x, world_z) {
+                        // Platform area: always stone at ground level
+                        if Self::is_platform_area(world_x, world_z) {
+                            BlockType::Stone
+                        } else if is_ore_patch {
+                            // Surface layer: show ore in patches based on biome
                             match biome {
                                 1 => BlockType::IronOre,   // Iron biome
                                 2 => BlockType::CopperOre, // Copper biome

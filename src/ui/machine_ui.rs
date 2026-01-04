@@ -123,7 +123,7 @@ pub fn setup_furnace_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ))
                 .with_children(|header| {
                     header.spawn((
-                        Text::new("🔥 精錬炉"),
+                        Text::new("[F] 精錬炉"),
                         text_font(&font, 16.0),
                         TextColor(HEADER_COLOR),
                     ));
@@ -150,32 +150,7 @@ pub fn setup_furnace_ui(commands: &mut Commands, font: &Handle<Font>) {
                     ..default()
                 },))
                 .with_children(|content| {
-                    // Fuel slot row
-                    let font_row = font_content.clone();
-                    content
-                        .spawn((Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            column_gap: Val::Px(8.0),
-                            ..default()
-                        },))
-                        .with_children(|row| {
-                            spawn_furnace_slot(row, MachineSlotType::Fuel, &font_row);
-                            row.spawn((
-                                Text::new("Fuel"),
-                                text_font(&font_row, 12.0),
-                                TextColor(TEXT_SECONDARY),
-                            ));
-                        });
-
-                    // Fire icon (shown when working)
-                    content.spawn((
-                        Text::new("🔥"),
-                        text_font(&font_content, 20.0),
-                        TextColor(Color::srgba(1.0, 0.5, 0.0, 0.8)),
-                    ));
-
-                    // Input -> Output row
+                    // Input -> Output row (top)
                     let font_io = font_content.clone();
                     content
                         .spawn((Node {
@@ -213,6 +188,31 @@ pub fn setup_furnace_ui(commands: &mut Commands, font: &Handle<Font>) {
                                     ..default()
                                 },
                                 BackgroundColor(PROGRESS_FILL),
+                            ));
+                        });
+
+                    // Fire icon (shown when working)
+                    content.spawn((
+                        Text::new("▼"),
+                        text_font(&font_content, 20.0),
+                        TextColor(Color::srgba(1.0, 0.5, 0.0, 0.8)),
+                    ));
+
+                    // Fuel slot row (bottom - aligned with input/output)
+                    let font_row = font_content.clone();
+                    content
+                        .spawn((Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            column_gap: Val::Px(8.0),
+                            ..default()
+                        },))
+                        .with_children(|row| {
+                            spawn_furnace_slot(row, MachineSlotType::Fuel, &font_row);
+                            row.spawn((
+                                Text::new("燃料"),
+                                text_font(&font_row, 12.0),
+                                TextColor(TEXT_SECONDARY),
                             ));
                         });
 
@@ -267,7 +267,7 @@ pub fn setup_crusher_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ))
                 .with_children(|header| {
                     header.spawn((
-                        Text::new("⚙ 粉砕機"),
+                        Text::new("[C] 粉砕機"),
                         text_font(&font, 16.0),
                         TextColor(HEADER_COLOR),
                     ));
@@ -382,7 +382,7 @@ pub fn setup_miner_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ))
                 .with_children(|header| {
                     header.spawn((
-                        Text::new("⛏ 採掘機"),
+                        Text::new("[M] 採掘機"),
                         text_font(&font, 16.0),
                         TextColor(HEADER_COLOR),
                     ));

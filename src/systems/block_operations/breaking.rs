@@ -131,9 +131,10 @@ pub fn block_break(
         }
     }
 
-    // Update progress (instant break in creative mode)
+    // Update progress (fast break in creative mode, but not instant)
     if creative_mode.enabled {
-        breaking_progress.progress = 1.0;
+        // Fast but not instant - 0.1 seconds per block for smoother control
+        breaking_progress.progress += time.delta_secs() / 0.1;
     } else {
         let delta = time.delta_secs();
         breaking_progress.progress += delta / total_time;

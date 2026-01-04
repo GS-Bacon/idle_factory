@@ -307,6 +307,12 @@ pub struct BreakingProgressUI;
 #[derive(Component)]
 pub struct BreakingProgressBarFill;
 
+// === Pause UI ===
+
+/// Marker for pause overlay UI
+#[derive(Component)]
+pub struct PauseUI;
+
 // === 3D Held Item Display ===
 
 /// Marker for 3D held item display (first-person view in bottom-right)

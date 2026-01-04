@@ -12,7 +12,7 @@ use crate::{BlockType, Conveyor, Crusher, Furnace, BLOCK_SIZE, CRUSH_TIME, REACH
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
-/// Crusher processing - doubles ore
+/// Crusher processing - converts ore to dust (2x output per recipe)
 pub fn crusher_processing(time: Res<Time>, mut crusher_query: Query<&mut Crusher>) {
     for mut crusher in crusher_query.iter_mut() {
         // Need input ore to process
@@ -26,10 +26,16 @@ pub fn crusher_processing(time: Res<Time>, mut crusher_query: Query<&mut Crusher
             continue;
         }
 
-        // Check output slot compatibility (same ore type or empty, max 64)
+        // Get recipe output (uses recipe system as Single Source of Truth)
+        let Some((output_dust, output_count)) = Crusher::get_crush_output(input_ore) else {
+            crusher.progress = 0.0;
+            continue;
+        };
+
+        // Check output slot compatibility (same dust type or empty, max 64)
         let output_compatible = match crusher.output_type {
             None => true,
-            Some(current) => current == input_ore && crusher.output_count < 63, // 63 because we add 2
+            Some(current) => current == output_dust && crusher.output_count + output_count <= 64,
         };
 
         if output_compatible {
@@ -42,8 +48,8 @@ pub fn crusher_processing(time: Res<Time>, mut crusher_query: Query<&mut Crusher
                 if crusher.input_count == 0 {
                     crusher.input_type = None;
                 }
-                crusher.output_type = Some(input_ore);
-                crusher.output_count += 2; // Double output!
+                crusher.output_type = Some(output_dust);
+                crusher.output_count += output_count; // Recipe-defined output count
             }
         } else {
             crusher.progress = 0.0;
@@ -64,7 +70,7 @@ pub fn crusher_interact(
     mut crusher_ui_query: Query<&mut Visibility, With<CrusherUI>>,
     mut windows: Query<&mut Window>,
     command_state: Res<CommandInputState>,
-    cursor_state: Res<CursorLockState>,
+    mut cursor_state: ResMut<CursorLockState>,
 ) {
     // Don't open crusher if inventory, furnace is open, command input is active, or game is paused (input matrix: Right Click)
     if inventory_open.0
@@ -91,6 +97,8 @@ pub fn crusher_interact(
             window.cursor_options.visible = true;
             set_ui_open_state(false);
         } else {
+            // E key: Set flag to prevent inventory from opening this frame
+            cursor_state.skip_inventory_toggle = true;
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
             set_ui_open_state(false);

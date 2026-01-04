@@ -154,6 +154,7 @@ pub fn update_tutorial_ui(
     progress: Res<TutorialProgress>,
     tutorial_shown: Res<TutorialShown>,
     mut panel_query: Query<&mut Visibility, With<TutorialPanel>>,
+    mut quest_query: Query<&mut Visibility, (With<crate::QuestUI>, Without<TutorialPanel>)>,
     mut text_query: Query<&mut Text, With<TutorialStepText>>,
 ) {
     let Ok(mut panel_vis) = panel_query.get_single_mut() else {
@@ -163,16 +164,23 @@ pub fn update_tutorial_ui(
     // Hide if tutorials completed or initial popup still showing
     if progress.completed || !tutorial_shown.0 {
         *panel_vis = Visibility::Hidden;
+        // Show quest UI when tutorial is done
+        if let Ok(mut quest_vis) = quest_query.get_single_mut() {
+            *quest_vis = Visibility::Visible;
+        }
         return;
     }
 
-    // Show panel with current step
+    // Show tutorial panel, hide quest UI during tutorial
     *panel_vis = Visibility::Visible;
+    if let Ok(mut quest_vis) = quest_query.get_single_mut() {
+        *quest_vis = Visibility::Hidden;
+    }
 
     if let Some(step) = progress.current() {
         if let Ok(mut text) = text_query.get_single_mut() {
             **text = format!(
-                "📖 {} ({}/{})\n{}",
+                "[T] {} ({}/{})\n{}",
                 step.description,
                 progress.current_step + 1,
                 TUTORIAL_STEPS.len(),

@@ -50,7 +50,7 @@ pub fn setup_player(
                         pitch: 0.0,
                         yaw: 0.0,
                     },
-                    Transform::from_xyz(0.0, 0.0, 0.0),
+                    Transform::from_xyz(0.0, 0.7, 0.0), // Eye level higher (2 block player)
                 ))
                 .with_children(|camera| {
                     // 3D held item display (bottom-right of view)

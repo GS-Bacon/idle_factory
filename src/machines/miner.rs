@@ -27,7 +27,7 @@ pub fn miner_interact(
     mut miner_ui_query: Query<&mut Visibility, With<MinerUI>>,
     mut windows: Query<&mut Window>,
     command_state: Res<CommandInputState>,
-    cursor_state: Res<CursorLockState>,
+    mut cursor_state: ResMut<CursorLockState>,
 ) {
     // Don't open miner if other UI is open
     if inventory_open.0
@@ -54,6 +54,8 @@ pub fn miner_interact(
             window.cursor_options.visible = true;
             set_ui_open_state(false);
         } else {
+            // E key: Set flag to prevent inventory from opening this frame
+            cursor_state.skip_inventory_toggle = true;
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
             set_ui_open_state(false);

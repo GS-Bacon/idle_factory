@@ -210,9 +210,9 @@ pub fn update_biome_hud(
         .collect();
 
     if probs.is_empty() {
-        text.0 = format!("⛏ {}", biome.name());
+        text.0 = biome.name().to_string();
     } else {
-        text.0 = format!("⛏ {} ({})", biome.name(), probs.join(", "));
+        text.0 = format!("{} ({})", biome.name(), probs.join(", "));
     }
 }
 
