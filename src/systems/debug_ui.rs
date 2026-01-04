@@ -7,17 +7,16 @@ use bevy::prelude::*;
 use serde::Serialize;
 use std::fs;
 
-/// Update window title with FPS
-pub fn update_window_title_fps(
-    diagnostics: Res<DiagnosticsStore>,
-    mut windows: Query<&mut Window>,
-) {
-    if let Some(fps) = diagnostics.get(&bevy::diagnostic::FrameTimeDiagnosticsPlugin::FPS) {
-        if let Some(value) = fps.smoothed() {
-            if let Ok(mut window) = windows.get_single_mut() {
-                window.title = format!("Idle Factory - FPS: {:.0}", value);
-            }
-        }
+/// Update window title with version and build ID
+pub fn update_window_title(mut windows: Query<&mut Window>, mut done: Local<bool>) {
+    if *done {
+        return;
+    }
+    if let Ok(mut window) = windows.get_single_mut() {
+        let version = env!("CARGO_PKG_VERSION");
+        let build_id = env!("GIT_SHORT_HASH");
+        window.title = format!("Idle Factory v{} ({})", version, build_id);
+        *done = true;
     }
 }
 

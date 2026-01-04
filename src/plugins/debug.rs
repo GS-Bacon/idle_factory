@@ -1,8 +1,8 @@
 //! Debug Plugin
 //!
 //! Groups debug-related systems:
-//! - FPS display in window title
-//! - Debug HUD (F3 toggle)
+//! - Version/build ID display in window title
+//! - Debug HUD (F3 toggle) with FPS
 //! - E2E state export for automated testing
 //! - Runtime invariant checking for playability bugs
 
@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use crate::components::DebugHudState;
 use crate::systems::{
-    export_e2e_state, toggle_debug_hud, update_debug_hud, update_window_title_fps, E2EExportConfig,
+    export_e2e_state, toggle_debug_hud, update_debug_hud, update_window_title, E2EExportConfig,
     InvariantCheckPlugin,
 };
 
@@ -27,7 +27,7 @@ impl Plugin for DebugPlugin {
             .add_systems(
                 Update,
                 (
-                    update_window_title_fps,
+                    update_window_title,
                     toggle_debug_hud,
                     update_debug_hud,
                     export_e2e_state,
