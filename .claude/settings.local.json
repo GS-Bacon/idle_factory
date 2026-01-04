@@ -338,7 +338,8 @@
       "Bash(git -C /home/bacon/idle_factory log --oneline --all)",
       "Bash(systemctl --user daemon-reload:*)",
       "Bash(systemctl:*)",
-      "Bash(./scripts/generate-blog.sh:*)"
+      "Bash(./scripts/generate-blog.sh:*)",
+      "Bash(gemini --version:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

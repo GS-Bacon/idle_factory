@@ -167,18 +167,30 @@ fn download_file(url: &str, dest: &Path) -> Result<(), String> {
 }
 
 fn extract_archive(archive_path: &Path, dest_dir: &Path) -> Result<(), String> {
-    let file = File::open(archive_path).map_err(|e| format!("Failed to open archive: {}", e))?;
+    // Read magic bytes to detect archive format
+    let mut file =
+        File::open(archive_path).map_err(|e| format!("Failed to open archive: {}", e))?;
+    let mut magic = [0u8; 4];
+    file.read_exact(&mut magic)
+        .map_err(|e| format!("Failed to read archive header: {}", e))?;
 
-    let filename = archive_path.to_string_lossy();
+    // Reset file position
+    drop(file);
+    let file = File::open(archive_path).map_err(|e| format!("Failed to reopen archive: {}", e))?;
 
-    if filename.ends_with(".tar.gz") || filename.ends_with(".tgz") {
+    // ZIP: starts with PK (0x50 0x4B 0x03 0x04)
+    // GZIP: starts with 0x1F 0x8B
+    let is_zip = magic[0] == 0x50 && magic[1] == 0x4B;
+    let is_gzip = magic[0] == 0x1F && magic[1] == 0x8B;
+
+    if is_gzip {
         // Extract tar.gz
         let decoder = flate2::read::GzDecoder::new(file);
         let mut archive = tar::Archive::new(decoder);
         archive
             .unpack(dest_dir)
             .map_err(|e| format!("Failed to extract tar.gz: {}", e))?;
-    } else if filename.ends_with(".zip") {
+    } else if is_zip {
         // Extract zip
         let mut archive =
             zip::ZipArchive::new(file).map_err(|e| format!("Failed to open zip: {}", e))?;
@@ -214,7 +226,10 @@ fn extract_archive(archive_path: &Path, dest_dir: &Path) -> Result<(), String> {
             }
         }
     } else {
-        return Err("Unknown archive format".to_string());
+        return Err(format!(
+            "Unknown archive format (magic bytes: {:02X} {:02X} {:02X} {:02X})",
+            magic[0], magic[1], magic[2], magic[3]
+        ));
     }
 
     Ok(())
