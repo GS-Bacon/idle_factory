@@ -1,7 +1,7 @@
 //! Auto-updater module for native builds.
 //!
-//! Provides automatic update checking, downloading, and installation
-//! using GitHub Releases as the backend.
+//! Uses external updater binary for actual downloads/installation.
+//! The main game only checks for updates and launches the updater if needed.
 //!
 //! This module is only compiled for native targets (not WASM).
 
@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use bevy::tasks::IoTaskPool;
 use crossbeam_channel::{Receiver, Sender};
 
-use self::state::{DownloadProgressEvent, UpdateCheckCompleteEvent, UpdateInstalledEvent};
+use self::state::UpdateCheckCompleteEvent;
 
 /// Plugin for automatic updates.
 ///
@@ -35,8 +35,6 @@ impl Plugin for UpdaterPlugin {
             .add_event::<CancelUpdateEvent>()
             .add_event::<RestartAppEvent>()
             .add_event::<UpdateCheckCompleteEvent>()
-            .add_event::<DownloadProgressEvent>()
-            .add_event::<UpdateInstalledEvent>()
             .add_systems(Startup, setup_updater)
             .add_systems(Startup, ui::spawn_update_ui)
             .add_systems(
@@ -45,11 +43,9 @@ impl Plugin for UpdaterPlugin {
                     startup_check_timer,
                     handle_check_event,
                     poll_check_result,
-                    handle_update_event,
-                    poll_update_result,
+                    handle_start_update,
                     handle_dismiss_button,
                     handle_update_button,
-                    handle_restart_button,
                     ui::update_notification_ui,
                     ui::handle_button_hover,
                 ),
@@ -61,7 +57,6 @@ impl Plugin for UpdaterPlugin {
 #[derive(Resource, Default)]
 struct UpdateChannels {
     check_rx: Option<Receiver<UpdateCheckResult>>,
-    update_rx: Option<Receiver<Result<(), String>>>,
 }
 
 /// Timer for delayed startup check.
@@ -131,11 +126,7 @@ fn handle_check_event(
 }
 
 /// Poll for update check results.
-fn poll_check_result(
-    mut channels: ResMut<UpdateChannels>,
-    mut state: ResMut<UpdateState>,
-    mut events: EventWriter<StartUpdateEvent>,
-) {
+fn poll_check_result(mut channels: ResMut<UpdateChannels>, mut state: ResMut<UpdateState>) {
     let Some(ref rx) = channels.check_rx else {
         return;
     };
@@ -156,11 +147,6 @@ fn poll_check_result(
                     release_notes,
                     download_url,
                 };
-
-                // Auto-download if enabled
-                if state.auto_download {
-                    events.send(StartUpdateEvent);
-                }
             }
             UpdateCheckResult::UpToDate => {
                 tracing::info!("Already up to date");
@@ -174,57 +160,66 @@ fn poll_check_result(
     }
 }
 
-/// Handle start update events.
-#[allow(clippy::type_complexity)]
-fn handle_update_event(
+/// Handle start update events - launch external updater and exit game.
+fn handle_start_update(
     mut events: EventReader<StartUpdateEvent>,
-    mut state: ResMut<UpdateState>,
-    mut channels: ResMut<UpdateChannels>,
+    state: Res<UpdateState>,
+    mut exit: EventWriter<AppExit>,
 ) {
     for _ in events.read() {
         // Only proceed if update is available
-        if !matches!(state.phase, UpdatePhase::Available { .. }) {
+        let (version, download_url) = match &state.phase {
+            UpdatePhase::Available {
+                version,
+                download_url,
+                ..
+            } => (version.clone(), download_url.clone()),
+            _ => continue,
+        };
+
+        tracing::info!("Launching external updater for v{}...", version);
+
+        // Find the updater executable
+        let updater_path = match std::env::current_exe() {
+            Ok(exe) => {
+                let dir = exe.parent().unwrap_or(std::path::Path::new("."));
+                if cfg!(windows) {
+                    dir.join("updater.exe")
+                } else {
+                    dir.join("updater")
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to get executable path: {}", e);
+                continue;
+            }
+        };
+
+        if !updater_path.exists() {
+            tracing::error!("Updater not found at {:?}", updater_path);
+            // Fallback: open download URL in browser
+            if let Err(e) = open::that(&download_url) {
+                tracing::error!("Failed to open browser: {}", e);
+            }
             continue;
         }
 
-        tracing::info!("Starting update download...");
-        state.phase = UpdatePhase::Downloading {
-            downloaded: 0,
-            total: 0,
-        };
-
-        // Spawn background task
-        let (tx, rx): (Sender<Result<(), String>>, Receiver<Result<(), String>>) =
-            crossbeam_channel::unbounded();
-        channels.update_rx = Some(rx);
-
-        IoTaskPool::get()
-            .spawn(async move {
-                let result = checker::perform_update();
-                let _ = tx.send(result);
-            })
-            .detach();
-    }
-}
-
-/// Poll for update results.
-fn poll_update_result(mut channels: ResMut<UpdateChannels>, mut state: ResMut<UpdateState>) {
-    let Some(ref rx) = channels.update_rx else {
-        return;
-    };
-
-    // Non-blocking receive
-    if let Ok(result) = rx.try_recv() {
-        channels.update_rx = None;
-
-        match result {
-            Ok(()) => {
-                tracing::info!("Update installed successfully");
-                state.phase = UpdatePhase::RequiresRestart;
+        // Launch updater with version and download URL as arguments
+        match std::process::Command::new(&updater_path)
+            .arg(&version)
+            .arg(&download_url)
+            .spawn()
+        {
+            Ok(_) => {
+                tracing::info!("Updater launched, exiting game...");
+                exit.send(AppExit::Success);
             }
             Err(e) => {
-                tracing::error!("Update failed: {}", e);
-                state.phase = UpdatePhase::Failed(e);
+                tracing::error!("Failed to launch updater: {}", e);
+                // Fallback: open download URL in browser
+                if let Err(e) = open::that(&download_url) {
+                    tracing::error!("Failed to open browser: {}", e);
+                }
             }
         }
     }
@@ -252,19 +247,6 @@ fn handle_update_button(
         if *interaction == Interaction::Pressed {
             tracing::info!("Update button clicked");
             events.send(StartUpdateEvent);
-        }
-    }
-}
-
-/// Handle restart button clicks.
-fn handle_restart_button(
-    query: Query<&Interaction, (Changed<Interaction>, With<ui::RestartButton>)>,
-    mut events: EventWriter<RestartAppEvent>,
-) {
-    for interaction in query.iter() {
-        if *interaction == Interaction::Pressed {
-            tracing::info!("Restart button clicked");
-            events.send(RestartAppEvent);
         }
     }
 }

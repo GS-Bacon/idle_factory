@@ -1,4 +1,6 @@
 //! Version checking logic using GitHub Releases API.
+//!
+//! Uses ureq for lightweight HTTP requests instead of self_update.
 
 use super::state::UpdateCheckResult;
 
@@ -6,44 +8,64 @@ use super::state::UpdateCheckResult;
 const REPO_OWNER: &str = "GS-Bacon";
 /// GitHub repository name.
 const REPO_NAME: &str = "idle_factory";
-/// Binary name for update detection.
-const BIN_NAME: &str = "idle_factory";
 
 /// Current application version (from Cargo.toml at compile time).
 pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Check for updates using self_update crate.
+/// GitHub API URL for latest release
+fn get_releases_url() -> String {
+    format!(
+        "https://api.github.com/repos/{}/{}/releases/latest",
+        REPO_OWNER, REPO_NAME
+    )
+}
+
+/// Check for updates using GitHub API directly.
 ///
 /// This function is blocking and should be called from a background task.
 pub fn check_for_update() -> UpdateCheckResult {
-    use self_update::backends::github::Update;
-
     tracing::info!("Checking for updates... (current: v{})", CURRENT_VERSION);
 
-    let updater = match Update::configure()
-        .repo_owner(REPO_OWNER)
-        .repo_name(REPO_NAME)
-        .bin_name(BIN_NAME)
-        .current_version(CURRENT_VERSION)
-        .build()
+    // Call GitHub API
+    let response = match ureq::get(&get_releases_url())
+        .set("User-Agent", "IdleFactory/1.0")
+        .set("Accept", "application/vnd.github.v3+json")
+        .call()
     {
-        Ok(u) => u,
-        Err(e) => {
-            tracing::warn!("Failed to configure updater: {}", e);
-            return UpdateCheckResult::Error(format!("Configuration error: {}", e));
-        }
-    };
-
-    // Get latest release info
-    let latest = match updater.get_latest_release() {
-        Ok(release) => release,
+        Ok(r) => r,
         Err(e) => {
             tracing::warn!("Failed to fetch latest release: {}", e);
             return UpdateCheckResult::Error(format!("Network error: {}", e));
         }
     };
 
-    let latest_version = &latest.version;
+    // Parse JSON response
+    let body = match response.into_string() {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::warn!("Failed to read response: {}", e);
+            return UpdateCheckResult::Error(format!("Read error: {}", e));
+        }
+    };
+
+    let json: serde_json::Value = match serde_json::from_str(&body) {
+        Ok(j) => j,
+        Err(e) => {
+            tracing::warn!("Failed to parse release info: {}", e);
+            return UpdateCheckResult::Error(format!("Parse error: {}", e));
+        }
+    };
+
+    // Extract version (tag_name, strip 'v' prefix if present)
+    let tag_name = match json["tag_name"].as_str() {
+        Some(t) => t,
+        None => {
+            tracing::warn!("No tag_name in release");
+            return UpdateCheckResult::Error("Invalid release format".to_string());
+        }
+    };
+
+    let latest_version = tag_name.strip_prefix('v').unwrap_or(tag_name);
     tracing::info!("Latest version: v{}", latest_version);
 
     // Compare versions
@@ -67,11 +89,12 @@ pub fn check_for_update() -> UpdateCheckResult {
         tracing::info!("Update available: v{} -> v{}", current, latest_semver);
 
         // Get download URL for current platform
-        let download_url = get_platform_download_url(&latest);
+        let download_url = get_platform_download_url(&json);
+        let release_notes = json["body"].as_str().unwrap_or("").to_string();
 
         UpdateCheckResult::Available {
             version: latest_version.to_string(),
-            release_notes: latest.body.clone().unwrap_or_default(),
+            release_notes,
             download_url,
         }
     } else {
@@ -81,7 +104,7 @@ pub fn check_for_update() -> UpdateCheckResult {
 }
 
 /// Get the download URL for the current platform.
-fn get_platform_download_url(release: &self_update::update::Release) -> String {
+fn get_platform_download_url(release_json: &serde_json::Value) -> String {
     let platform_suffix = if cfg!(target_os = "linux") {
         "_linux.tar.gz"
     } else if cfg!(target_os = "windows") {
@@ -91,52 +114,24 @@ fn get_platform_download_url(release: &self_update::update::Release) -> String {
     };
 
     // Find matching asset
-    for asset in &release.assets {
-        if asset.name.ends_with(platform_suffix) {
-            return asset.download_url.clone();
+    if let Some(assets) = release_json["assets"].as_array() {
+        for asset in assets {
+            if let Some(name) = asset["name"].as_str() {
+                if name.ends_with(platform_suffix) {
+                    if let Some(url) = asset["browser_download_url"].as_str() {
+                        return url.to_string();
+                    }
+                }
+            }
         }
     }
 
     // Fallback: return release page URL
+    let tag = release_json["tag_name"].as_str().unwrap_or("latest");
     format!(
         "https://github.com/{}/{}/releases/tag/{}",
-        REPO_OWNER, REPO_NAME, &release.version
+        REPO_OWNER, REPO_NAME, tag
     )
-}
-
-/// Perform the actual update (download and install).
-///
-/// This function is blocking and should be called from a background task.
-/// Returns Ok(()) on success, or an error message on failure.
-pub fn perform_update() -> Result<(), String> {
-    use self_update::backends::github::Update;
-
-    tracing::info!("Starting update process...");
-
-    let status = Update::configure()
-        .repo_owner(REPO_OWNER)
-        .repo_name(REPO_NAME)
-        .bin_name(BIN_NAME)
-        .current_version(CURRENT_VERSION)
-        .show_download_progress(true)
-        .no_confirm(true) // Don't prompt, we handle UI ourselves
-        .build()
-        .map_err(|e| format!("Configuration error: {}", e))?
-        .update()
-        .map_err(|e| format!("Update failed: {}", e))?;
-
-    tracing::info!("Update status: {:?}", status);
-
-    match status {
-        self_update::Status::UpToDate(_) => {
-            tracing::info!("Already up to date");
-            Ok(())
-        }
-        self_update::Status::Updated(version) => {
-            tracing::info!("Updated to v{}", version);
-            Ok(())
-        }
-    }
 }
 
 #[cfg(test)]

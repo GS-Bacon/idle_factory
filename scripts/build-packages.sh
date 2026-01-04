@@ -62,12 +62,14 @@ if [ "$BUILD_LINUX" = true ]; then
     info "=== Linux用パッケージをビルド中 ==="
 
     cargo build --release
+    cargo build --release --bin updater
 
     LINUX_DIR="$DIST_DIR/idle_factory_${VERSION}_linux"
     rm -rf "$LINUX_DIR"
     mkdir -p "$LINUX_DIR/assets"
 
     cp target/release/idle_factory "$LINUX_DIR/"
+    cp target/release/updater "$LINUX_DIR/"
     copy_assets "$LINUX_DIR"
 
     # 起動スクリプト
@@ -78,6 +80,7 @@ cd "$(dirname "$0")"
 EOF
     chmod +x "$LINUX_DIR/run.sh"
     chmod +x "$LINUX_DIR/idle_factory"
+    chmod +x "$LINUX_DIR/updater"
 
     # tarball作成
     (cd "$DIST_DIR" && tar -czvf "idle_factory_${VERSION}_linux.tar.gz" "idle_factory_${VERSION}_linux")
@@ -92,12 +95,14 @@ if [ "$BUILD_WINDOWS" = true ]; then
 
     # クロスコンパイル
     cargo build --release --target x86_64-pc-windows-gnu
+    cargo build --release --target x86_64-pc-windows-gnu --bin updater
 
     WINDOWS_DIR="$DIST_DIR/idle_factory_${VERSION}_windows"
     rm -rf "$WINDOWS_DIR"
     mkdir -p "$WINDOWS_DIR/assets"
 
     cp target/x86_64-pc-windows-gnu/release/idle_factory.exe "$WINDOWS_DIR/"
+    cp target/x86_64-pc-windows-gnu/release/updater.exe "$WINDOWS_DIR/"
     copy_assets "$WINDOWS_DIR"
 
     # zip作成

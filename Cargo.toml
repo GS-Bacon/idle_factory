@@ -28,12 +28,29 @@ serde_json = "1.0"
 strum = { version = "0.26", features = ["derive"] }  # Enum string conversion
 dot_vox = "5.1"  # MagicaVoxel .vox file loader
 
-# Native-only dependencies (file watching, auto-update)
+# Native-only dependencies (file watching, update check)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify = "8.0"  # File system watcher for hot reload
 crossbeam-channel = "0.5"  # Thread-safe channel for file watcher
-self_update = { version = "0.42", default-features = false, features = ["rustls"] }  # Auto-updater
+ureq = { version = "2.9", default-features = false, features = ["tls"] }  # Lightweight HTTP client for update check
 semver = "1.0"  # Semantic versioning for update comparison
+open = "5.0"  # Open URLs in browser (fallback for updater)
+
+# Updater binary dependencies (only for the updater executable)
+[[bin]]
+name = "updater"
+path = "src/bin/updater.rs"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.flate2]
+version = "1.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.tar]
+version = "0.4"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.zip]
+version = "2.1"
+default-features = false
+features = ["deflate"]
 
 # Linux-specific features
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "linux"))'.dependencies]

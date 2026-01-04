@@ -16,15 +16,9 @@ pub enum UpdatePhase {
         release_notes: String,
         download_url: String,
     },
-    /// Downloading update.
-    Downloading { downloaded: u64, total: u64 },
-    /// Installing update.
-    Installing,
-    /// Update installed, restart required.
-    RequiresRestart,
     /// Already up to date.
     UpToDate,
-    /// Update check/download/install failed.
+    /// Update check failed.
     Failed(String),
 }
 
@@ -37,10 +31,6 @@ pub struct UpdateState {
     pub last_check: Option<std::time::Instant>,
     /// Minimum interval between checks (to avoid rate limiting).
     pub check_interval: std::time::Duration,
-    /// Whether to automatically download updates.
-    pub auto_download: bool,
-    /// Whether to automatically install updates.
-    pub auto_install: bool,
 }
 
 impl Default for UpdateState {
@@ -49,8 +39,6 @@ impl Default for UpdateState {
             phase: UpdatePhase::Idle,
             last_check: None,
             check_interval: std::time::Duration::from_secs(3600), // 1 hour
-            auto_download: true,
-            auto_install: true,
         }
     }
 }
@@ -69,15 +57,15 @@ impl UpdateState {
 #[derive(Event)]
 pub struct CheckForUpdateEvent;
 
-/// Event to start downloading an available update.
+/// Event to start the update (launches external updater).
 #[derive(Event)]
 pub struct StartUpdateEvent;
 
-/// Event to cancel an ongoing update.
+/// Event to cancel/dismiss the update notification.
 #[derive(Event)]
 pub struct CancelUpdateEvent;
 
-/// Event to restart the application after update.
+/// Event to restart the application (unused with external updater, kept for compatibility).
 #[derive(Event)]
 pub struct RestartAppEvent;
 
@@ -102,15 +90,3 @@ pub enum UpdateCheckResult {
     /// Check failed.
     Error(String),
 }
-
-/// Event sent when download progress updates.
-#[derive(Event)]
-#[allow(dead_code)]
-pub struct DownloadProgressEvent {
-    pub downloaded: u64,
-    pub total: u64,
-}
-
-/// Event sent when update installation completes.
-#[derive(Event)]
-pub struct UpdateInstalledEvent;
