@@ -86,8 +86,7 @@ pub fn crusher_interact(
         }
         let mut window = windows.single_mut();
         if esc_pressed {
-            // ESC: Browser releases pointer lock automatically in WASM
-            // Don't set paused=true - JS will auto-relock via data-ui-open observer (BUG-6 fix)
+            // ESC: Release pointer lock and show cursor
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
             set_ui_open_state(false);

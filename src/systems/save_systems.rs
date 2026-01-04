@@ -27,16 +27,7 @@ pub fn collect_save_data(
 ) -> save::SaveData {
     use save::*;
 
-    // Get current timestamp (WASM-compatible)
-    #[cfg(target_arch = "wasm32")]
-    let timestamp = {
-        use web_time::SystemTime;
-        SystemTime::now()
-            .duration_since(web_time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as u64)
-            .unwrap_or(0)
-    };
-    #[cfg(not(target_arch = "wasm32"))]
+    // Get current timestamp
     let timestamp = {
         use std::time::{SystemTime, UNIX_EPOCH};
         SystemTime::now()

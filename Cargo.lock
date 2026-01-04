@@ -2196,11 +2196,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi",
  "wasip2",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2538,16 +2536,14 @@ dependencies = [
 
 [[package]]
 name = "idle_factory"
-version = "0.2.10"
+version = "0.2.12"
 dependencies = [
  "bevy",
  "chrono",
- "console_error_panic_hook",
  "crossbeam-channel",
  "dot_vox",
  "flate2",
  "futures-lite",
- "getrandom 0.3.4",
  "image",
  "image-compare",
  "notify",
@@ -2561,10 +2557,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "tracing-wasm",
  "ureq",
- "web-sys",
- "web-time",
  "zip",
 ]
 

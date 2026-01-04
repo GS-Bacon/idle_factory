@@ -3,15 +3,11 @@
 
 // Use library crate for all game logic
 use bevy::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
-#[cfg(not(target_arch = "wasm32"))]
 use bevy::window::PresentMode;
 use idle_factory::components::*;
 use idle_factory::events::GameEventsPlugin;
 use idle_factory::logging;
-#[cfg(target_arch = "wasm32")]
-use idle_factory::logging::GameLoggingPlugin;
 use idle_factory::player::{GlobalInventory, Inventory};
 use idle_factory::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 use idle_factory::setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
@@ -68,74 +64,37 @@ use idle_factory::ui::{
 use idle_factory::world::{BiomeMap, ChunkMeshTasks, WorldData};
 
 fn main() {
-    // WASM: Set panic hook to display errors in browser console
-    #[cfg(target_arch = "wasm32")]
-    console_error_panic_hook::set_once();
-
     // Initialize logging before anything else
-    #[cfg(not(target_arch = "wasm32"))]
     let _log_guard = logging::init_logging();
 
     let mut app = App::new();
 
-    // Configure plugins based on platform
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        // Native: Disable pipelined rendering for lower input lag
-        // Disable LogPlugin to use custom tracing-subscriber instead
-        use bevy::log::LogPlugin;
-        // Use current working directory for assets (not executable path)
-        app.add_plugins((DefaultPlugins
-            .build()
-            .disable::<PipelinedRenderingPlugin>()
-            .disable::<LogPlugin>()
-            .set(AssetPlugin {
-                file_path: "assets".to_string(),
+    // Disable pipelined rendering for lower input lag
+    // Disable LogPlugin to use custom tracing-subscriber instead
+    use bevy::log::LogPlugin;
+    // Use current working directory for assets (not executable path)
+    app.add_plugins((DefaultPlugins
+        .build()
+        .disable::<PipelinedRenderingPlugin>()
+        .disable::<LogPlugin>()
+        .set(AssetPlugin {
+            file_path: "assets".to_string(),
+            ..default()
+        })
+        .set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Idle Factory".into(),
+                present_mode: PresentMode::AutoNoVsync,
+                desired_maximum_frame_latency: std::num::NonZeroU32::new(1),
                 ..default()
-            })
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Idle Factory".into(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    desired_maximum_frame_latency: std::num::NonZeroU32::new(1),
-                    ..default()
-                }),
-                ..default()
-            }),));
-    }
+            }),
+            ..default()
+        }),));
 
-    #[cfg(target_arch = "wasm32")]
-    {
-        // WASM: Use default plugins with canvas selector
-        // Disable LogPlugin to use tracing_wasm instead
-        use bevy::log::LogPlugin;
-        app.add_plugins(
-            DefaultPlugins
-                .build()
-                .disable::<LogPlugin>()
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "Idle Factory".into(),
-                        canvas: Some("#bevy-canvas".to_string()),
-                        fit_canvas_to_parent: true,
-                        prevent_default_event_handling: true,
-                        ..default()
-                    }),
-                    ..default()
-                }),
-        );
-    }
-
-    // WASM: Add logging plugin (Native logging is initialized above)
-    #[cfg(target_arch = "wasm32")]
-    app.add_plugins(GameLoggingPlugin);
-
-    // Add VOX loader plugin for hot reload (native only)
-    #[cfg(not(target_arch = "wasm32"))]
+    // Add VOX loader plugin for hot reload
     app.add_plugins(idle_factory::vox_loader::VoxLoaderPlugin);
 
-    // Add auto-updater plugin (native only)
-    #[cfg(not(target_arch = "wasm32"))]
+    // Add auto-updater plugin
     app.add_plugins(idle_factory::UpdaterPlugin);
 
     app.add_plugins(GameEventsPlugin)

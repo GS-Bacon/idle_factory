@@ -8,7 +8,6 @@ use crate::block_type::BlockType;
 use crate::constants::*;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
-#[cfg(not(target_arch = "wasm32"))]
 use bevy::tasks::Task;
 use std::collections::HashMap;
 
@@ -38,12 +37,9 @@ impl Default for ChunkMeshData {
     }
 }
 
-/// Pending chunk state - either async task (Native) or ready data (WASM)
-#[allow(dead_code)]
+/// Pending chunk state (async task)
 pub enum PendingChunk {
-    #[cfg(not(target_arch = "wasm32"))]
     Task(Task<ChunkMeshData>),
-    Ready(ChunkMeshData),
 }
 
 /// Resource to track pending chunk mesh generation

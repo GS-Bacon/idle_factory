@@ -4,13 +4,11 @@ use crate::components::Player;
 use crate::world::{ChunkData, ChunkMesh, ChunkMeshData, ChunkMeshTasks, WorldData};
 use crate::VIEW_DISTANCE;
 use bevy::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
 use bevy::tasks::AsyncComputeTaskPool;
-#[cfg(not(target_arch = "wasm32"))]
 use futures_lite::future;
 use std::collections::{HashMap, HashSet};
 
-/// Generate chunk data synchronously (shared between native and WASM)
+/// Generate chunk data synchronously
 fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
     let chunk_data = ChunkData::generate(chunk_coord);
     let mesh = chunk_data.generate_mesh(chunk_coord);
@@ -29,7 +27,7 @@ fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
     }
 }
 
-/// Spawn async tasks for chunk generation (Native: background threads, WASM: synchronous)
+/// Spawn async tasks for chunk generation using background threads
 pub fn spawn_chunk_tasks(
     mut tasks: ResMut<ChunkMeshTasks>,
     world_data: Res<WorldData>,
@@ -46,11 +44,8 @@ pub fn spawn_chunk_tasks(
     );
     let player_chunk = WorldData::world_to_chunk(player_world_pos);
 
-    // Limit chunks per frame: Native=4 (async), WASM=1 (sync, avoid freeze)
-    #[cfg(not(target_arch = "wasm32"))]
+    // Limit chunks per frame for async generation
     const MAX_SPAWN_PER_FRAME: i32 = 4;
-    #[cfg(target_arch = "wasm32")]
-    const MAX_SPAWN_PER_FRAME: i32 = 1;
 
     let mut spawned = 0;
     for dx in -VIEW_DISTANCE..=VIEW_DISTANCE {
@@ -68,20 +63,10 @@ pub fn spawn_chunk_tasks(
                 continue;
             }
 
-            // Native: spawn async task
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                let task_pool = AsyncComputeTaskPool::get();
-                let task = task_pool.spawn(async move { generate_chunk_sync(chunk_coord) });
-                tasks.pending.insert(chunk_coord, PendingChunk::Task(task));
-            }
-
-            // WASM: generate synchronously and store result
-            #[cfg(target_arch = "wasm32")]
-            {
-                let data = generate_chunk_sync(chunk_coord);
-                tasks.pending.insert(chunk_coord, PendingChunk::Ready(data));
-            }
+            // Spawn async task
+            let task_pool = AsyncComputeTaskPool::get();
+            let task = task_pool.spawn(async move { generate_chunk_sync(chunk_coord) });
+            tasks.pending.insert(chunk_coord, PendingChunk::Task(task));
 
             spawned += 1;
         }
@@ -97,43 +82,19 @@ pub fn receive_chunk_meshes(
     mut tasks: ResMut<ChunkMeshTasks>,
 ) {
     // Limit chunks processed per frame to avoid frame spikes
-    #[cfg(not(target_arch = "wasm32"))]
     const MAX_CHUNKS_PER_FRAME: usize = 2;
-    #[cfg(target_arch = "wasm32")]
-    const MAX_CHUNKS_PER_FRAME: usize = 1;
 
     let mut completed: Vec<(IVec2, ChunkMeshData)> = Vec::new();
 
-    // Collect completed chunks
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        for (&coord, pending) in tasks.pending.iter_mut() {
-            if completed.len() >= MAX_CHUNKS_PER_FRAME {
-                break;
-            }
-            if let PendingChunk::Task(task) = pending {
-                if let Some(data) = future::block_on(future::poll_once(task)) {
-                    tracing::debug!("Task completed for chunk {:?}", coord);
-                    completed.push((coord, data));
-                }
-            }
+    // Collect completed chunks from async tasks
+    for (&coord, pending) in tasks.pending.iter_mut() {
+        if completed.len() >= MAX_CHUNKS_PER_FRAME {
+            break;
         }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        // WASM: all pending chunks are already Ready - extract the actual data
-        let coords_to_process: Vec<IVec2> = tasks
-            .pending
-            .keys()
-            .take(MAX_CHUNKS_PER_FRAME)
-            .copied()
-            .collect();
-        for coord in coords_to_process {
-            if let Some(PendingChunk::Ready(data)) = tasks.pending.remove(&coord) {
-                tracing::debug!("WASM chunk ready for {:?}", coord);
-                completed.push((coord, data));
-            }
+        let PendingChunk::Task(task) = pending;
+        if let Some(data) = future::block_on(future::poll_once(task)) {
+            tracing::debug!("Task completed for chunk {:?}", coord);
+            completed.push((coord, data));
         }
     }
 

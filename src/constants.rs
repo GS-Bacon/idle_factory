@@ -21,12 +21,8 @@ pub const TERMINAL_VELOCITY: f32 = 50.0; // Max fall speed
 /// Maximum distance for block interaction
 pub const REACH_DISTANCE: f32 = 5.0;
 
-/// View distance in chunks
-#[cfg(target_arch = "wasm32")]
-pub const VIEW_DISTANCE: i32 = 2; // 5x5 chunks for WASM
-
-#[cfg(not(target_arch = "wasm32"))]
-pub const VIEW_DISTANCE: i32 = 3; // 7x7 chunks for native (49 chunks)
+/// View distance in chunks (7x7 = 49 chunks)
+pub const VIEW_DISTANCE: i32 = 3;
 
 /// Camera settings
 pub const MOUSE_SENSITIVITY: f32 = 0.002;

@@ -17,7 +17,6 @@ pub mod save;
 pub mod setup;
 pub mod systems;
 pub mod ui;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod updater;
 pub mod utils;
 pub mod vox_loader;
@@ -48,6 +47,5 @@ pub use utils::{parse_item_name, ray_aabb_intersection};
 pub use plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 pub use vox_loader::VoxLoaderPlugin;
 
-// Re-export updater plugin (native only)
-#[cfg(not(target_arch = "wasm32"))]
+// Re-export updater plugin
 pub use updater::UpdaterPlugin;

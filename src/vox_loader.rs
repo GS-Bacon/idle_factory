@@ -11,9 +11,7 @@ use dot_vox::DotVoxData;
 use std::collections::HashMap;
 use std::path::Path;
 
-#[cfg(not(target_arch = "wasm32"))]
 use crossbeam_channel::{unbounded, Receiver};
-#[cfg(not(target_arch = "wasm32"))]
 use notify::{recommended_watcher, Event, RecommendedWatcher, RecursiveMode, Watcher};
 
 /// Resource to store loaded VOX meshes
@@ -36,7 +34,6 @@ pub struct BlockTextureAtlas {
 }
 
 /// Resource to track file changes
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 pub struct VoxFileWatcher {
     _watcher: RecommendedWatcher,
@@ -63,11 +60,8 @@ impl Plugin for VoxLoaderPlugin {
         app.init_resource::<VoxMeshes>()
             .init_resource::<BlockTextureAtlas>()
             .add_event::<VoxFileChanged>()
-            .add_event::<TextureAtlasChanged>();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            app.add_systems(
+            .add_event::<TextureAtlasChanged>()
+            .add_systems(
                 Startup,
                 (
                     setup_file_watcher,
@@ -83,12 +77,10 @@ impl Plugin for VoxLoaderPlugin {
                     handle_texture_atlas_reload,
                 ),
             );
-        }
     }
 }
 
 /// Load initial VOX models at startup
-#[cfg(not(target_arch = "wasm32"))]
 fn load_initial_vox_models(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -116,7 +108,6 @@ fn load_initial_vox_models(
 }
 
 /// Handle VOX file reload when files change
-#[cfg(not(target_arch = "wasm32"))]
 fn handle_vox_reload(
     mut events: EventReader<VoxFileChanged>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -149,7 +140,6 @@ fn handle_vox_reload(
 }
 
 /// Find the best texture atlas file (alphabetically first block_atlas*.png)
-#[cfg(not(target_arch = "wasm32"))]
 fn find_best_texture_atlas() -> Option<std::path::PathBuf> {
     let textures_path = Path::new("assets/textures");
     if !textures_path.exists() {
@@ -172,7 +162,6 @@ fn find_best_texture_atlas() -> Option<std::path::PathBuf> {
 }
 
 /// Load initial texture atlas at startup
-#[cfg(not(target_arch = "wasm32"))]
 fn load_initial_texture_atlas(
     asset_server: Res<AssetServer>,
     mut atlas: ResMut<BlockTextureAtlas>,
@@ -189,7 +178,6 @@ fn load_initial_texture_atlas(
 }
 
 /// Handle texture atlas reload when files change
-#[cfg(not(target_arch = "wasm32"))]
 fn handle_texture_atlas_reload(
     mut events: EventReader<TextureAtlasChanged>,
     asset_server: Res<AssetServer>,
@@ -214,8 +202,7 @@ fn handle_texture_atlas_reload(
     }
 }
 
-/// Set up file watcher for hot reload (native only)
-#[cfg(not(target_arch = "wasm32"))]
+/// Set up file watcher for hot reload
 fn setup_file_watcher(mut commands: Commands) {
     let (tx, rx) = unbounded();
 
@@ -259,7 +246,6 @@ fn setup_file_watcher(mut commands: Commands) {
 }
 
 /// Check for file changes and send events
-#[cfg(not(target_arch = "wasm32"))]
 fn check_file_changes(
     watcher: Option<Res<VoxFileWatcher>>,
     mut vox_events: EventWriter<VoxFileChanged>,

@@ -8,23 +8,9 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 use tracing::{info, warn};
 
-/// Set the UI open state for JavaScript overlay control (WASM only)
-#[cfg(target_arch = "wasm32")]
-pub fn set_ui_open_state(ui_open: bool) {
-    use web_sys::window;
-    if let Some(win) = window() {
-        if let Some(doc) = win.document() {
-            if let Some(canvas) = doc.get_element_by_id("bevy-canvas") {
-                let _ =
-                    canvas.set_attribute("data-ui-open", if ui_open { "true" } else { "false" });
-            }
-        }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
+/// Set the UI open state (no-op, kept for API compatibility)
 pub fn set_ui_open_state(_ui_open: bool) {
-    // No-op on native
+    // No-op
 }
 
 /// Return held item to inventory when closing

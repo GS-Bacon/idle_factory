@@ -1,4 +1,4 @@
-//! Logging system for both WASM and native platforms
+//! Logging system
 //!
 //! Usage:
 //! - `info!("message")` - General information
@@ -12,8 +12,7 @@
 //! - Events are written to `logs/events_YYYYMMDD_HHMMSS.jsonl`
 //!
 //! Log collection:
-//! - Native: Logs are written to `logs/game_YYYYMMDD_HHMMSS.log`
-//! - WASM: Logs go to browser console, capture via Playwright
+//! - Logs are written to `logs/game_YYYYMMDD_HHMMSS.log`
 //!
 //! Log analysis:
 //! - scripts/summarize_log.sh - AI-powered log summary
@@ -21,22 +20,16 @@
 
 use bevy::prelude::*;
 use serde::Serialize;
-
-#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
-#[cfg(not(target_arch = "wasm32"))]
 use tracing_appender::non_blocking::WorkerGuard;
-#[cfg(not(target_arch = "wasm32"))]
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 /// Resource to hold the log file guard (keeps writer alive)
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 #[allow(dead_code)]
 pub struct LogFileGuard(WorkerGuard);
 
-/// Initialize logging for the current platform
-#[cfg(not(target_arch = "wasm32"))]
+/// Initialize logging
 pub fn init_logging() -> Option<WorkerGuard> {
     // Create logs directory
     let logs_dir = std::path::Path::new("logs");
@@ -82,15 +75,7 @@ pub fn init_logging() -> Option<WorkerGuard> {
     Some(guard)
 }
 
-#[cfg(target_arch = "wasm32")]
-pub fn init_logging() {
-    // WASM: Send logs to browser console
-    tracing_wasm::set_as_global_default();
-    tracing::info!("Idle Factory - WASM logging initialized");
-}
-
 /// Log system information at startup
-#[cfg(not(target_arch = "wasm32"))]
 fn log_system_info() {
     use std::env;
 
@@ -116,17 +101,6 @@ fn log_system_info() {
     );
 
     tracing::info!("==========================");
-}
-
-/// Plugin to initialize logging (WASM only)
-#[cfg(target_arch = "wasm32")]
-pub struct GameLoggingPlugin;
-
-#[cfg(target_arch = "wasm32")]
-impl Plugin for GameLoggingPlugin {
-    fn build(&self, _app: &mut App) {
-        init_logging();
-    }
 }
 
 // ============================================================================
@@ -164,14 +138,12 @@ pub struct GameEvent {
 
 /// Resource for logging game events in JSON format
 #[allow(dead_code)]
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 pub struct EventLogger {
     file: std::sync::Mutex<std::fs::File>,
 }
 
 #[allow(dead_code)]
-#[cfg(not(target_arch = "wasm32"))]
 impl EventLogger {
     /// Create a new event logger
     pub fn new() -> Option<Self> {
@@ -243,31 +215,8 @@ impl EventLogger {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl Default for EventLogger {
     fn default() -> Self {
         Self::new().expect("Failed to create event logger")
-    }
-}
-
-/// WASM stub for EventLogger
-#[cfg(target_arch = "wasm32")]
-#[derive(Resource, Default)]
-pub struct EventLogger;
-
-#[cfg(target_arch = "wasm32")]
-impl EventLogger {
-    pub fn new() -> Option<Self> {
-        Some(Self)
-    }
-    pub fn log(&self, _event: GameEvent) {}
-    pub fn log_simple(&self, _category: EventCategory, _action: &str, _details: Option<&str>) {}
-    pub fn log_at(
-        &self,
-        _category: EventCategory,
-        _action: &str,
-        _pos: IVec3,
-        _entity: Option<&str>,
-    ) {
     }
 }

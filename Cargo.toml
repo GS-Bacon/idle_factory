@@ -1,6 +1,6 @@
 [package]
 name = "idle_factory"
-version = "0.2.12"
+version = "0.2.13"
 edition = "2021"
 
 [dependencies]
@@ -21,63 +21,38 @@ bevy = { version = "0.15", default-features = false, features = [
 futures-lite = "2.5"
 tracing = "0.1"  # Structured logging
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-appender = "0.2"  # File logging for native builds
+tracing-appender = "0.2"  # File logging
 chrono = "0.4"  # Timestamp for log files
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 strum = { version = "0.26", features = ["derive"] }  # Enum string conversion
 dot_vox = "5.1"  # MagicaVoxel .vox file loader
-
-# Native-only dependencies (file watching, update check)
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify = "8.0"  # File system watcher for hot reload
 crossbeam-channel = "0.5"  # Thread-safe channel for file watcher
 ureq = { version = "2.9", default-features = false, features = ["tls"] }  # Lightweight HTTP client for update check
 semver = "1.0"  # Semantic versioning for update comparison
 open = "5.0"  # Open URLs in browser (fallback for updater)
+flate2 = "1.0"
+tar = "0.4"
+zip = { version = "2.1", default-features = false, features = ["deflate"] }
 
-# Updater binary dependencies (only for the updater executable)
+# Updater binary
 [[bin]]
 name = "updater"
 path = "src/bin/updater.rs"
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.flate2]
-version = "1.0"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.tar]
-version = "0.4"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.zip]
-version = "2.1"
-default-features = false
-features = ["deflate"]
-
 # Linux-specific features
-[target.'cfg(all(not(target_arch = "wasm32"), target_os = "linux"))'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 bevy = { version = "0.15", default-features = false, features = [
     "multi_threaded",
     "x11",
 ] }
 
 # Windows-specific features
-[target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
+[target.'cfg(target_os = "windows")'.dependencies]
 bevy = { version = "0.15", default-features = false, features = [
     "multi_threaded",
 ] }
-
-# WASM-specific Bevy features
-[target.'cfg(target_arch = "wasm32")'.dependencies.bevy]
-version = "0.15"
-default-features = false
-features = ["webgl2"]
-
-# WASM dependencies
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlCanvasElement", "console", "Performance", "Storage"] }
-getrandom = { version = "0.3", features = ["wasm_js"] }
-console_error_panic_hook = "0.1"
-tracing-wasm = "0.2"  # Send tracing logs to browser console
-web-time = "1.1"  # WASM-compatible time
 
 # Enable optimizations for dependencies in dev mode for faster runtime
 [profile.dev]
@@ -105,14 +80,6 @@ overflow-checks = true  # Enable overflow checks even in release
 inherits = "release"
 lto = false
 opt-level = 2
-
-# WASM optimized build
-[profile.wasm-release]
-inherits = "release"
-opt-level = "z"  # Optimize for size
-lto = true
-codegen-units = 1
-panic = "abort"
 
 [dev-dependencies]
 proptest = "1.4"

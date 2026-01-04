@@ -330,7 +330,6 @@ pub struct SaveSlotInfo {
     pub timestamp: u64,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub mod native {
     use super::*;
     use std::fs;
@@ -429,137 +428,20 @@ pub mod native {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-pub mod wasm {
-    use super::*;
-    use web_sys::window;
-
-    const SAVE_PREFIX: &str = "idle_factory_save_";
-
-    /// Save game data to localStorage
-    pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
-        let win = window().ok_or("No window available")?;
-        let storage = win
-            .local_storage()
-            .map_err(|_| "Failed to access localStorage")?
-            .ok_or("localStorage not available")?;
-
-        let json =
-            serde_json::to_string(data).map_err(|e| format!("Failed to serialize: {}", e))?;
-
-        let key = format!("{}{}", SAVE_PREFIX, filename);
-        storage
-            .set_item(&key, &json)
-            .map_err(|_| "Failed to save to localStorage")?;
-
-        Ok(())
-    }
-
-    /// Load game data from localStorage
-    pub fn load_game(filename: &str) -> Result<SaveData, String> {
-        let win = window().ok_or("No window available")?;
-        let storage = win
-            .local_storage()
-            .map_err(|_| "Failed to access localStorage")?
-            .ok_or("localStorage not available")?;
-
-        let key = format!("{}{}", SAVE_PREFIX, filename);
-        let json = storage
-            .get_item(&key)
-            .map_err(|_| "Failed to read from localStorage")?
-            .ok_or_else(|| format!("Save not found: {}", filename))?;
-
-        let data: SaveData =
-            serde_json::from_str(&json).map_err(|e| format!("Failed to parse save: {}", e))?;
-
-        Ok(data)
-    }
-
-    /// List all saves in localStorage
-    pub fn list_saves() -> Result<Vec<SaveSlotInfo>, String> {
-        let win = window().ok_or("No window available")?;
-        let storage = win
-            .local_storage()
-            .map_err(|_| "Failed to access localStorage")?
-            .ok_or("localStorage not available")?;
-
-        let mut saves = Vec::new();
-        let len = storage
-            .length()
-            .map_err(|_| "Failed to get storage length")?;
-
-        for i in 0..len {
-            if let Ok(Some(key)) = storage.key(i) {
-                if key.starts_with(SAVE_PREFIX) {
-                    let filename = key.trim_start_matches(SAVE_PREFIX).to_string();
-                    if let Ok(Some(json)) = storage.get_item(&key) {
-                        if let Ok(data) = serde_json::from_str::<SaveData>(&json) {
-                            saves.push(SaveSlotInfo {
-                                filename,
-                                timestamp: data.timestamp,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        saves.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-        Ok(saves)
-    }
-
-    /// Delete a save from localStorage
-    pub fn delete_save(filename: &str) -> Result<(), String> {
-        let win = window().ok_or("No window available")?;
-        let storage = win
-            .local_storage()
-            .map_err(|_| "Failed to access localStorage")?
-            .ok_or("localStorage not available")?;
-
-        let key = format!("{}{}", SAVE_PREFIX, filename);
-        storage
-            .remove_item(&key)
-            .map_err(|_| "Failed to delete save")?;
-
-        Ok(())
-    }
-}
-
-/// Platform-agnostic save function
+/// Save game data to a file
 pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        native::save_game(data, filename)
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        wasm::save_game(data, filename)
-    }
+    native::save_game(data, filename)
 }
 
-/// Platform-agnostic load function
+/// Load game data from a file
 pub fn load_game(filename: &str) -> Result<SaveData, String> {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        native::load_game(filename)
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        wasm::load_game(filename)
-    }
+    native::load_game(filename)
 }
 
-/// Platform-agnostic list saves function
+/// List all save files
 #[allow(dead_code)]
 pub fn list_saves() -> Result<Vec<SaveSlotInfo>, String> {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        native::list_saves()
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        wasm::list_saves()
-    }
+    native::list_saves()
 }
 
 #[cfg(test)]

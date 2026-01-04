@@ -39,19 +39,12 @@ pub fn toggle_cursor_lock(
     }
 
     // Click to lock cursor (when not locked or paused, and no UI open)
-    // Also handle case where browser may have released the lock
+    // Also handle case where cursor may have been released
     let cursor_not_locked = window.cursor_options.grab_mode == CursorGrabMode::None;
 
-    // On WASM, also check if we think we should be locked but aren't (browser may have released)
-    #[cfg(target_arch = "wasm32")]
-    let should_relock = cursor_not_locked && !cursor_state.paused && !any_ui_open;
-    #[cfg(not(target_arch = "wasm32"))]
-    let should_relock = false;
-
-    if (mouse_button.just_pressed(MouseButton::Left)
+    if mouse_button.just_pressed(MouseButton::Left)
         && (cursor_not_locked || cursor_state.paused)
-        && !any_ui_open)
-        || should_relock
+        && !any_ui_open
     {
         // Use Locked mode - it properly captures relative mouse motion
         // Confined mode causes issues where mouse hits window edge and spins
@@ -136,7 +129,7 @@ pub fn player_look(
 
     // --- Mouse motion ---
     // Use AccumulatedMouseMotion for camera control
-    // Works well with Pointer Lock API in both native and WASM
+    // Works well with Pointer Lock API
     if cursor_locked && cursor_lock_state.skip_frames == 0 {
         let raw_delta = accumulated_mouse_motion.delta;
 

@@ -3,7 +3,7 @@
 //! Uses external updater binary for actual downloads/installation.
 //! The main game only checks for updates and launches the updater if needed.
 //!
-//! This module is only compiled for native targets (not WASM).
+//! This module handles native application updates.
 
 mod checker;
 mod state;
