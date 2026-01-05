@@ -161,21 +161,23 @@ pub fn update_tutorial_ui(
         return;
     };
 
-    // Hide if tutorials completed or initial popup still showing
+    // Quest UI visibility: only show when tutorial is completed
+    if let Ok(mut quest_vis) = quest_query.get_single_mut() {
+        *quest_vis = if progress.completed {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+
+    // Hide tutorial panel if tutorials completed or initial popup still showing
     if progress.completed || !tutorial_shown.0 {
         *panel_vis = Visibility::Hidden;
-        // Show quest UI when tutorial is done
-        if let Ok(mut quest_vis) = quest_query.get_single_mut() {
-            *quest_vis = Visibility::Visible;
-        }
         return;
     }
 
-    // Show tutorial panel, hide quest UI during tutorial
+    // Show tutorial panel during tutorial
     *panel_vis = Visibility::Visible;
-    if let Ok(mut quest_vis) = quest_query.get_single_mut() {
-        *quest_vis = Visibility::Hidden;
-    }
 
     if let Some(step) = progress.current() {
         if let Ok(mut text) = text_query.get_single_mut() {
