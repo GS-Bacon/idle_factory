@@ -552,12 +552,48 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
             Visibility::Hidden, // Hidden until tutorial popup is dismissed
         ))
         .with_children(|panel| {
+            // Step text
             panel.spawn((
                 TutorialStepText,
                 Text::new("[T] チュートリアル"),
                 text_font(&font_panel, 14.0),
                 TextColor(QUEST_HEADER_COLOR),
             ));
+
+            // Progress text (e.g., "3/5")
+            panel.spawn((
+                TutorialProgressText,
+                Text::new(""),
+                text_font(&font_panel, 12.0),
+                TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+                Visibility::Hidden, // Hidden when no count-based action
+            ));
+
+            // Progress bar container
+            panel
+                .spawn((
+                    TutorialProgressBarBg,
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(10.0),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.15, 0.15, 0.2, 1.0)),
+                    BorderColor(QUEST_BORDER_COLOR),
+                    BorderRadius::all(Val::Px(3.0)),
+                    Visibility::Hidden, // Hidden when no count-based action
+                ))
+                .with_child((
+                    TutorialProgressBarFill,
+                    Node {
+                        width: Val::Percent(0.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                    BackgroundColor(QUEST_PROGRESS_COLOR),
+                    BorderRadius::all(Val::Px(2.0)),
+                ));
         });
 
     // Biome HUD - top left, always visible (Factory theme)

@@ -4,8 +4,8 @@ use bevy::prelude::*;
 
 use crate::block_type::BlockType;
 use crate::components::{
-    InventoryUI, TutorialAction, TutorialPanel, TutorialProgress, TutorialShown, TutorialStepText,
-    TUTORIAL_STEPS,
+    InventoryUI, TutorialAction, TutorialPanel, TutorialProgress, TutorialProgressBarBg,
+    TutorialProgressBarFill, TutorialProgressText, TutorialShown, TutorialStepText, TUTORIAL_STEPS,
 };
 use crate::player::GlobalInventory;
 
@@ -150,12 +150,26 @@ pub fn process_tutorial_events(
 }
 
 /// Update tutorial UI panel
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_tutorial_ui(
     progress: Res<TutorialProgress>,
     tutorial_shown: Res<TutorialShown>,
     mut panel_query: Query<&mut Visibility, With<TutorialPanel>>,
     mut quest_query: Query<&mut Visibility, (With<crate::QuestUI>, Without<TutorialPanel>)>,
     mut text_query: Query<&mut Text, With<TutorialStepText>>,
+    mut progress_text_query: Query<
+        (&mut Text, &mut Visibility),
+        (With<TutorialProgressText>, Without<TutorialStepText>),
+    >,
+    mut progress_bar_bg_query: Query<
+        &mut Visibility,
+        (
+            With<TutorialProgressBarBg>,
+            Without<TutorialPanel>,
+            Without<TutorialProgressText>,
+        ),
+    >,
+    mut progress_bar_fill_query: Query<&mut Node, With<TutorialProgressBarFill>>,
 ) {
     let Ok(mut panel_vis) = panel_query.get_single_mut() else {
         return;
@@ -180,6 +194,7 @@ pub fn update_tutorial_ui(
     *panel_vis = Visibility::Visible;
 
     if let Some(step) = progress.current() {
+        // Update step text
         if let Ok(mut text) = text_query.get_single_mut() {
             **text = format!(
                 "[T] {} ({}/{})\n{}",
@@ -188,6 +203,41 @@ pub fn update_tutorial_ui(
                 TUTORIAL_STEPS.len(),
                 step.hint
             );
+        }
+
+        // Check if current step has a count-based action
+        let count_info: Option<(u32, u32)> = match &step.action {
+            TutorialAction::Move { distance } => Some((progress.move_distance as u32, *distance)),
+            TutorialAction::PlaceConveyors { count } => Some((progress.conveyor_count, *count)),
+            _ => None,
+        };
+
+        // Update progress bar visibility and values
+        if let Some((current, target)) = count_info {
+            // Show progress text
+            if let Ok((mut text, mut vis)) = progress_text_query.get_single_mut() {
+                **text = format!("{}/{}", current.min(target), target);
+                *vis = Visibility::Visible;
+            }
+
+            // Show progress bar background
+            if let Ok(mut bar_vis) = progress_bar_bg_query.get_single_mut() {
+                *bar_vis = Visibility::Visible;
+            }
+
+            // Update progress bar fill width
+            if let Ok(mut node) = progress_bar_fill_query.get_single_mut() {
+                let percent = (current as f32 / target as f32 * 100.0).min(100.0);
+                node.width = Val::Percent(percent);
+            }
+        } else {
+            // Hide progress bar for non-count actions
+            if let Ok((_, mut vis)) = progress_text_query.get_single_mut() {
+                *vis = Visibility::Hidden;
+            }
+            if let Ok(mut bar_vis) = progress_bar_bg_query.get_single_mut() {
+                *bar_vis = Visibility::Hidden;
+            }
         }
     }
 }

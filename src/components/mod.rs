@@ -257,6 +257,18 @@ pub struct TutorialPanel;
 #[derive(Component)]
 pub struct TutorialStepText;
 
+/// Marker for tutorial progress text (e.g., "3/5")
+#[derive(Component)]
+pub struct TutorialProgressText;
+
+/// Marker for tutorial progress bar background
+#[derive(Component)]
+pub struct TutorialProgressBarBg;
+
+/// Marker for tutorial progress bar fill
+#[derive(Component)]
+pub struct TutorialProgressBarFill;
+
 /// Quest definition
 /// Note: systems/quest.rs has its own QuestDef struct
 #[allow(dead_code)]
