@@ -1,0 +1,133 @@
+{
+  "$schema": "./parallel-tasks.schema.json",
+  "version": 1,
+  "description": "並列実行可能なタスク定義。同じparallel_groupのタスクは同時実行可能",
+  "tasks": [
+    {
+      "id": "fix-sprite-size",
+      "name": "BUG-UI-1: スプライトサイズ修正",
+      "parallel_group": "ui",
+      "depends_on": [],
+      "branch": "fix/sprite-size",
+      "files": [
+        "src/setup/ui/mod.rs"
+      ],
+      "status": "completed",
+      "description": "アイテムスロット内のスプライト画像サイズが小さすぎる問題を修正"
+    },
+    {
+      "id": "fix-catalog-icons",
+      "name": "BUG-UI-2: カタログアイコン修正",
+      "parallel_group": "ui",
+      "depends_on": [],
+      "branch": "fix/catalog-icons",
+      "files": [
+        "src/systems/inventory_ui.rs"
+      ],
+      "status": "completed",
+      "description": "クリエイティブカタログのアイテムアイコンにスプライトを適用"
+    },
+    {
+      "id": "fix-slot-background",
+      "name": "BUG-UI-3: スロット背景色修正",
+      "parallel_group": "ui",
+      "depends_on": [],
+      "branch": "fix/slot-background",
+      "files": [
+        "src/ui/widgets.rs"
+      ],
+      "status": "completed",
+      "description": "スロット背景にアイテムの色が表示される問題を修正"
+    },
+    {
+      "id": "fix-drag-display",
+      "name": "BUG-UI-4: ドラッグ表示修正",
+      "parallel_group": "ui",
+      "depends_on": [],
+      "branch": "fix/drag-display",
+      "files": [
+        "src/systems/inventory_ui.rs"
+      ],
+      "status": "completed",
+      "description": "ドラッグ&ドロップ中にアイテムが表示されない問題を修正"
+    },
+    {
+      "id": "hide-main-quest-tutorial",
+      "name": "チュートリアル中メインクエスト非表示",
+      "parallel_group": "ui",
+      "depends_on": [],
+      "branch": "feat/hide-main-quest-tutorial",
+      "files": [
+        "src/systems/quest.rs",
+        "src/systems/tutorial.rs"
+      ],
+      "status": "completed",
+      "description": "チュートリアル中にメインクエストを完全に非表示にする"
+    },
+    {
+      "id": "fix-furnace-input",
+      "name": "製錬炉搬入問題修正",
+      "parallel_group": "machines",
+      "depends_on": [],
+      "branch": "fix/furnace-input",
+      "files": [
+        "src/machines/furnace.rs",
+        "src/logistics/conveyor.rs"
+      ],
+      "status": "completed",
+      "description": "製錬炉が鉱石の搬入を受け付けない問題を修正"
+    },
+    {
+      "id": "tutorial-progress-bar",
+      "name": "チュートリアル進捗バー",
+      "parallel_group": "ui",
+      "depends_on": [],
+      "branch": "feat/tutorial-progress-bar",
+      "files": [
+        "src/setup/ui/mod.rs"
+      ],
+      "status": "completed",
+      "description": "チュートリアルクエストで個数関係のものにプログレスバーを表示"
+    },
+    {
+      "id": "simplify-biome-hud",
+      "name": "バイオームHUD簡略化",
+      "parallel_group": "ui",
+      "depends_on": [],
+      "branch": "feat/simplify-biome-hud",
+      "files": [
+        "src/systems/debug_ui.rs"
+      ],
+      "status": "completed",
+      "description": "鉱石バイオーム表示をシンプルに、他UIと色を統一"
+    }
+  ],
+  "parallel_groups": {
+    "ui": {
+      "description": "UIコンポーネント（互いに独立）",
+      "max_concurrent": 2
+    },
+    "logistics": {
+      "description": "物流システム（conveyor等）",
+      "max_concurrent": 1
+    },
+    "machines": {
+      "description": "機械システム",
+      "max_concurrent": 2
+    },
+    "core": {
+      "description": "コアシステム（単独実行推奨）",
+      "max_concurrent": 1
+    }
+  },
+  "conflict_rules": [
+    {
+      "description": "同じファイルを触るタスクは並列不可",
+      "type": "file_overlap"
+    },
+    {
+      "description": "依存関係があるタスクは順次実行",
+      "type": "dependency"
+    }
+  ]
+}

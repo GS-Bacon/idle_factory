@@ -68,30 +68,70 @@
 
 ## タスク実行ルール（必須）
 
-複数タスクがある場合、**必ず並列タスク管理を使う**：
+**全てのタスクは git worktree + Task tool で並列実行する**
+
+### ⚠️ 容量チェック（必須）
+
+並列実行前に**必ず**容量チェックを行う:
 
 ```bash
-# 1. タスクを登録
+# 実行予定のworktree数で容量チェック
+./scripts/parallel-run.sh check <数>
+
+# 例: 2タスク並列なら
+./scripts/parallel-run.sh check 2
+```
+
+- **容量不足**の場合: `./scripts/parallel-run.sh cleanup` で放置worktreeを削除
+- **start時も自動チェック**: 容量不足なら開始を拒否
+
+### ワークフロー
+
+```bash
+# 0. 容量チェック（必須）
+./scripts/parallel-run.sh check <並列数>
+
+# 1. タスクを parallel-tasks.json に登録
 ./scripts/parallel-run.sh add
 
 # 2. 並列実行可能なタスクを確認
 ./scripts/parallel-run.sh list
 
-# 3. 並列グループが異なるタスクは同時に開始
-./scripts/parallel-run.sh start task-a  # uiグループ
-./scripts/parallel-run.sh start task-b  # machinesグループ（同時実行OK）
+# 3. 複数タスクを同時に start（worktree作成）
+./scripts/parallel-run.sh start task-a
+./scripts/parallel-run.sh start task-b
 
-# 4. 各worktreeで作業後、完了
+# 4. Task tool で並列に作業（サブエージェント）
+# ※ 必ず複数の Task tool を同時に呼び出す
+
+# 5. 各worktreeで作業完了後、finish（masterにマージ）
 ./scripts/parallel-run.sh finish task-a
 ./scripts/parallel-run.sh finish task-b
 ```
 
-**並列化の判断基準**:
-- 異なるファイルを触る → 並列可
-- 依存関係がない → 並列可
-- 同じモジュールを触る → 順次実行
+### 並列実行の原則
 
-**禁止**: タスクを順番に1つずつ実行（並列可能なのに直列でやる）
+| 条件 | 判断 |
+|------|------|
+| 異なるファイル | **並列可** |
+| 同じファイル | **並列可**（worktreeは独立、マージ時に解決） |
+| 依存関係あり | 順次実行 |
+
+### 禁止事項
+
+- タスクを1つずつ順番に実行（並列可能なのに直列でやる）
+- worktreeを使わずにmasterで直接作業
+- Task toolを1つずつ呼び出す（並列呼び出しすること）
+- **worktreeの放置**（finish後は即削除される。セッション終了前に必ずfinish or abort）
+- 容量チェックなしでの並列実行開始
+
+### マージコンフリクト時
+
+```bash
+git checkout --theirs Cargo.lock Cargo.toml
+git add Cargo.lock Cargo.toml
+git commit -m "Merge branch 'xxx'"
+```
 
 ## バグ修正ルール
 
