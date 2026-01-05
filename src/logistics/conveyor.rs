@@ -30,14 +30,7 @@ pub fn conveyor_transfer(
     // Collect furnace positions
     let furnace_positions: HashMap<IVec3, Entity> = furnace_query
         .iter()
-        .map(|(t, _)| {
-            let pos = IVec3::new(
-                t.translation.x.floor() as i32,
-                t.translation.y.floor() as i32,
-                t.translation.z.floor() as i32,
-            );
-            (pos, Entity::PLACEHOLDER) // We'll look up by position
-        })
+        .map(|(_, f)| (f.position, Entity::PLACEHOLDER))
         .collect();
 
     // Collect crusher positions
@@ -301,13 +294,8 @@ pub fn conveyor_transfer(
             }
             TransferTarget::Furnace(furnace_pos) => {
                 let mut accepted = false;
-                for (furnace_transform, mut furnace) in furnace_query.iter_mut() {
-                    let pos = IVec3::new(
-                        furnace_transform.translation.x.floor() as i32,
-                        furnace_transform.translation.y.floor() as i32,
-                        furnace_transform.translation.z.floor() as i32,
-                    );
-                    if pos == furnace_pos {
+                for (_, mut furnace) in furnace_query.iter_mut() {
+                    if furnace.position == furnace_pos {
                         // Calculate input ports based on furnace facing direction
                         // FURNACE spec: Back=ore(slot0), Left=fuel(slot1), Right=fuel(slot1)
                         let back_port = furnace.position + furnace.facing.opposite().to_ivec3();
