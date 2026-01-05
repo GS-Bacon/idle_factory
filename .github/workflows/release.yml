@@ -97,13 +97,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build
-        run: cargo build --release
+        run: |
+          cargo build --release
+          cargo build --release --bin updater
 
       - name: Package
         run: |
           VERSION=${{ steps.version.outputs.version }}
           mkdir -p dist/idle_factory_${VERSION}_linux/assets
           cp target/release/idle_factory dist/idle_factory_${VERSION}_linux/
+          cp target/release/updater dist/idle_factory_${VERSION}_linux/
+          chmod +x dist/idle_factory_${VERSION}_linux/updater
           cp -r assets/data assets/fonts assets/locales assets/models assets/shaders assets/sounds assets/textures dist/idle_factory_${VERSION}_linux/assets/ 2>/dev/null || true
           find dist -name "*.vox" -delete
           find dist -name ".gitkeep" -delete
@@ -144,13 +148,16 @@ jobs:
         run: rustup target add x86_64-pc-windows-gnu
 
       - name: Build
-        run: cargo build --release --target x86_64-pc-windows-gnu
+        run: |
+          cargo build --release --target x86_64-pc-windows-gnu
+          cargo build --release --target x86_64-pc-windows-gnu --bin updater
 
       - name: Package
         run: |
           VERSION=${{ needs.build-linux.outputs.version }}
           mkdir -p dist/idle_factory_${VERSION}_windows/assets
           cp target/x86_64-pc-windows-gnu/release/idle_factory.exe dist/idle_factory_${VERSION}_windows/
+          cp target/x86_64-pc-windows-gnu/release/updater.exe dist/idle_factory_${VERSION}_windows/
           cp -r assets/data assets/fonts assets/locales assets/models assets/shaders assets/sounds assets/textures dist/idle_factory_${VERSION}_windows/assets/ 2>/dev/null || true
           find dist -name "*.vox" -delete
           find dist -name ".gitkeep" -delete
