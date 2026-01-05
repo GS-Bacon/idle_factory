@@ -30,7 +30,7 @@ pub const SLOT_SIZE: f32 = 60.0;
 pub const SLOT_GAP: f32 = 3.0;
 pub const SLOT_BORDER: f32 = 2.0;
 pub const SLOT_RADIUS: f32 = 6.0;
-pub const SPRITE_SIZE: f32 = 68.0; // 2x larger for better visibility
+pub const SPRITE_SIZE: f32 = 52.0; // Slightly smaller than slot for proper fit
 /// Size for held item display (slightly larger for visibility)
 pub const HELD_ITEM_SIZE: f32 = 112.0; // 2x larger
 
