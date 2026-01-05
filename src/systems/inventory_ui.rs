@@ -705,14 +705,24 @@ pub fn trash_slot_click(
 
 /// Update creative catalog item sprites
 pub fn update_creative_catalog_sprites(
+    inventory_open: Res<InventoryOpen>,
+    creative_mode: Res<CreativeMode>,
     item_sprites: Res<ItemSprites>,
     mut query: Query<(&CreativeItemImage, &mut ImageNode, &mut Visibility)>,
 ) {
+    // Only show sprites when inventory is open in creative mode
+    let should_show = inventory_open.0 && creative_mode.enabled;
+
     for (item, mut image, mut visibility) in query.iter_mut() {
-        if let Some(sprite) = item_sprites.get(item.0) {
-            image.image = sprite;
-            // Use Inherited so visibility follows parent (CreativePanel)
-            *visibility = Visibility::Inherited;
+        if should_show {
+            if let Some(sprite) = item_sprites.get(item.0) {
+                image.image = sprite;
+                *visibility = Visibility::Visible;
+            } else {
+                *visibility = Visibility::Hidden;
+            }
+        } else {
+            *visibility = Visibility::Hidden;
         }
     }
 }
