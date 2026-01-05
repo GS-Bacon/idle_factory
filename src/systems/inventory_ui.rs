@@ -492,19 +492,9 @@ pub fn inventory_update_slots(
     for (slot_ui, mut bg_color, children, interaction) in slot_query.iter_mut() {
         let slot_idx = slot_ui.0;
 
-        if let Some((block_type, count)) = inventory.slots[slot_idx] {
-            // Use dark background if sprite exists, fallback color otherwise
-            if item_sprites.get(block_type).is_some() {
-                *bg_color = BackgroundColor(Color::srgba(0.14, 0.14, 0.14, 0.95));
-            } else {
-                let color = block_type.color();
-                *bg_color = BackgroundColor(Color::srgba(
-                    color.to_srgba().red * 0.5,
-                    color.to_srgba().green * 0.5,
-                    color.to_srgba().blue * 0.5,
-                    0.6,
-                ));
-            }
+        if let Some((_block_type, count)) = inventory.slots[slot_idx] {
+            // Use consistent dark background regardless of sprite availability
+            *bg_color = BackgroundColor(SLOT_BG);
 
             // Update text (count)
             for &child in children.iter() {
