@@ -40,6 +40,18 @@ impl BiomeType {
         }
     }
 
+    /// Get an icon/symbol for this biome (for compact display)
+    pub fn icon(&self) -> &'static str {
+        match self {
+            BiomeType::Iron => "Fe",
+            BiomeType::Copper => "Cu",
+            BiomeType::Coal => "C",
+            BiomeType::Stone => "ite",
+            BiomeType::Mixed => "Mix",
+            BiomeType::Unmailable => "--",
+        }
+    }
+
     /// Get the probability table for this biome
     pub fn get_probability_table(&self) -> &'static [(BlockType, u32)] {
         match self {

@@ -202,18 +202,8 @@ pub fn update_biome_hud(
     // Get biome at player position
     let biome = biome_map.get_biome(pos);
 
-    // Format probability table for display
-    let table = biome.get_probability_table();
-    let probs: Vec<String> = table
-        .iter()
-        .map(|(bt, prob)| format!("{}: {}%", bt.name(), prob))
-        .collect();
-
-    if probs.is_empty() {
-        text.0 = biome.name().to_string();
-    } else {
-        text.0 = format!("{} ({})", biome.name(), probs.join(", "));
-    }
+    // Simple display: "[icon] name"
+    text.0 = format!("[{}] {}", biome.icon(), biome.name());
 }
 
 /// Game state for E2E testing - exported to JSON file
