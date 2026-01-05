@@ -339,7 +339,8 @@
       "Bash(systemctl --user daemon-reload:*)",
       "Bash(systemctl:*)",
       "Bash(./scripts/generate-blog.sh:*)",
-      "Bash(gemini --version:*)"
+      "Bash(gemini --version:*)",
+      "Bash(RUST_LOG=debug DISPLAY=:10 timeout 10 cargo run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

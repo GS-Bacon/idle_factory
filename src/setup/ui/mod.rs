@@ -272,6 +272,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
                     height: Val::Px(HELD_ITEM_SIZE),
                     ..default()
                 },
+                Visibility::Inherited, // Inherit visibility from parent HeldItemDisplay
             ));
         });
     // Held item count text (separate entity, follows cursor)

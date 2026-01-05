@@ -64,6 +64,34 @@
 | 中断禁止 | 確認を求めず最後まで完了 |
 | ゲーム起動 | `./run.sh` |
 | バグ修正 | **再現テストなしの修正禁止**。下記参照 |
+| **タスク実行** | **必ず `./scripts/parallel-run.sh` を使う**。下記参照 |
+
+## タスク実行ルール（必須）
+
+複数タスクがある場合、**必ず並列タスク管理を使う**：
+
+```bash
+# 1. タスクを登録
+./scripts/parallel-run.sh add
+
+# 2. 並列実行可能なタスクを確認
+./scripts/parallel-run.sh list
+
+# 3. 並列グループが異なるタスクは同時に開始
+./scripts/parallel-run.sh start task-a  # uiグループ
+./scripts/parallel-run.sh start task-b  # machinesグループ（同時実行OK）
+
+# 4. 各worktreeで作業後、完了
+./scripts/parallel-run.sh finish task-a
+./scripts/parallel-run.sh finish task-b
+```
+
+**並列化の判断基準**:
+- 異なるファイルを触る → 並列可
+- 依存関係がない → 並列可
+- 同じモジュールを触る → 順次実行
+
+**禁止**: タスクを順番に1つずつ実行（並列可能なのに直列でやる）
 
 ## バグ修正ルール
 
@@ -251,6 +279,62 @@ Claude Vision APIでスクリーンショットの視覚バグを検出。
 
 詳細: `scripts/vlm_check/README.md`
 
+## 並列タスク実行
+
+git worktreeを使って複数タスクを並列実行。
+
+### 使い方
+
+```bash
+# タスク一覧
+./scripts/parallel-run.sh list
+
+# タスク開始（worktree作成）
+./scripts/parallel-run.sh start <task-id>
+
+# 実行中タスクの状態
+./scripts/parallel-run.sh status
+
+# タスク完了（masterにマージ）
+./scripts/parallel-run.sh finish <task-id>
+
+# タスク中止
+./scripts/parallel-run.sh abort <task-id>
+
+# 新規タスク追加（対話式）
+./scripts/parallel-run.sh add
+```
+
+### 並列グループ
+
+| グループ | 説明 | 最大同時 |
+|----------|------|----------|
+| ui | UIコンポーネント | 2 |
+| logistics | 物流システム（conveyor等） | 1 |
+| machines | 機械システム | 2 |
+| core | コアシステム（単独推奨） | 1 |
+
+### 衝突検知
+
+- 同じファイルパターンを触るタスクは警告
+- 依存タスクが未完了なら開始不可
+
+### タスク定義
+
+`.claude/parallel-tasks.json` に定義：
+
+```json
+{
+  "id": "fix-ui-bug",
+  "name": "UIバグ修正",
+  "parallel_group": "ui",
+  "depends_on": [],
+  "branch": "fix/ui-bug",
+  "files": ["src/ui/*.rs"],
+  "status": "pending"
+}
+```
+
 ## 参照ドキュメント
 
 | ファイル | 内容 |
@@ -266,6 +350,8 @@ Claude Vision APIでスクリーンショットの視覚バグを検出。
 | `scripts/ask_gemini.sh` | Gemini自由質問（低レベル） |
 | `scripts/vlm_check.sh` | VLMビジュアルチェック |
 | `scripts/vlm_check/README.md` | VLMチェック詳細ドキュメント |
+| `scripts/parallel-run.sh` | 並列タスク実行管理 |
+| `.claude/parallel-tasks.json` | 並列タスク定義 |
 
 ## 修正済みバグ
 

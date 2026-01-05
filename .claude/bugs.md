@@ -153,3 +153,39 @@ node capture-wasm-logs.js   # 30秒キャプチャ
 | 新機能 | 正常系 + エッジケース |
 | バグ修正 | 再発防止テスト |
 | リファクタリング | 既存テストでOK |
+
+---
+
+## 修正済みバグ詳細
+
+### BUG-15: コンベアcorner_left/corner_rightモデルの左右逆問題（再発3回）
+
+**症状**: 左に曲がるはずのコンベアが右に曲がるモデルを表示
+
+**根本原因**: `tools/voxel_generator.py` でモデル形状の定義が逆だった
+
+| 関数名 | 誤った定義 | 正しい定義 |
+|--------|-----------|-----------|
+| `create_conveyor_corner_left()` | 右へ曲がる形状 | **左**へ曲がる形状 |
+| `create_conveyor_corner_right()` | 左へ曲がる形状 | **右**へ曲がる形状 |
+
+**なぜ再発したか**:
+1. 過去の修正が「ロジック側でマッピングを入れ替え」と「モデル側で形状を入れ替え」の両方で行われた
+2. 一方を修正すると他方との整合性が崩れた
+3. docstringと実際のコードが一致していなかった
+
+**正しい対応**:
+- `voxel_generator.py` のモデル生成コード自体を修正
+- モデル名 = シェイプ名 = 曲がる方向 という一貫性を維持
+- `get_conveyor_model()` でのマッピング入れ替えは**禁止**
+
+**確認方法**:
+```bash
+# モデル再生成後
+python3 tools/voxel_generator.py corner_left
+python3 tools/voxel_generator.py corner_right
+DISPLAY=:10 blender --background --python tools/vox_to_gltf.py -- assets/models/machines/conveyor/corner_left.vox assets/models/machines/conveyor/corner_left.glb
+DISPLAY=:10 blender --background --python tools/vox_to_gltf.py -- assets/models/machines/conveyor/corner_right.vox assets/models/machines/conveyor/corner_right.glb
+```
+
+**関連テスト**: `test_conveyor_corner_left_direction`, `test_conveyor_corner_right_direction`, `test_corner_left_all_directions`, `test_corner_right_all_directions`

@@ -73,9 +73,11 @@ assets/models/
 | Left | 反時計回り（N→W→S→E→N） | +90° |
 | Right | 時計回り（N→E→S→W→N） | -90° |
 
-コンベア曲がり：
-- **CornerLeft**: 進行方向に対して左へ曲がる（入力が右から）
-- **CornerRight**: 進行方向に対して右へ曲がる（入力が左から）
+コンベア曲がり（アイテムの視点）：
+- **CornerLeft**: アイテムが**左**へ曲がる（モデル: corner_left.glb）
+- **CornerRight**: アイテムが**右**へ曲がる（モデル: corner_right.glb）
+
+重要: モデル名とシェイプ名は一致している必要がある
 
 ## コマンド
 
