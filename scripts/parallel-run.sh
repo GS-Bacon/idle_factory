@@ -260,6 +260,25 @@ finish_task() {
         cd "$PROJECT_ROOT"
     fi
 
+    # 重複コミット検出
+    cd "$worktree_path" 2>/dev/null || cd "$PROJECT_ROOT"
+    local last_commit_msg=$(git log -1 --format="%s" "$branch" 2>/dev/null)
+    cd "$PROJECT_ROOT"
+
+    if [[ -n "$last_commit_msg" ]]; then
+        local duplicate=$(git log master --oneline -20 --format="%s" | grep -F "$last_commit_msg" || true)
+        if [[ -n "$duplicate" ]]; then
+            log_warn "同名コミットを検出: '$last_commit_msg'"
+            log_warn "重複コミットの可能性があります。並列作業で同じ変更が行われた可能性があります。"
+            read -p "続行しますか？ [y/N] " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                log_info "中止しました"
+                exit 1
+            fi
+        fi
+    fi
+
     # masterにマージ
     log_info "master に '$branch' をマージ..."
     git checkout master
