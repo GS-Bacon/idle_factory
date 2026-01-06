@@ -39,11 +39,13 @@ pub mod delivery_platform_spec {
     pub const AUTO_DELIVER_ENABLED: bool = false;
 }
 
-/// Assembler Spec
+/// Assembler Spec (synced with machines.rs ASSEMBLER definition)
 #[allow(dead_code)]
 pub mod assembler_spec {
-    pub const OUTPUT_BUFFER_SIZE: u32 = 10;
-    pub const CRAFT_TIME_BASE: f32 = 2.0;
+    /// Output buffer size (matches ASSEMBLER.buffer_size)
+    pub const OUTPUT_BUFFER_SIZE: u32 = 32;
+    /// Base crafting time - actual time comes from recipe.craft_time
+    pub const CRAFT_TIME_BASE: f32 = 3.0;
 }
 
 /// Quest System Spec

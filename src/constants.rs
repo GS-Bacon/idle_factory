@@ -29,9 +29,9 @@ pub const MOUSE_SENSITIVITY: f32 = 0.002;
 pub const KEY_ROTATION_SPEED: f32 = 2.0;
 
 /// Machine timings (synced with game_spec/machines.rs)
+/// NOTE: Crusher now uses recipe.craft_time directly (Single Source of Truth)
 pub const SMELT_TIME: f32 = 2.0; // Furnace ore smelting time
 pub const SMELT_TIME_DUST: f32 = 1.5; // Furnace dust smelting time (faster, no fuel)
-pub const CRUSH_TIME: f32 = 1.5; // Crusher processing time
 pub const MINE_TIME: f32 = 1.5; // Miner mining interval
 pub const CONVEYOR_SPEED: f32 = 2.0; // Conveyor blocks/second
 

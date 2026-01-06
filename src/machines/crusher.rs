@@ -5,10 +5,11 @@ use crate::components::{
     CursorLockState, InteractingCrusher, InteractingFurnace, InventoryOpen, MachineSlotType,
     PlayerCamera,
 };
+use crate::game_spec::{find_recipe, MachineType};
 use crate::player::Inventory;
 use crate::systems::set_ui_open_state;
 use crate::utils::ray_aabb_intersection;
-use crate::{BlockType, Conveyor, Crusher, Furnace, BLOCK_SIZE, CRUSH_TIME, REACH_DISTANCE};
+use crate::{BlockType, Conveyor, Crusher, Furnace, BLOCK_SIZE, REACH_DISTANCE};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
@@ -26,11 +27,19 @@ pub fn crusher_processing(time: Res<Time>, mut crusher_query: Query<&mut Crusher
             continue;
         }
 
-        // Get recipe output (uses recipe system as Single Source of Truth)
-        let Some((output_dust, output_count)) = Crusher::get_crush_output(input_ore) else {
+        // Get recipe (Single Source of Truth for craft_time and outputs)
+        let Some(recipe) = find_recipe(MachineType::Crusher, input_ore) else {
             crusher.progress = 0.0;
             continue;
         };
+
+        // Get output from recipe
+        let Some(output) = recipe.outputs.first() else {
+            crusher.progress = 0.0;
+            continue;
+        };
+        let output_dust = output.item;
+        let output_count = output.count;
 
         // Check output slot compatibility (same dust type or empty, max 64)
         let output_compatible = match crusher.output_type {
@@ -39,7 +48,8 @@ pub fn crusher_processing(time: Res<Time>, mut crusher_query: Query<&mut Crusher
         };
 
         if output_compatible {
-            crusher.progress += time.delta_secs() / CRUSH_TIME;
+            // Use recipe's craft_time as Single Source of Truth
+            crusher.progress += time.delta_secs() / recipe.craft_time;
 
             // When progress reaches 1.0, complete crushing
             if crusher.progress >= 1.0 {

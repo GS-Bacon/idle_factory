@@ -5,8 +5,6 @@
 
 pub mod inventory;
 pub mod network;
-pub mod recipe;
 
 pub use inventory::*;
 pub use network::*;
-pub use recipe::*;

@@ -159,7 +159,13 @@ pub fn update_tutorial_ui(
     mut text_query: Query<&mut Text, With<TutorialStepText>>,
     mut progress_text_query: Query<
         (&mut Text, &mut Visibility),
-        (With<TutorialProgressText>, Without<TutorialStepText>),
+        (
+            With<TutorialProgressText>,
+            Without<TutorialStepText>,
+            Without<TutorialPanel>,
+            Without<crate::QuestUI>,
+            Without<TutorialProgressBarBg>,
+        ),
     >,
     mut progress_bar_bg_query: Query<
         &mut Visibility,
@@ -167,6 +173,7 @@ pub fn update_tutorial_ui(
             With<TutorialProgressBarBg>,
             Without<TutorialPanel>,
             Without<TutorialProgressText>,
+            Without<crate::QuestUI>,
         ),
     >,
     mut progress_bar_fill_query: Query<&mut Node, With<TutorialProgressBarFill>>,

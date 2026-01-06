@@ -50,7 +50,7 @@ impl Plugin for GamePlugin {
             .init_resource::<CursorLockState>()
             .init_resource::<CurrentQuest>()
             .init_resource::<crate::systems::quest::QuestCache>()
-            .init_resource::<ActiveSubQuests>()
+            // NOTE: ActiveSubQuests removed (dead code) - reimplement with sub-quest UI
             .init_resource::<GameFont>()
             .init_resource::<ChunkMeshTasks>()
             .init_resource::<CreativeMode>()

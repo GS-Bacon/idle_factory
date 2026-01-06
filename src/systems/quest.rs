@@ -20,14 +20,13 @@ pub struct QuestDef {
 #[derive(Resource)]
 pub struct QuestCache {
     pub main_quests: Vec<QuestDef>,
-    pub sub_quests: Vec<QuestDef>,
+    // NOTE: sub_quests removed (dead code) - reimplement with sub-quest UI
 }
 
 impl Default for QuestCache {
     fn default() -> Self {
         Self {
             main_quests: build_main_quests(),
-            sub_quests: build_sub_quests(),
         }
     }
 }
@@ -35,20 +34,6 @@ impl Default for QuestCache {
 /// Build main quests from game_spec (internal, called once)
 fn build_main_quests() -> Vec<QuestDef> {
     game_spec::MAIN_QUESTS
-        .iter()
-        .map(|spec| QuestDef {
-            id: spec.id,
-            description: spec.description,
-            required_items: spec.required_items.to_vec(),
-            rewards: spec.rewards.to_vec(),
-            unlocks: spec.unlocks.to_vec(),
-        })
-        .collect()
-}
-
-/// Build sub quests from game_spec (internal, called once)
-fn build_sub_quests() -> Vec<QuestDef> {
-    game_spec::SUB_QUESTS
         .iter()
         .map(|spec| QuestDef {
             id: spec.id,
@@ -75,26 +60,9 @@ pub fn get_main_quests() -> Vec<QuestDef> {
         .collect()
 }
 
-/// Get sub quests from game_spec
-pub fn get_sub_quests() -> Vec<QuestDef> {
-    game_spec::SUB_QUESTS
-        .iter()
-        .map(|spec| QuestDef {
-            id: spec.id,
-            description: spec.description,
-            required_items: spec.required_items.to_vec(),
-            rewards: spec.rewards.to_vec(),
-            unlocks: spec.unlocks.to_vec(),
-        })
-        .collect()
-}
-
-/// Legacy: backward compatibility
-#[allow(dead_code)]
-#[deprecated(note = "Use get_main_quests instead")]
-pub fn get_quests() -> Vec<QuestDef> {
-    get_main_quests()
-}
+// NOTE: get_sub_quests removed (dead code)
+// Sub-quest system defined in game_spec/mod.rs but not yet implemented
+// Reimplement when sub-quest UI and logic are added
 
 /// Check quest progress - quests are completed via deliver button, not automatic
 pub fn quest_progress_check(mut current_quest: ResMut<CurrentQuest>, quest_cache: Res<QuestCache>) {
