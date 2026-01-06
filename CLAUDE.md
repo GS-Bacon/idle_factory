@@ -9,6 +9,36 @@
 
 ※ユーザーが混同していそうな場合は確認すること
 
+## UIプレビュー
+
+UIデザインの確認・やり取りには `UIプレビュー/` フォルダを使用。
+
+### 使い方
+
+```bash
+# ゲーム起動してスクショ保存
+DISPLAY=:10 timeout 20 cargo run &
+sleep 15
+DISPLAY=:10 scrot "UIプレビュー/画面名.png"
+```
+
+### ルール
+
+| ルール | 詳細 |
+|--------|------|
+| 用途 | UIデザインの確認・フィードバック用 |
+| 保存先 | `UIプレビュー/` （gitignore済み） |
+| ファイル名 | 日本語OK（例: `インベントリ画面.png`） |
+| **削除タイミング** | **具体的な修正作業を開始したら削除** |
+
+### フロー
+
+1. UIデザイン案を提示
+2. スクショを撮って `UIプレビュー/` に保存
+3. ユーザーが確認・フィードバック
+4. 合意が取れたら修正開始
+5. **修正開始時に `UIプレビュー/` 内のスクショを削除**
+
 ## 互換性ポリシー
 
 - **既存プレイヤーはいない** → セーブデータ移行は不要
@@ -68,70 +98,18 @@
 
 ## タスク実行ルール（必須）
 
-**全てのタスクは git worktree + Task tool で並列実行する**
-
-### ⚠️ 容量チェック（必須）
-
-並列実行前に**必ず**容量チェックを行う:
+**全てのタスクは git worktree + Task tool で並列実行する**（詳細: `./scripts/parallel-run.sh --help`）
 
 ```bash
-# 実行予定のworktree数で容量チェック
-./scripts/parallel-run.sh check <数>
-
-# 例: 2タスク並列なら
-./scripts/parallel-run.sh check 2
+./scripts/parallel-run.sh check 2   # 容量チェック（必須）
+./scripts/parallel-run.sh start task-a && ./scripts/parallel-run.sh start task-b
+# Task tool で並列作業
+./scripts/parallel-run.sh finish task-a && ./scripts/parallel-run.sh finish task-b
 ```
 
-- **容量不足**の場合: `./scripts/parallel-run.sh cleanup` で放置worktreeを削除
-- **start時も自動チェック**: 容量不足なら開始を拒否
+**禁止**: 直列実行、masterで直接作業、worktree放置
 
-### ワークフロー
-
-```bash
-# 0. 容量チェック（必須）
-./scripts/parallel-run.sh check <並列数>
-
-# 1. タスクを parallel-tasks.json に登録
-./scripts/parallel-run.sh add
-
-# 2. 並列実行可能なタスクを確認
-./scripts/parallel-run.sh list
-
-# 3. 複数タスクを同時に start（worktree作成）
-./scripts/parallel-run.sh start task-a
-./scripts/parallel-run.sh start task-b
-
-# 4. Task tool で並列に作業（サブエージェント）
-# ※ 必ず複数の Task tool を同時に呼び出す
-
-# 5. 各worktreeで作業完了後、finish（masterにマージ）
-./scripts/parallel-run.sh finish task-a
-./scripts/parallel-run.sh finish task-b
-```
-
-### 並列実行の原則
-
-| 条件 | 判断 |
-|------|------|
-| 異なるファイル | **並列可** |
-| 同じファイル | **並列可**（worktreeは独立、マージ時に解決） |
-| 依存関係あり | 順次実行 |
-
-### 禁止事項
-
-- タスクを1つずつ順番に実行（並列可能なのに直列でやる）
-- worktreeを使わずにmasterで直接作業
-- Task toolを1つずつ呼び出す（並列呼び出しすること）
-- **worktreeの放置**（finish後は即削除される。セッション終了前に必ずfinish or abort）
-- 容量チェックなしでの並列実行開始
-
-### マージコンフリクト時
-
-```bash
-git checkout --theirs Cargo.lock Cargo.toml
-git add Cargo.lock Cargo.toml
-git commit -m "Merge branch 'xxx'"
-```
+**コンフリクト時**: `git checkout --theirs Cargo.lock Cargo.toml && git add . && git commit`
 
 ## バグ修正ルール
 
@@ -169,229 +147,25 @@ git commit -m "Merge branch 'xxx'"
 ユーザー: 修正 → プッシュ → AI: プル → 作業 → プッシュ → ユーザー: 確認
 ```
 
-## Gemini連携
+## ツール
 
-**使用条件**: Gemini 3/2.5モデルの時のみ使用（トークン制限でモデル切り替わったら使わない）
+| ツール | 用途 | ヘルプ |
+|--------|------|--------|
+| `gemini <cmd>` | Gemini連携（アーキ設計、レビュー、数学検証） | `gemini --help` |
+| `./scripts/vlm_check.sh` | VLMビジュアルチェック | `scripts/vlm_check/README.md` |
+| `./scripts/parallel-run.sh` | 並列タスク実行 | `--help` |
 
-### Claude vs Gemini 使い分け
-
-| 観点 | Claude | Gemini |
-|------|--------|--------|
-| **強み** | コード詳細分析、安全性、リファクタリング | 俯瞰的アーキテクチャ、ツール評価 |
-| **視点** | 「進捗」を評価 | 「現状の課題」を厳しく指摘 |
-| **具体性** | 行番号付きの具体的指摘 | 理想形のコード例を提示 |
-| **速度** | 即座に回答 | ファイル読み込みに時間がかかる |
-
-### タスク別の使い分け
-
-| タスク | 使うAI | 理由 |
-|--------|--------|------|
-| 新機能のアーキテクチャ設計 | **Gemini** | 俯瞰的な設計が得意 |
-| 実装コード | **Claude** | 詳細なコーディング |
-| コードレビュー | **両方** | 比較して精度向上 |
-| バグ修正 | **Claude** | ログ・詳細分析 |
-| リファクタリング計画 | **Gemini** | 全体像の把握 |
-| リファクタリング実行 | **Claude** | コード変更 |
-
-### Geminiが得意なこと
-
-| 用途 | 例 |
-|------|-----|
-| アーキテクチャ設計 | Plugin構成、モジュール分割の提案 |
-| ベストプラクティス | Bevy公式パターンとの比較 |
-| 俯瞰レビュー | 12,000行全体の構造評価 |
-| CI/CDツール評価 | スクリプト、自動化の評価 |
-| 空間・ベクトル計算の検証 | 回転行列、座標変換、方向計算 |
-| 数学的な正しさの確認 | 三角関数、線形代数 |
-
-### Claudeが得意なこと
-
-| 用途 | 例 |
-|------|-----|
-| unwrap()安全化 | パターンマッチングの提案 |
-| リファクタリング差分 | 変更前後の比較 |
-| バグ特定 | ログやスタックトレースからの推論 |
-| コードの細部 | 命名、型、エラーハンドリング |
-
-### 使い方
-
-```bash
-# コードレビュー
-gemini review src/conveyor.rs
-
-# アーキテクチャ評価（デフォルト: src/*.rs）
-gemini arch
-
-# 数学・座標計算の検証
-gemini math "Vec3::NEG_Z を Y軸で90度回転させると？"
-
-# バグ分析
-gemini bug "コンベアが逆方向に動く" src/conveyor.rs
-
-# git diffをレビュー
-gemini diff
-
-# 自由質問（従来通り）
-gemini ask "質問" src/main.rs
-```
-
-### コマンド一覧
-
-| コマンド | 用途 | 例 |
-|----------|------|-----|
-| `review` | コードレビュー | `gemini review src/*.rs` |
-| `arch` | アーキテクチャ評価 | `gemini arch` |
-| `math` | 数学・座標計算 | `gemini math "回転行列"` |
-| `bug` | バグ分析 | `gemini bug "症状" file.rs` |
-| `diff` | git diffレビュー | `gemini diff` |
-| `ask` | 自由質問 | `gemini ask "質問" files...` |
-
-### セットアップ
-
-```bash
-# PATHに追加（オプション）
-ln -sf /home/bacon/idle_factory/scripts/gemini ~/.local/bin/gemini
-```
-
-### 連携パターン
-
-| パターン | 手順 |
-|----------|------|
-| **設計レビュー** | Gemini→設計案→Claude→実装 |
-| **バグ修正** | Claude→修正→Gemini→妥当性確認 |
-| **リファクタリング** | Gemini→計画→Claude→実行→Gemini→レビュー |
-| **数学計算** | Claude→コード→Gemini→計算検証 |
-
-### ベストプラクティス
-
-1. **大きな設計変更前**: Geminiに俯瞰レビューを依頼
-2. **バグが取れない時**: Geminiにセカンドオピニオン
-3. **座標・回転計算**: Geminiで数学的正しさを確認
-
-### 注意点
-
-- ファイル読み込みには30-60秒かかることがある
-- 大きなファイル（1000行超）は自動でタイムアウト延長（+60秒）
-- タイムアウト時は自動リトライ（最大2回、リトライ毎に+60秒）
-- デフォルトタイムアウト: 180秒（`GEMINI_TIMEOUT`で変更可）
-- リトライ回数: 2回（`GEMINI_RETRIES`で変更可）
-
-## VLMビジュアルチェック
-
-Claude Vision APIでスクリーンショットの視覚バグを検出。
-
-### 使い方
-
-```bash
-# クイックチェック（起動→スクショ→解析）
-./scripts/vlm_check.sh --quick
-
-# 詳細チェック
-./scripts/vlm_check.sh --thorough screenshot.png
-
-# コンベア専用チェック
-./scripts/vlm_check.sh --conveyor
-
-# リリース前フルスイート
-./scripts/vlm_check.sh --full-suite
-```
-
-### 推奨タイミング
-
-| タイミング | コマンド |
-|-----------|---------|
-| テクスチャ/モデル変更後 | `--thorough` |
-| コンベアロジック変更後 | `--conveyor` |
-| UI変更後 | `--ui` |
-| チャンク/地形変更後 | `--chunk` |
-| **リリース前（必須）** | `--full-suite` |
-
-### E2Eテストとの違い
-
-| 観点 | E2Eテスト | VLMチェック |
-|------|----------|-------------|
-| 検証対象 | データ・ロジック | 視覚的表示 |
-| テクスチャ抜け | ❌ | ✅ |
-| モデル不良 | ❌ | ✅ |
-| アイテム移動 | ✅ | ❌ |
-| 速度 | 0.02秒 | 5-30秒 |
-| コスト | 無料 | API課金 |
-
-詳細: `scripts/vlm_check/README.md`
-
-## 並列タスク実行
-
-git worktreeを使って複数タスクを並列実行。
-
-### 使い方
-
-```bash
-# タスク一覧
-./scripts/parallel-run.sh list
-
-# タスク開始（worktree作成）
-./scripts/parallel-run.sh start <task-id>
-
-# 実行中タスクの状態
-./scripts/parallel-run.sh status
-
-# タスク完了（masterにマージ）
-./scripts/parallel-run.sh finish <task-id>
-
-# タスク中止
-./scripts/parallel-run.sh abort <task-id>
-
-# 新規タスク追加（対話式）
-./scripts/parallel-run.sh add
-```
-
-### 並列グループ
-
-| グループ | 説明 | 最大同時 |
-|----------|------|----------|
-| ui | UIコンポーネント | 2 |
-| logistics | 物流システム（conveyor等） | 1 |
-| machines | 機械システム | 2 |
-| core | コアシステム（単独推奨） | 1 |
-
-### 衝突検知
-
-- 同じファイルパターンを触るタスクは警告
-- 依存タスクが未完了なら開始不可
-
-### タスク定義
-
-`.claude/parallel-tasks.json` に定義：
-
-```json
-{
-  "id": "fix-ui-bug",
-  "name": "UIバグ修正",
-  "parallel_group": "ui",
-  "depends_on": [],
-  "branch": "fix/ui-bug",
-  "files": ["src/ui/*.rs"],
-  "status": "pending"
-}
-```
+※Gemini使用条件: Gemini 3/2.5モデルの時のみ（トークン制限でモデル切り替わったら使わない）
 
 ## 参照ドキュメント
 
 | ファイル | 内容 |
 |----------|------|
 | `.claude/implementation-plan.md` | **統合実装計画（タスク一覧）** |
-| `.claude/architecture.md` | モジュール構成、依存関係、分割ルール |
-| `.claude/coding-rules.md` | コーディング規約、命名規則 |
-| `.claude/bugs.md` | よくあるバグと対策、チェックリスト |
-| `.claude/build.md` | ビルド最適化、プロファイル設定 |
+| `.claude/architecture.md` | モジュール構成、依存関係 |
+| `.claude/bugs.md` | よくあるバグと対策 |
 | `.specify/memory/input-rules.md` | 入力マトリクス |
 | `.specify/memory/modeling-rules.md` | 3Dモデル作成ルール |
-| `scripts/gemini` | Gemini連携（メイン） |
-| `scripts/ask_gemini.sh` | Gemini自由質問（低レベル） |
-| `scripts/vlm_check.sh` | VLMビジュアルチェック |
-| `scripts/vlm_check/README.md` | VLMチェック詳細ドキュメント |
-| `scripts/parallel-run.sh` | 並列タスク実行管理 |
-| `.claude/parallel-tasks.json` | 並列タスク定義 |
 
 ## 修正済みバグ
 
