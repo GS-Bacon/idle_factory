@@ -1,5 +1,63 @@
 # 作業ログ
 
+## 2026-01-06: パフォーマンス最適化・設定システム実装
+
+### 完了タスク
+
+#### 1. ChunkData HashMap削除 (v0.3.40)
+- **変更**: `blocks_map: HashMap<IVec3, BlockType>`を削除
+- **効果**: メモリ使用量の削減（HashMapオーバーヘッド分）
+- **影響ファイル**:
+  - `src/world/mod.rs`: ChunkData構造体、generate()、get_block()、set_block()、remove_block()
+  - `src/systems/chunk.rs`: generate_chunk_sync()、receive_chunk_meshes()
+  - `src/systems/block_operations/breaking.rs`: .copied()呼び出し削除
+- **API変更**: `WorldData::get_block()` の戻り値: `Option<&BlockType>` → `Option<BlockType>`
+
+#### 2. Greedy meshing実装 (v0.3.41)
+- **変更**: チャンクメッシュ生成にGreedy meshingアルゴリズムを導入
+- **効果**: 同じブロックタイプの隣接面を大きなクワッドに結合し、頂点数を大幅削減
+- **技術詳細**:
+  - 各面方向（±X, ±Y, ±Z）ごとにスライスを処理
+  - 2Dマスクを作成し、可視面を記録
+  - 同じブロックタイプの隣接セルを貪欲に結合
+  - 正しいCCWワインディング順序で頂点を生成（各面方向に対応した外積計算）
+- **影響ファイル**: `src/world/mod.rs`
+
+#### 3. GameSettings基盤実装 (v0.3.42)
+- **新規**: ユーザー設定の管理・永続化システム
+- **設定項目**:
+  | 設定 | 範囲 | デフォルト |
+  |------|------|------------|
+  | mouse_sensitivity | 0.0001-0.01 | 0.002 |
+  | view_distance | 1-8 | 3 |
+  | master_volume | 0.0-1.0 | 1.0 |
+  | sfx_volume | 0.0-1.0 | 1.0 |
+  | music_volume | 0.0-1.0 | 0.5 |
+  | shadows_enabled | bool | true |
+  | vsync_enabled | bool | true |
+  | fullscreen | bool | false |
+  | fov | 45-120 | 70.0 |
+  | invert_y | bool | false |
+- **機能**:
+  - JSON形式での設定ファイル保存/読み込み
+  - 開発環境: プロジェクトルートに保存
+  - リリース環境: OSのconfig_dirに保存（dirs crate使用）
+  - 自動保存（変更から1秒後にデバウンス）
+  - 設定値のバリデーション
+- **新規ファイル**: `src/settings.rs`
+- **依存追加**: `dirs = "5.0"`
+
+### 現在の状態
+
+| 項目 | 値 |
+|------|-----|
+| バージョン | 0.3.42 |
+| コード行数 | 約23,000行 |
+| テスト | **131件** 通過 |
+| Clippy警告 | **0件** |
+
+---
+
 ## 2026-01-06: バイブコーディング実験の方針整理
 
 ### 議論の要約
