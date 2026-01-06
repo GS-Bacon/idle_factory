@@ -9,10 +9,9 @@
 use crate::components::*;
 use crate::events::SpawnMachineEvent;
 use crate::player::Inventory;
-use crate::systems::inventory_ui::set_ui_open_state;
+use crate::systems::cursor;
 use crate::{GlobalInventoryOpen, InteractingMiner};
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
 
 use super::executor::execute_command;
 use super::{
@@ -82,9 +81,7 @@ pub fn command_input_toggle(
 
         // Unlock cursor
         if let Ok(mut window) = windows.get_single_mut() {
-            window.cursor_options.grab_mode = CursorGrabMode::None;
-            window.cursor_options.visible = true;
-            set_ui_open_state(true);
+            cursor::unlock_cursor(&mut window);
         }
     }
 }
@@ -125,9 +122,7 @@ pub fn command_input_handler(
 
         // Lock cursor
         if let Ok(mut window) = windows.get_single_mut() {
-            window.cursor_options.grab_mode = CursorGrabMode::Locked;
-            window.cursor_options.visible = false;
-            set_ui_open_state(false);
+            cursor::lock_cursor(&mut window);
         }
         return;
     }
@@ -156,9 +151,7 @@ pub fn command_input_handler(
 
         // Lock cursor
         if let Ok(mut window) = windows.get_single_mut() {
-            window.cursor_options.grab_mode = CursorGrabMode::Locked;
-            window.cursor_options.visible = false;
-            set_ui_open_state(false);
+            cursor::lock_cursor(&mut window);
         }
 
         // Execute command

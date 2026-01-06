@@ -6,11 +6,10 @@
 //! - Interaction availability checks
 
 use crate::components::{CommandInputState, CursorLockState, InventoryOpen, PlayerCamera};
-use crate::systems::set_ui_open_state;
+use crate::systems::cursor;
 use crate::utils::ray_aabb_intersection;
 use crate::BLOCK_SIZE;
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
 
 /// Result of a raycast to find the closest machine
 pub struct RaycastResult {
@@ -84,16 +83,13 @@ pub fn close_machine_ui<T: Component>(
 
     let mut window = windows.single_mut();
     if esc_pressed {
-        // ESC: Release pointer lock and show cursor
-        window.cursor_options.grab_mode = CursorGrabMode::None;
-        window.cursor_options.visible = true;
+        // ESC: Release pointer lock and show cursor (menu-like state)
+        cursor::release_cursor(&mut window);
     } else {
         // E key: Lock cursor and hide it, prevent inventory toggle
         cursor_state.skip_inventory_toggle = true;
-        window.cursor_options.grab_mode = CursorGrabMode::Locked;
-        window.cursor_options.visible = false;
+        cursor::lock_cursor(&mut window);
     }
-    set_ui_open_state(false);
 }
 
 /// Open machine UI and handle cursor state
@@ -110,15 +106,13 @@ pub fn open_machine_ui<T: Component>(
 
     // Unlock cursor for UI interaction
     let mut window = windows.single_mut();
-    window.cursor_options.grab_mode = CursorGrabMode::None;
-    window.cursor_options.visible = true;
-    set_ui_open_state(true);
+    cursor::unlock_cursor(&mut window);
 }
 
 /// Check if cursor is currently locked (game mode)
 pub fn is_cursor_locked(windows: &Query<&mut Window>) -> bool {
     let window = windows.single();
-    window.cursor_options.grab_mode != CursorGrabMode::None
+    cursor::is_locked(window)
 }
 
 /// Check if E or ESC was just pressed

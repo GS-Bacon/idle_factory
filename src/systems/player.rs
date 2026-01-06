@@ -5,6 +5,7 @@ use crate::components::{
     InteractingCrusher, InteractingFurnace, InventoryOpen, PauseUI, Player, PlayerCamera,
     PlayerPhysics, TutorialPopup, TutorialShown,
 };
+use crate::systems::cursor;
 use crate::world::WorldData;
 use crate::{
     CreativeMode, GRAVITY, JUMP_VELOCITY, KEY_ROTATION_SPEED, MOUSE_SENSITIVITY, PLAYER_HEIGHT,
@@ -12,7 +13,6 @@ use crate::{
 };
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
 use tracing::info;
 
 /// Toggle cursor lock with Escape key
@@ -33,27 +33,21 @@ pub fn toggle_cursor_lock(
 
     // Escape to unlock cursor (but not if a UI is open - that UI handles ESC itself)
     if key_input.just_pressed(KeyCode::Escape) && !any_ui_open {
-        window.cursor_options.grab_mode = CursorGrabMode::None;
-        window.cursor_options.visible = true;
+        cursor::release_cursor(&mut window);
         cursor_state.paused = true;
     }
 
     // Click to lock cursor (when not locked or paused, and no UI open)
     // Also handle case where cursor may have been released
-    let cursor_not_locked = window.cursor_options.grab_mode == CursorGrabMode::None;
-
     if mouse_button.just_pressed(MouseButton::Left)
-        && (cursor_not_locked || cursor_state.paused)
+        && (cursor::is_unlocked(&window) || cursor_state.paused)
         && !any_ui_open
     {
         // Use Locked mode - it properly captures relative mouse motion
         // Confined mode causes issues where mouse hits window edge and spins
-        window.cursor_options.grab_mode = CursorGrabMode::Locked;
-        window.cursor_options.visible = false;
+        cursor::lock_cursor(&mut window);
         // Mark that we just locked - skip next block break to avoid accidental destruction
-        if mouse_button.just_pressed(MouseButton::Left) {
-            cursor_state.just_locked = true;
-        }
+        cursor_state.just_locked = true;
         cursor_state.paused = false;
     }
 }
@@ -89,7 +83,7 @@ pub fn player_look(
     }
 
     let window = windows.single();
-    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    let cursor_locked = cursor::is_locked(window);
 
     // Get camera component
     let Ok((mut camera_transform, mut camera)) = camera_query.get_single_mut() else {
@@ -193,8 +187,7 @@ pub fn tutorial_dismiss(
 
         // Lock cursor for gameplay
         if let Ok(mut window) = windows.get_single_mut() {
-            window.cursor_options.grab_mode = CursorGrabMode::Locked;
-            window.cursor_options.visible = false;
+            cursor::lock_cursor(&mut window);
         }
 
         info!("[TUTORIAL] Dismissed, starting gameplay");

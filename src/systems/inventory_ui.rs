@@ -5,10 +5,10 @@ use crate::player::Inventory;
 use crate::setup::ui::{
     SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
 };
+use crate::systems::cursor;
 use crate::{BlockType, HOTBAR_SLOTS, MAX_STACK_SIZE, NUM_SLOTS};
 use bevy::color::Srgba;
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
 use tracing::{info, warn};
 
 /// Set the UI open state (no-op, kept for API compatibility)
@@ -141,13 +141,9 @@ pub fn inventory_toggle(
         // Unlock/lock cursor
         if let Ok(mut window) = windows.get_single_mut() {
             if inventory_open.0 {
-                window.cursor_options.grab_mode = CursorGrabMode::None;
-                window.cursor_options.visible = true;
-                set_ui_open_state(true);
+                cursor::unlock_cursor(&mut window);
             } else {
-                window.cursor_options.grab_mode = CursorGrabMode::Locked;
-                window.cursor_options.visible = false;
-                set_ui_open_state(false);
+                cursor::lock_cursor(&mut window);
             }
         }
     }
@@ -176,9 +172,7 @@ pub fn inventory_toggle(
 
         // Re-lock cursor after closing inventory (keep playing, don't pause)
         if let Ok(mut window) = windows.get_single_mut() {
-            window.cursor_options.grab_mode = CursorGrabMode::Locked;
-            window.cursor_options.visible = false;
-            set_ui_open_state(false);
+            cursor::lock_cursor(&mut window);
         }
         // Ensure we don't get paused by toggle_cursor_lock running after this
         cursor_state.paused = false;

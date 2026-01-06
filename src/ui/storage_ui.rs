@@ -6,7 +6,6 @@
 //! - Page navigation buttons
 
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
 
 use crate::components::{
     CommandInputState, CursorLockState, GlobalInventoryCategory, GlobalInventoryCategoryTab,
@@ -17,7 +16,7 @@ use crate::components::{
 };
 use crate::constants::ui_colors;
 use crate::player::GlobalInventory;
-use crate::systems::set_ui_open_state;
+use crate::systems::cursor;
 
 /// Slots per page (8 columns x 4 rows)
 pub const SLOTS_PER_PAGE: usize = 32;
@@ -68,27 +67,21 @@ pub fn global_inventory_toggle(
         // Handle cursor lock
         if let Ok(mut window) = windows.get_single_mut() {
             if global_inv_open.0 {
-                window.cursor_options.grab_mode = CursorGrabMode::None;
-                window.cursor_options.visible = true;
-                set_ui_open_state(true);
+                cursor::unlock_cursor(&mut window);
             } else {
-                window.cursor_options.grab_mode = CursorGrabMode::Locked;
-                window.cursor_options.visible = false;
-                set_ui_open_state(false);
+                cursor::lock_cursor(&mut window);
             }
         }
     }
 
-    // ESC to close
+    // ESC to close (release cursor but don't lock - allows pause menu)
     if global_inv_open.0 && key_input.just_pressed(KeyCode::Escape) {
         global_inv_open.0 = false;
         for mut vis in ui_query.iter_mut() {
             *vis = Visibility::Hidden;
         }
         if let Ok(mut window) = windows.get_single_mut() {
-            window.cursor_options.grab_mode = CursorGrabMode::None;
-            window.cursor_options.visible = true;
-            set_ui_open_state(false);
+            cursor::release_cursor(&mut window);
         }
     }
 }
