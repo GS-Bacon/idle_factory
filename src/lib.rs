@@ -18,6 +18,7 @@ pub mod player;
 pub mod plugins;
 pub mod rng;
 pub mod save;
+pub mod settings;
 pub mod setup;
 pub mod systems;
 pub mod ui;
