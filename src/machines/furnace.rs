@@ -284,10 +284,16 @@ pub fn update_furnace_ui(
 }
 
 /// Furnace output to conveyor in facing direction only
+///
+/// Note: Furnace outputs ingots which typically go to conveyors.
+/// Machine-to-machine transfer is supported but ingots are rarely
+/// fed directly to other machines.
 pub fn furnace_output(
     mut furnace_query: Query<&mut Furnace>,
     mut conveyor_query: Query<&mut Conveyor>,
 ) {
+    use super::output::try_transfer_to_conveyor;
+
     for mut furnace in furnace_query.iter_mut() {
         let Some(output_type) = furnace.output_type else {
             continue;
@@ -300,18 +306,18 @@ pub fn furnace_output(
         // Output only in facing direction (front of machine)
         let output_pos = furnace.position + furnace.facing.to_ivec3();
 
-        for mut conveyor in conveyor_query.iter_mut() {
-            if conveyor.position == output_pos {
-                if let Some(progress) = conveyor.get_join_progress(furnace.position) {
-                    if conveyor.can_accept_item(progress) {
-                        conveyor.add_item(output_type, progress);
-                        furnace.output_count -= 1;
-                        if furnace.output_count == 0 {
-                            furnace.output_type = None;
-                        }
-                        break;
-                    }
-                }
+        // Use common transfer logic (conveyor only for furnace)
+        let transferred = try_transfer_to_conveyor(
+            furnace.position,
+            output_pos,
+            output_type,
+            &mut conveyor_query,
+        );
+
+        if transferred {
+            furnace.output_count -= 1;
+            if furnace.output_count == 0 {
+                furnace.output_type = None;
             }
         }
     }

@@ -284,6 +284,8 @@ pub fn miner_output(
     mut furnace_query: Query<&mut Furnace>,
     mut crusher_query: Query<&mut Crusher>,
 ) {
+    use super::output::transfer_output;
+
     for mut miner in miner_query.iter_mut() {
         let Some((block_type, count)) = miner.buffer else {
             continue;
@@ -292,57 +294,15 @@ pub fn miner_output(
             continue;
         }
 
-        // Output only in facing direction (front of machine)
-        let output_pos = miner.position + miner.facing.to_ivec3();
-        let mut transferred = false;
-
-        // Try conveyor first
-        for mut conveyor in conveyor_query.iter_mut() {
-            if conveyor.position == output_pos {
-                if let Some(progress) = conveyor.get_join_progress(miner.position) {
-                    if conveyor.can_accept_item(progress) {
-                        conveyor.add_item(block_type, progress);
-                        transferred = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Try direct furnace connection (machine-to-machine)
-        if !transferred {
-            for mut furnace in furnace_query.iter_mut() {
-                // Check if furnace is at output position AND accepts input from back
-                let furnace_back = furnace.position - furnace.facing.to_ivec3();
-                if furnace.position == output_pos
-                    && furnace_back == miner.position
-                    && furnace.can_add_input(block_type)
-                {
-                    furnace.input_type = Some(block_type);
-                    furnace.input_count += 1;
-                    transferred = true;
-                    break;
-                }
-            }
-        }
-
-        // Try direct crusher connection (machine-to-machine)
-        if !transferred {
-            for mut crusher in crusher_query.iter_mut() {
-                let crusher_back = crusher.position - crusher.facing.to_ivec3();
-                if crusher.position == output_pos
-                    && crusher_back == miner.position
-                    && Crusher::can_crush(block_type)
-                    && (crusher.input_type.is_none() || crusher.input_type == Some(block_type))
-                    && crusher.input_count < 64
-                {
-                    crusher.input_type = Some(block_type);
-                    crusher.input_count += 1;
-                    transferred = true;
-                    break;
-                }
-            }
-        }
+        // Use common transfer logic
+        let transferred = transfer_output(
+            miner.position,
+            miner.facing,
+            block_type,
+            &mut conveyor_query,
+            &mut furnace_query,
+            &mut crusher_query,
+        );
 
         // Update miner buffer if transferred
         if transferred {

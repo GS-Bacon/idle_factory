@@ -262,6 +262,8 @@ pub fn crusher_output(
     mut conveyor_query: Query<&mut Conveyor>,
     mut furnace_query: Query<&mut Furnace>,
 ) {
+    use super::output::{try_transfer_to_conveyor, try_transfer_to_furnace};
+
     for mut crusher in crusher_query.iter_mut() {
         let Some(output_type) = crusher.output_type else {
             continue;
@@ -273,36 +275,20 @@ pub fn crusher_output(
 
         // Output only in facing direction (front of machine)
         let output_pos = crusher.position + crusher.facing.to_ivec3();
-        let mut transferred = false;
 
-        // Try conveyor first
-        for mut conveyor in conveyor_query.iter_mut() {
-            if conveyor.position == output_pos {
-                if let Some(progress) = conveyor.get_join_progress(crusher.position) {
-                    if conveyor.can_accept_item(progress) {
-                        conveyor.add_item(output_type, progress);
-                        transferred = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Try direct furnace connection (machine-to-machine)
-        if !transferred {
-            for mut furnace in furnace_query.iter_mut() {
-                let furnace_back = furnace.position - furnace.facing.to_ivec3();
-                if furnace.position == output_pos
-                    && furnace_back == crusher.position
-                    && furnace.can_add_input(output_type)
-                {
-                    furnace.input_type = Some(output_type);
-                    furnace.input_count += 1;
-                    transferred = true;
-                    break;
-                }
-            }
-        }
+        // Use common transfer logic
+        // Priority: Conveyor > Furnace (dust goes to furnace for smelting)
+        let transferred = try_transfer_to_conveyor(
+            crusher.position,
+            output_pos,
+            output_type,
+            &mut conveyor_query,
+        ) || try_transfer_to_furnace(
+            crusher.position,
+            output_pos,
+            output_type,
+            &mut furnace_query,
+        );
 
         // Update crusher output if transferred
         if transferred {
