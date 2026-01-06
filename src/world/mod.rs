@@ -275,166 +275,264 @@ impl ChunkData {
             .is_some()
     }
 
-    /// Generate a combined mesh for the entire chunk with face culling
+    /// Generate a combined mesh for the entire chunk with face culling using greedy meshing
     /// neighbor_checker: function to check if a block exists at world position (for cross-chunk checks)
     pub fn generate_mesh_with_neighbors<F>(&self, chunk_coord: IVec2, neighbor_checker: F) -> Mesh
     where
         F: Fn(IVec3) -> bool,
     {
-        // Pre-allocate with estimated capacity (reduces reallocations)
-        let estimated_faces = (CHUNK_SIZE * CHUNK_SIZE * 2) as usize; // roughly top + sides
+        // Pre-allocate with estimated capacity (greedy meshing produces fewer quads)
+        let estimated_faces = (CHUNK_SIZE * CHUNK_SIZE) as usize;
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(estimated_faces * 4);
         let mut colors: Vec<[f32; 4]> = Vec::with_capacity(estimated_faces * 4);
         let mut indices: Vec<u32> = Vec::with_capacity(estimated_faces * 6);
 
-        // Face definitions: (dx, dy, dz, vertices offsets)
-        // Vertices ordered so that cross(v1-v0, v2-v0) points in normal direction
-        // Triangle indices: 0,1,2 and 0,2,3
-        let faces: [(i32, i32, i32, [[f32; 3]; 4]); 6] = [
-            // +Y (top): normal = (0,1,0)
-            (
-                0,
-                1,
-                0,
-                [
-                    [0.0, 1.0, 1.0],
-                    [1.0, 1.0, 1.0],
-                    [1.0, 1.0, 0.0],
-                    [0.0, 1.0, 0.0],
-                ],
-            ),
-            // -Y (bottom): normal = (0,-1,0)
-            (
-                0,
-                -1,
-                0,
-                [
-                    [0.0, 0.0, 0.0],
-                    [1.0, 0.0, 0.0],
-                    [1.0, 0.0, 1.0],
-                    [0.0, 0.0, 1.0],
-                ],
-            ),
-            // +X (east): normal = (1,0,0) - reversed order
-            (
-                1,
-                0,
-                0,
-                [
-                    [1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0],
-                    [1.0, 0.0, 1.0],
-                    [1.0, 0.0, 0.0],
-                ],
-            ),
-            // -X (west): normal = (-1,0,0) - reversed order
-            (
-                -1,
-                0,
-                0,
-                [
-                    [0.0, 1.0, 1.0],
-                    [0.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0],
-                ],
-            ),
-            // +Z (south): normal = (0,0,1) - reversed order
-            (
-                0,
-                0,
-                1,
-                [
-                    [1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0],
-                    [0.0, 0.0, 1.0],
-                    [1.0, 0.0, 1.0],
-                ],
-            ),
-            // -Z (north): normal = (0,0,-1) - reversed order
-            (
-                0,
-                0,
-                -1,
-                [
-                    [0.0, 1.0, 0.0],
-                    [1.0, 1.0, 0.0],
-                    [1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0],
-                ],
-            ),
-        ];
-
         // Cache chunk world offset
         let chunk_world_x = (chunk_coord.x * CHUNK_SIZE) as f32;
         let chunk_world_z = (chunk_coord.y * CHUNK_SIZE) as f32;
 
-        // Iterate in Y-Z-X order for better cache locality
-        for y in 0..CHUNK_HEIGHT {
-            for z in 0..CHUNK_SIZE {
-                for x in 0..CHUNK_SIZE {
-                    let block_type = match self.get_block(x, y, z) {
-                        Some(bt) => bt,
-                        None => continue,
-                    };
+        // Helper to check if neighbor exists
+        let has_neighbor = |x: i32, y: i32, z: i32, dx: i32, dy: i32, dz: i32| -> bool {
+            let nx = x + dx;
+            let ny = y + dy;
+            let nz = z + dz;
+            if (0..CHUNK_SIZE).contains(&nx)
+                && (0..CHUNK_HEIGHT).contains(&ny)
+                && (0..CHUNK_SIZE).contains(&nz)
+            {
+                self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
+            } else if !(0..CHUNK_HEIGHT).contains(&ny) {
+                false
+            } else {
+                let world_pos = IVec3::new(
+                    chunk_coord.x * CHUNK_SIZE + nx,
+                    ny,
+                    chunk_coord.y * CHUNK_SIZE + nz,
+                );
+                neighbor_checker(world_pos)
+            }
+        };
 
-                    let base_x = chunk_world_x + x as f32;
-                    let base_y = y as f32;
-                    let base_z = chunk_world_z + z as f32;
+        // Face data: (axis, positive, axis1_size, axis2_size)
+        // axis: 0=X, 1=Y, 2=Z
+        // positive: true for +X/+Y/+Z, false for -X/-Y/-Z
+        let face_configs: [(usize, bool); 6] = [
+            (1, true),  // +Y (top)
+            (1, false), // -Y (bottom)
+            (0, true),  // +X (east)
+            (0, false), // -X (west)
+            (2, true),  // +Z (south)
+            (2, false), // -Z (north)
+        ];
 
-                    let color = block_type.color();
-                    let color_arr = [
-                        color.to_srgba().red,
-                        color.to_srgba().green,
-                        color.to_srgba().blue,
-                        1.0,
-                    ];
+        // Get axis sizes
+        let axis_sizes = [CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE];
 
-                    for (dx, dy, dz, verts) in &faces {
-                        // Fast neighbor check using array
-                        let nx = x + dx;
-                        let ny = y + dy;
-                        let nz = z + dz;
+        for (axis, positive) in face_configs {
+            let (axis1, axis2) = match axis {
+                0 => (1, 2), // X: slice along Y-Z
+                1 => (0, 2), // Y: slice along X-Z
+                2 => (0, 1), // Z: slice along X-Y
+                _ => unreachable!(),
+            };
 
-                        // Check if neighbor exists
-                        let neighbor_exists = if (0..CHUNK_SIZE).contains(&nx)
-                            && (0..CHUNK_HEIGHT).contains(&ny)
-                            && (0..CHUNK_SIZE).contains(&nz)
-                        {
-                            // Within this chunk - use fast array access
-                            self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
-                        } else if !(0..CHUNK_HEIGHT).contains(&ny) {
-                            // Above or below world bounds - no block
-                            false
-                        } else {
-                            // Cross-chunk boundary - use neighbor checker
-                            let world_pos = IVec3::new(
-                                chunk_coord.x * CHUNK_SIZE + nx,
-                                ny,
-                                chunk_coord.y * CHUNK_SIZE + nz,
-                            );
-                            neighbor_checker(world_pos)
+            let d = if positive { 1 } else { -1 };
+
+            // Iterate through slices perpendicular to axis
+            for slice in 0..axis_sizes[axis] {
+                // Create mask for this slice
+                // mask[u][v] = Some(BlockType) if face is visible
+                let mut mask: Vec<Vec<Option<BlockType>>> =
+                    vec![vec![None; axis_sizes[axis2] as usize]; axis_sizes[axis1] as usize];
+
+                for u in 0..axis_sizes[axis1] {
+                    for v in 0..axis_sizes[axis2] {
+                        let (x, y, z) = match axis {
+                            0 => (slice, u, v),
+                            1 => (u, slice, v),
+                            2 => (u, v, slice),
+                            _ => unreachable!(),
                         };
 
-                        if neighbor_exists {
-                            continue; // Skip this face, it's hidden
+                        if let Some(block_type) = self.get_block(x, y, z) {
+                            let (dx, dy, dz) = match axis {
+                                0 => (d, 0, 0),
+                                1 => (0, d, 0),
+                                2 => (0, 0, d),
+                                _ => unreachable!(),
+                            };
+                            if !has_neighbor(x, y, z, dx, dy, dz) {
+                                mask[u as usize][v as usize] = Some(block_type);
+                            }
+                        }
+                    }
+                }
+
+                // Greedy merge the mask into quads
+                let mut processed =
+                    vec![vec![false; axis_sizes[axis2] as usize]; axis_sizes[axis1] as usize];
+
+                for u in 0..axis_sizes[axis1] as usize {
+                    for v in 0..axis_sizes[axis2] as usize {
+                        if processed[u][v] || mask[u][v].is_none() {
+                            continue;
                         }
 
-                        let base_idx = positions.len() as u32;
-                        let normal = [*dx as f32, *dy as f32, *dz as f32];
+                        let block_type = mask[u][v].unwrap();
 
-                        // Add 4 vertices for this face
-                        for vert in verts {
-                            positions.push([base_x + vert[0], base_y + vert[1], base_z + vert[2]]);
+                        // Find width (extend in v direction)
+                        let mut width = 1;
+                        while v + width < axis_sizes[axis2] as usize
+                            && !processed[u][v + width]
+                            && mask[u][v + width] == Some(block_type)
+                        {
+                            width += 1;
+                        }
+
+                        // Find height (extend in u direction)
+                        let mut height = 1;
+                        'outer: while u + height < axis_sizes[axis1] as usize {
+                            for w in 0..width {
+                                if processed[u + height][v + w]
+                                    || mask[u + height][v + w] != Some(block_type)
+                                {
+                                    break 'outer;
+                                }
+                            }
+                            height += 1;
+                        }
+
+                        // Mark as processed
+                        for du in 0..height {
+                            for dv in 0..width {
+                                processed[u + du][v + dv] = true;
+                            }
+                        }
+
+                        // Generate quad
+                        let color = block_type.color();
+                        let color_arr = [
+                            color.to_srgba().red,
+                            color.to_srgba().green,
+                            color.to_srgba().blue,
+                            1.0,
+                        ];
+
+                        // Calculate corner positions in u-v space
+                        let u0f = u as f32;
+                        let v0f = v as f32;
+                        let u1f = (u + height) as f32;
+                        let v1f = (v + width) as f32;
+
+                        // Generate 4 vertices in CCW order when viewed from outside
+                        // The order depends on face direction to ensure correct winding
+                        let (verts, normal): ([[f32; 3]; 4], [f32; 3]) = match (axis, positive) {
+                            (0, true) => {
+                                // +X face: looking from +X toward -X
+                                // Y is up, Z is left -> CCW: (y_low,z_low), (y_high,z_low), (y_high,z_high), (y_low,z_high)
+                                let x = chunk_world_x + (slice + 1) as f32;
+                                (
+                                    [
+                                        [x, u0f, chunk_world_z + v0f],
+                                        [x, u1f, chunk_world_z + v0f],
+                                        [x, u1f, chunk_world_z + v1f],
+                                        [x, u0f, chunk_world_z + v1f],
+                                    ],
+                                    [1.0, 0.0, 0.0],
+                                )
+                            }
+                            (0, false) => {
+                                // -X face: looking from -X toward +X
+                                // Y is up, Z is right -> CCW: (y_low,z_low), (y_low,z_high), (y_high,z_high), (y_high,z_low)
+                                let x = chunk_world_x + slice as f32;
+                                (
+                                    [
+                                        [x, u0f, chunk_world_z + v0f],
+                                        [x, u0f, chunk_world_z + v1f],
+                                        [x, u1f, chunk_world_z + v1f],
+                                        [x, u1f, chunk_world_z + v0f],
+                                    ],
+                                    [-1.0, 0.0, 0.0],
+                                )
+                            }
+                            (1, true) => {
+                                // +Y face: looking from +Y down
+                                // X is right, Z is up -> CCW: (x_low,z_low), (x_low,z_high), (x_high,z_high), (x_high,z_low)
+                                let y = (slice + 1) as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, y, chunk_world_z + v0f],
+                                        [chunk_world_x + u0f, y, chunk_world_z + v1f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v1f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v0f],
+                                    ],
+                                    [0.0, 1.0, 0.0],
+                                )
+                            }
+                            (1, false) => {
+                                // -Y face: looking from -Y up
+                                // X is left, Z is up -> CCW: (x_low,z_low), (x_high,z_low), (x_high,z_high), (x_low,z_high)
+                                let y = slice as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, y, chunk_world_z + v0f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v0f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v1f],
+                                        [chunk_world_x + u0f, y, chunk_world_z + v1f],
+                                    ],
+                                    [0.0, -1.0, 0.0],
+                                )
+                            }
+                            (2, true) => {
+                                // +Z face: need +X × +Y = +Z
+                                // CCW order: (x_low,y_low), (x_high,y_low), (x_high,y_high), (x_low,y_high)
+                                let z = chunk_world_z + (slice + 1) as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, v0f, z],
+                                        [chunk_world_x + u1f, v0f, z],
+                                        [chunk_world_x + u1f, v1f, z],
+                                        [chunk_world_x + u0f, v1f, z],
+                                    ],
+                                    [0.0, 0.0, 1.0],
+                                )
+                            }
+                            (2, false) => {
+                                // -Z face: need +Y × +X = -Z
+                                // CCW order: (x_low,y_low), (x_low,y_high), (x_high,y_high), (x_high,y_low)
+                                let z = chunk_world_z + slice as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, v0f, z],
+                                        [chunk_world_x + u0f, v1f, z],
+                                        [chunk_world_x + u1f, v1f, z],
+                                        [chunk_world_x + u1f, v0f, z],
+                                    ],
+                                    [0.0, 0.0, -1.0],
+                                )
+                            }
+                            _ => unreachable!(),
+                        };
+
+                        let base_idx = positions.len() as u32;
+
+                        // Push vertices in CCW order
+                        for vert in &verts {
+                            positions.push(*vert);
+                        }
+
+                        for _ in 0..4 {
                             normals.push(normal);
-                            uvs.push([0.0, 0.0]);
                             colors.push(color_arr);
                         }
 
-                        // Add 2 triangles (6 indices) for this face
-                        // Standard order: vertices are already CCW when viewed from outside
+                        uvs.push([0.0, 0.0]);
+                        uvs.push([width as f32, 0.0]);
+                        uvs.push([width as f32, height as f32]);
+                        uvs.push([0.0, height as f32]);
+
                         indices.extend_from_slice(&[
                             base_idx,
                             base_idx + 1,
@@ -449,7 +547,7 @@ impl ChunkData {
         }
 
         tracing::info!(
-            "Mesh for chunk {:?}: {} vertices, {} indices",
+            "Greedy mesh for chunk {:?}: {} vertices, {} indices",
             chunk_coord,
             positions.len(),
             indices.len()
