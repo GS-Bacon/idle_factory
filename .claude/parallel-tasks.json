@@ -166,7 +166,7 @@
         "src/machines/furnace.rs",
         "src/machines/crusher.rs"
       ],
-      "status": "pending",
+      "status": "completed",
       "description": "3つの機械で共通のインタラクション処理を抽出"
     },
     {
