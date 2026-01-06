@@ -267,11 +267,7 @@ pub fn update_target_highlight(
                     machine_positions.push(crusher.position);
                 }
                 for furnace_transform in furnace_query.iter() {
-                    machine_positions.push(IVec3::new(
-                        furnace_transform.translation.x.floor() as i32,
-                        furnace_transform.translation.y.floor() as i32,
-                        furnace_transform.translation.z.floor() as i32,
-                    ));
+                    machine_positions.push(crate::world_to_grid(furnace_transform.translation));
                 }
 
                 // Apply rotation offset (R key)

@@ -187,11 +187,7 @@ pub fn update_biome_hud(
     };
 
     // Get block position from player position
-    let pos = IVec3::new(
-        transform.translation.x.floor() as i32,
-        transform.translation.y.floor() as i32,
-        transform.translation.z.floor() as i32,
-    );
+    let pos = crate::world_to_grid(transform.translation);
 
     // Only update if position changed (optimization)
     if pos == *last_block_pos {

@@ -117,20 +117,10 @@ fn generate_conveyor_guide_positions(
         existing.insert(conveyor.position);
     }
     for transform in furnace_query.iter() {
-        let pos = IVec3::new(
-            transform.translation.x.floor() as i32,
-            transform.translation.y.floor() as i32,
-            transform.translation.z.floor() as i32,
-        );
-        existing.insert(pos);
+        existing.insert(crate::world_to_grid(transform.translation));
     }
     for transform in crusher_query.iter() {
-        let pos = IVec3::new(
-            transform.translation.x.floor() as i32,
-            transform.translation.y.floor() as i32,
-            transform.translation.z.floor() as i32,
-        );
-        existing.insert(pos);
+        existing.insert(crate::world_to_grid(transform.translation));
     }
 
     // Show positions adjacent to conveyor ends

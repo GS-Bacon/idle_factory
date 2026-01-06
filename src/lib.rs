@@ -46,7 +46,10 @@ pub use events::{
 pub use systems::{set_ui_open_state, DebugConveyorEvent, LookEvent, SetBlockEvent, TeleportEvent};
 
 // Re-export utility functions
-pub use utils::{parse_item_name, ray_aabb_intersection};
+pub use utils::{
+    grid_to_world, grid_to_world_center, parse_item_name, ray_aabb_intersection, world_to_grid,
+    GridPos, WorldPos,
+};
 
 // Re-export plugins for testing
 pub use plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};

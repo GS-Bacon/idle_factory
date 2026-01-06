@@ -168,11 +168,7 @@ pub fn check_player_embedded(
 
     for offset in offsets {
         let check_pos = player_pos + offset;
-        let block_pos = IVec3::new(
-            check_pos.x.floor() as i32,
-            check_pos.y.floor() as i32,
-            check_pos.z.floor() as i32,
-        );
+        let block_pos = crate::world_to_grid(check_pos);
 
         if world_data.get_block(block_pos).is_some() {
             let violation = InvariantViolation::PlayerEmbedded {

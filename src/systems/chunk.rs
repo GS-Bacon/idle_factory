@@ -37,11 +37,8 @@ pub fn spawn_chunk_tasks(
         return;
     };
 
-    let player_world_pos = IVec3::new(
-        player_transform.translation.x.floor() as i32,
-        0,
-        player_transform.translation.z.floor() as i32,
-    );
+    let player_grid = crate::world_to_grid(player_transform.translation);
+    let player_world_pos = IVec3::new(player_grid.x, 0, player_grid.z);
     let player_chunk = WorldData::world_to_chunk(player_world_pos);
 
     // Limit chunks per frame for async generation
@@ -247,11 +244,8 @@ pub fn unload_distant_chunks(
         return;
     };
 
-    let player_world_pos = IVec3::new(
-        player_transform.translation.x.floor() as i32,
-        0,
-        player_transform.translation.z.floor() as i32,
-    );
+    let player_grid = crate::world_to_grid(player_transform.translation);
+    let player_world_pos = IVec3::new(player_grid.x, 0, player_grid.z);
     let player_chunk = WorldData::world_to_chunk(player_world_pos);
 
     // Find chunks to unload

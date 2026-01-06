@@ -6,6 +6,196 @@ use crate::Direction;
 use bevy::prelude::*;
 use std::f32::consts::PI;
 
+// ============================================================================
+// Coordinate Types (NewType Pattern)
+// ============================================================================
+
+/// Grid coordinate (integer, block units)
+/// Use this for block positions, chunk coordinates, machine positions, etc.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub struct GridPos(pub IVec3);
+
+/// World coordinate (floating point)
+/// Use this for entity positions, ray origins, visual positions, etc.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WorldPos(pub Vec3);
+
+impl GridPos {
+    pub const ZERO: GridPos = GridPos(IVec3::ZERO);
+
+    #[inline]
+    pub fn new(x: i32, y: i32, z: i32) -> Self {
+        GridPos(IVec3::new(x, y, z))
+    }
+
+    /// Convert to world position (center of the block)
+    #[inline]
+    pub fn to_world(self) -> WorldPos {
+        WorldPos(Vec3::new(
+            self.0.x as f32 + 0.5,
+            self.0.y as f32 + 0.5,
+            self.0.z as f32 + 0.5,
+        ))
+    }
+
+    /// Convert to world position (corner of the block, no offset)
+    #[inline]
+    pub fn to_world_corner(self) -> WorldPos {
+        WorldPos(Vec3::new(self.0.x as f32, self.0.y as f32, self.0.z as f32))
+    }
+
+    #[inline]
+    pub fn x(&self) -> i32 {
+        self.0.x
+    }
+
+    #[inline]
+    pub fn y(&self) -> i32 {
+        self.0.y
+    }
+
+    #[inline]
+    pub fn z(&self) -> i32 {
+        self.0.z
+    }
+}
+
+impl WorldPos {
+    pub const ZERO: WorldPos = WorldPos(Vec3::ZERO);
+
+    #[inline]
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        WorldPos(Vec3::new(x, y, z))
+    }
+
+    /// Convert to grid position (floor to integer)
+    #[inline]
+    pub fn to_grid(self) -> GridPos {
+        GridPos(IVec3::new(
+            self.0.x.floor() as i32,
+            self.0.y.floor() as i32,
+            self.0.z.floor() as i32,
+        ))
+    }
+
+    #[inline]
+    pub fn x(&self) -> f32 {
+        self.0.x
+    }
+
+    #[inline]
+    pub fn y(&self) -> f32 {
+        self.0.y
+    }
+
+    #[inline]
+    pub fn z(&self) -> f32 {
+        self.0.z
+    }
+}
+
+// Conversion traits
+impl From<WorldPos> for GridPos {
+    #[inline]
+    fn from(pos: WorldPos) -> Self {
+        pos.to_grid()
+    }
+}
+
+impl From<GridPos> for WorldPos {
+    #[inline]
+    fn from(pos: GridPos) -> Self {
+        pos.to_world_corner()
+    }
+}
+
+impl From<IVec3> for GridPos {
+    #[inline]
+    fn from(v: IVec3) -> Self {
+        GridPos(v)
+    }
+}
+
+impl From<GridPos> for IVec3 {
+    #[inline]
+    fn from(pos: GridPos) -> Self {
+        pos.0
+    }
+}
+
+impl From<Vec3> for WorldPos {
+    #[inline]
+    fn from(v: Vec3) -> Self {
+        WorldPos(v)
+    }
+}
+
+impl From<WorldPos> for Vec3 {
+    #[inline]
+    fn from(pos: WorldPos) -> Self {
+        pos.0
+    }
+}
+
+// Arithmetic operations for GridPos
+impl std::ops::Add for GridPos {
+    type Output = GridPos;
+    #[inline]
+    fn add(self, rhs: GridPos) -> Self::Output {
+        GridPos(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::Add<IVec3> for GridPos {
+    type Output = GridPos;
+    #[inline]
+    fn add(self, rhs: IVec3) -> Self::Output {
+        GridPos(self.0 + rhs)
+    }
+}
+
+impl std::ops::Sub for GridPos {
+    type Output = GridPos;
+    #[inline]
+    fn sub(self, rhs: GridPos) -> Self::Output {
+        GridPos(self.0 - rhs.0)
+    }
+}
+
+impl std::ops::Sub<IVec3> for GridPos {
+    type Output = GridPos;
+    #[inline]
+    fn sub(self, rhs: IVec3) -> Self::Output {
+        GridPos(self.0 - rhs)
+    }
+}
+
+// Helper functions for common conversions (for gradual migration)
+
+/// Convert world coordinates (Vec3) to grid coordinates (IVec3)
+/// This is the canonical way to convert floating point to integer coordinates.
+#[inline]
+pub fn world_to_grid(pos: Vec3) -> IVec3 {
+    IVec3::new(
+        pos.x.floor() as i32,
+        pos.y.floor() as i32,
+        pos.z.floor() as i32,
+    )
+}
+
+/// Convert grid coordinates (IVec3) to world coordinates (Vec3)
+/// Returns the corner of the block (not center).
+#[inline]
+pub fn grid_to_world(pos: IVec3) -> Vec3 {
+    Vec3::new(pos.x as f32, pos.y as f32, pos.z as f32)
+}
+
+/// Convert grid coordinates to world coordinates (center of block)
+#[inline]
+pub fn grid_to_world_center(pos: IVec3) -> Vec3 {
+    Vec3::new(pos.x as f32 + 0.5, pos.y as f32 + 0.5, pos.z as f32 + 0.5)
+}
+
 /// DDA (Digital Differential Analyzer) result for voxel raycast
 #[derive(Clone, Copy, Debug)]
 pub struct DdaHit {

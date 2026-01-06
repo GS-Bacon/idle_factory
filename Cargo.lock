@@ -2536,7 +2536,7 @@ dependencies = [
 
 [[package]]
 name = "idle_factory"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "bevy",
  "chrono",

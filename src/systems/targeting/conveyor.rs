@@ -66,13 +66,7 @@ pub fn update_conveyor_shapes(
     let conveyor_positions: HashSet<IVec3> = conveyor_data.iter().map(|(p, _)| *p).collect();
     let furnace_positions: HashSet<IVec3> = furnace_query
         .iter()
-        .map(|t| {
-            IVec3::new(
-                t.translation.x.floor() as i32,
-                t.translation.y.floor() as i32,
-                t.translation.z.floor() as i32,
-            )
-        })
+        .map(|t| crate::world_to_grid(t.translation))
         .collect();
     let crusher_positions: HashSet<IVec3> = crusher_query.iter().map(|c| c.position).collect();
 

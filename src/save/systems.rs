@@ -142,11 +142,7 @@ pub fn collect_save_data(
 
     // Furnaces
     for (furnace, transform) in furnace_query.iter() {
-        let pos = IVec3::new(
-            transform.translation().x.floor() as i32,
-            transform.translation().y.floor() as i32,
-            transform.translation().z.floor() as i32,
-        );
+        let pos = crate::world_to_grid(transform.translation());
         machines.push(MachineSaveData::Furnace(FurnaceSaveData {
             position: pos.into(),
             fuel: furnace.fuel,

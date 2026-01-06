@@ -41,11 +41,7 @@ pub fn conveyor_transfer(
 
     // Check if position is on delivery platform
     let platform_bounds: Option<(IVec3, IVec3)> = platform_query.iter().next().map(|(t, _)| {
-        let center = IVec3::new(
-            t.translation.x.floor() as i32,
-            t.translation.y.floor() as i32,
-            t.translation.z.floor() as i32,
-        );
+        let center = crate::world_to_grid(t.translation);
         let half = PLATFORM_SIZE / 2;
         (
             IVec3::new(center.x - half, center.y, center.z - half),

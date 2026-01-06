@@ -159,11 +159,7 @@ pub fn block_place(
         {
             if hit_t > 0.0 && hit_t < REACH_DISTANCE {
                 let hit_point = ray_origin + ray_direction * hit_t;
-                let hit_block_pos = IVec3::new(
-                    hit_point.x.floor() as i32,
-                    hit_point.y.floor() as i32,
-                    hit_point.z.floor() as i32,
-                );
+                let hit_block_pos = crate::world_to_grid(hit_point);
                 let is_closer = closest_hit.is_none_or(|h| hit_t < h.2);
                 if is_closer {
                     closest_hit = Some((hit_block_pos, normal, hit_t));
@@ -209,11 +205,8 @@ pub fn block_place(
             }
         }
         for furnace_transform in machines.furnace.iter() {
-            let furnace_pos = IVec3::new(
-                (furnace_transform.translation.x / BLOCK_SIZE).floor() as i32,
-                (furnace_transform.translation.y / BLOCK_SIZE).floor() as i32,
-                (furnace_transform.translation.z / BLOCK_SIZE).floor() as i32,
-            );
+            // Note: Using world_to_grid (BLOCK_SIZE=1.0 assumed)
+            let furnace_pos = crate::world_to_grid(furnace_transform.translation);
             if furnace_pos == place_pos {
                 return;
             }
@@ -243,11 +236,7 @@ pub fn block_place(
                 machine_positions.push(crusher.position);
             }
             for furnace_transform in machines.furnace.iter() {
-                machine_positions.push(IVec3::new(
-                    furnace_transform.translation.x.floor() as i32,
-                    furnace_transform.translation.y.floor() as i32,
-                    furnace_transform.translation.z.floor() as i32,
-                ));
+                machine_positions.push(crate::world_to_grid(furnace_transform.translation));
             }
 
             let mut dir =
