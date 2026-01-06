@@ -246,6 +246,177 @@ pub struct ConveyorVisual;
 #[derive(Component)]
 pub struct ConveyorItemVisual;
 
+// =============================================================================
+// Generic Machine Component (Phase C Data-Driven Design)
+// =============================================================================
+
+use crate::game_spec::MachineSpec;
+
+/// Slot storage for a machine (type + count)
+#[derive(Clone, Debug, Default)]
+pub struct MachineSlot {
+    pub item_type: Option<BlockType>,
+    pub count: u32,
+}
+
+impl MachineSlot {
+    pub const fn empty() -> Self {
+        Self {
+            item_type: None,
+            count: 0,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.item_type.is_none() || self.count == 0
+    }
+
+    pub fn add(&mut self, item: BlockType, amount: u32) -> u32 {
+        if self.item_type.is_none() || self.item_type == Some(item) {
+            self.item_type = Some(item);
+            self.count += amount;
+            amount
+        } else {
+            0 // Can't add different item type
+        }
+    }
+
+    pub fn take(&mut self, amount: u32) -> u32 {
+        let taken = amount.min(self.count);
+        self.count -= taken;
+        if self.count == 0 {
+            self.item_type = None;
+        }
+        taken
+    }
+
+    pub fn clear(&mut self) {
+        self.item_type = None;
+        self.count = 0;
+    }
+}
+
+/// Generic machine slots container
+#[derive(Clone, Debug)]
+pub struct MachineSlots {
+    /// Input slots (indexed by slot_id)
+    pub inputs: Vec<MachineSlot>,
+    /// Output slots (indexed by slot_id)
+    pub outputs: Vec<MachineSlot>,
+    /// Fuel count (for machines that require fuel)
+    pub fuel: u32,
+}
+
+impl Default for MachineSlots {
+    fn default() -> Self {
+        Self {
+            inputs: vec![MachineSlot::empty()],
+            outputs: vec![MachineSlot::empty()],
+            fuel: 0,
+        }
+    }
+}
+
+impl MachineSlots {
+    /// Create slots based on MachineSpec
+    pub fn from_spec(spec: &MachineSpec) -> Self {
+        use crate::game_spec::UiSlotType;
+
+        let mut max_input_id = 0u8;
+        let mut max_output_id = 0u8;
+
+        for slot_def in spec.ui_slots {
+            match slot_def.slot_type {
+                UiSlotType::Input => max_input_id = max_input_id.max(slot_def.slot_id + 1),
+                UiSlotType::Output => max_output_id = max_output_id.max(slot_def.slot_id + 1),
+                UiSlotType::Fuel => {} // Fuel is separate
+            }
+        }
+
+        Self {
+            inputs: vec![MachineSlot::empty(); max_input_id as usize],
+            outputs: vec![MachineSlot::empty(); max_output_id as usize],
+            fuel: 0,
+        }
+    }
+
+    /// Get input slot by ID
+    pub fn input(&self, slot_id: u8) -> Option<&MachineSlot> {
+        self.inputs.get(slot_id as usize)
+    }
+
+    /// Get input slot by ID (mutable)
+    pub fn input_mut(&mut self, slot_id: u8) -> Option<&mut MachineSlot> {
+        self.inputs.get_mut(slot_id as usize)
+    }
+
+    /// Get output slot by ID
+    pub fn output(&self, slot_id: u8) -> Option<&MachineSlot> {
+        self.outputs.get(slot_id as usize)
+    }
+
+    /// Get output slot by ID (mutable)
+    pub fn output_mut(&mut self, slot_id: u8) -> Option<&mut MachineSlot> {
+        self.outputs.get_mut(slot_id as usize)
+    }
+}
+
+/// Generic machine component - data-driven machine
+#[derive(Component, Clone, Debug)]
+pub struct Machine {
+    /// Reference to machine spec
+    pub spec: &'static MachineSpec,
+    /// World position
+    pub position: IVec3,
+    /// Facing direction
+    pub facing: Direction,
+    /// Processing progress (0.0 - 1.0)
+    pub progress: f32,
+    /// Slot storage
+    pub slots: MachineSlots,
+    /// Tick counter (for timing/randomization)
+    pub tick_count: u32,
+}
+
+impl Machine {
+    /// Create a new machine from spec
+    pub fn new(spec: &'static MachineSpec, position: IVec3, facing: Direction) -> Self {
+        Self {
+            spec,
+            position,
+            facing,
+            progress: 0.0,
+            slots: MachineSlots::from_spec(spec),
+            tick_count: 0,
+        }
+    }
+
+    /// Check if machine is currently processing
+    pub fn is_processing(&self) -> bool {
+        self.progress > 0.0
+    }
+
+    /// Get output position (facing direction + 1)
+    pub fn output_position(&self) -> IVec3 {
+        self.position + self.facing.to_ivec3()
+    }
+
+    /// Get input position (opposite of facing)
+    pub fn input_position(&self) -> IVec3 {
+        let back = match self.facing {
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::East => Direction::West,
+            Direction::West => Direction::East,
+        };
+        self.position + back.to_ivec3()
+    }
+}
+
+// =============================================================================
+// Legacy Machine Components (kept for compatibility during migration)
+// =============================================================================
+
 /// Miner component - automatically mines based on biome
 #[derive(Component)]
 pub struct Miner {

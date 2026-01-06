@@ -134,109 +134,52 @@ pub enum BlockType {
 }
 
 impl BlockType {
+    /// Get the item descriptor for this block type
+    /// This is the single source of truth for all block/item metadata
+    pub fn descriptor(&self) -> &'static crate::game_spec::ItemDescriptor {
+        use crate::game_spec::ITEM_DESCRIPTORS;
+        ITEM_DESCRIPTORS
+            .iter()
+            .find(|(bt, _)| *bt == *self)
+            .map(|(_, desc)| desc)
+            .expect("All BlockTypes must be registered in ITEM_DESCRIPTORS")
+    }
+
     /// Get the color for this block type
     pub fn color(&self) -> Color {
-        match self {
-            BlockType::Stone => Color::srgb(0.5, 0.5, 0.5),
-            BlockType::Grass => Color::srgb(0.2, 0.8, 0.2),
-            BlockType::IronOre => Color::srgb(0.6, 0.5, 0.4),
-            BlockType::Coal => Color::srgb(0.15, 0.15, 0.15),
-            BlockType::IronIngot => Color::srgb(0.8, 0.8, 0.85),
-            BlockType::MinerBlock => Color::srgb(0.8, 0.6, 0.2),
-            BlockType::ConveyorBlock => Color::srgb(0.3, 0.3, 0.35),
-            BlockType::CopperOre => Color::srgb(0.7, 0.4, 0.3),
-            BlockType::CopperIngot => Color::srgb(0.9, 0.5, 0.3),
-            BlockType::CrusherBlock => Color::srgb(0.4, 0.3, 0.5),
-            BlockType::FurnaceBlock => Color::srgb(0.4, 0.3, 0.3),
-            BlockType::StonePickaxe => Color::srgb(0.6, 0.6, 0.6),
-            BlockType::AssemblerBlock => Color::srgb(0.3, 0.5, 0.4),
-            BlockType::IronDust => Color::srgb(0.7, 0.7, 0.75),
-            BlockType::CopperDust => Color::srgb(0.85, 0.55, 0.4),
-            BlockType::PlatformBlock => Color::srgb(0.2, 0.5, 0.3),
-        }
+        self.descriptor().color
     }
 
     /// Get the display name for this block type
     pub fn name(&self) -> &'static str {
-        match self {
-            BlockType::Stone => "Stone",
-            BlockType::Grass => "Grass",
-            BlockType::IronOre => "Iron Ore",
-            BlockType::Coal => "Coal",
-            BlockType::IronIngot => "Iron Ingot",
-            BlockType::MinerBlock => "Miner",
-            BlockType::ConveyorBlock => "Conveyor",
-            BlockType::CopperOre => "Copper Ore",
-            BlockType::CopperIngot => "Copper Ingot",
-            BlockType::CrusherBlock => "Crusher",
-            BlockType::FurnaceBlock => "Furnace",
-            BlockType::StonePickaxe => "Stone Pickaxe",
-            BlockType::AssemblerBlock => "Assembler",
-            BlockType::IronDust => "Iron Dust",
-            BlockType::CopperDust => "Copper Dust",
-            BlockType::PlatformBlock => "Platform",
-        }
+        self.descriptor().name
     }
 
     /// Get a short name for UI display (max 4 chars)
     pub fn short_name(&self) -> &'static str {
-        match self {
-            BlockType::Stone => "Stn",
-            BlockType::Grass => "Grs",
-            BlockType::IronOre => "FeO",
-            BlockType::Coal => "C",
-            BlockType::IronIngot => "Fe",
-            BlockType::MinerBlock => "Min",
-            BlockType::ConveyorBlock => "Conv",
-            BlockType::CopperOre => "CuO",
-            BlockType::CopperIngot => "Cu",
-            BlockType::CrusherBlock => "Cru",
-            BlockType::FurnaceBlock => "Fur",
-            BlockType::StonePickaxe => "Pick",
-            BlockType::AssemblerBlock => "Asm",
-            BlockType::IronDust => "FeD",
-            BlockType::CopperDust => "CuD",
-            BlockType::PlatformBlock => "Plt",
-        }
+        self.descriptor().short_name
     }
 
     /// Returns true if this block type is a tool
     pub fn is_tool(&self) -> bool {
-        matches!(self, BlockType::StonePickaxe)
+        self.category() == BlockCategory::Tool
     }
 
     /// Returns true if this block type can be placed in the world
     /// Tools and processed materials cannot be placed
     pub fn is_placeable(&self) -> bool {
-        !matches!(
-            self,
-            BlockType::StonePickaxe
-                | BlockType::IronIngot
-                | BlockType::CopperIngot
-                | BlockType::IronDust
-                | BlockType::CopperDust
-        )
+        self.descriptor().is_placeable
     }
 
     /// Returns true if this block type is a machine (not a regular block)
     #[allow(dead_code)]
     pub fn is_machine(&self) -> bool {
-        matches!(
-            self,
-            BlockType::MinerBlock
-                | BlockType::ConveyorBlock
-                | BlockType::CrusherBlock
-                | BlockType::FurnaceBlock
-                | BlockType::AssemblerBlock
-        )
+        self.category() == BlockCategory::Machine
     }
 
     /// Returns true if this block type is a raw ore
     pub fn is_ore(&self) -> bool {
-        matches!(
-            self,
-            BlockType::IronOre | BlockType::CopperOre | BlockType::Coal
-        )
+        self.category() == BlockCategory::Ore
     }
 
     /// Returns true if this block type is a processed material
@@ -262,26 +205,7 @@ impl BlockType {
 
     /// Get the category of this block type
     pub fn category(&self) -> BlockCategory {
-        match self {
-            // Terrain
-            BlockType::Stone | BlockType::Grass => BlockCategory::Terrain,
-            // Ores
-            BlockType::IronOre | BlockType::CopperOre | BlockType::Coal => BlockCategory::Ore,
-            // Machines
-            BlockType::MinerBlock
-            | BlockType::ConveyorBlock
-            | BlockType::CrusherBlock
-            | BlockType::FurnaceBlock
-            | BlockType::AssemblerBlock
-            | BlockType::PlatformBlock => BlockCategory::Machine,
-            // Processed materials
-            BlockType::IronIngot
-            | BlockType::CopperIngot
-            | BlockType::IronDust
-            | BlockType::CopperDust => BlockCategory::Processed,
-            // Tools
-            BlockType::StonePickaxe => BlockCategory::Tool,
-        }
+        self.descriptor().category
     }
 
     /// Returns true if this block type is in the given category

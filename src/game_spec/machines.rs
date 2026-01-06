@@ -1,8 +1,11 @@
 //! Machine specification
 //!
 //! All machines are defined as `MachineSpec`.
+//! UI is automatically generated from the spec.
 
 use crate::BlockType;
+
+use super::recipes::MachineType;
 
 /// Machine facing direction (player's direction at placement)
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -40,6 +43,54 @@ pub struct IoPort {
     pub slot_id: u8,
 }
 
+// =============================================================================
+// UI Slot Definitions (for auto-generated UI)
+// =============================================================================
+
+/// UI slot type
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum UiSlotType {
+    /// Input slot for materials
+    Input,
+    /// Output slot for products
+    Output,
+    /// Fuel slot (coal etc.)
+    Fuel,
+}
+
+/// UI slot definition for auto-generated machine UI
+#[derive(Clone, Copy, Debug)]
+pub struct UiSlotDef {
+    /// Slot type
+    pub slot_type: UiSlotType,
+    /// Slot ID (matches IoPort.slot_id)
+    pub slot_id: u8,
+    /// Display label (e.g., "鉱石", "燃料", "出力")
+    pub label: &'static str,
+}
+
+impl UiSlotDef {
+    pub const fn new(slot_type: UiSlotType, slot_id: u8, label: &'static str) -> Self {
+        Self {
+            slot_type,
+            slot_id,
+            label,
+        }
+    }
+}
+
+/// Machine processing type
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ProcessType {
+    /// Recipe-based processing (furnace, crusher, assembler)
+    Recipe(MachineType),
+    /// Auto-generates resources from terrain (miner)
+    AutoGenerate,
+    /// Transfer only, no processing (conveyor) - not a machine UI
+    #[allow(dead_code)]
+    Transfer,
+}
+
 /// Machine specification
 #[derive(Clone, Debug)]
 pub struct MachineSpec {
@@ -49,7 +100,7 @@ pub struct MachineSpec {
     pub name: &'static str,
     /// Corresponding BlockType
     pub block_type: BlockType,
-    /// I/O ports
+    /// I/O ports (for conveyor connections)
     pub ports: &'static [IoPort],
     /// Internal buffer size (per slot)
     pub buffer_size: u32,
@@ -60,13 +111,17 @@ pub struct MachineSpec {
     /// Auto-generates resources (like miner)
     #[allow(dead_code)]
     pub auto_generate: bool,
+    /// UI slot definitions (for auto-generated UI)
+    pub ui_slots: &'static [UiSlotDef],
+    /// Processing type
+    pub process_type: ProcessType,
 }
 
 // =============================================================================
 // Machine Definitions
 // =============================================================================
 
-/// Miner
+/// Miner - auto-generates resources from terrain
 pub const MINER: MachineSpec = MachineSpec {
     id: "miner",
     name: "採掘機",
@@ -80,9 +135,11 @@ pub const MINER: MachineSpec = MachineSpec {
     process_time: 1.5,
     requires_fuel: false,
     auto_generate: true,
+    ui_slots: &[UiSlotDef::new(UiSlotType::Output, 0, "出力")],
+    process_type: ProcessType::AutoGenerate,
 };
 
-/// Furnace
+/// Furnace - smelts ore into ingots (requires fuel)
 pub const FURNACE: MachineSpec = MachineSpec {
     id: "furnace",
     name: "精錬炉",
@@ -113,9 +170,15 @@ pub const FURNACE: MachineSpec = MachineSpec {
     process_time: 2.0,
     requires_fuel: true,
     auto_generate: false,
+    ui_slots: &[
+        UiSlotDef::new(UiSlotType::Input, 0, "鉱石"),
+        UiSlotDef::new(UiSlotType::Fuel, 1, "燃料"),
+        UiSlotDef::new(UiSlotType::Output, 0, "出力"),
+    ],
+    process_type: ProcessType::Recipe(MachineType::Furnace),
 };
 
-/// Crusher
+/// Crusher - crushes ore into dust (doubles output)
 pub const CRUSHER: MachineSpec = MachineSpec {
     id: "crusher",
     name: "粉砕機",
@@ -136,9 +199,14 @@ pub const CRUSHER: MachineSpec = MachineSpec {
     process_time: 1.5,
     requires_fuel: false,
     auto_generate: false,
+    ui_slots: &[
+        UiSlotDef::new(UiSlotType::Input, 0, "入力"),
+        UiSlotDef::new(UiSlotType::Output, 0, "出力"),
+    ],
+    process_type: ProcessType::Recipe(MachineType::Crusher),
 };
 
-/// Assembler
+/// Assembler - crafts machines and components
 pub const ASSEMBLER: MachineSpec = MachineSpec {
     id: "assembler",
     name: "組立機",
@@ -169,6 +237,12 @@ pub const ASSEMBLER: MachineSpec = MachineSpec {
     process_time: 3.0,
     requires_fuel: false,
     auto_generate: false,
+    ui_slots: &[
+        UiSlotDef::new(UiSlotType::Input, 0, "主素材"),
+        UiSlotDef::new(UiSlotType::Input, 1, "副素材"),
+        UiSlotDef::new(UiSlotType::Output, 0, "出力"),
+    ],
+    process_type: ProcessType::Recipe(MachineType::Assembler),
 };
 
 /// All machines

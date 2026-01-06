@@ -8,7 +8,7 @@ pub mod widgets;
 
 pub use storage_ui::{
     global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
-    global_inventory_toggle, setup_global_inventory_ui, update_global_inventory_ui,
+    setup_global_inventory_ui, update_global_inventory_ui, update_global_inventory_visibility,
 };
 
 pub use widgets::{
@@ -16,4 +16,6 @@ pub use widgets::{
     SlotCountText, SlotItemImage, SlotWidget,
 };
 
-pub use machine_ui::{setup_crusher_ui, setup_furnace_ui, setup_miner_ui};
+pub use machine_ui::{
+    setup_crusher_ui, setup_furnace_ui, setup_generic_machine_ui, setup_miner_ui,
+};

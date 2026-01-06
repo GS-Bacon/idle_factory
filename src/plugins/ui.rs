@@ -6,12 +6,12 @@ use bevy::prelude::*;
 
 use crate::systems::{
     command_input_handler, command_input_toggle, creative_inventory_click,
-    inventory_continuous_shift_click, inventory_slot_click, inventory_toggle,
-    inventory_update_slots, process_tutorial_events, spawn_breaking_progress_ui,
-    track_inventory_open, track_movement, track_production, trash_slot_click,
-    update_breaking_progress_ui, update_command_suggestions, update_creative_catalog_sprites,
-    update_held_item_3d, update_held_item_display, update_hotbar_item_name, update_hotbar_ui,
-    update_inventory_tooltip, update_tutorial_ui, TutorialEvent,
+    inventory_continuous_shift_click, inventory_slot_click, inventory_update_slots,
+    process_tutorial_events, spawn_breaking_progress_ui, track_inventory_open, track_movement,
+    track_production, trash_slot_click, update_breaking_progress_ui, update_command_suggestions,
+    update_creative_catalog_sprites, update_held_item_3d, update_held_item_display,
+    update_hotbar_item_name, update_hotbar_ui, update_inventory_tooltip,
+    update_inventory_visibility, update_tutorial_ui, TutorialEvent,
 };
 use crate::{
     CommandInputState, GuideMarkers, HeldItem, InventoryOpen, ItemSprites, TargetBlock,
@@ -46,7 +46,7 @@ impl Plugin for UIPlugin {
                 Update,
                 (
                     // Inventory systems
-                    inventory_toggle,
+                    update_inventory_visibility,
                     inventory_slot_click,
                     inventory_continuous_shift_click,
                     inventory_update_slots,

@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use crate::components::*;
 use crate::events::GameEventsPlugin;
 use crate::game_spec;
+use crate::game_spec::RegistryPlugin;
 use crate::player::{GlobalInventory, Inventory};
 use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 use crate::setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
@@ -16,15 +17,16 @@ use crate::systems::{
     handle_screenshot_event, handle_setblock_event, handle_spawn_machine_event,
     handle_teleport_event, load_machine_models, player_look, player_move, quest_claim_rewards,
     quest_deliver_button, quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement,
-    select_block_type, setup_highlight_cache, spawn_chunk_tasks, tick_action_timers,
-    toggle_cursor_lock, tutorial_dismiss, unload_distant_chunks, update_conveyor_shapes,
-    update_delivery_ui, update_guide_markers, update_pause_ui, update_quest_ui,
-    update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent, LookEvent,
-    ScreenshotEvent, SetBlockEvent, TeleportEvent,
+    select_block_type, setup_highlight_cache, spawn_chunk_tasks, sync_legacy_ui_state,
+    tick_action_timers, toggle_cursor_lock, tutorial_dismiss, ui_action_handler, ui_escape_handler,
+    ui_global_inventory_handler, ui_inventory_handler, unload_distant_chunks,
+    update_conveyor_shapes, update_delivery_ui, update_guide_markers, update_pause_ui,
+    update_quest_ui, update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent,
+    LookEvent, ScreenshotEvent, SetBlockEvent, TeleportEvent,
 };
 use crate::ui::{
     global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
-    global_inventory_toggle, setup_global_inventory_ui, update_global_inventory_ui,
+    setup_global_inventory_ui, update_global_inventory_ui, update_global_inventory_visibility,
 };
 use crate::world::{BiomeMap, ChunkMeshTasks, WorldData};
 
@@ -37,6 +39,7 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         // Add sub-plugins
         app.add_plugins(GameEventsPlugin)
+            .add_plugins(RegistryPlugin)
             .add_plugins(MachineSystemsPlugin)
             .add_plugins(UIPlugin)
             .add_plugins(SavePlugin)
@@ -69,7 +72,11 @@ impl Plugin for GamePlugin {
             .add_event::<SetBlockEvent>()
             .add_event::<DebugEvent>()
             .add_event::<AssertMachineEvent>()
-            .add_event::<ScreenshotEvent>();
+            .add_event::<ScreenshotEvent>()
+            .add_event::<UIAction>();
+
+        // UI state management
+        app.init_resource::<UIState>();
 
         // Startup systems
         app.add_systems(
@@ -147,7 +154,7 @@ impl GamePlugin {
         app.add_systems(
             Update,
             (
-                global_inventory_toggle,
+                update_global_inventory_visibility,
                 global_inventory_page_nav,
                 global_inventory_category_click,
                 global_inventory_search_input,
@@ -179,6 +186,20 @@ impl GamePlugin {
                 handle_assert_machine_event,
                 handle_screenshot_event,
             ),
+        );
+
+        // UI navigation systems (must run early to process actions before other UI systems)
+        // Order: input handlers emit events → action handler updates UIState → sync to legacy
+        app.add_systems(
+            Update,
+            (
+                ui_escape_handler,
+                ui_inventory_handler,
+                ui_global_inventory_handler,
+                ui_action_handler,
+                sync_legacy_ui_state,
+            )
+                .chain(),
         );
     }
 }

@@ -8,11 +8,10 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    CommandInputState, CursorLockState, GlobalInventoryCategory, GlobalInventoryCategoryTab,
-    GlobalInventoryOpen, GlobalInventoryPage, GlobalInventoryPageButton, GlobalInventoryPageText,
-    GlobalInventorySearch, GlobalInventorySearchInput, GlobalInventorySlot,
-    GlobalInventorySlotCount, GlobalInventorySlotImage, GlobalInventoryUI, InteractingCrusher,
-    InteractingFurnace, InteractingMiner, InventoryOpen, ItemCategory, ItemSprites,
+    GlobalInventoryCategory, GlobalInventoryCategoryTab, GlobalInventoryOpen, GlobalInventoryPage,
+    GlobalInventoryPageButton, GlobalInventoryPageText, GlobalInventorySearch,
+    GlobalInventorySearchInput, GlobalInventorySlot, GlobalInventorySlotCount,
+    GlobalInventorySlotImage, GlobalInventoryUI, ItemCategory, ItemSprites,
 };
 use crate::constants::ui_colors;
 use crate::player::GlobalInventory;
@@ -27,61 +26,33 @@ pub const SLOT_SIZE: f32 = 54.0;
 /// Slot spacing
 pub const SLOT_GAP: f32 = 4.0;
 
-/// Toggle global inventory with Tab key
-#[allow(clippy::too_many_arguments)]
-pub fn global_inventory_toggle(
-    key_input: Res<ButtonInput<KeyCode>>,
-    mut global_inv_open: ResMut<GlobalInventoryOpen>,
-    inventory_open: Res<InventoryOpen>,
-    interacting_furnace: Res<InteractingFurnace>,
-    interacting_crusher: Res<InteractingCrusher>,
-    interacting_miner: Res<InteractingMiner>,
-    command_state: Res<CommandInputState>,
-    cursor_state: Res<CursorLockState>,
+/// Update global inventory UI visibility when GlobalInventoryOpen changes
+/// (Key handling moved to ui_navigation.rs)
+pub fn update_global_inventory_visibility(
+    global_inv_open: Res<GlobalInventoryOpen>,
     mut ui_query: Query<&mut Visibility, With<GlobalInventoryUI>>,
     mut windows: Query<&mut Window>,
 ) {
-    // Don't toggle if other UIs are open or game is paused
-    if inventory_open.0
-        || interacting_furnace.0.is_some()
-        || interacting_crusher.0.is_some()
-        || interacting_miner.0.is_some()
-        || command_state.open
-        || cursor_state.paused
-    {
+    // Only update when GlobalInventoryOpen changes
+    if !global_inv_open.is_changed() {
         return;
     }
 
-    // Tab key to toggle
-    if key_input.just_pressed(KeyCode::Tab) {
-        global_inv_open.0 = !global_inv_open.0;
-
-        for mut vis in ui_query.iter_mut() {
-            *vis = if global_inv_open.0 {
-                Visibility::Visible
-            } else {
-                Visibility::Hidden
-            };
-        }
-
-        // Handle cursor lock
-        if let Ok(mut window) = windows.get_single_mut() {
-            if global_inv_open.0 {
-                cursor::unlock_cursor(&mut window);
-            } else {
-                cursor::lock_cursor(&mut window);
-            }
-        }
+    // Update UI visibility
+    for mut vis in ui_query.iter_mut() {
+        *vis = if global_inv_open.0 {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 
-    // ESC to close (release cursor but don't lock - allows pause menu)
-    if global_inv_open.0 && key_input.just_pressed(KeyCode::Escape) {
-        global_inv_open.0 = false;
-        for mut vis in ui_query.iter_mut() {
-            *vis = Visibility::Hidden;
-        }
-        if let Ok(mut window) = windows.get_single_mut() {
-            cursor::release_cursor(&mut window);
+    // Handle cursor lock
+    if let Ok(mut window) = windows.get_single_mut() {
+        if global_inv_open.0 {
+            cursor::unlock_cursor(&mut window);
+        } else {
+            cursor::lock_cursor(&mut window);
         }
     }
 }

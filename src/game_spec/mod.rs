@@ -5,16 +5,18 @@
 
 pub mod machines;
 pub mod recipes;
+pub mod registry;
 
 // Re-exports for convenience
 pub use machines::{
     get_input_ports, get_machine_spec, get_output_ports, IoPort, MachineSpec, MachineState,
-    PortSide, ALL_MACHINES, ASSEMBLER, CRUSHER, FURNACE, MINER,
+    PortSide, ProcessType, UiSlotDef, UiSlotType, ALL_MACHINES, ASSEMBLER, CRUSHER, FURNACE, MINER,
 };
 pub use recipes::{
     find_recipe, get_recipes_for_machine, FuelRequirement, MachineType, RecipeInput, RecipeOutput,
     RecipeSpec, ALL_RECIPES, FURNACE_RECIPES, RECIPE_SMELT_COPPER, RECIPE_SMELT_IRON,
 };
+pub use registry::{GameRegistry, ItemDescriptor, RegistryPlugin, ITEM_DESCRIPTORS};
 
 use crate::block_type::BlockType;
 

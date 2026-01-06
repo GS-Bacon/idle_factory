@@ -9,7 +9,8 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    ConveyorRotationOffset, InteractingCrusher, InteractingFurnace, InteractingMiner, MachineModels,
+    ConveyorRotationOffset, InteractingCrusher, InteractingFurnace, InteractingMachine,
+    InteractingMiner, MachineModels,
 };
 use crate::systems::{
     // Machine interaction systems
@@ -43,6 +44,7 @@ impl Plugin for MachineSystemsPlugin {
         app.init_resource::<InteractingFurnace>()
             .init_resource::<InteractingCrusher>()
             .init_resource::<InteractingMiner>()
+            .init_resource::<InteractingMachine>()
             .init_resource::<MachineModels>()
             .init_resource::<ConveyorRotationOffset>();
 

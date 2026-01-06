@@ -7,11 +7,13 @@ mod input;
 mod machines;
 mod player;
 mod ui;
+mod ui_state;
 
 pub use input::*;
 pub use machines::*;
 pub use player::*;
 pub use ui::*;
+pub use ui_state::*;
 
 use crate::BlockType;
 use bevy::prelude::*;

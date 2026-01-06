@@ -29,18 +29,14 @@ fn return_held_item_to_inventory(inventory: &mut Inventory, held_item: &mut Held
     }
 }
 
-/// Toggle inventory with E key (works in both survival and creative mode)
+/// Update inventory UI visibility when InventoryOpen changes
+/// (Key handling moved to ui_navigation.rs)
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
-pub fn inventory_toggle(
-    key_input: Res<ButtonInput<KeyCode>>,
-    mut inventory_open: ResMut<InventoryOpen>,
+pub fn update_inventory_visibility(
+    inventory_open: Res<InventoryOpen>,
     mut inventory: ResMut<Inventory>,
     mut held_item: ResMut<HeldItem>,
-    interacting_furnace: Res<InteractingFurnace>,
-    interacting_crusher: Res<InteractingCrusher>,
-    command_state: Res<CommandInputState>,
-    mut cursor_state: ResMut<CursorLockState>,
     creative_mode: Res<CreativeMode>,
     mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
     mut overlay_query: Query<
@@ -61,121 +57,65 @@ pub fn inventory_toggle(
     >,
     mut windows: Query<&mut Window>,
 ) {
-    // Clear the skip flag (used to prevent inventory opening when machine UI closes with E)
-    if cursor_state.skip_inventory_toggle {
-        cursor_state.skip_inventory_toggle = false;
+    // Only update when InventoryOpen changes
+    if !inventory_open.is_changed() {
         return;
     }
 
-    // Don't toggle if other UIs are open or game is paused (input matrix: E key)
-    if interacting_furnace.0.is_some()
-        || interacting_crusher.0.is_some()
-        || command_state.open
-        || cursor_state.paused
-    {
-        if key_input.just_pressed(KeyCode::KeyE) {
-            info!(
-                "[INVENTORY] E pressed but blocked: furnace={}, crusher={}, command={}, paused={}",
-                interacting_furnace.0.is_some(),
-                interacting_crusher.0.is_some(),
-                command_state.open,
-                cursor_state.paused
-            );
-        }
-        return;
-    }
+    info!("[INVENTORY] InventoryOpen changed to {}", inventory_open.0);
 
-    // E key to toggle inventory
-    if key_input.just_pressed(KeyCode::KeyE) {
-        info!(
-            "[INVENTORY] E key pressed, toggling from {} to {}",
-            inventory_open.0, !inventory_open.0
-        );
-        inventory_open.0 = !inventory_open.0;
-
-        // Return held item when closing
-        if !inventory_open.0 {
-            return_held_item_to_inventory(&mut inventory, &mut held_item);
-        }
-
-        let mut ui_count = 0;
-        for mut vis in ui_query.iter_mut() {
-            ui_count += 1;
-            *vis = if inventory_open.0 {
-                Visibility::Visible
-            } else {
-                Visibility::Hidden
-            };
-        }
-
-        // Show/hide background overlay
-        for mut vis in overlay_query.iter_mut() {
-            *vis = if inventory_open.0 {
-                Visibility::Visible
-            } else {
-                Visibility::Hidden
-            };
-        }
-
-        info!(
-            "[INVENTORY] Updated {} UI entities, now open={}",
-            ui_count, inventory_open.0
-        );
-
-        if ui_count == 0 {
-            warn!("[INVENTORY] No InventoryUI entity found! UI will not display.");
-        }
-
-        // Show/hide creative panel based on creative mode
-        // Use Display::None to also remove layout space in survival mode
-        for (mut vis, mut node) in creative_panel_query.iter_mut() {
-            if inventory_open.0 && creative_mode.enabled {
-                *vis = Visibility::Visible;
-                node.display = Display::Flex;
-            } else {
-                *vis = Visibility::Hidden;
-                node.display = Display::None;
-            }
-        }
-
-        // Unlock/lock cursor
-        if let Ok(mut window) = windows.get_single_mut() {
-            if inventory_open.0 {
-                cursor::unlock_cursor(&mut window);
-            } else {
-                cursor::lock_cursor(&mut window);
-            }
-        }
-    }
-
-    // ESC to close (just close inventory, don't trigger pause)
-    if inventory_open.0 && key_input.just_pressed(KeyCode::Escape) {
-        inventory_open.0 = false;
-
-        // Return held item when closing
+    // Return held item when closing
+    if !inventory_open.0 {
         return_held_item_to_inventory(&mut inventory, &mut held_item);
+    }
 
-        for mut vis in ui_query.iter_mut() {
-            *vis = Visibility::Hidden;
-        }
+    // Update UI visibility
+    let mut ui_count = 0;
+    for mut vis in ui_query.iter_mut() {
+        ui_count += 1;
+        *vis = if inventory_open.0 {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
 
-        // Hide background overlay
-        for mut vis in overlay_query.iter_mut() {
-            *vis = Visibility::Hidden;
-        }
+    // Show/hide background overlay
+    for mut vis in overlay_query.iter_mut() {
+        *vis = if inventory_open.0 {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
 
-        // Also hide creative panel
-        for (mut vis, mut node) in creative_panel_query.iter_mut() {
+    info!(
+        "[INVENTORY] Updated {} UI entities, now open={}",
+        ui_count, inventory_open.0
+    );
+
+    if ui_count == 0 {
+        warn!("[INVENTORY] No InventoryUI entity found! UI will not display.");
+    }
+
+    // Show/hide creative panel based on creative mode
+    for (mut vis, mut node) in creative_panel_query.iter_mut() {
+        if inventory_open.0 && creative_mode.enabled {
+            *vis = Visibility::Visible;
+            node.display = Display::Flex;
+        } else {
             *vis = Visibility::Hidden;
             node.display = Display::None;
         }
+    }
 
-        // Re-lock cursor after closing inventory (keep playing, don't pause)
-        if let Ok(mut window) = windows.get_single_mut() {
+    // Unlock/lock cursor
+    if let Ok(mut window) = windows.get_single_mut() {
+        if inventory_open.0 {
+            cursor::unlock_cursor(&mut window);
+        } else {
             cursor::lock_cursor(&mut window);
         }
-        // Ensure we don't get paused by toggle_cursor_lock running after this
-        cursor_state.paused = false;
     }
 }
 

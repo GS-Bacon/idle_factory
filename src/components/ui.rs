@@ -157,6 +157,44 @@ pub struct MachineSlotCount(pub MachineSlotType);
 #[derive(Component)]
 pub struct CrusherSlotCount(pub MachineSlotType);
 
+// === Generic Machine UI ===
+
+/// Currently interacting machine entity (generic)
+#[derive(Resource, Default)]
+pub struct InteractingMachine(pub Option<Entity>);
+
+/// Generic machine UI panel marker
+/// Holds the machine spec id for identification
+#[derive(Component)]
+pub struct GenericMachineUI {
+    pub machine_id: &'static str,
+}
+
+/// Generic machine UI slot button
+/// slot_id corresponds to UiSlotDef.slot_id from MachineSpec
+#[derive(Component)]
+pub struct GenericMachineSlotButton {
+    pub slot_id: u8,
+    pub is_input: bool,
+    pub is_fuel: bool,
+}
+
+/// Generic machine UI slot count text
+#[derive(Component)]
+pub struct GenericMachineSlotCount {
+    pub slot_id: u8,
+    pub is_input: bool,
+    pub is_fuel: bool,
+}
+
+/// Generic machine UI progress bar
+#[derive(Component)]
+pub struct GenericMachineProgressBar;
+
+/// Generic machine UI header text
+#[derive(Component)]
+pub struct GenericMachineHeaderText;
+
 // === Command UI ===
 
 /// Command input UI state

@@ -15,9 +15,8 @@ use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use tracing::info;
 
-/// Toggle cursor lock with Escape key
+/// Handle cursor lock on click (ESC handling moved to ui_navigation.rs)
 pub fn toggle_cursor_lock(
-    key_input: Res<ButtonInput<KeyCode>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
     interacting_furnace: Res<InteractingFurnace>,
@@ -30,12 +29,6 @@ pub fn toggle_cursor_lock(
     // Check if any UI is open
     let any_ui_open =
         interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || creative_inv_open.0;
-
-    // Escape to unlock cursor (but not if a UI is open - that UI handles ESC itself)
-    if key_input.just_pressed(KeyCode::Escape) && !any_ui_open {
-        cursor::release_cursor(&mut window);
-        cursor_state.paused = true;
-    }
 
     // Click to lock cursor (when not locked or paused, and no UI open)
     // Also handle case where cursor may have been released
@@ -410,11 +403,17 @@ pub fn tick_action_timers(time: Res<Time>, mut action_timer: ResMut<ContinuousAc
     action_timer.inventory_timer.tick(time.delta());
 }
 
-/// Update pause UI visibility based on cursor lock state
+/// Update pause UI visibility and cursor state based on CursorLockState
 pub fn update_pause_ui(
     cursor_state: Res<CursorLockState>,
     mut pause_query: Query<&mut Visibility, With<PauseUI>>,
+    mut windows: Query<&mut Window>,
 ) {
+    // Only update when cursor_state changes
+    if !cursor_state.is_changed() {
+        return;
+    }
+
     let Ok(mut visibility) = pause_query.get_single_mut() else {
         return;
     };
@@ -424,4 +423,13 @@ pub fn update_pause_ui(
     } else {
         Visibility::Hidden
     };
+
+    // Handle cursor release/lock when entering/leaving pause
+    if let Ok(mut window) = windows.get_single_mut() {
+        if cursor_state.paused {
+            cursor::release_cursor(&mut window);
+        } else {
+            cursor::lock_cursor(&mut window);
+        }
+    }
 }
