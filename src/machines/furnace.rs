@@ -6,11 +6,8 @@ use crate::components::{
 };
 use crate::game_spec::{find_recipe, MachineType};
 use crate::player::Inventory;
-use crate::systems::set_ui_open_state;
-use crate::utils::ray_aabb_intersection;
-use crate::{BlockType, Conveyor, Furnace, BLOCK_SIZE, REACH_DISTANCE};
+use crate::{BlockType, Conveyor, Furnace, REACH_DISTANCE};
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
 
 /// Handle furnace right-click interaction (open/close UI)
 #[allow(clippy::too_many_arguments)]
@@ -26,88 +23,39 @@ pub fn furnace_interact(
     command_state: Res<CommandInputState>,
     mut cursor_state: ResMut<CursorLockState>,
 ) {
-    // Don't process when inventory, command input is open or game is paused (input matrix: Right Click)
-    if inventory_open.0 || command_state.open || cursor_state.paused {
+    use super::interaction::{
+        can_interact, close_machine_ui, get_close_key_pressed, is_cursor_locked, open_machine_ui,
+        raycast_closest_machine,
+    };
+
+    // Don't process when inventory, command input is open or game is paused
+    if !can_interact(&inventory_open, &command_state, &cursor_state) {
         return;
     }
 
-    // ESC or E key to close furnace UI (when open)
-    let e_pressed = key_input.just_pressed(KeyCode::KeyE);
-    let esc_pressed = key_input.just_pressed(KeyCode::Escape);
+    let (e_pressed, esc_pressed) = get_close_key_pressed(&key_input);
 
     // If already interacting, close the UI with E or ESC
     if interacting.0.is_some() && (e_pressed || esc_pressed) {
         interacting.0 = None;
-        if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
-            *vis = Visibility::Hidden;
-        }
-        let mut window = windows.single_mut();
-        if esc_pressed {
-            // ESC: Release pointer lock and show cursor
-            window.cursor_options.grab_mode = CursorGrabMode::None;
-            window.cursor_options.visible = true;
-            set_ui_open_state(false);
-        } else {
-            // E key: Keep cursor locked (no browser interference)
-            // Set flag to prevent inventory from opening this frame
-            cursor_state.skip_inventory_toggle = true;
-            window.cursor_options.grab_mode = CursorGrabMode::Locked;
-            window.cursor_options.visible = false;
-            set_ui_open_state(false);
-        }
+        close_machine_ui::<FurnaceUI>(
+            esc_pressed,
+            &mut furnace_ui_query,
+            &mut windows,
+            &mut cursor_state,
+        );
         return;
     }
 
-    // Only open furnace UI with right-click
-    if !mouse_button.just_pressed(MouseButton::Right) {
+    // Only open furnace UI with right-click when cursor is locked
+    if !mouse_button.just_pressed(MouseButton::Right) || !is_cursor_locked(&windows) {
         return;
     }
 
-    let window = windows.single();
-    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
-    if !cursor_locked {
-        return;
-    }
-
-    let Ok(camera_transform) = camera_query.get_single() else {
-        return;
-    };
-
-    let ray_origin = camera_transform.translation();
-    let ray_direction = camera_transform.forward().as_vec3();
-
-    // Find closest furnace intersection
-    let mut closest_furnace: Option<(Entity, f32)> = None;
-    let half_size = BLOCK_SIZE / 2.0;
-
-    for (entity, furnace_transform) in furnace_query.iter() {
-        let furnace_pos = furnace_transform.translation;
-        if let Some(t) = ray_aabb_intersection(
-            ray_origin,
-            ray_direction,
-            furnace_pos - Vec3::splat(half_size),
-            furnace_pos + Vec3::splat(half_size),
-        ) {
-            if t > 0.0 && t < REACH_DISTANCE {
-                let is_closer = closest_furnace.is_none_or(|f| t < f.1);
-                if is_closer {
-                    closest_furnace = Some((entity, t));
-                }
-            }
-        }
-    }
-
-    // Open furnace UI
-    if let Some((entity, _)) = closest_furnace {
-        interacting.0 = Some(entity);
-        if let Ok(mut vis) = furnace_ui_query.get_single_mut() {
-            *vis = Visibility::Visible;
-        }
-        // Unlock cursor for UI interaction
-        let mut window = windows.single_mut();
-        window.cursor_options.grab_mode = CursorGrabMode::None;
-        window.cursor_options.visible = true;
-        set_ui_open_state(true);
+    // Find closest furnace and open UI
+    if let Some(result) = raycast_closest_machine(&camera_query, &furnace_query, REACH_DISTANCE) {
+        interacting.0 = Some(result.entity);
+        open_machine_ui::<FurnaceUI>(&mut furnace_ui_query, &mut windows);
     }
 }
 

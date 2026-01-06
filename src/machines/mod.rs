@@ -9,10 +9,12 @@
 
 pub mod crusher;
 pub mod furnace;
+pub mod interaction;
 pub mod miner;
 pub mod output;
 
 pub use crusher::*;
 pub use furnace::*;
+pub use interaction::*;
 pub use miner::*;
 pub use output::*;
