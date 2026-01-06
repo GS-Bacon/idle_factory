@@ -7,6 +7,15 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# 排他ロック: 同時実行を防止
+LOCK_FILE="/tmp/idle_factory_build.lock"
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    echo "[ERROR] 別のビルドプロセスが実行中です。終了を待つか、手動で確認してください。"
+    echo "        ロックファイル: $LOCK_FILE"
+    exit 1
+fi
+
 # バージョン取得（Cargo.tomlから）
 VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 DIST_DIR="$PROJECT_ROOT/dist"
