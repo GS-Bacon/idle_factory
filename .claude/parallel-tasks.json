@@ -100,6 +100,130 @@
       ],
       "status": "completed",
       "description": "鉱石バイオーム表示をシンプルに、他UIと色を統一"
+    },
+    {
+      "id": "coordinate-utils",
+      "name": "タスク5: 座標変換ユーティリティ統一",
+      "parallel_group": "core",
+      "depends_on": [],
+      "branch": "refactor/coordinate-utils",
+      "files": [
+        "src/utils.rs",
+        "src/systems/targeting/guide.rs",
+        "src/systems/targeting/conveyor.rs",
+        "src/systems/targeting/highlight.rs",
+        "src/logistics/conveyor.rs",
+        "src/systems/block_operations/placement.rs",
+        "src/systems/debug_ui.rs",
+        "src/save/systems.rs",
+        "src/systems/chunk.rs"
+      ],
+      "status": "completed",
+      "description": "GridPos/WorldPos NewTypeパターンで座標変換を統一"
+    },
+    {
+      "id": "commit-check",
+      "name": "タスク9: 並列worktree重複コミット検出",
+      "parallel_group": "core",
+      "depends_on": [],
+      "branch": "feat/commit-check",
+      "files": [
+        "scripts/parallel-run.sh"
+      ],
+      "status": "completed",
+      "description": "finish時に同名コミットをチェック"
+    },
+    {
+      "id": "machine-output",
+      "name": "タスク6: 機械出力ロジック共通化",
+      "parallel_group": "machines",
+      "depends_on": [
+        "coordinate-utils"
+      ],
+      "branch": "refactor/machine-output",
+      "files": [
+        "src/machines/mod.rs",
+        "src/machines/output.rs",
+        "src/machines/miner.rs",
+        "src/machines/furnace.rs",
+        "src/machines/crusher.rs"
+      ],
+      "status": "completed",
+      "description": "3つの機械で共通の出力ロジックを抽出"
+    },
+    {
+      "id": "machine-interaction",
+      "name": "タスク7: 機械インタラクション共通化",
+      "parallel_group": "machines",
+      "depends_on": [
+        "machine-output"
+      ],
+      "branch": "refactor/machine-interaction",
+      "files": [
+        "src/machines/mod.rs",
+        "src/machines/interaction.rs",
+        "src/machines/miner.rs",
+        "src/machines/furnace.rs",
+        "src/machines/crusher.rs"
+      ],
+      "status": "pending",
+      "description": "3つの機械で共通のインタラクション処理を抽出"
+    },
+    {
+      "id": "cursor-manager",
+      "name": "タスク8: カーソル管理の集約",
+      "parallel_group": "core",
+      "depends_on": [
+        "machine-interaction"
+      ],
+      "branch": "refactor/cursor-manager",
+      "files": [
+        "src/components/mod.rs",
+        "src/systems/cursor.rs"
+      ],
+      "status": "pending",
+      "description": "CursorManagerリソースで一元管理"
+    },
+    {
+      "id": "chunk-hashmap",
+      "name": "タスク11: ChunkData HashMap削除",
+      "parallel_group": "core",
+      "depends_on": [],
+      "branch": "refactor/chunk-hashmap",
+      "files": [
+        "src/world/mod.rs",
+        "src/systems/chunk.rs"
+      ],
+      "status": "pending",
+      "description": "blocks_mapの二重管理を解消しメモリ50%削減"
+    },
+    {
+      "id": "greedy-meshing",
+      "name": "タスク10: Greedy meshing実装",
+      "parallel_group": "core",
+      "depends_on": [
+        "chunk-hashmap"
+      ],
+      "branch": "feat/greedy-meshing",
+      "files": [
+        "src/world/mod.rs"
+      ],
+      "status": "pending",
+      "description": "連続面を結合して頂点数50%削減"
+    },
+    {
+      "id": "diff-mesh",
+      "name": "タスク12: 差分メッシュ更新",
+      "parallel_group": "core",
+      "depends_on": [
+        "greedy-meshing"
+      ],
+      "branch": "feat/diff-mesh",
+      "files": [
+        "src/systems/chunk.rs"
+      ],
+      "status": "pending",
+      "description": "隣接チャンクの境界面のみ更新"
     }
   ],
   "parallel_groups": {
