@@ -3,7 +3,7 @@
 ## ゲーム概要
 
 - **ジャンル**: 3Dボクセル工場自動化ゲーム
-- **技術**: Rust + Bevy 0.15, YAML (データ), Lua 5.4 (スクリプト)
+- **技術**: Rust + Bevy 0.15
 - **コンセプト**: ストレスフリー、戦闘なし、自動化特化
 
 ## コア仕様
@@ -19,31 +19,15 @@
 
 | ファイル | 内容 |
 |----------|------|
-| [core-concept.md](core-concept.md) | ゲームコンセプト |
-| [editor.md](editor.md) | エディタ仕様（確定） |
-| [ui.md](ui.md) | UI仕様 |
-| [first-30-minutes.md](first-30-minutes.md) | 序盤体験 |
-| mechanics/ | 個別メカニクス仕様 |
+| [core-concept.md](core-concept.md) | ゲームコンセプト・差別化 |
+| [first-30-minutes.md](first-30-minutes.md) | 序盤体験フロー |
+| [ui.md](ui.md) | UI画面一覧・HUD |
+| [editor.md](editor.md) | エディタ連携仕様 |
+| [mvp-v0.1.md](mvp-v0.1.md) | MVP定義 |
 
-## メカニクス仕様
+## 機械・メカニクス
 
-| ファイル | 内容 |
-|----------|------|
-| player.md | プレイヤー |
-| conveyor.md | コンベア |
-| power.md | 電力システム |
-| fluid.md | 液体・パイプ |
-| signal.md | 信号・回路 |
-| quest.md | クエスト |
-| worldgen.md | ワールド生成 |
-| interaction.md | インタラクション |
-| miner.md | 採掘機 |
-| smelter.md | 精錬炉 |
-| multiblock.md | マルチブロック |
-| blueprint.md | ブループリント |
-| enchant.md | エンチャント |
-| progression.md | 進行システム |
-| platform.md | 納品プラットフォーム |
+詳細仕様は `src/game_spec.rs` に定義（Single Source of Truth）
 
 ## 将来機能
 
