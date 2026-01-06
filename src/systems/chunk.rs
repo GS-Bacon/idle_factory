@@ -13,11 +13,14 @@ fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
     let chunk_data = ChunkData::generate(chunk_coord);
     let mesh = chunk_data.generate_mesh(chunk_coord);
 
-    // Convert local positions to world positions for the blocks map
+    // Convert flat array to world positions HashMap for ChunkMeshData
     let mut world_blocks = HashMap::new();
-    for (&local_pos, &block_type) in &chunk_data.blocks_map {
-        let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
-        world_blocks.insert(world_pos, block_type);
+    for idx in 0..ChunkData::ARRAY_SIZE {
+        if let Some(block_type) = chunk_data.blocks[idx] {
+            let local_pos = ChunkData::index_to_pos(idx);
+            let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
+            world_blocks.insert(world_pos, block_type);
+        }
     }
 
     ChunkMeshData {
@@ -114,12 +117,10 @@ pub fn receive_chunk_meshes(
 
         // Create chunk data from blocks
         let mut blocks = vec![None; ChunkData::ARRAY_SIZE];
-        let mut blocks_map = HashMap::new();
         for (&world_pos, &block_type) in &chunk_mesh_data.blocks {
             let local_pos = WorldData::world_to_local(world_pos);
             let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
             blocks[idx] = Some(block_type);
-            blocks_map.insert(local_pos, block_type);
         }
 
         // Apply player modifications (placed/destroyed blocks)
@@ -134,17 +135,15 @@ pub fn receive_chunk_meshes(
                 Some(block_type) => {
                     // Player placed a block
                     blocks[idx] = Some(block_type);
-                    blocks_map.insert(local_pos, block_type);
                 }
                 None => {
                     // Player removed a block (air)
                     blocks[idx] = None;
-                    blocks_map.remove(&local_pos);
                 }
             }
         }
 
-        let chunk_data = ChunkData { blocks, blocks_map };
+        let chunk_data = ChunkData { blocks };
 
         world_data.chunks.insert(coord, chunk_data);
         coords_needing_neighbor_update.insert(coord);

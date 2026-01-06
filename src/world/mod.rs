@@ -55,8 +55,6 @@ pub struct ChunkMeshTasks {
 pub struct ChunkData {
     /// Flat array of blocks. None = air
     pub blocks: Vec<Option<BlockType>>,
-    /// HashMap for compatibility with existing code (lazy populated)
-    pub blocks_map: HashMap<IVec3, BlockType>,
 }
 
 impl ChunkData {
@@ -121,7 +119,7 @@ impl ChunkData {
     pub fn generate(chunk_coord: IVec2) -> Self {
         tracing::debug!("Generating chunk at {:?}", chunk_coord);
         let mut blocks = vec![None; Self::ARRAY_SIZE];
-        let mut blocks_map = HashMap::new();
+        let mut block_count = 0usize;
 
         // Generate a 16x16x8 chunk of blocks
         // Bottom layers are stone with ore veins, top layer is grass or ore
@@ -207,16 +205,16 @@ impl ChunkData {
                     };
                     let idx = Self::pos_to_index(x, y, z);
                     blocks[idx] = Some(block_type);
-                    blocks_map.insert(IVec3::new(x, y, z), block_type);
+                    block_count += 1;
                 }
             }
         }
         tracing::debug!(
             "Chunk {:?} generated with {} blocks",
             chunk_coord,
-            blocks_map.len()
+            block_count
         );
-        Self { blocks, blocks_map }
+        Self { blocks }
     }
 
     /// Simple hash function for deterministic ore generation
@@ -512,10 +510,11 @@ impl WorldData {
     }
 
     /// Get block at world position
-    pub fn get_block(&self, world_pos: IVec3) -> Option<&BlockType> {
+    pub fn get_block(&self, world_pos: IVec3) -> Option<BlockType> {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
-        self.chunks.get(&chunk_coord)?.blocks_map.get(&local_pos)
+        let chunk = self.chunks.get(&chunk_coord)?;
+        chunk.get_block(local_pos.x, local_pos.y, local_pos.z)
     }
 
     /// Set block at world position
@@ -529,7 +528,6 @@ impl WorldData {
             }
             let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
             chunk.blocks[idx] = Some(block_type);
-            chunk.blocks_map.insert(local_pos, block_type);
         }
         // Persist player modification for chunk reload
         self.modified_blocks.insert(world_pos, Some(block_type));
@@ -547,7 +545,6 @@ impl WorldData {
         let chunk = self.chunks.get_mut(&chunk_coord)?;
         let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
         let block = chunk.blocks[idx].take();
-        chunk.blocks_map.remove(&local_pos);
         // Persist player modification for chunk reload (None = air/removed)
         self.modified_blocks.insert(world_pos, None);
         block
@@ -714,7 +711,7 @@ mod tests {
 
         // Set block
         world.set_block(pos, BlockType::Stone);
-        assert_eq!(world.get_block(pos), Some(&BlockType::Stone));
+        assert_eq!(world.get_block(pos), Some(BlockType::Stone));
 
         // Verify modification is tracked
         assert!(world.modified_blocks.contains_key(&pos));

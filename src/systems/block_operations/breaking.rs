@@ -260,7 +260,7 @@ fn find_break_target(
 
     // Check world block if no machine is closer
     if let Some(break_pos) = target_block.break_target {
-        if let Some(block_type) = world_data.get_block(break_pos).copied() {
+        if let Some(block_type) = world_data.get_block(break_pos) {
             // Don't break machines via world data
             if !block_type.is_machine() {
                 // Calculate distance to world block

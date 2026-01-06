@@ -66,8 +66,11 @@ mod tests {
     #[test]
     fn test_chunk_generation() {
         let chunk = ChunkData::generate(IVec2::ZERO);
-        assert!(!chunk.blocks_map.is_empty());
-        let surface_block = chunk.blocks_map.get(&IVec3::new(0, 7, 0));
+        // Check that blocks array has some blocks
+        let block_count = chunk.blocks.iter().filter(|b| b.is_some()).count();
+        assert!(block_count > 0);
+        // Check surface block at (0, 7, 0)
+        let surface_block = chunk.get_block(0, 7, 0);
         assert!(matches!(
             surface_block,
             Some(BlockType::Grass)
