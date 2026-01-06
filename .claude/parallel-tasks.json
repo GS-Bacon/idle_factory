@@ -178,11 +178,14 @@
       ],
       "branch": "refactor/cursor-manager",
       "files": [
-        "src/components/mod.rs",
-        "src/systems/cursor.rs"
+        "src/systems/cursor.rs",
+        "src/ui/storage_ui.rs",
+        "src/systems/inventory_ui.rs",
+        "src/systems/player.rs",
+        "src/systems/command/ui.rs"
       ],
-      "status": "pending",
-      "description": "CursorManagerリソースで一元管理"
+      "status": "completed",
+      "description": "カーソル操作を共通関数に統一"
     },
     {
       "id": "chunk-hashmap",
