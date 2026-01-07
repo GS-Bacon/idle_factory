@@ -3,7 +3,7 @@
 use super::format as save;
 use crate::components::*;
 use crate::components::{Furnace, LoadGameEvent, SaveGameEvent};
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::world::WorldData;
 use crate::{BlockType, Direction, BLOCK_SIZE};
 use bevy::prelude::*;
@@ -14,7 +14,7 @@ use tracing::info;
 pub fn collect_save_data(
     player_query: &Query<&Transform, With<Player>>,
     camera_query: &Query<&PlayerCamera>,
-    inventory: &Inventory,
+    inventory: &PlayerInventory,
     world_data: &WorldData,
     miner_query: &Query<&Miner>,
     conveyor_query: &Query<&Conveyor>,
@@ -254,7 +254,8 @@ pub fn handle_save_event(
     mut events: EventReader<SaveGameEvent>,
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventory_query: Query<&PlayerInventory>,
     world_data: Res<WorldData>,
     miner_query: Query<&Miner>,
     conveyor_query: Query<&Conveyor>,
@@ -266,11 +267,19 @@ pub fn handle_save_event(
     global_inventory: Res<crate::player::GlobalInventory>,
     mut save_load_state: ResMut<SaveLoadState>,
 ) {
+    // Get local player's inventory
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(inventory) = inventory_query.get(local_player.0) else {
+        return;
+    };
+
     for event in events.read() {
         let save_data = collect_save_data(
             &player_query,
             &camera_query,
-            &inventory,
+            inventory,
             &world_data,
             &miner_query,
             &conveyor_query,
@@ -309,7 +318,8 @@ pub fn handle_load_event(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<&mut PlayerCamera>,
-    mut inventory: ResMut<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    mut inventory_query: Query<&mut PlayerInventory>,
     mut world_data: ResMut<WorldData>,
     mut current_quest: ResMut<CurrentQuest>,
     mut creative_mode: ResMut<CreativeMode>,
@@ -320,6 +330,28 @@ pub fn handle_load_event(
         Or<(With<Miner>, With<Conveyor>, With<Furnace>, With<Crusher>)>,
     >,
 ) {
+    // Get local player's inventory
+    let Some(local_player) = local_player else {
+        // If no local player, we can't load inventory
+        for event in events.read() {
+            let msg = format!("Failed to load '{}': No local player", event.filename);
+            info!("{}", msg);
+            save_load_state.last_message = Some(msg);
+        }
+        return;
+    };
+    let Ok(mut inventory) = inventory_query.get_mut(local_player.0) else {
+        for event in events.read() {
+            let msg = format!(
+                "Failed to load '{}': Local player has no inventory",
+                event.filename
+            );
+            info!("{}", msg);
+            save_load_state.last_message = Some(msg);
+        }
+        return;
+    };
+
     for event in events.read() {
         match save::load_game(&event.filename) {
             Ok(data) => {
