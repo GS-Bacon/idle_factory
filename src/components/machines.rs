@@ -4,10 +4,11 @@ use crate::constants::*;
 use crate::game_spec::{find_recipe, MachineType};
 use crate::BlockType;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
 /// Direction for conveyor belts
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Direction {
     North, // -Z
     South, // +Z

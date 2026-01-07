@@ -4,6 +4,7 @@
 
 use crate::Direction;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
 // ============================================================================
@@ -12,7 +13,7 @@ use std::f32::consts::PI;
 
 /// Grid coordinate (integer, block units)
 /// Use this for block positions, chunk coordinates, machine positions, etc.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct GridPos(pub IVec3);
 
 /// World coordinate (floating point)

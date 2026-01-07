@@ -23,9 +23,11 @@ pub mod meshes;
 pub mod player;
 pub mod plugins;
 pub mod rng;
+pub mod robot;
 pub mod save;
 pub mod settings;
 pub mod setup;
+pub mod skin;
 pub mod statistics;
 pub mod storage;
 pub mod systems;
@@ -82,6 +84,18 @@ pub use blueprint::{Blueprint, BlueprintLibrary, BlueprintPlugin};
 pub use craft::{
     CraftCompletedEvent, CraftPlugin, CraftingJob, CraftingRecipe, CraftingRegistry,
     CraftingStation, PlayerCrafting, StartCraftEvent,
+};
+
+// Re-export skin types
+pub use skin::{
+    EquippedSkins, SkinCategory, SkinChangedEvent, SkinItem, SkinPlugin, SkinRegistry,
+    SkinUnlockedEvent, UnlockedSkins,
+};
+
+// Re-export robot types
+pub use robot::{
+    Robot, RobotCommand, RobotCommandCompletedEvent, RobotCommandQueue, RobotInventory,
+    RobotPlugin, RobotState, RobotType, SpawnRobotEvent,
 };
 
 // Re-export plugins for testing
