@@ -48,6 +48,7 @@
 //! | Mod support | `ItemId` + string | `"mymod:custom_ore"` |
 //! | Save data | String ID | `"base:iron_ore"` (never save raw u32) |
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -119,10 +120,43 @@ impl<C> std::fmt::Debug for Id<C> {
     }
 }
 
+impl<C> Default for Id<C> {
+    fn default() -> Self {
+        Self::new(0)
+    }
+}
+
+// Serialize as raw u32 (for internal use)
+// For save files, use to_string_id() instead
+impl<C> Serialize for Id<C> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.raw.serialize(serializer)
+    }
+}
+
+// Deserialize from raw u32 (for internal use)
+// For save files, use from_string() instead
+impl<'de, C> Deserialize<'de> for Id<C> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = u32::deserialize(deserializer)?;
+        Ok(Self::new(raw))
+    }
+}
+
 // カテゴリマーカー（ゼロサイズ型）
+#[derive(Copy, Clone)]
 pub struct ItemCategory;
+#[derive(Copy, Clone)]
 pub struct MachineCategory;
+#[derive(Copy, Clone)]
 pub struct RecipeCategory;
+#[derive(Copy, Clone)]
 pub struct FluidCategory;
 
 // 型エイリアス
@@ -139,7 +173,30 @@ pub type FluidId = Id<FluidCategory>;
 pub const BASE_NAMESPACE: &str = "base";
 
 impl ItemId {
-    /// Convert a BlockType to ItemId
+    /// Convert a BlockType to ItemId using the global interner
+    ///
+    /// Uses the format "base:{snake_case_name}" for base game items.
+    /// This is the preferred method for conversion.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// use idle_factory::{BlockType, ItemId};
+    ///
+    /// let item_id = ItemId::from(BlockType::IronOre);
+    /// assert_eq!(item_id.name(), Some("base:iron_ore"));
+    /// ```
+    pub fn from_block_type_static(block_type: crate::block_type::BlockType) -> Self {
+        let name = format!("{}", block_type); // snake_case from strum
+        items::by_name(&name)
+            .unwrap_or_else(|| panic!("BlockType::{:?} not found in items module", block_type))
+    }
+
+    /// Get the string ID using the global interner
+    pub fn name(&self) -> Option<&'static str> {
+        self.to_string_id(items::interner())
+    }
+
+    /// Convert a BlockType to ItemId (legacy version with explicit interner)
     ///
     /// Uses the format "base:{snake_case_name}" for base game items.
     ///
@@ -257,9 +314,181 @@ impl StringInterner {
 /// スレッドセーフ版（マルチプレイ用）
 pub type SharedInterner = Arc<RwLock<StringInterner>>;
 
+// =============================================================================
+// BlockType <-> ItemId Conversion Traits
+// =============================================================================
+
+impl From<crate::block_type::BlockType> for ItemId {
+    fn from(block_type: crate::block_type::BlockType) -> Self {
+        ItemId::from_block_type_static(block_type)
+    }
+}
+
+impl TryFrom<ItemId> for crate::block_type::BlockType {
+    type Error = ();
+
+    fn try_from(item_id: ItemId) -> Result<Self, Self::Error> {
+        item_id.to_block_type(items::interner()).ok_or(())
+    }
+}
+
+// =============================================================================
+// Base Game ItemId Constants
+// =============================================================================
+
+/// Pre-defined ItemId values for base game items.
+/// These are lazily initialized on first access.
+pub mod items {
+    use super::*;
+    use std::sync::OnceLock;
+
+    // Global interner for static item IDs
+    static INTERNER: OnceLock<StringInterner> = OnceLock::new();
+
+    fn get_interner() -> &'static StringInterner {
+        INTERNER.get_or_init(|| {
+            let mut interner = StringInterner::new();
+            // Pre-intern all base items
+            for name in BASE_ITEM_NAMES {
+                interner.get_or_intern(&format!("{}:{}", BASE_NAMESPACE, name));
+            }
+            interner
+        })
+    }
+
+    /// All base item names (snake_case)
+    const BASE_ITEM_NAMES: &[&str] = &[
+        "stone",
+        "grass",
+        "iron_ore",
+        "copper_ore",
+        "coal",
+        "iron_ingot",
+        "copper_ingot",
+        "iron_dust",
+        "copper_dust",
+        "miner_block",
+        "conveyor_block",
+        "furnace_block",
+        "crusher_block",
+        "assembler_block",
+        "platform_block",
+        "stone_pickaxe",
+    ];
+
+    /// Get an ItemId by its base name (e.g., "stone", "iron_ore")
+    pub fn by_name(name: &str) -> Option<ItemId> {
+        let interner = get_interner();
+        let full_id = format!("{}:{}", BASE_NAMESPACE, name);
+        interner.get(&full_id).map(Id::new)
+    }
+
+    /// Get the global interner (read-only)
+    pub fn interner() -> &'static StringInterner {
+        get_interner()
+    }
+
+    // Terrain
+    pub fn stone() -> ItemId {
+        by_name("stone").expect("stone not registered")
+    }
+    pub fn grass() -> ItemId {
+        by_name("grass").expect("grass not registered")
+    }
+
+    // Ores
+    pub fn iron_ore() -> ItemId {
+        by_name("iron_ore").expect("iron_ore not registered")
+    }
+    pub fn copper_ore() -> ItemId {
+        by_name("copper_ore").expect("copper_ore not registered")
+    }
+    pub fn coal() -> ItemId {
+        by_name("coal").expect("coal not registered")
+    }
+
+    // Processed
+    pub fn iron_ingot() -> ItemId {
+        by_name("iron_ingot").expect("iron_ingot not registered")
+    }
+    pub fn copper_ingot() -> ItemId {
+        by_name("copper_ingot").expect("copper_ingot not registered")
+    }
+    pub fn iron_dust() -> ItemId {
+        by_name("iron_dust").expect("iron_dust not registered")
+    }
+    pub fn copper_dust() -> ItemId {
+        by_name("copper_dust").expect("copper_dust not registered")
+    }
+
+    // Machines
+    pub fn miner_block() -> ItemId {
+        by_name("miner_block").expect("miner_block not registered")
+    }
+    pub fn conveyor_block() -> ItemId {
+        by_name("conveyor_block").expect("conveyor_block not registered")
+    }
+    pub fn furnace_block() -> ItemId {
+        by_name("furnace_block").expect("furnace_block not registered")
+    }
+    pub fn crusher_block() -> ItemId {
+        by_name("crusher_block").expect("crusher_block not registered")
+    }
+    pub fn assembler_block() -> ItemId {
+        by_name("assembler_block").expect("assembler_block not registered")
+    }
+    pub fn platform_block() -> ItemId {
+        by_name("platform_block").expect("platform_block not registered")
+    }
+
+    // Tools
+    pub fn stone_pickaxe() -> ItemId {
+        by_name("stone_pickaxe").expect("stone_pickaxe not registered")
+    }
+
+    /// Get all base item IDs
+    pub fn all() -> Vec<ItemId> {
+        BASE_ITEM_NAMES
+            .iter()
+            .filter_map(|name| by_name(name))
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_base_items_module() {
+        // All items should be accessible
+        let stone = items::stone();
+        let iron_ore = items::iron_ore();
+        let miner = items::miner_block();
+
+        // They should have different IDs
+        assert_ne!(stone, iron_ore);
+        assert_ne!(iron_ore, miner);
+
+        // Should resolve to correct names
+        let interner = items::interner();
+        assert_eq!(stone.to_string_id(interner), Some("base:stone"));
+        assert_eq!(iron_ore.to_string_id(interner), Some("base:iron_ore"));
+        assert_eq!(miner.to_string_id(interner), Some("base:miner_block"));
+    }
+
+    #[test]
+    fn test_base_items_all() {
+        let all = items::all();
+        assert_eq!(all.len(), 16); // All 16 base items
+    }
+
+    #[test]
+    fn test_base_items_by_name() {
+        assert!(items::by_name("stone").is_some());
+        assert!(items::by_name("iron_ore").is_some());
+        assert!(items::by_name("nonexistent").is_none());
+    }
 
     #[test]
     fn test_id_equality() {

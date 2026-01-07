@@ -355,7 +355,10 @@
       "Bash(# 大きいディレクトリを探す du -h /home/bacon --max-depth=2)",
       "Bash(# 大きいディレクトリを探す（エラー抑制） du -h /home/bacon --max-depth=2)",
       "Bash(./scripts/parallel-run.sh:*)",
-      "Bash(# BlockType使用箇所の分布を確認 echo \"\"=== BlockType 使用ファイル \\(上位20\\) ===\"\" grep -r ''BlockType'' src --include=''*.rs'' -l)"
+      "Bash(# BlockType使用箇所の分布を確認 echo \"\"=== BlockType 使用ファイル \\(上位20\\) ===\"\" grep -r ''BlockType'' src --include=''*.rs'' -l)",
+      "Bash(__NEW_LINE__ echo \"BlockType \\(型として\\):\")",
+      "Bash(__NEW_LINE__ echo \"<BlockType> \\(ジェネリクス\\):\")",
+      "Bash(__NEW_LINE__ echo \"impl.*BlockType:\")"
     ]
   },
   "enableAllProjectMcpServers": true,

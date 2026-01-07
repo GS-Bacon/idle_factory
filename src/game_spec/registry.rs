@@ -2,11 +2,25 @@
 //!
 //! All descriptors (blocks, items, machines, recipes) are registered here
 //! and can be accessed via O(1) lookup.
+//!
+//! ## Migration: BlockType → ItemId
+//!
+//! The registry now supports both BlockType (legacy) and ItemId (new).
+//! New code should prefer ItemId-based APIs:
+//!
+//! ```rust,ignore
+//! // Legacy (deprecated)
+//! registry.item(BlockType::IronOre)
+//!
+//! // New (preferred)
+//! registry.item_by_id(items::iron_ore())
+//! ```
 
 use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::block_type::{BlockCategory, BlockType};
+use crate::core::ItemId;
 
 use super::machines::MachineSpec;
 use super::recipes::RecipeSpec;
@@ -283,8 +297,16 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
 /// Central registry for all game data
 #[derive(Resource)]
 pub struct GameRegistry {
+    // Legacy: BlockType-indexed maps
     items: HashMap<BlockType, &'static ItemDescriptor>,
     machines: HashMap<BlockType, &'static MachineSpec>,
+    // New: ItemId-indexed maps
+    items_by_id: HashMap<ItemId, &'static ItemDescriptor>,
+    machines_by_id: HashMap<ItemId, &'static MachineSpec>,
+    // BlockType <-> ItemId mapping
+    block_to_item: HashMap<BlockType, ItemId>,
+    item_to_block: HashMap<ItemId, BlockType>,
+    // Recipes
     recipes: Vec<&'static RecipeSpec>,
 }
 
@@ -298,13 +320,27 @@ impl GameRegistry {
     /// Create a new registry with all static data
     pub fn new() -> Self {
         let mut items = HashMap::new();
+        let mut items_by_id = HashMap::new();
+        let mut block_to_item = HashMap::new();
+        let mut item_to_block = HashMap::new();
+
         for (block_type, descriptor) in ITEM_DESCRIPTORS {
             items.insert(*block_type, descriptor);
+
+            // Create ItemId mapping
+            let item_id = ItemId::from(*block_type);
+            items_by_id.insert(item_id, descriptor);
+            block_to_item.insert(*block_type, item_id);
+            item_to_block.insert(item_id, *block_type);
         }
 
         let mut machines = HashMap::new();
+        let mut machines_by_id = HashMap::new();
         for spec in super::machines::ALL_MACHINES {
             machines.insert(spec.block_type, *spec);
+
+            let item_id = ItemId::from(spec.block_type);
+            machines_by_id.insert(item_id, *spec);
         }
 
         let recipes = super::recipes::ALL_RECIPES.to_vec();
@@ -312,28 +348,86 @@ impl GameRegistry {
         Self {
             items,
             machines,
+            items_by_id,
+            machines_by_id,
+            block_to_item,
+            item_to_block,
             recipes,
         }
     }
 
+    // =========================================================================
+    // Legacy API (BlockType-based) - deprecated but still available
+    // =========================================================================
+
     /// Get item descriptor by BlockType
+    #[deprecated(note = "Use item_by_id() instead")]
     pub fn item(&self, block_type: BlockType) -> Option<&ItemDescriptor> {
         self.items.get(&block_type).copied()
     }
 
     /// Get machine spec by BlockType
+    #[deprecated(note = "Use machine_by_id() instead")]
     pub fn machine(&self, block_type: BlockType) -> Option<&MachineSpec> {
         self.machines.get(&block_type).copied()
     }
 
+    /// Check if a BlockType is registered
+    #[deprecated(note = "Use is_registered_id() instead")]
+    pub fn is_registered(&self, block_type: BlockType) -> bool {
+        self.items.contains_key(&block_type)
+    }
+
+    // =========================================================================
+    // New API (ItemId-based) - preferred for new code
+    // =========================================================================
+
+    /// Get item descriptor by ItemId
+    pub fn item_by_id(&self, item_id: ItemId) -> Option<&ItemDescriptor> {
+        self.items_by_id.get(&item_id).copied()
+    }
+
+    /// Get machine spec by ItemId
+    pub fn machine_by_id(&self, item_id: ItemId) -> Option<&MachineSpec> {
+        self.machines_by_id.get(&item_id).copied()
+    }
+
+    /// Check if an ItemId is registered
+    pub fn is_registered_id(&self, item_id: ItemId) -> bool {
+        self.items_by_id.contains_key(&item_id)
+    }
+
+    /// Get all item IDs
+    pub fn all_item_ids(&self) -> impl Iterator<Item = ItemId> + '_ {
+        self.items_by_id.keys().copied()
+    }
+
+    /// Get all machine item IDs
+    pub fn all_machine_ids(&self) -> impl Iterator<Item = ItemId> + '_ {
+        self.machines_by_id.keys().copied()
+    }
+
+    // =========================================================================
+    // Conversion helpers
+    // =========================================================================
+
+    /// Convert BlockType to ItemId
+    pub fn to_item_id(&self, block_type: BlockType) -> Option<ItemId> {
+        self.block_to_item.get(&block_type).copied()
+    }
+
+    /// Convert ItemId to BlockType
+    pub fn to_block_type(&self, item_id: ItemId) -> Option<BlockType> {
+        self.item_to_block.get(&item_id).copied()
+    }
+
+    // =========================================================================
+    // Common API
+    // =========================================================================
+
     /// Get all recipes
     pub fn recipes(&self) -> &[&'static RecipeSpec] {
         &self.recipes
-    }
-
-    /// Check if a BlockType is registered
-    pub fn is_registered(&self, block_type: BlockType) -> bool {
-        self.items.contains_key(&block_type)
     }
 }
 
@@ -356,9 +450,11 @@ impl Plugin for RegistryPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
     use strum::IntoEnumIterator;
 
     #[test]
+    #[allow(deprecated)]
     fn test_all_block_types_registered() {
         let registry = GameRegistry::new();
         for block_type in BlockType::iter() {
@@ -371,6 +467,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_item_lookup() {
         let registry = GameRegistry::new();
 
@@ -384,6 +481,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_machine_lookup() {
         let registry = GameRegistry::new();
 
@@ -401,6 +499,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_stack_sizes() {
         let registry = GameRegistry::new();
 
@@ -420,6 +519,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_hardness_values() {
         let registry = GameRegistry::new();
 
@@ -450,5 +550,84 @@ mod tests {
         assert_eq!(BlockType::Stone.drops(), BlockType::Stone);
         assert_eq!(BlockType::IronOre.drops(), BlockType::IronOre);
         assert_eq!(BlockType::MinerBlock.drops(), BlockType::MinerBlock);
+    }
+
+    // =========================================================================
+    // New ItemId API tests
+    // =========================================================================
+
+    #[test]
+    fn test_item_by_id() {
+        let registry = GameRegistry::new();
+
+        let stone = registry.item_by_id(items::stone()).unwrap();
+        assert_eq!(stone.name, "Stone");
+        assert_eq!(stone.category, BlockCategory::Terrain);
+
+        let iron_ingot = registry.item_by_id(items::iron_ingot()).unwrap();
+        assert_eq!(iron_ingot.name, "Iron Ingot");
+        assert!(!iron_ingot.is_placeable);
+    }
+
+    #[test]
+    fn test_machine_by_id() {
+        let registry = GameRegistry::new();
+
+        let miner = registry.machine_by_id(items::miner_block());
+        assert!(miner.is_some());
+        assert_eq!(miner.unwrap().id, "miner");
+
+        let furnace = registry.machine_by_id(items::furnace_block());
+        assert!(furnace.is_some());
+        assert!(furnace.unwrap().requires_fuel);
+
+        // Non-machine should return None
+        let stone = registry.machine_by_id(items::stone());
+        assert!(stone.is_none());
+    }
+
+    #[test]
+    fn test_is_registered_id() {
+        let registry = GameRegistry::new();
+
+        assert!(registry.is_registered_id(items::stone()));
+        assert!(registry.is_registered_id(items::iron_ore()));
+        assert!(registry.is_registered_id(items::miner_block()));
+    }
+
+    #[test]
+    fn test_all_item_ids() {
+        let registry = GameRegistry::new();
+        let all_ids: Vec<_> = registry.all_item_ids().collect();
+
+        assert_eq!(all_ids.len(), 16); // All 16 base items
+    }
+
+    #[test]
+    fn test_all_machine_ids() {
+        let registry = GameRegistry::new();
+        let machine_ids: Vec<_> = registry.all_machine_ids().collect();
+
+        assert_eq!(machine_ids.len(), 4); // 4 machines: miner, furnace, crusher, assembler
+    }
+
+    #[test]
+    fn test_block_type_item_id_conversion() {
+        let registry = GameRegistry::new();
+
+        // BlockType -> ItemId
+        let stone_id = registry.to_item_id(BlockType::Stone).unwrap();
+        assert_eq!(stone_id.name(), Some("base:stone"));
+
+        // ItemId -> BlockType
+        let stone_bt = registry.to_block_type(stone_id).unwrap();
+        assert_eq!(stone_bt, BlockType::Stone);
+
+        // Round-trip for all items
+        for block_type in BlockType::iter() {
+            let item_id = registry.to_item_id(block_type).unwrap();
+            let recovered = registry.to_block_type(item_id).unwrap();
+            assert_eq!(recovered, block_type);
+        }
     }
 }

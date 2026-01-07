@@ -9,7 +9,7 @@
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **~25,000行** |
-| テスト | **261件** 通過 |
+| テスト | **485件** 通過 |
 | Clippy警告 | **0件** |
 | Phase | **D.0-D.14 基盤実装済み** |
 
@@ -32,31 +32,59 @@
 
 ### D.2: 動的ID移行
 
-**ステータス**: ✅ 基盤実装済み / ❌ 移行 0%
+**ステータス**: ✅ 基盤完成 / 🔄 移行 10% (970箇所残り)
 
 #### 完了条件
-- [ ] `grep -r 'BlockType' src` が 0件
+- [ ] `grep -r 'BlockType' src` が 0件 (現在: 970)
 - [ ] 全アイテムが `ItemId` で参照される
-- [ ] セーブデータが文字列ID形式
+- [x] セーブデータが文字列ID形式 (V2形式)
 
 #### Phase 1: 基盤 ✅
 - [x] `Id<T>` Phantom Type 定義 (`src/core/id.rs`)
 - [x] `StringInterner` 実装
 - [x] `ItemId`, `MachineId`, `RecipeId`, `FluidId` 型エイリアス
-- [x] `BlockType` ↔ `ItemId` 変換ヘルパー
-- [x] テスト追加
+- [x] `BlockType` ↔ `ItemId` 変換ヘルパー (`From`/`TryFrom` trait)
+- [x] `items` モジュール (16アイテムの定数関数)
+- [x] `Serialize`/`Deserialize`/`Default` 実装
+- [x] テスト15個追加
 
-#### Phase 2: 移行 ❌ (0/940箇所)
+#### Phase 2: GameRegistry拡張 ✅
+- [x] `item_by_id()` / `machine_by_id()` API追加
+- [x] `all_item_ids()` / `all_machine_ids()` API追加
+- [x] `to_item_id()` / `to_block_type()` 変換API
+- [x] 旧API (`item()`, `machine()`) を `#[deprecated]` マーク
+- [x] テスト7個追加
 
-**注**: これは大規模リファクタ。現時点では後回し推奨。
+#### Phase 3: 段階的移行 (後回し推奨)
+
+**注**: 970箇所の移行は大規模作業。新機能実装時に段階的に移行推奨。
 
 | ファイル | 箇所数 | 優先度 |
 |----------|--------|--------|
-| block_type.rs | ~100 | 最後（enum定義） |
-| save/format.rs | ~80 | 高（セーブ互換） |
-| game_spec/*.rs | ~150 | 高（定義元） |
+| save/format.rs | 212 | ✅ V2形式で対応済み |
+| block_type.rs | 102 | 最後（enum定義自体） |
+| game_spec/registry.rs | 67 | ✅ ItemId API追加済み |
+| game_spec/mod.rs | 57 | 中 |
+| core/id.rs | 50 | 変換ヘルパー（残す） |
+| game_spec/recipes.rs | 46 | 中 |
 | player/*.rs | ~70 | 中 |
-| その他 | ~500 | 低 |
+| その他 | ~360 | 低 |
+
+#### 使用方法
+
+```rust
+// 新しいコード（推奨）
+use idle_factory::core::items;
+let stone = items::stone();  // ItemId
+
+// 変換が必要な場合
+let block_type: BlockType = stone.try_into().unwrap();
+let item_id: ItemId = block_type.into();
+
+// GameRegistry経由
+let desc = registry.item_by_id(items::iron_ore());
+let machine = registry.machine_by_id(items::furnace_block());
+```
 
 ---
 
