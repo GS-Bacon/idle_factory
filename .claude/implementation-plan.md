@@ -9,7 +9,7 @@
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **~25,000行** |
-| テスト | **257件** 通過 |
+| テスト | **261件** 通過 |
 | Clippy警告 | **0件** |
 | Phase | **D.0-D.14 基盤実装済み** |
 
@@ -24,7 +24,7 @@
 | D.2 | **動的ID** | ✅ | ❌ 0% | BlockType → ItemId (940箇所) |
 | D.4 | **本体Mod化** | ✅ | ✅ 100% | 起動時ロード完了 |
 | D.1 | **イベント** | ✅ | ✅ 100% | 7箇所でEventReader使用 |
-| - | **セーブ形式** | ✅ | ❌ 0% | enum → 文字列ID (166箇所) |
+| - | **セーブ形式** | ✅ | ✅ 100% | V2形式で保存、両形式読込対応 |
 | - | **レガシー削除** | ✅ | ✅ | 完了 |
 | D.6-14 | **各機能プラグイン** | ✅ | ✅ | 完了 |
 
@@ -140,12 +140,13 @@
 
 ### セーブ形式移行
 
-**ステータス**: ✅ 基盤実装済み / ❌ 移行 0%
+**ステータス**: ✅ 完了
 
 #### 完了条件
-- [ ] `BlockTypeSave` enum が削除
-- [ ] アイテムIDが文字列形式 (`"base:iron_ore"`)
-- [ ] Mod削除時にセーブが壊れない
+- [x] V2形式で保存（文字列ID）
+- [x] V1/V2両形式の読み込み対応
+- [x] アイテムIDが文字列形式 (`"base:iron_ore"`)
+- [ ] `BlockTypeSave` enum 削除（内部変換用に残存、将来削除）
 
 #### Phase 1: 基盤 ✅
 - [x] セーブ/ロードシステム (`src/save/`)
@@ -156,18 +157,15 @@
 - [x] `BlockType::to_save_string_id()` / `from_save_string_id()`
 - [x] V1 ↔ V2 変換トレイト
 
-#### Phase 2: 移行 ❌ (166箇所)
-
-**注**: BlockTypeSaveを使っている箇所を文字列IDに移行
-
-| 構造体 | 変更内容 |
-|--------|----------|
-| BlockTypeSave | enum → String |
-| InventorySaveData | BlockTypeSave → String |
-| ConveyorSaveData | items: Vec<BlockTypeSave> → Vec<String> |
-| MinerSaveData | buffer: Option<BlockTypeSave> → Option<String> |
-| FurnaceSaveData | input_type等 → String |
-| CrusherSaveData | input_type等 → String |
+#### Phase 2: V2構造体 ✅
+- [x] `SaveDataV2` - メインセーブ構造体（全て文字列ID）
+- [x] `InventorySaveDataV2`, `GlobalInventorySaveDataV2`
+- [x] `WorldSaveDataV2`, `QuestSaveDataV2`
+- [x] `MachineSaveDataV2` (Miner/Conveyor/Furnace/Crusher)
+- [x] V1 → V2, V2 → V1 変換実装
+- [x] `save_game()` がV2形式で出力
+- [x] `load_game()` が両形式対応
+- [x] テスト4個追加
 
 ---
 

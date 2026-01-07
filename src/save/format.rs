@@ -340,6 +340,453 @@ impl BlockType {
     }
 }
 
+// =============================================================================
+// V2 Save Data Structures (String ID based)
+// =============================================================================
+
+/// V2 Inventory save data using string IDs
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InventorySaveDataV2 {
+    pub selected_slot: usize,
+    pub slots: Vec<Option<ItemStackV2>>,
+}
+
+impl From<InventorySaveData> for InventorySaveDataV2 {
+    fn from(v1: InventorySaveData) -> Self {
+        Self {
+            selected_slot: v1.selected_slot,
+            slots: v1
+                .slots
+                .into_iter()
+                .map(|opt| opt.map(Into::into))
+                .collect(),
+        }
+    }
+}
+
+/// V2 Global inventory save data using string IDs
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct GlobalInventorySaveDataV2 {
+    /// Items stored: "namespace:id" -> count
+    pub items: HashMap<String, u32>,
+}
+
+impl From<GlobalInventorySaveData> for GlobalInventorySaveDataV2 {
+    fn from(v1: GlobalInventorySaveData) -> Self {
+        Self {
+            items: v1
+                .items
+                .into_iter()
+                .map(|(bt, count)| (bt.to_string_id(), count))
+                .collect(),
+        }
+    }
+}
+
+/// V2 World save data using string IDs
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WorldSaveDataV2 {
+    /// Modified blocks: "x,y,z" -> Some("namespace:id") for placed, None for removed
+    pub modified_blocks: HashMap<String, Option<String>>,
+}
+
+impl WorldSaveDataV2 {
+    /// Convert IVec3 to string key for JSON serialization
+    pub fn pos_to_key(pos: IVec3) -> String {
+        format!("{},{},{}", pos.x, pos.y, pos.z)
+    }
+
+    /// Parse string key back to IVec3
+    pub fn key_to_pos(key: &str) -> Option<IVec3> {
+        let parts: Vec<&str> = key.split(',').collect();
+        if parts.len() != 3 {
+            return None;
+        }
+        Some(IVec3::new(
+            parts[0].parse().ok()?,
+            parts[1].parse().ok()?,
+            parts[2].parse().ok()?,
+        ))
+    }
+}
+
+impl From<WorldSaveData> for WorldSaveDataV2 {
+    fn from(v1: WorldSaveData) -> Self {
+        Self {
+            modified_blocks: v1
+                .modified_blocks
+                .into_iter()
+                .map(|(pos, opt_bt)| (pos, opt_bt.map(|bt| bt.to_string_id())))
+                .collect(),
+        }
+    }
+}
+
+/// V2 Single item on conveyor using string ID
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConveyorItemSaveV2 {
+    pub item_id: String,
+    pub progress: f32,
+    pub lateral_offset: f32,
+}
+
+impl From<ConveyorItemSave> for ConveyorItemSaveV2 {
+    fn from(v1: ConveyorItemSave) -> Self {
+        Self {
+            item_id: v1.item_type.to_string_id(),
+            progress: v1.progress,
+            lateral_offset: v1.lateral_offset,
+        }
+    }
+}
+
+/// V2 Miner save data
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MinerSaveDataV2 {
+    pub position: IVec3Save,
+    pub progress: f32,
+    pub buffer: Option<ItemStackV2>,
+}
+
+impl From<MinerSaveData> for MinerSaveDataV2 {
+    fn from(v1: MinerSaveData) -> Self {
+        Self {
+            position: v1.position,
+            progress: v1.progress,
+            buffer: v1.buffer.map(Into::into),
+        }
+    }
+}
+
+/// V2 Conveyor save data
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConveyorSaveDataV2 {
+    pub position: IVec3Save,
+    pub direction: DirectionSave,
+    pub shape: ConveyorShapeSave,
+    pub items: Vec<ConveyorItemSaveV2>,
+    pub last_output_index: usize,
+    pub last_input_source: usize,
+}
+
+impl From<ConveyorSaveData> for ConveyorSaveDataV2 {
+    fn from(v1: ConveyorSaveData) -> Self {
+        Self {
+            position: v1.position,
+            direction: v1.direction,
+            shape: v1.shape,
+            items: v1.items.into_iter().map(Into::into).collect(),
+            last_output_index: v1.last_output_index,
+            last_input_source: v1.last_input_source,
+        }
+    }
+}
+
+/// V2 Furnace save data
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FurnaceSaveDataV2 {
+    pub position: IVec3Save,
+    pub fuel: u32,
+    pub input: Option<ItemStackV2>,
+    pub output: Option<ItemStackV2>,
+    pub progress: f32,
+}
+
+impl From<FurnaceSaveData> for FurnaceSaveDataV2 {
+    fn from(v1: FurnaceSaveData) -> Self {
+        Self {
+            position: v1.position,
+            fuel: v1.fuel,
+            input: v1.input.map(Into::into),
+            output: v1.output.map(Into::into),
+            progress: v1.progress,
+        }
+    }
+}
+
+/// V2 Crusher save data
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CrusherSaveDataV2 {
+    pub position: IVec3Save,
+    pub input: Option<ItemStackV2>,
+    pub output: Option<ItemStackV2>,
+    pub progress: f32,
+}
+
+impl From<CrusherSaveData> for CrusherSaveDataV2 {
+    fn from(v1: CrusherSaveData) -> Self {
+        Self {
+            position: v1.position,
+            input: v1.input.map(Into::into),
+            output: v1.output.map(Into::into),
+            progress: v1.progress,
+        }
+    }
+}
+
+/// V2 Machine save data (all machine types)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
+pub enum MachineSaveDataV2 {
+    Miner(MinerSaveDataV2),
+    Conveyor(ConveyorSaveDataV2),
+    Furnace(FurnaceSaveDataV2),
+    Crusher(CrusherSaveDataV2),
+}
+
+impl From<MachineSaveData> for MachineSaveDataV2 {
+    fn from(v1: MachineSaveData) -> Self {
+        match v1 {
+            MachineSaveData::Miner(m) => MachineSaveDataV2::Miner(m.into()),
+            MachineSaveData::Conveyor(c) => MachineSaveDataV2::Conveyor(c.into()),
+            MachineSaveData::Furnace(f) => MachineSaveDataV2::Furnace(f.into()),
+            MachineSaveData::Crusher(c) => MachineSaveDataV2::Crusher(c.into()),
+        }
+    }
+}
+
+/// V2 Quest save data using string IDs
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct QuestSaveDataV2 {
+    pub current_index: usize,
+    pub completed: bool,
+    pub rewards_claimed: bool,
+    /// Items delivered: "namespace:id" -> count
+    pub delivered: HashMap<String, u32>,
+}
+
+impl From<QuestSaveData> for QuestSaveDataV2 {
+    fn from(v1: QuestSaveData) -> Self {
+        Self {
+            current_index: v1.current_index,
+            completed: v1.completed,
+            rewards_claimed: v1.rewards_claimed,
+            delivered: v1
+                .delivered
+                .into_iter()
+                .map(|(bt, count)| (bt.to_string_id(), count))
+                .collect(),
+        }
+    }
+}
+
+/// V2 Main save data structure using string IDs throughout
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SaveDataV2 {
+    /// Save format version (should be "0.2.0" or later)
+    pub version: String,
+    /// Timestamp when saved (Unix milliseconds)
+    pub timestamp: u64,
+    /// Player state
+    pub player: PlayerSaveData,
+    /// Inventory state
+    pub inventory: InventorySaveDataV2,
+    /// Global inventory
+    #[serde(default)]
+    pub global_inventory: GlobalInventorySaveDataV2,
+    /// World modifications
+    pub world: WorldSaveDataV2,
+    /// All machines in the world
+    pub machines: Vec<MachineSaveDataV2>,
+    /// Quest progress
+    pub quests: QuestSaveDataV2,
+    /// Game mode
+    pub mode: GameModeSaveData,
+}
+
+impl From<SaveData> for SaveDataV2 {
+    fn from(v1: SaveData) -> Self {
+        Self {
+            version: SAVE_VERSION_V2.to_string(),
+            timestamp: v1.timestamp,
+            player: v1.player,
+            inventory: v1.inventory.into(),
+            global_inventory: v1.global_inventory.into(),
+            world: v1.world.into(),
+            machines: v1.machines.into_iter().map(Into::into).collect(),
+            quests: v1.quests.into(),
+            mode: v1.mode,
+        }
+    }
+}
+
+// =============================================================================
+// V2 -> V1 Conversion (for backward compatibility during transition)
+// =============================================================================
+
+impl TryFrom<InventorySaveDataV2> for InventorySaveData {
+    type Error = String;
+
+    fn try_from(v2: InventorySaveDataV2) -> Result<Self, Self::Error> {
+        let mut slots = Vec::new();
+        for opt in v2.slots {
+            match opt {
+                Some(stack) => {
+                    let legacy: ItemStack = stack.try_into()?;
+                    slots.push(Some(legacy));
+                }
+                None => slots.push(None),
+            }
+        }
+        Ok(Self {
+            selected_slot: v2.selected_slot,
+            slots,
+        })
+    }
+}
+
+impl TryFrom<GlobalInventorySaveDataV2> for GlobalInventorySaveData {
+    type Error = String;
+
+    fn try_from(v2: GlobalInventorySaveDataV2) -> Result<Self, Self::Error> {
+        let mut items = HashMap::new();
+        for (id, count) in v2.items {
+            let bt = BlockTypeSave::from_string_id(&id)
+                .ok_or_else(|| format!("Unknown item ID in global inventory: {}", id))?;
+            items.insert(bt, count);
+        }
+        Ok(Self { items })
+    }
+}
+
+impl TryFrom<WorldSaveDataV2> for WorldSaveData {
+    type Error = String;
+
+    fn try_from(v2: WorldSaveDataV2) -> Result<Self, Self::Error> {
+        let mut modified_blocks = HashMap::new();
+        for (pos, opt_id) in v2.modified_blocks {
+            let block = match opt_id {
+                Some(id) => Some(
+                    BlockTypeSave::from_string_id(&id)
+                        .ok_or_else(|| format!("Unknown block ID: {}", id))?,
+                ),
+                None => None,
+            };
+            modified_blocks.insert(pos, block);
+        }
+        Ok(Self { modified_blocks })
+    }
+}
+
+impl TryFrom<ConveyorItemSaveV2> for ConveyorItemSave {
+    type Error = String;
+
+    fn try_from(v2: ConveyorItemSaveV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            item_type: BlockTypeSave::from_string_id(&v2.item_id)
+                .ok_or_else(|| format!("Unknown item ID on conveyor: {}", v2.item_id))?,
+            progress: v2.progress,
+            lateral_offset: v2.lateral_offset,
+        })
+    }
+}
+
+impl TryFrom<MinerSaveDataV2> for MinerSaveData {
+    type Error = String;
+
+    fn try_from(v2: MinerSaveDataV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            position: v2.position,
+            progress: v2.progress,
+            buffer: v2.buffer.map(|s| s.try_into()).transpose()?,
+        })
+    }
+}
+
+impl TryFrom<ConveyorSaveDataV2> for ConveyorSaveData {
+    type Error = String;
+
+    fn try_from(v2: ConveyorSaveDataV2) -> Result<Self, Self::Error> {
+        let items: Result<Vec<_>, _> = v2.items.into_iter().map(TryInto::try_into).collect();
+        Ok(Self {
+            position: v2.position,
+            direction: v2.direction,
+            shape: v2.shape,
+            items: items?,
+            last_output_index: v2.last_output_index,
+            last_input_source: v2.last_input_source,
+        })
+    }
+}
+
+impl TryFrom<FurnaceSaveDataV2> for FurnaceSaveData {
+    type Error = String;
+
+    fn try_from(v2: FurnaceSaveDataV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            position: v2.position,
+            fuel: v2.fuel,
+            input: v2.input.map(|s| s.try_into()).transpose()?,
+            output: v2.output.map(|s| s.try_into()).transpose()?,
+            progress: v2.progress,
+        })
+    }
+}
+
+impl TryFrom<CrusherSaveDataV2> for CrusherSaveData {
+    type Error = String;
+
+    fn try_from(v2: CrusherSaveDataV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            position: v2.position,
+            input: v2.input.map(|s| s.try_into()).transpose()?,
+            output: v2.output.map(|s| s.try_into()).transpose()?,
+            progress: v2.progress,
+        })
+    }
+}
+
+impl TryFrom<MachineSaveDataV2> for MachineSaveData {
+    type Error = String;
+
+    fn try_from(v2: MachineSaveDataV2) -> Result<Self, Self::Error> {
+        Ok(match v2 {
+            MachineSaveDataV2::Miner(m) => MachineSaveData::Miner(m.try_into()?),
+            MachineSaveDataV2::Conveyor(c) => MachineSaveData::Conveyor(c.try_into()?),
+            MachineSaveDataV2::Furnace(f) => MachineSaveData::Furnace(f.try_into()?),
+            MachineSaveDataV2::Crusher(c) => MachineSaveData::Crusher(c.try_into()?),
+        })
+    }
+}
+
+impl TryFrom<QuestSaveDataV2> for QuestSaveData {
+    type Error = String;
+
+    fn try_from(v2: QuestSaveDataV2) -> Result<Self, Self::Error> {
+        let mut delivered = HashMap::new();
+        for (id, count) in v2.delivered {
+            let bt = BlockTypeSave::from_string_id(&id)
+                .ok_or_else(|| format!("Unknown item ID in quest delivery: {}", id))?;
+            delivered.insert(bt, count);
+        }
+        Ok(Self {
+            current_index: v2.current_index,
+            completed: v2.completed,
+            rewards_claimed: v2.rewards_claimed,
+            delivered,
+        })
+    }
+}
+
+impl TryFrom<SaveDataV2> for SaveData {
+    type Error = String;
+
+    fn try_from(v2: SaveDataV2) -> Result<Self, Self::Error> {
+        let machines: Result<Vec<_>, _> = v2.machines.into_iter().map(TryInto::try_into).collect();
+        Ok(Self {
+            version: v2.version,
+            timestamp: v2.timestamp,
+            player: v2.player,
+            inventory: v2.inventory.try_into()?,
+            global_inventory: v2.global_inventory.try_into()?,
+            world: v2.world.try_into()?,
+            machines: machines?,
+            quests: v2.quests.try_into()?,
+            mode: v2.mode,
+        })
+    }
+}
+
 /// World save data (modified blocks only)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorldSaveData {
@@ -480,6 +927,12 @@ pub struct SaveSlotInfo {
     pub timestamp: u64,
 }
 
+/// Helper struct to detect save version
+#[derive(Deserialize)]
+struct VersionDetect {
+    version: String,
+}
+
 pub mod native {
     use super::*;
     use std::fs;
@@ -498,8 +951,24 @@ pub mod native {
         Ok(())
     }
 
-    /// Save game data to a file
+    /// Save game data to a file (always uses V2 format)
     pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
+        ensure_save_dir().map_err(|e| format!("Failed to create save directory: {}", e))?;
+
+        // Convert to V2 format for saving
+        let v2_data: SaveDataV2 = data.clone().into();
+
+        let path = get_save_dir().join(format!("{}.json", filename));
+        let json = serde_json::to_string_pretty(&v2_data)
+            .map_err(|e| format!("Failed to serialize save data: {}", e))?;
+
+        fs::write(&path, json).map_err(|e| format!("Failed to write save file: {}", e))?;
+
+        Ok(())
+    }
+
+    /// Save game data in V2 format directly
+    pub fn save_game_v2(data: &SaveDataV2, filename: &str) -> Result<(), String> {
         ensure_save_dir().map_err(|e| format!("Failed to create save directory: {}", e))?;
 
         let path = get_save_dir().join(format!("{}.json", filename));
@@ -511,7 +980,7 @@ pub mod native {
         Ok(())
     }
 
-    /// Load game data from a file
+    /// Load game data from a file (supports both V1 and V2 formats)
     pub fn load_game(filename: &str) -> Result<SaveData, String> {
         let path = get_save_dir().join(format!("{}.json", filename));
 
@@ -522,10 +991,47 @@ pub mod native {
         let json =
             fs::read_to_string(&path).map_err(|e| format!("Failed to read save file: {}", e))?;
 
-        let data: SaveData =
-            serde_json::from_str(&json).map_err(|e| format!("Failed to parse save data: {}", e))?;
+        // Detect version
+        let version_info: VersionDetect = serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to parse save version: {}", e))?;
 
-        Ok(data)
+        if version_info.version.starts_with("0.2") {
+            // V2 format - parse and convert to V1 for internal use
+            let v2_data: SaveDataV2 = serde_json::from_str(&json)
+                .map_err(|e| format!("Failed to parse V2 save data: {}", e))?;
+            v2_data.try_into()
+        } else {
+            // V1 format - parse directly
+            let data: SaveData = serde_json::from_str(&json)
+                .map_err(|e| format!("Failed to parse save data: {}", e))?;
+            Ok(data)
+        }
+    }
+
+    /// Load game data in V2 format (supports both V1 and V2 formats)
+    pub fn load_game_v2(filename: &str) -> Result<SaveDataV2, String> {
+        let path = get_save_dir().join(format!("{}.json", filename));
+
+        if !path.exists() {
+            return Err(format!("Save file not found: {}", filename));
+        }
+
+        let json =
+            fs::read_to_string(&path).map_err(|e| format!("Failed to read save file: {}", e))?;
+
+        // Detect version
+        let version_info: VersionDetect = serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to parse save version: {}", e))?;
+
+        if version_info.version.starts_with("0.2") {
+            // V2 format - parse directly
+            serde_json::from_str(&json).map_err(|e| format!("Failed to parse V2 save data: {}", e))
+        } else {
+            // V1 format - parse and convert to V2
+            let v1_data: SaveData = serde_json::from_str(&json)
+                .map_err(|e| format!("Failed to parse save data: {}", e))?;
+            Ok(v1_data.into())
+        }
     }
 
     /// List all save files
@@ -1271,5 +1777,266 @@ mod tests {
         // The JSON should be human-readable with string IDs
         assert!(json.contains(r#""item_id": "base:iron_ore""#));
         assert!(json.contains(r#""count": 64"#));
+    }
+
+    // === V2 Save Data Tests ===
+
+    #[test]
+    fn test_save_data_v2_conversion() {
+        // Create V1 save data
+        let v1 = SaveData {
+            version: SAVE_VERSION.to_string(),
+            timestamp: 1704067200000,
+            player: PlayerSaveData {
+                position: Vec3Save {
+                    x: 10.0,
+                    y: 20.0,
+                    z: 30.0,
+                },
+                rotation: CameraRotation {
+                    pitch: 0.5,
+                    yaw: 1.0,
+                },
+            },
+            inventory: InventorySaveData {
+                selected_slot: 1,
+                slots: vec![
+                    Some(ItemStack {
+                        item_type: BlockTypeSave::IronOre,
+                        count: 64,
+                    }),
+                    None,
+                ],
+            },
+            global_inventory: GlobalInventorySaveData {
+                items: {
+                    let mut m = HashMap::new();
+                    m.insert(BlockTypeSave::Coal, 100);
+                    m
+                },
+            },
+            world: WorldSaveData {
+                modified_blocks: {
+                    let mut m = HashMap::new();
+                    m.insert("5,10,5".to_string(), Some(BlockTypeSave::Stone));
+                    m
+                },
+            },
+            machines: vec![MachineSaveData::Miner(MinerSaveData {
+                position: IVec3Save { x: 10, y: 5, z: 10 },
+                progress: 0.5,
+                buffer: Some(ItemStack {
+                    item_type: BlockTypeSave::IronOre,
+                    count: 1,
+                }),
+            })],
+            quests: QuestSaveData {
+                current_index: 1,
+                completed: false,
+                rewards_claimed: false,
+                delivered: {
+                    let mut m = HashMap::new();
+                    m.insert(BlockTypeSave::IronIngot, 5);
+                    m
+                },
+            },
+            mode: GameModeSaveData { creative: false },
+        };
+
+        // Convert to V2
+        let v2: SaveDataV2 = v1.clone().into();
+
+        // Check version
+        assert_eq!(v2.version, SAVE_VERSION_V2);
+
+        // Check inventory uses string IDs
+        assert_eq!(
+            v2.inventory.slots[0].as_ref().unwrap().item_id,
+            "base:iron_ore"
+        );
+
+        // Check global inventory uses string IDs
+        assert!(v2.global_inventory.items.contains_key("base:coal"));
+
+        // Check world uses string IDs
+        assert_eq!(
+            v2.world.modified_blocks.get("5,10,5"),
+            Some(&Some("base:stone".to_string()))
+        );
+
+        // Check quests use string IDs
+        assert!(v2.quests.delivered.contains_key("base:iron_ingot"));
+    }
+
+    #[test]
+    fn test_save_data_v2_roundtrip() {
+        // Create V1 data
+        let mut delivered = HashMap::new();
+        delivered.insert(BlockTypeSave::CopperOre, 10);
+
+        let original = SaveData {
+            version: SAVE_VERSION.to_string(),
+            timestamp: 1234567890,
+            player: PlayerSaveData {
+                position: Vec3Save {
+                    x: 1.0,
+                    y: 2.0,
+                    z: 3.0,
+                },
+                rotation: CameraRotation {
+                    pitch: 0.0,
+                    yaw: 0.0,
+                },
+            },
+            inventory: InventorySaveData {
+                selected_slot: 0,
+                slots: vec![Some(ItemStack {
+                    item_type: BlockTypeSave::Coal,
+                    count: 32,
+                })],
+            },
+            global_inventory: GlobalInventorySaveData::default(),
+            world: WorldSaveData {
+                modified_blocks: HashMap::new(),
+            },
+            machines: vec![],
+            quests: QuestSaveData {
+                current_index: 0,
+                completed: false,
+                rewards_claimed: false,
+                delivered,
+            },
+            mode: GameModeSaveData { creative: true },
+        };
+
+        // V1 -> V2 -> V1 roundtrip
+        let v2: SaveDataV2 = original.clone().into();
+        let restored: SaveData = v2.try_into().expect("roundtrip should succeed");
+
+        // Check key fields
+        assert_eq!(restored.timestamp, original.timestamp);
+        assert_eq!(
+            restored.inventory.slots[0].as_ref().unwrap().item_type,
+            BlockTypeSave::Coal
+        );
+        assert_eq!(
+            restored.quests.delivered.get(&BlockTypeSave::CopperOre),
+            Some(&10)
+        );
+        assert!(restored.mode.creative);
+    }
+
+    #[test]
+    fn test_save_data_v2_serialization() {
+        let v2 = SaveDataV2 {
+            version: SAVE_VERSION_V2.to_string(),
+            timestamp: 1704067200000,
+            player: PlayerSaveData {
+                position: Vec3Save {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                rotation: CameraRotation {
+                    pitch: 0.0,
+                    yaw: 0.0,
+                },
+            },
+            inventory: InventorySaveDataV2 {
+                selected_slot: 0,
+                slots: vec![Some(ItemStackV2::new("base:iron_ore", 64))],
+            },
+            global_inventory: GlobalInventorySaveDataV2::default(),
+            world: WorldSaveDataV2 {
+                modified_blocks: HashMap::new(),
+            },
+            machines: vec![],
+            quests: QuestSaveDataV2 {
+                current_index: 0,
+                completed: false,
+                rewards_claimed: false,
+                delivered: HashMap::new(),
+            },
+            mode: GameModeSaveData { creative: false },
+        };
+
+        // Serialize and deserialize
+        let json = serde_json::to_string_pretty(&v2).expect("serialization should succeed");
+
+        // JSON should contain string IDs
+        assert!(json.contains("base:iron_ore"));
+        assert!(json.contains("0.2.0"));
+
+        // Deserialize back
+        let restored: SaveDataV2 =
+            serde_json::from_str(&json).expect("deserialization should succeed");
+        assert_eq!(restored.version, SAVE_VERSION_V2);
+        assert_eq!(
+            restored.inventory.slots[0].as_ref().unwrap().item_id,
+            "base:iron_ore"
+        );
+    }
+
+    #[test]
+    fn test_machine_save_data_v2_all_types() {
+        // Test all machine types convert correctly
+        let machines = vec![
+            MachineSaveData::Miner(MinerSaveData {
+                position: IVec3Save { x: 0, y: 0, z: 0 },
+                progress: 0.5,
+                buffer: Some(ItemStack {
+                    item_type: BlockTypeSave::IronOre,
+                    count: 1,
+                }),
+            }),
+            MachineSaveData::Conveyor(ConveyorSaveData {
+                position: IVec3Save { x: 1, y: 0, z: 0 },
+                direction: DirectionSave::East,
+                shape: ConveyorShapeSave::Straight,
+                items: vec![ConveyorItemSave {
+                    item_type: BlockTypeSave::Coal,
+                    progress: 0.3,
+                    lateral_offset: 0.0,
+                }],
+                last_output_index: 0,
+                last_input_source: 0,
+            }),
+            MachineSaveData::Furnace(FurnaceSaveData {
+                position: IVec3Save { x: 2, y: 0, z: 0 },
+                fuel: 10,
+                input: Some(ItemStack {
+                    item_type: BlockTypeSave::IronOre,
+                    count: 5,
+                }),
+                output: Some(ItemStack {
+                    item_type: BlockTypeSave::IronIngot,
+                    count: 3,
+                }),
+                progress: 0.75,
+            }),
+            MachineSaveData::Crusher(CrusherSaveData {
+                position: IVec3Save { x: 3, y: 0, z: 0 },
+                input: Some(ItemStack {
+                    item_type: BlockTypeSave::CopperOre,
+                    count: 10,
+                }),
+                output: None,
+                progress: 0.25,
+            }),
+        ];
+
+        for machine in machines {
+            let v2: MachineSaveDataV2 = machine.clone().into();
+            let restored: MachineSaveData = v2.try_into().expect("roundtrip should succeed");
+
+            // Verify the type matches
+            match (&machine, &restored) {
+                (MachineSaveData::Miner(_), MachineSaveData::Miner(_)) => {}
+                (MachineSaveData::Conveyor(_), MachineSaveData::Conveyor(_)) => {}
+                (MachineSaveData::Furnace(_), MachineSaveData::Furnace(_)) => {}
+                (MachineSaveData::Crusher(_), MachineSaveData::Crusher(_)) => {}
+                _ => panic!("Machine type mismatch after roundtrip"),
+            }
+        }
     }
 }
