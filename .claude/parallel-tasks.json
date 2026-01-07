@@ -241,7 +241,7 @@
         "src/systems/block_operations/breaking.rs",
         "src/systems/block_operations/placement.rs"
       ],
-      "status": "in_progress",
+      "status": "completed",
       "description": "Inventory Resource → LocalPlayer + Query移行 (5箇所)"
     },
     {
@@ -325,7 +325,7 @@
       "files": [
         "src/blockbench.rs"
       ],
-      "status": "pending",
+      "status": "completed",
       "description": "base64 → Image変換（imageクレート使用）"
     },
     {
@@ -339,7 +339,7 @@
       "files": [
         "src/blockbench.rs"
       ],
-      "status": "pending",
+      "status": "in_progress",
       "description": "keyframes, bones対応"
     }
   ],

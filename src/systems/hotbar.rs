@@ -1,18 +1,28 @@
 //! Hotbar UI systems
 
 use crate::components::*;
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
+use crate::systems::block_operations::LocalPlayerInventory;
 use bevy::prelude::*;
 
 /// Update hotbar UI display
 pub fn update_hotbar_ui(
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventory_query: Query<&PlayerInventory>,
     item_sprites: Res<ItemSprites>,
     asset_server: Res<AssetServer>,
     mut slot_query: Query<(&HotbarSlot, &mut BackgroundColor, &mut BorderColor)>,
     mut count_query: Query<(&HotbarSlotCount, &mut Text)>,
     mut image_query: Query<(&HotbarSlotImage, &mut ImageNode, &mut Visibility)>,
 ) {
+    // Get local player's inventory
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(inventory) = inventory_query.get(local_player.0) else {
+        return;
+    };
+
     // Check if any sprite assets are still loading
     let sprites_loading = item_sprites.textures.values().any(|h| {
         !matches!(
@@ -21,9 +31,10 @@ pub fn update_hotbar_ui(
         )
     });
 
-    // Update when inventory changes, sprites resource changes, or sprites are loading
+    // Update when sprites resource changes or sprites are loading
     // (need to keep checking while loading to catch when they finish)
-    if !inventory.is_changed() && !item_sprites.is_changed() && !sprites_loading {
+    // Note: is_changed() on Query component requires different approach
+    if !item_sprites.is_changed() && !sprites_loading {
         return;
     }
 
@@ -78,7 +89,8 @@ pub fn update_hotbar_ui(
 
 /// Update the hotbar item name display to show the selected item's name
 pub fn update_hotbar_item_name(
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventory_query: Query<&PlayerInventory>,
     inventory_open: Res<InventoryOpen>,
     mut text_query: Query<(&mut Text, &mut Node), With<HotbarItemNameText>>,
 ) {
@@ -91,6 +103,16 @@ pub fn update_hotbar_item_name(
         text.0 = String::new();
         return;
     }
+
+    // Get local player's inventory
+    let Some(local_player) = local_player else {
+        text.0 = String::new();
+        return;
+    };
+    let Ok(inventory) = inventory_query.get(local_player.0) else {
+        text.0 = String::new();
+        return;
+    };
 
     // Show selected item name
     if let Some(block_type) = inventory.selected_block() {
@@ -108,18 +130,25 @@ pub fn update_hotbar_item_name(
 pub fn select_block_type(
     key_input: Res<ButtonInput<KeyCode>>,
     mut mouse_wheel: EventReader<bevy::input::mouse::MouseWheel>,
-    mut inventory: ResMut<Inventory>,
+    mut local_player_inventory: LocalPlayerInventory,
     input_resources: InputStateResourcesWithCursor,
 ) {
     use crate::HOTBAR_SLOTS;
 
-    // Use InputState to check if hotbar selection is allowed (see CLAUDE.md 入力マトリクス)
+    // Use InputState to check if hotbar selection is allowed (see CLAUDE.md input matrix)
     let input_state = input_resources.get_state();
     if !input_state.allows_hotbar() {
         // Still need to drain events to prevent accumulation
         for _ in mouse_wheel.read() {}
         return;
     }
+
+    // Get mutable access to local player's inventory
+    let Some(mut inventory) = local_player_inventory.get_mut() else {
+        // Still need to drain events to prevent accumulation
+        for _ in mouse_wheel.read() {}
+        return;
+    };
 
     // Handle mouse wheel scroll (cycles through hotbar slots 0-8 only)
     for event in mouse_wheel.read() {
@@ -162,7 +191,8 @@ pub fn select_block_type(
 
 /// Update 3D held item display based on selected hotbar item
 pub fn update_held_item_3d(
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventory_query: Query<&PlayerInventory>,
     cache: Option<Res<HeldItem3DCache>>,
     mut query: Query<(&mut MeshMaterial3d<StandardMaterial>, &mut Visibility), With<HeldItem3D>>,
 ) {
@@ -174,10 +204,15 @@ pub fn update_held_item_3d(
         return;
     };
 
-    // Only update when inventory changes
-    if !inventory.is_changed() {
+    // Get local player's inventory
+    let Some(local_player) = local_player else {
+        *visibility = Visibility::Hidden;
         return;
-    }
+    };
+    let Ok(inventory) = inventory_query.get(local_player.0) else {
+        *visibility = Visibility::Hidden;
+        return;
+    };
 
     // Get selected block type
     if let Some(block_type) = inventory.selected_block() {
