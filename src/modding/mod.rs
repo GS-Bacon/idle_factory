@@ -237,15 +237,109 @@ pub struct ModErrorEvent {
     pub error: String,
 }
 
+/// ロード済みModデータパック
+#[derive(Resource, Default)]
+pub struct LoadedModData {
+    /// 全Modからロードされたデータパック
+    pub packs: Vec<(String, data::ModDataPack)>,
+}
+
+impl LoadedModData {
+    /// アイテム定義を全て取得
+    pub fn all_items(&self) -> impl Iterator<Item = &data::ItemDefinition> {
+        self.packs.iter().flat_map(|(_, pack)| &pack.items)
+    }
+
+    /// 機械定義を全て取得
+    pub fn all_machines(&self) -> impl Iterator<Item = &data::MachineDefinition> {
+        self.packs.iter().flat_map(|(_, pack)| &pack.machines)
+    }
+
+    /// レシピ定義を全て取得
+    pub fn all_recipes(&self) -> impl Iterator<Item = &data::RecipeDefinition> {
+        self.packs.iter().flat_map(|(_, pack)| &pack.recipes)
+    }
+
+    /// アイテム総数
+    pub fn item_count(&self) -> usize {
+        self.packs.iter().map(|(_, p)| p.item_count()).sum()
+    }
+
+    /// 機械総数
+    pub fn machine_count(&self) -> usize {
+        self.packs.iter().map(|(_, p)| p.machine_count()).sum()
+    }
+
+    /// レシピ総数
+    pub fn recipe_count(&self) -> usize {
+        self.packs.iter().map(|(_, p)| p.recipe_count()).sum()
+    }
+}
+
+/// base Modをロード
+fn load_base_mod(mut mod_data: ResMut<LoadedModData>, mut mod_manager: ResMut<ModManager>) {
+    use tracing::{info, warn};
+
+    // 実行ファイルからの相対パスでmodsディレクトリを探す
+    let mods_paths = [
+        std::path::PathBuf::from("mods/base"),
+        std::path::PathBuf::from("../mods/base"),
+        std::path::PathBuf::from("../../mods/base"),
+    ];
+
+    let base_path = mods_paths.iter().find(|p| p.exists());
+
+    let Some(base_path) = base_path else {
+        warn!("Base mod not found in any expected location");
+        return;
+    };
+
+    info!("Loading base mod from: {:?}", base_path);
+
+    // base Modを登録
+    let base_info = ModInfo::new("base", "Base Game", env!("CARGO_PKG_VERSION"))
+        .with_author("Idle Factory Team")
+        .with_description("Core game content");
+    mod_manager.register(base_info);
+
+    // データパックをロード
+    match data::ModDataPack::load_from_directory(base_path) {
+        Ok(pack) => {
+            info!(
+                "Base mod loaded: {} items, {} machines, {} recipes",
+                pack.item_count(),
+                pack.machine_count(),
+                pack.recipe_count()
+            );
+
+            // Loadedステートに変更
+            if let Some(loaded) = mod_manager.get_mut("base") {
+                loaded.state = ModState::Loaded;
+            }
+
+            mod_data.packs.push(("base".to_string(), pack));
+        }
+        Err(e) => {
+            warn!("Failed to load base mod: {:?}", e);
+            if let Some(loaded) = mod_manager.get_mut("base") {
+                loaded.state = ModState::Error;
+                loaded.error = Some(format!("{:?}", e));
+            }
+        }
+    }
+}
+
 /// Moddingプラグイン
 pub struct ModdingPlugin;
 
 impl Plugin for ModdingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ModManager>()
+            .init_resource::<LoadedModData>()
             .add_event::<ModLoadedEvent>()
             .add_event::<ModUnloadedEvent>()
-            .add_event::<ModErrorEvent>();
+            .add_event::<ModErrorEvent>()
+            .add_systems(Startup, load_base_mod);
     }
 }
 

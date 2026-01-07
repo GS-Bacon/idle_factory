@@ -33,6 +33,9 @@ pub struct ItemDefinition {
     pub id: String,
     /// 表示名
     pub name: String,
+    /// 短縮名
+    #[serde(default)]
+    pub short_name: String,
     /// 説明
     #[serde(default)]
     pub description: String,
@@ -42,6 +45,15 @@ pub struct ItemDefinition {
     /// カテゴリ
     #[serde(default)]
     pub category: String,
+    /// 設置可能か
+    #[serde(default)]
+    pub is_placeable: bool,
+    /// 硬さ（採掘時間に影響）
+    #[serde(default = "default_hardness")]
+    pub hardness: f32,
+    /// 色 [R, G, B]
+    #[serde(default)]
+    pub color: Option<[f32; 3]>,
     /// アイコンパス
     #[serde(default)]
     pub icon: String,
@@ -57,15 +69,23 @@ fn default_stack_size() -> u32 {
     64
 }
 
+fn default_hardness() -> f32 {
+    1.0
+}
+
 impl ItemDefinition {
     /// 新しいアイテム定義を作成
     pub fn new(id: &str, name: &str) -> Self {
         Self {
             id: id.to_string(),
             name: name.to_string(),
+            short_name: String::new(),
             description: String::new(),
             stack_size: 64,
             category: String::new(),
+            is_placeable: false,
+            hardness: 1.0,
+            color: None,
             icon: String::new(),
             model: String::new(),
             properties: HashMap::new(),
@@ -183,6 +203,27 @@ pub struct ModDataPack {
     pub recipes: Vec<RecipeDefinition>,
 }
 
+/// items.toml形式
+#[derive(Debug, Deserialize)]
+struct ItemsToml {
+    #[serde(default, rename = "item")]
+    items: Vec<ItemDefinition>,
+}
+
+/// machines.toml形式
+#[derive(Debug, Deserialize)]
+struct MachinesToml {
+    #[serde(default, rename = "machine")]
+    machines: Vec<MachineDefinition>,
+}
+
+/// recipes.toml形式
+#[derive(Debug, Deserialize)]
+struct RecipesToml {
+    #[serde(default, rename = "recipe")]
+    recipes: Vec<RecipeDefinition>,
+}
+
 impl ModDataPack {
     /// 新しいデータパックを作成
     pub fn new() -> Self {
@@ -192,6 +233,29 @@ impl ModDataPack {
     /// JSONから読み込み
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
+    }
+
+    /// TOMLから読み込み（統合形式）
+    pub fn from_toml(toml_str: &str) -> Result<Self, toml::de::Error> {
+        toml::from_str(toml_str)
+    }
+
+    /// items.tomlから読み込み
+    pub fn load_items_toml(toml_str: &str) -> Result<Vec<ItemDefinition>, toml::de::Error> {
+        let parsed: ItemsToml = toml::from_str(toml_str)?;
+        Ok(parsed.items)
+    }
+
+    /// machines.tomlから読み込み
+    pub fn load_machines_toml(toml_str: &str) -> Result<Vec<MachineDefinition>, toml::de::Error> {
+        let parsed: MachinesToml = toml::from_str(toml_str)?;
+        Ok(parsed.machines)
+    }
+
+    /// recipes.tomlから読み込み
+    pub fn load_recipes_toml(toml_str: &str) -> Result<Vec<RecipeDefinition>, toml::de::Error> {
+        let parsed: RecipesToml = toml::from_str(toml_str)?;
+        Ok(parsed.recipes)
     }
 
     /// JSONに書き出し
@@ -228,6 +292,54 @@ impl ModDataPack {
     pub fn recipe_count(&self) -> usize {
         self.recipes.len()
     }
+
+    /// Modディレクトリからデータパックを読み込み
+    pub fn load_from_directory(mod_path: &std::path::Path) -> Result<Self, ModLoadError> {
+        let mut pack = ModDataPack::new();
+
+        // items.toml
+        let items_path = mod_path.join("items.toml");
+        if items_path.exists() {
+            let content = std::fs::read_to_string(&items_path)
+                .map_err(|e| ModLoadError::IoError(items_path.clone(), e.to_string()))?;
+            let items = Self::load_items_toml(&content)
+                .map_err(|e| ModLoadError::ParseError(items_path.clone(), e.to_string()))?;
+            pack.items = items;
+        }
+
+        // machines.toml
+        let machines_path = mod_path.join("machines.toml");
+        if machines_path.exists() {
+            let content = std::fs::read_to_string(&machines_path)
+                .map_err(|e| ModLoadError::IoError(machines_path.clone(), e.to_string()))?;
+            let machines = Self::load_machines_toml(&content)
+                .map_err(|e| ModLoadError::ParseError(machines_path.clone(), e.to_string()))?;
+            pack.machines = machines;
+        }
+
+        // recipes.toml
+        let recipes_path = mod_path.join("recipes.toml");
+        if recipes_path.exists() {
+            let content = std::fs::read_to_string(&recipes_path)
+                .map_err(|e| ModLoadError::IoError(recipes_path.clone(), e.to_string()))?;
+            let recipes = Self::load_recipes_toml(&content)
+                .map_err(|e| ModLoadError::ParseError(recipes_path.clone(), e.to_string()))?;
+            pack.recipes = recipes;
+        }
+
+        Ok(pack)
+    }
+}
+
+/// Modロードエラー
+#[derive(Debug)]
+pub enum ModLoadError {
+    /// IOエラー
+    IoError(PathBuf, String),
+    /// パースエラー
+    ParseError(PathBuf, String),
+    /// Mod情報が見つからない
+    ModInfoNotFound(PathBuf),
 }
 
 /// データローダー
@@ -349,5 +461,93 @@ mod tests {
 
         assert_eq!(loaded.id, item.id);
         assert_eq!(loaded.name, item.name);
+    }
+
+    #[test]
+    fn test_load_items_toml() {
+        let toml_str = r#"
+[[item]]
+id = "stone"
+name = "Stone"
+short_name = "Stn"
+description = "Basic building material"
+stack_size = 999
+category = "terrain"
+is_placeable = true
+hardness = 1.0
+color = [0.5, 0.5, 0.5]
+
+[[item]]
+id = "iron_ore"
+name = "Iron Ore"
+stack_size = 999
+category = "ore"
+"#;
+
+        let items = ModDataPack::load_items_toml(toml_str).unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].id, "stone");
+        assert_eq!(items[0].short_name, "Stn");
+        assert!(items[0].is_placeable);
+        assert_eq!(items[0].hardness, 1.0);
+        assert_eq!(items[0].color, Some([0.5, 0.5, 0.5]));
+        assert_eq!(items[1].id, "iron_ore");
+    }
+
+    #[test]
+    fn test_load_machines_toml() {
+        let toml_str = r#"
+[[machine]]
+id = "miner"
+name = "Miner"
+process_time = 1.5
+input_ports = 0
+output_ports = 1
+"#;
+
+        let machines = ModDataPack::load_machines_toml(toml_str).unwrap();
+        assert_eq!(machines.len(), 1);
+        assert_eq!(machines[0].id, "miner");
+        assert_eq!(machines[0].process_time, 1.5);
+        assert_eq!(machines[0].output_ports, 1);
+    }
+
+    #[test]
+    fn test_load_recipes_toml() {
+        let toml_str = r#"
+[[recipe]]
+id = "iron_smelting"
+machine = "furnace"
+process_time = 2.0
+
+[recipe.inputs]
+iron_ore = 1
+
+[recipe.outputs]
+iron_ingot = 1
+
+[recipe.fuel]
+coal = 1
+"#;
+
+        let recipes = ModDataPack::load_recipes_toml(toml_str).unwrap();
+        assert_eq!(recipes.len(), 1);
+        assert_eq!(recipes[0].id, "iron_smelting");
+        assert_eq!(recipes[0].machine, "furnace");
+        assert_eq!(recipes[0].inputs.get("iron_ore"), Some(&1));
+        assert_eq!(recipes[0].outputs.get("iron_ingot"), Some(&1));
+        assert_eq!(recipes[0].fuel.get("coal"), Some(&1));
+    }
+
+    #[test]
+    fn test_load_base_mod_from_directory() {
+        // Test loading from the actual mods/base directory if it exists
+        let base_path = std::path::PathBuf::from("mods/base");
+        if base_path.exists() {
+            let pack = ModDataPack::load_from_directory(&base_path).unwrap();
+            assert!(pack.item_count() > 0, "Base mod should have items");
+            assert!(pack.machine_count() > 0, "Base mod should have machines");
+            assert!(pack.recipe_count() > 0, "Base mod should have recipes");
+        }
     }
 }

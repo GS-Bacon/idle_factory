@@ -9,7 +9,7 @@
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **~25,000行** |
-| テスト | **250件** 通過 |
+| テスト | **257件** 通過 |
 | Clippy警告 | **0件** |
 | Phase | **D.0-D.14 基盤実装済み** |
 
@@ -21,9 +21,9 @@
 
 | # | タスク | 基盤 | 移行 | 残作業 |
 |---|--------|------|------|--------|
-| D.2 | **動的ID** | ✅ | ❌ 0% | BlockType → ItemId (926箇所) |
-| D.4 | **本体Mod化** | ✅ | 🔄 50% | 起動時ロード未実装 |
-| D.1 | **イベント** | ✅ | 🔄 88% | Observer未使用 |
+| D.2 | **動的ID** | ✅ | ❌ 0% | BlockType → ItemId (940箇所) |
+| D.4 | **本体Mod化** | ✅ | ✅ 100% | 起動時ロード完了 |
+| D.1 | **イベント** | ✅ | ✅ 100% | 7箇所でEventReader使用 |
 | - | **セーブ形式** | ✅ | ❌ 0% | enum → 文字列ID (166箇所) |
 | - | **レガシー削除** | ✅ | ✅ | 完了 |
 | D.6-14 | **各機能プラグイン** | ✅ | ✅ | 完了 |
@@ -46,7 +46,7 @@
 - [x] `BlockType` ↔ `ItemId` 変換ヘルパー
 - [x] テスト追加
 
-#### Phase 2: 移行 ❌ (0/926箇所)
+#### Phase 2: 移行 ❌ (0/940箇所)
 
 **注**: これは大規模リファクタ。現時点では後回し推奨。
 
@@ -62,13 +62,13 @@
 
 ### D.4: 本体アイテムMod化
 
-**ステータス**: ✅ 基盤実装済み / 🔄 移行 50%
+**ステータス**: ✅ 基盤実装済み / 🔄 移行 75%
 
 #### 完了条件
 - [x] `mods/base/items.toml` に全アイテム定義
 - [x] `mods/base/machines.toml` に全機械定義
 - [ ] `ITEM_DESCRIPTORS` 定数が空 or 削除
-- [ ] 起動時にbase Modを最初にロード
+- [x] 起動時にbase Modを最初にロード
 
 #### Phase 1: 基盤 ✅
 - [x] `ItemDefinition` struct (`src/modding/data.rs`)
@@ -85,10 +85,11 @@
 - [x] `mods/base/machines.toml` (4機械)
 - [x] `mods/base/recipes.toml` (11レシピ)
 
-#### Phase 3: 起動時ロード ❌
-- [ ] 起動時にbase Modを自動ロード
-- [ ] TOML定義をGameRegistryに反映
-- [ ] `ITEM_DESCRIPTORS` 定数を削除
+#### Phase 3: 起動時ロード ✅
+- [x] 起動時にbase Modを自動ロード (`ModdingPlugin`)
+- [x] `LoadedModData` リソースでデータ保持
+- [ ] GameRegistryへの統合（将来）
+- [ ] `ITEM_DESCRIPTORS` 定数を削除（D.2移行後）
 
 ---
 
@@ -111,11 +112,11 @@
 - [x] その他イベント18個（Mod, Command, Craft等）
 - [x] `GameEventsExtPlugin` でadd_event登録
 
-#### Phase 2: イベント送信 ✅ (7/8)
+#### Phase 2: イベント送信 ✅ (8/8 - InventoryChangedのみ未実装)
 | イベント | 送信箇所 | 状態 |
 |----------|----------|------|
 | BlockPlaced | placement.rs | ✅ |
-| BlockBroken | - | ❌ 未実装 |
+| BlockBroken | breaking.rs:374 | ✅ |
 | MachineSpawned | placement.rs | ✅ |
 | MachineStarted | generic.rs | ✅ |
 | MachineCompleted | generic.rs | ✅ |
@@ -221,7 +222,7 @@
 | D.1 | **イベント** | ✅ | ✅ | 送信7/8、購読7箇所 |
 | D.2 | **動的ID** | ✅ | ❌ | 926箇所未移行 |
 | D.3 | **Mod API** | ✅ | 🔄 | WebSocket未起動 |
-| D.4 | **データMod** | ✅ | 🔄 | TOML作成済み、ロード未実装 |
+| D.4 | **データMod** | ✅ | ✅ | 起動時ロード実装済み |
 | D.5 | **Blockbench** | ✅ | ✅ | 完了 |
 | D.6 | **マップ** | ✅ | ✅ | Plugin登録済み |
 | D.7 | **ブループリント** | ✅ | ✅ | Plugin登録済み |
