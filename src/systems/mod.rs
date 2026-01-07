@@ -33,8 +33,5 @@ pub use ui_navigation::*;
 // Re-export conveyor systems from logistics module
 pub use crate::logistics::conveyor::*;
 
-// Re-export machine systems from machines module
-pub use crate::machines::{crusher::*, furnace::*, miner::*};
-
 // Re-export save systems from save module
 pub use crate::save::systems::*;

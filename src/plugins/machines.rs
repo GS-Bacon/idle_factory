@@ -1,10 +1,10 @@
-//! Machine systems plugin
+//! Machine systems plugin (Phase C: Data-Driven)
 //!
 //! Consolidates all machine-related systems:
-//! - Furnace, Crusher, Miner interaction
-//! - Machine processing and output
+//! - Generic machine interaction (unified)
+//! - Machine processing via generic_machine_tick
 //! - Conveyor transport
-//! - Machine UI updates
+//! - Generic machine UI
 
 use bevy::prelude::*;
 
@@ -12,35 +12,18 @@ use crate::components::{
     ConveyorRotationOffset, InteractingCrusher, InteractingFurnace, InteractingMachine,
     InteractingMiner, MachineModels,
 };
-use crate::systems::{
-    // Machine interaction systems
-    conveyor_transfer,
-    crusher_interact,
-    crusher_output,
-    crusher_processing,
-    crusher_ui_input,
-    furnace_interact,
-    furnace_output,
-    furnace_smelting,
-    furnace_ui_input,
-    miner_interact,
-    miner_mining,
-    miner_output,
-    miner_ui_input,
-    miner_visual_feedback,
-    update_conveyor_item_visuals,
-    // Machine UI systems
-    update_crusher_ui,
-    update_furnace_ui,
-    update_miner_ui,
+use crate::machines::{
+    generic_machine_interact, generic_machine_tick, generic_machine_ui_input,
+    machine_visual_feedback, update_generic_machine_ui,
 };
+use crate::systems::{conveyor_transfer, update_conveyor_item_visuals};
 
 /// Plugin that organizes all machine-related systems
 pub struct MachineSystemsPlugin;
 
 impl Plugin for MachineSystemsPlugin {
     fn build(&self, app: &mut App) {
-        // Machine-related resources
+        // Machine-related resources (Legacy resources kept for compatibility)
         app.init_resource::<InteractingFurnace>()
             .init_resource::<InteractingCrusher>()
             .init_resource::<InteractingMiner>()
@@ -48,39 +31,21 @@ impl Plugin for MachineSystemsPlugin {
             .init_resource::<MachineModels>()
             .init_resource::<ConveyorRotationOffset>();
 
-        // Machine interaction systems
-        app.add_systems(
-            Update,
-            (
-                furnace_interact,
-                furnace_ui_input,
-                furnace_smelting,
-                crusher_interact,
-                crusher_ui_input,
-                miner_interact,
-                miner_ui_input,
-            ),
-        );
+        // Machine interaction systems (Phase C: generic)
+        app.add_systems(Update, (generic_machine_interact, generic_machine_ui_input));
 
-        // Machine processing systems
+        // Machine processing systems (Phase C: generic only)
         app.add_systems(
             Update,
             (
-                miner_mining,
-                miner_visual_feedback,
-                miner_output,
-                crusher_processing,
-                crusher_output,
-                furnace_output,
+                machine_visual_feedback,
                 conveyor_transfer,
                 update_conveyor_item_visuals,
+                generic_machine_tick,
             ),
         );
 
-        // Machine UI update systems
-        app.add_systems(
-            Update,
-            (update_furnace_ui, update_crusher_ui, update_miner_ui),
-        );
+        // Machine UI update systems (Phase C: generic)
+        app.add_systems(Update, update_generic_machine_ui);
     }
 }

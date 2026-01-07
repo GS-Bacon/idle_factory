@@ -250,6 +250,271 @@ fn get_biome_output(biome: BiomeType, tick: u32) -> BlockType {
     BlockType::Stone
 }
 
+// =============================================================================
+// Generic Machine Interaction & UI Systems
+// =============================================================================
+
+use crate::components::{
+    CursorLockState, GenericMachineProgressBar, GenericMachineSlotButton, GenericMachineSlotCount,
+    GenericMachineUI, InteractingMachine, InventoryOpen, PlayerCamera,
+};
+use crate::player::Inventory;
+use crate::systems::cursor;
+use crate::REACH_DISTANCE;
+use bevy::window::CursorGrabMode;
+
+/// Generic machine interaction (open/close UI)
+#[allow(clippy::too_many_arguments)]
+pub fn generic_machine_interact(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    machine_query: Query<(Entity, &Transform, &Machine)>,
+    mut interacting: ResMut<InteractingMachine>,
+    inventory_open: Res<InventoryOpen>,
+    mut ui_query: Query<(&GenericMachineUI, &mut Visibility)>,
+    mut windows: Query<&mut Window>,
+    mut cursor_state: ResMut<CursorLockState>,
+) {
+    let window = windows.single();
+    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+
+    // Don't interact if inventory is open
+    if inventory_open.0 {
+        return;
+    }
+
+    let e_pressed = key_input.just_pressed(KeyCode::KeyE);
+    let esc_pressed = key_input.just_pressed(KeyCode::Escape);
+
+    // Close UI with E or ESC
+    if interacting.0.is_some() && (e_pressed || esc_pressed) {
+        let machine_id = machine_query
+            .get(interacting.0.unwrap())
+            .map(|(_, _, m)| m.spec.id)
+            .unwrap_or("");
+
+        // Hide UI
+        for (ui, mut vis) in ui_query.iter_mut() {
+            if ui.machine_id == machine_id {
+                *vis = Visibility::Hidden;
+            }
+        }
+
+        interacting.0 = None;
+
+        // Lock cursor (unless ESC)
+        if !esc_pressed {
+            if let Ok(mut window) = windows.get_single_mut() {
+                cursor::lock_cursor(&mut window);
+            }
+            cursor_state.skip_inventory_toggle = true;
+        }
+        return;
+    }
+
+    // Open UI with right-click when cursor locked
+    if !mouse_button.just_pressed(MouseButton::Right) || !cursor_locked {
+        return;
+    }
+
+    let Ok(camera_transform) = camera_query.get_single() else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation();
+    let ray_dir = camera_transform.forward().as_vec3();
+
+    // Find closest machine
+    let mut closest: Option<(Entity, f32, &'static str)> = None;
+    for (entity, transform, machine) in machine_query.iter() {
+        let to_machine = transform.translation - ray_origin;
+        let dist = to_machine.dot(ray_dir);
+        if dist > 0.0 && dist < REACH_DISTANCE {
+            let closest_point = ray_origin + ray_dir * dist;
+            let diff = (closest_point - transform.translation).length();
+            if diff < 0.7 {
+                // Within machine hitbox
+                if closest.is_none() || dist < closest.unwrap().1 {
+                    closest = Some((entity, dist, machine.spec.id));
+                }
+            }
+        }
+    }
+
+    if let Some((entity, _, machine_id)) = closest {
+        interacting.0 = Some(entity);
+
+        // Show UI
+        for (ui, mut vis) in ui_query.iter_mut() {
+            if ui.machine_id == machine_id {
+                *vis = Visibility::Inherited;
+            }
+        }
+
+        // Unlock cursor
+        if let Ok(mut window) = windows.get_single_mut() {
+            cursor::unlock_cursor(&mut window);
+        }
+    }
+}
+
+/// Update generic machine UI slot counts and progress bar
+pub fn update_generic_machine_ui(
+    interacting: Res<InteractingMachine>,
+    machine_query: Query<&Machine>,
+    mut slot_count_query: Query<(&GenericMachineSlotCount, &mut Text)>,
+    mut progress_bar_query: Query<&mut Node, With<GenericMachineProgressBar>>,
+) {
+    let Some(entity) = interacting.0 else {
+        return;
+    };
+
+    let Ok(machine) = machine_query.get(entity) else {
+        return;
+    };
+
+    // Update slot counts
+    for (slot_count, mut text) in slot_count_query.iter_mut() {
+        let display = if slot_count.is_fuel {
+            format_count(machine.slots.fuel)
+        } else if slot_count.is_input {
+            machine
+                .slots
+                .inputs
+                .get(slot_count.slot_id as usize)
+                .map(format_slot)
+                .unwrap_or_default()
+        } else {
+            machine
+                .slots
+                .outputs
+                .get(slot_count.slot_id as usize)
+                .map(format_slot)
+                .unwrap_or_default()
+        };
+        **text = display;
+    }
+
+    // Update progress bar
+    for mut node in progress_bar_query.iter_mut() {
+        node.width = Val::Percent(machine.progress * 100.0);
+    }
+}
+
+/// Format slot count for display
+fn format_slot(slot: &crate::components::MachineSlot) -> String {
+    if slot.is_empty() {
+        String::new()
+    } else {
+        let short_name = slot.item_type.map(|t| t.short_name()).unwrap_or("");
+        if slot.count > 1 {
+            format!("{}{}", short_name, slot.count)
+        } else {
+            short_name.to_string()
+        }
+    }
+}
+
+fn format_count(count: u32) -> String {
+    if count == 0 {
+        String::new()
+    } else {
+        count.to_string()
+    }
+}
+
+/// Visual feedback for machine activity (pulse scale when processing)
+pub fn machine_visual_feedback(
+    _time: Res<Time>,
+    mut machine_query: Query<(&Machine, &mut Transform)>,
+) {
+    for (machine, mut transform) in machine_query.iter_mut() {
+        if machine.progress > 0.0 {
+            // Pulse effect while processing
+            let pulse = 1.0 + 0.05 * (machine.progress * std::f32::consts::TAU * 2.0).sin();
+            transform.scale = Vec3::splat(pulse);
+        } else {
+            // Reset scale
+            transform.scale = Vec3::ONE;
+        }
+    }
+}
+
+/// Handle generic machine UI input (slot clicks)
+#[allow(clippy::too_many_arguments)]
+pub fn generic_machine_ui_input(
+    interacting: Res<InteractingMachine>,
+    mut machine_query: Query<&mut Machine>,
+    mut inventory: ResMut<Inventory>,
+    mut slot_btn_query: Query<
+        (
+            &Interaction,
+            &GenericMachineSlotButton,
+            &mut BackgroundColor,
+        ),
+        Changed<Interaction>,
+    >,
+) {
+    let Some(entity) = interacting.0 else {
+        return;
+    };
+
+    let Ok(mut machine) = machine_query.get_mut(entity) else {
+        return;
+    };
+
+    for (interaction, slot_btn, mut bg_color) in slot_btn_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                // Take from output / put to input
+                if slot_btn.is_input {
+                    // Try to put selected item into input slot
+                    if let Some(selected) = inventory.selected_block() {
+                        if let Some(input_slot) =
+                            machine.slots.inputs.get_mut(slot_btn.slot_id as usize)
+                        {
+                            if (input_slot.item_type.is_none()
+                                || input_slot.item_type == Some(selected))
+                                && inventory.consume_item(selected, 1)
+                            {
+                                input_slot.add(selected, 1);
+                            }
+                        }
+                    }
+                } else if slot_btn.is_fuel {
+                    // Put coal into fuel slot
+                    if let Some(selected) = inventory.selected_block() {
+                        if selected == BlockType::Coal && inventory.consume_item(BlockType::Coal, 1)
+                        {
+                            machine.slots.fuel += 1;
+                        }
+                    }
+                } else {
+                    // Take from output slot
+                    if let Some(output_slot) =
+                        machine.slots.outputs.get_mut(slot_btn.slot_id as usize)
+                    {
+                        if let Some(item_type) = output_slot.item_type {
+                            let taken = output_slot.take(1);
+                            if taken > 0 {
+                                inventory.add_item(item_type, taken);
+                            }
+                        }
+                    }
+                }
+                *bg_color = BackgroundColor(Color::srgb(0.4, 0.4, 0.5));
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(Color::srgb(0.25, 0.25, 0.3));
+            }
+            Interaction::None => {
+                *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.2));
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

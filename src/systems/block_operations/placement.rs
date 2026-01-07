@@ -3,6 +3,8 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
+use crate::components::Machine;
+use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::systems::TutorialEvent;
 use crate::utils::{
     auto_conveyor_direction, dda_raycast, ray_aabb_intersection, ray_aabb_intersection_with_normal,
@@ -318,6 +320,7 @@ pub fn block_place(
                             facing: player_facing,
                             ..default()
                         },
+                        Machine::new(&MINER, place_pos, player_facing),
                     ));
                 } else {
                     // Fallback cube mesh has center origin, so Y offset is +0.5
@@ -340,6 +343,7 @@ pub fn block_place(
                             facing: player_facing,
                             ..default()
                         },
+                        Machine::new(&MINER, place_pos, player_facing),
                     ));
                 }
                 // Tutorial event for miner placement
@@ -491,6 +495,7 @@ pub fn block_place(
                             facing: player_facing,
                             ..default()
                         },
+                        Machine::new(&CRUSHER, place_pos, player_facing),
                     ));
                 } else {
                     // Fallback cube mesh has center origin, so Y offset is +0.5
@@ -513,6 +518,7 @@ pub fn block_place(
                             facing: player_facing,
                             ..default()
                         },
+                        Machine::new(&CRUSHER, place_pos, player_facing),
                     ));
                 }
                 // Tutorial event for crusher placement
@@ -546,6 +552,7 @@ pub fn block_place(
                             facing: player_facing,
                             ..default()
                         },
+                        Machine::new(&FURNACE, place_pos, player_facing),
                     ));
                 } else {
                     // Fallback cube mesh has center origin, so Y offset is +0.5
@@ -568,6 +575,7 @@ pub fn block_place(
                             facing: player_facing,
                             ..default()
                         },
+                        Machine::new(&FURNACE, place_pos, player_facing),
                     ));
                 }
                 // Tutorial event for furnace placement

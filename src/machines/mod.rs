@@ -1,22 +1,12 @@
-//! Machine systems: miner, furnace, crusher
+//! Machine systems (Phase C: Data-Driven)
 //!
-//! This module contains all machine-related systems.
-//! Machines are production/processing units that transform items.
+//! This module contains generic machine systems using the Machine component.
+//! All machines (Miner, Furnace, Crusher) are now handled by generic_machine_tick.
 //!
 //! Note: Conveyors are in the `logistics` module because they are
 //! infrastructure (continuous item movement) rather than machines
 //! (discrete item processing).
 
-pub mod crusher;
-pub mod furnace;
 pub mod generic;
-pub mod interaction;
-pub mod miner;
-pub mod output;
 
-pub use crusher::*;
-pub use furnace::*;
 pub use generic::*;
-pub use interaction::*;
-pub use miner::*;
-pub use output::*;
