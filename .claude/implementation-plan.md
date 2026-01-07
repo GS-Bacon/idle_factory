@@ -5,7 +5,7 @@
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **~19,000行** (リファクタリングで-3,500行) |
-| テスト | **333件** 通過 (lib:126, bin:37, e2e:148, fuzz:11, ssim:3, integration:8) |
+| テスト | **344件** 通過 (lib:129, bin:37, e2e:148, fuzz:11, proptest:8, ssim:3, integration:8) |
 | unwrap() | **~25箇所** (大部分がテストコード内) |
 | Clippy警告 | **0件** |
 | カバレッジ | **8.54%** (全体)、ロジック部分70%+ |
@@ -434,90 +434,51 @@ struct ChunkData {
 
 ---
 
-## Phase C: データ駆動設計（コンテンツ追加を楽にする）
+## Phase C: データ駆動設計（コンテンツ追加を楽にする）✅ 完了
 
 **目標**: 新コンテンツ追加 = game_spec/*.rs にデータ追加するだけ
 
-### 現状 vs 理想
+### 完了状況
 
-| 追加するもの | 現状 | Descriptor化後 | 状態 |
-|--------------|------|----------------|------|
-| 新ブロック | 5-6箇所修正、100行 | 1箇所、10行 | 未着手 |
-| 新アイテム | 3-4箇所修正、50行 | 1箇所、8行 | 未着手 |
-| 新機械 | ~~500-600行~~ | **20行** | ✅ **完了** |
+| 追加するもの | 以前 | 現在 | 状態 |
+|--------------|------|------|------|
+| 新ブロック/アイテム | 5-6箇所修正、100行 | **ItemDescriptor追加（8行）** | ✅ 完了 |
+| 新機械 | 500-600行 | **MachineSpec追加（20行）** | ✅ 完了 |
 | 新レシピ | 1箇所、5行 | ✅ 変わらず | 完了済 |
 
-### C.1 BlockDescriptor
+### C.1/C.2 ItemDescriptor（Block/Item統合）✅ 完了
+
+BlockとItemの概念を統合し、`ItemDescriptor`に一元化。
 
 ```rust
-// game_spec/blocks.rs
-pub struct BlockDescriptor {
-    pub id: BlockType,
+// game_spec/registry.rs
+pub struct ItemDescriptor {
     pub name: &'static str,
-    pub hardness: f32,              // 採掘時間係数
-    pub tool: ToolType,             // 適正ツール
-    pub drops: &'static [(BlockType, u32)],
-    pub texture: &'static str,
-    pub is_solid: bool,
-    pub is_transparent: bool,
+    pub short_name: &'static str,
+    pub color: Color,
+    pub category: BlockCategory,
+    pub stack_size: u32,
+    pub is_placeable: bool,
+    pub hardness: f32,           // 採掘時間係数
+    pub drops: Option<BlockType>, // 破壊時ドロップ
 }
 
-pub const BLOCKS: &[BlockDescriptor] = &[
-    BlockDescriptor {
-        id: BlockType::Stone,
-        name: "石",
-        hardness: 1.5,
-        tool: ToolType::Pickaxe,
-        drops: &[(BlockType::Cobblestone, 1)],
-        texture: "stone.png",
-        is_solid: true,
-        is_transparent: false,
-    },
+pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
+    (BlockType::Stone, ItemDescriptor::new(...).with_hardness(1.0)),
+    (BlockType::IronOre, ItemDescriptor::new(...).with_hardness(1.2)),
     // ...
 ];
 ```
 
-**実装タスク**:
+**実装完了タスク**:
 
-| # | タスク | 工数 |
+| # | タスク | 状態 |
 |---|--------|------|
-| C.1-1 | BlockDescriptor構造体定義 | 小 |
-| C.1-2 | 既存BlockTypeをBLOCKS配列に移行 | 中 |
-| C.1-3 | meshes.rsのmatch文をBLOCKS参照に置換 | 小 |
-| C.1-4 | block_operations.rsのmatch文を置換 | 小 |
-| C.1-5 | inventory_ui.rsの表示名をBLOCKS参照に | 小 |
-
-### C.2 ItemDescriptor
-
-```rust
-// game_spec/items.rs
-pub struct ItemDescriptor {
-    pub id: BlockType,
-    pub name: &'static str,
-    pub stack_size: u32,            // 最大スタック数（ツール=1）
-    pub category: ItemCategory,
-    pub tooltip: &'static str,
-    pub sprite: &'static str,
-    pub durability: Option<u32>,    // 耐久値（ツール用）
-    pub mining_speed: Option<f32>,  // 採掘速度倍率
-}
-
-pub enum ItemCategory {
-    Block,      // 設置可能ブロック
-    Material,   // 素材（インゴット等）
-    Tool,       // ツール
-    Machine,    // 機械
-}
-```
-
-**実装タスク**:
-
-| # | タスク | 工数 |
-|---|--------|------|
-| C.2-1 | ItemDescriptor構造体定義 | 小 |
-| C.2-2 | 既存アイテムをITEMS配列に移行 | 中 |
-| C.2-3 | インベントリUIをITEMS参照に | 小 |
-| C.2-4 | ツールチップ自動生成 | 小 |
+| C.1-1 | ItemDescriptor構造体にhardness/drops追加 | ✅ 完了 |
+| C.1-2 | ITEM_DESCRIPTORSに全BlockType登録 | ✅ 完了 |
+| C.1-3 | BlockType.hardness() / .drops() メソッド追加 | ✅ 完了 |
+| C.1-4 | breaking_spec.get_base_break_time()をデータ駆動化 | ✅ 完了 |
+| C.1-5 | レガシー定数削除（SMELT_TIME等） | ✅ 完了 |
 
 ### C.3 MachineDescriptor + UIジェネレータ ✅ 完了（2026-01-07）
 
@@ -560,55 +521,40 @@ pub const CRUSHER: MachineSpec = MachineSpec { ... };
 3. `setup/ui/mod.rs` で `setup_generic_machine_ui(&NEWMACHINE)` 呼び出し追加
 4. 完了（UIもtickも自動生成）
 
-### C.4 レジストリシステム
+### C.4 レジストリシステム ✅ 完了
 
 ```rust
-// core/registry.rs
+// game_spec/registry.rs
 pub struct GameRegistry {
-    pub blocks: HashMap<BlockType, &'static BlockDescriptor>,
-    pub items: HashMap<BlockType, &'static ItemDescriptor>,
-    pub machines: HashMap<BlockType, &'static MachineDescriptor>,
+    items: HashMap<BlockType, &'static ItemDescriptor>,
+    machines: HashMap<BlockType, &'static MachineSpec>,
+    recipes: Vec<&'static RecipeSpec>,
 }
 
 impl GameRegistry {
-    pub fn new() -> Self {
-        // 起動時にBLOCKS, ITEMS, MACHINESからHashMap構築
-        // O(1)参照を実現
-    }
-
-    pub fn block(&self, id: BlockType) -> Option<&BlockDescriptor> { ... }
-    pub fn item(&self, id: BlockType) -> Option<&ItemDescriptor> { ... }
-    pub fn machine(&self, id: BlockType) -> Option<&MachineDescriptor> { ... }
+    pub fn item(&self, block_type: BlockType) -> Option<&ItemDescriptor> { ... }
+    pub fn machine(&self, block_type: BlockType) -> Option<&MachineSpec> { ... }
+    pub fn recipes(&self) -> &[&'static RecipeSpec] { ... }
 }
 ```
 
-### 実装順序
+**実装完了**:
+- `GameRegistry` リソースとして登録
+- `RegistryPlugin` でアプリに追加
+- O(1) HashMap参照可能
+- BlockType.descriptor() は直接ITEM_DESCRIPTORS参照（高速）
+
+### 新コンテンツ追加フロー（完成）
 
 ```
-C.1 BlockDescriptor ─┐
-C.2 ItemDescriptor ──┼─→ C.4 レジストリ ─→ 完成
-C.3 MachineDescriptor┘
+1. game_spec/registry.rs にItemDescriptor追加（8行）
+2. game_spec/machines.rs にMachineSpec追加（20行）
+3. game_spec/recipes.rs にレシピ追加（5行）
+4. assets/models/ に3Dモデル配置
+5. 完了（UIもtickも自動生成）
 ```
 
-### 優先順位
-
-| 順位 | 対象 | 理由 |
-|------|------|------|
-| 1 | **C.3 機械** | 最も追加工数が大きい（500行→20行） |
-| 2 | **C.1 ブロック** | 次に散らばっている |
-| 3 | **C.2 アイテム** | ブロックと統合して整理 |
-| 4 | **C.4 レジストリ** | 全体の参照効率化 |
-
-### 完成後の新コンテンツ追加フロー
-
-```
-1. game_spec/machines.rs にMachineDescriptor追加（10行）
-2. game_spec/recipes.rs にレシピ追加（5行）
-3. assets/models/ に3Dモデル配置
-4. 完了（UIもシステムも自動生成）
-```
-
-**Modding APIへの発展**: Phase C完成後、game_spec/*.rsをJSONに外部化すれば、非プログラマでもコンテンツ追加可能になる
+**Modding APIへの発展**: Phase C完成により、game_spec/*.rsをJSONに外部化すれば非プログラマでもコンテンツ追加可能
 
 ---
 
@@ -697,21 +643,24 @@ B.1 準備 ─→ B.2 物流分離 ─→ B.3 機械統合 ─→ B.4 UI統合 �
 
 ## 次のアクション
 
-**Phase A・B・C.3 完了** ✅
+**Phase A・B・C 全て完了** ✅
 
 現在の状態 (2026-01-07):
 - v0.2機能: 全て実装済み
 - アーキテクチャ: 整備完了
-- **Phase C.3 機械統合**: 完了 (-629行)
+- **Phase C データ駆動設計**: 完了
+  - C.1/C.2: ItemDescriptor統合（hardness, drops）
+  - C.3: MachineSpec + generic UI
+  - C.4: GameRegistry with O(1) lookup
 - **UIステート管理**: 完了
 - **パフォーマンス最適化**: Greedy meshing + HashMap削除完了
-- テスト: 333件通過
+- テスト: 344件通過
 - Clippy警告: 0件
 
 次のステップ:
-1. **C.1 BlockDescriptor** - ブロック追加の簡易化
-2. **C.2 ItemDescriptor** - アイテム追加の簡易化
-3. **C.4 レジストリ統合** - O(1)参照の完成
+1. **設定画面実装** (SET-1〜SET-7)
+2. **新コンテンツ追加** (Phase C完了により簡単に)
+3. **v0.3機能** (電力システム、流体パイプ等)
 
 ---
 

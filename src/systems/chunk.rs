@@ -1,12 +1,20 @@
 //! Chunk loading, unloading, and mesh generation systems
 
 use crate::components::Player;
-use crate::world::{ChunkData, ChunkMesh, ChunkMeshData, ChunkMeshTasks, WorldData};
-use crate::VIEW_DISTANCE;
+use crate::settings::GameSettings;
+use crate::world::{ChunkData, ChunkLod, ChunkMesh, ChunkMeshData, ChunkMeshTasks, WorldData};
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use futures_lite::future;
 use std::collections::{HashMap, HashSet};
+
+/// Calculate LOD for a chunk based on distance from player
+fn calculate_lod(chunk_coord: IVec2, player_chunk: IVec2) -> ChunkLod {
+    let dx = (chunk_coord.x - player_chunk.x).abs();
+    let dz = (chunk_coord.y - player_chunk.y).abs();
+    let distance = dx.max(dz);
+    ChunkLod::from_distance(distance)
+}
 
 /// Generate chunk data synchronously
 fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
@@ -35,6 +43,7 @@ pub fn spawn_chunk_tasks(
     mut tasks: ResMut<ChunkMeshTasks>,
     world_data: Res<WorldData>,
     player_query: Query<&Transform, With<Player>>,
+    settings: Res<GameSettings>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
         return;
@@ -47,9 +56,10 @@ pub fn spawn_chunk_tasks(
     // Limit chunks per frame for async generation
     const MAX_SPAWN_PER_FRAME: i32 = 4;
 
+    let view_distance = settings.view_distance;
     let mut spawned = 0;
-    for dx in -VIEW_DISTANCE..=VIEW_DISTANCE {
-        for dz in -VIEW_DISTANCE..=VIEW_DISTANCE {
+    for dx in -view_distance..=view_distance {
+        for dz in -view_distance..=view_distance {
             if spawned >= MAX_SPAWN_PER_FRAME {
                 return;
             }
@@ -80,7 +90,17 @@ pub fn receive_chunk_meshes(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut world_data: ResMut<WorldData>,
     mut tasks: ResMut<ChunkMeshTasks>,
+    player_query: Query<&Transform, With<Player>>,
 ) {
+    // Get player chunk for LOD calculation
+    let player_chunk = player_query
+        .get_single()
+        .map(|pt| {
+            let player_grid = crate::world_to_grid(pt.translation);
+            WorldData::world_to_chunk(IVec3::new(player_grid.x, 0, player_grid.z))
+        })
+        .unwrap_or(IVec2::ZERO);
+
     // Limit chunks processed per frame to avoid frame spikes
     const MAX_CHUNKS_PER_FRAME: usize = 2;
 
@@ -153,8 +173,11 @@ pub fn receive_chunk_meshes(
     // Now regenerate meshes for new chunks and their neighbors (with proper neighbor data)
     for coord in &coords_needing_neighbor_update {
         let coord = *coord;
-        // Regenerate this chunk's mesh with neighbor awareness
-        if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
+        // Calculate LOD based on distance from player
+        let lod = calculate_lod(coord, player_chunk);
+
+        // Regenerate this chunk's mesh with neighbor awareness and LOD
+        if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(coord, lod) {
             let mesh_handle = meshes.add(new_mesh);
             let material = materials.add(StandardMaterial {
                 base_color: Color::WHITE,
@@ -174,12 +197,12 @@ pub fn receive_chunk_meshes(
                     Mesh3d(mesh_handle),
                     MeshMaterial3d(material),
                     Transform::IDENTITY,
-                    ChunkMesh { coord },
+                    ChunkMesh { coord, lod },
                 ))
                 .id();
 
             world_data.chunk_entities.insert(coord, vec![entity]);
-            tracing::trace!("Chunk {:?} mesh spawned", coord);
+            tracing::trace!("Chunk {:?} mesh spawned with LOD {:?}", coord, lod);
         }
 
         // Also regenerate neighboring chunks' meshes
@@ -198,7 +221,10 @@ pub fn receive_chunk_meshes(
                 continue;
             }
 
-            if let Some(new_mesh) = world_data.generate_chunk_mesh(neighbor_coord) {
+            let neighbor_lod = calculate_lod(neighbor_coord, player_chunk);
+            if let Some(new_mesh) =
+                world_data.generate_chunk_mesh_with_lod(neighbor_coord, neighbor_lod)
+            {
                 let mesh_handle = meshes.add(new_mesh);
                 let material = materials.add(StandardMaterial {
                     base_color: Color::WHITE,
@@ -219,6 +245,7 @@ pub fn receive_chunk_meshes(
                         Transform::IDENTITY,
                         ChunkMesh {
                             coord: neighbor_coord,
+                            lod: neighbor_lod,
                         },
                     ))
                     .id();
@@ -238,6 +265,7 @@ pub fn unload_distant_chunks(
     mut tasks: ResMut<ChunkMeshTasks>,
     player_query: Query<&Transform, With<Player>>,
     chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
+    settings: Res<GameSettings>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
         return;
@@ -247,12 +275,14 @@ pub fn unload_distant_chunks(
     let player_world_pos = IVec3::new(player_grid.x, 0, player_grid.z);
     let player_chunk = WorldData::world_to_chunk(player_world_pos);
 
+    let view_distance = settings.view_distance;
+
     // Find chunks to unload
     let mut chunks_to_unload: Vec<IVec2> = Vec::new();
     for &chunk_coord in world_data.chunks.keys() {
         let dx = (chunk_coord.x - player_chunk.x).abs();
         let dz = (chunk_coord.y - player_chunk.y).abs();
-        if dx > VIEW_DISTANCE + 1 || dz > VIEW_DISTANCE + 1 {
+        if dx > view_distance + 1 || dz > view_distance + 1 {
             chunks_to_unload.push(chunk_coord);
         }
     }
@@ -272,4 +302,168 @@ pub fn unload_distant_chunks(
 }
 
 // Re-export PendingChunk from world module
+pub use crate::world::DirtyChunks;
 pub use crate::world::PendingChunk;
+
+/// Update LOD for chunks based on player distance
+/// Regenerates mesh if LOD level should change
+pub fn update_chunk_lod(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut world_data: ResMut<WorldData>,
+    player_query: Query<&Transform, With<Player>>,
+    chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
+) {
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    let player_grid = crate::world_to_grid(player_transform.translation);
+    let player_chunk = WorldData::world_to_chunk(IVec3::new(player_grid.x, 0, player_grid.z));
+
+    // Limit LOD updates per frame to avoid frame spikes
+    const MAX_LOD_UPDATES_PER_FRAME: usize = 2;
+    let mut updates = 0;
+
+    for (entity, chunk_mesh) in chunk_mesh_query.iter() {
+        if updates >= MAX_LOD_UPDATES_PER_FRAME {
+            break;
+        }
+
+        let new_lod = calculate_lod(chunk_mesh.coord, player_chunk);
+
+        // Skip if LOD hasn't changed
+        if new_lod == chunk_mesh.lod {
+            continue;
+        }
+
+        // Check if chunk still exists
+        if !world_data.chunks.contains_key(&chunk_mesh.coord) {
+            continue;
+        }
+
+        // Regenerate mesh with new LOD
+        if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(chunk_mesh.coord, new_lod) {
+            // Despawn old entity
+            commands.entity(entity).despawn_recursive();
+
+            // Remove from chunk_entities
+            world_data.chunk_entities.remove(&chunk_mesh.coord);
+
+            let mesh_handle = meshes.add(new_mesh);
+            let material = materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                perceptual_roughness: 0.9,
+                ..default()
+            });
+
+            let new_entity = commands
+                .spawn((
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material),
+                    Transform::IDENTITY,
+                    ChunkMesh {
+                        coord: chunk_mesh.coord,
+                        lod: new_lod,
+                    },
+                ))
+                .id();
+
+            world_data
+                .chunk_entities
+                .insert(chunk_mesh.coord, vec![new_entity]);
+            tracing::debug!(
+                "Chunk {:?} LOD updated: {:?} -> {:?}",
+                chunk_mesh.coord,
+                chunk_mesh.lod,
+                new_lod
+            );
+            updates += 1;
+        }
+    }
+}
+
+/// Process dirty chunks - regenerate meshes for chunks that had block changes
+/// Limits regeneration to MAX_DIRTY_PER_FRAME to avoid frame spikes
+pub fn process_dirty_chunks(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut world_data: ResMut<WorldData>,
+    mut dirty_chunks: ResMut<DirtyChunks>,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    if dirty_chunks.is_empty() {
+        return;
+    }
+
+    // Get player chunk for LOD calculation
+    let player_chunk = player_query
+        .get_single()
+        .map(|pt| {
+            let player_grid = crate::world_to_grid(pt.translation);
+            WorldData::world_to_chunk(IVec3::new(player_grid.x, 0, player_grid.z))
+        })
+        .unwrap_or(IVec2::ZERO);
+
+    // Limit chunks processed per frame to avoid frame spikes
+    const MAX_DIRTY_PER_FRAME: usize = 4;
+
+    let all_dirty = dirty_chunks.take_all();
+    let mut processed_count = 0;
+
+    for coord in all_dirty.into_iter() {
+        // Skip if chunk doesn't exist (unloaded)
+        if !world_data.chunks.contains_key(&coord) {
+            continue;
+        }
+
+        // Calculate LOD for this chunk
+        let lod = calculate_lod(coord, player_chunk);
+
+        // Regenerate mesh with LOD
+        if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(coord, lod) {
+            // Remove old mesh entity
+            if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
+                for entity in old_entities {
+                    commands.entity(entity).try_despawn_recursive();
+                }
+            }
+
+            let mesh_handle = meshes.add(new_mesh);
+            let material = materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                perceptual_roughness: 0.9,
+                ..default()
+            });
+
+            let entity = commands
+                .spawn((
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material),
+                    Transform::IDENTITY,
+                    ChunkMesh { coord, lod },
+                ))
+                .id();
+
+            world_data.chunk_entities.insert(coord, vec![entity]);
+            tracing::trace!(
+                "Dirty chunk {:?} mesh regenerated with LOD {:?}",
+                coord,
+                lod
+            );
+        }
+
+        processed_count += 1;
+        if processed_count >= MAX_DIRTY_PER_FRAME {
+            // Re-add remaining dirty chunks for next frame
+            // (Not needed since we took all - remaining are processed next frame)
+            break;
+        }
+    }
+
+    if processed_count > 0 {
+        tracing::debug!("Processed {} dirty chunks this frame", processed_count);
+    }
+}

@@ -218,7 +218,7 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **~19,000行** |
-| テスト | **333件** 通過 (lib:126, bin:37, e2e:148, fuzz:11, ssim:3, integration:8) |
+| テスト | **344件** 通過 (lib:129, bin:37, e2e:148, fuzz:11, proptest:8, ssim:3, integration:8) |
 | unwrap() | **~25箇所** (大部分がテストコード内、非テスト4箇所) |
 | Clippy警告 | **0件** |
 
@@ -226,19 +226,24 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 
 **詳細は `.claude/implementation-plan.md` 参照**
 
-### 現在の目標: Phase C（データ駆動化）
+### Phase C 完了！（データ駆動化）
 
 **v1.0 = 「コンテンツ追加が作業になる状態」**
 
 | タスク | 効果 | 状態 |
 |--------|------|------|
-| C.1 BlockDescriptor | 新ブロック追加 100行→10行 | 未着手 |
-| C.2 ItemDescriptor | 新アイテム追加 50行→8行 | 未着手 |
+| C.1 BlockDescriptor | 新ブロック追加 100行→10行 | ✅ 完了 |
+| C.2 ItemDescriptor | 新アイテム追加 50行→8行 | ✅ 完了 |
 | C.3 MachineDescriptor + UIジェネレータ | 新機械追加 500行→20行 | ✅ 完了 |
-| C.4 レジストリシステム | O(1)参照、一元管理 | 一部完了 |
+| C.4 レジストリシステム | O(1)参照、一元管理 | ✅ 完了 |
 
 ### 完了済み（最新）
 
+- ✅ **Phase C 完了** (2026-01-07)
+  - C.1/C.2: ItemDescriptor統合（hardness, drops, stack_size）
+  - C.3: MachineSpec + generic UI
+  - C.4: GameRegistry with O(1) lookup
+  - レガシー定数削除
 - ✅ **Phase C.3 機械システム統合** (2026-01-07)
   - `generic_machine_tick` で全機械を統一処理
   - `setup_generic_machine_ui` でデータ駆動UI生成

@@ -267,30 +267,6 @@ pub fn get_output_ports(spec: &MachineSpec) -> impl Iterator<Item = &IoPort> {
 }
 
 // =============================================================================
-// Machine Speed Spec
-// =============================================================================
-
-/// Miner mining interval (seconds/item)
-#[allow(dead_code)]
-pub const MINER_INTERVAL: f32 = 1.5;
-
-/// Furnace smelting time (seconds/item)
-#[allow(dead_code)]
-pub const FURNACE_SMELT_TIME: f32 = 2.0;
-
-/// Crusher crushing time (seconds/item)
-#[allow(dead_code)]
-pub const CRUSHER_CRUSH_TIME: f32 = 1.5;
-
-/// Assembler base time (seconds/item)
-#[allow(dead_code)]
-pub const ASSEMBLER_BASE_TIME: f32 = 3.0;
-
-/// Conveyor speed (blocks/second)
-#[allow(dead_code)]
-pub const CONVEYOR_SPEED: f32 = 2.0;
-
-// =============================================================================
 // Machine Connection Spec
 // =============================================================================
 

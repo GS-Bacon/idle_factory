@@ -10,15 +10,15 @@ use crate::utils::{
     auto_conveyor_direction, dda_raycast, ray_aabb_intersection, ray_aabb_intersection_with_normal,
     yaw_to_direction,
 };
-use crate::world::{ChunkMesh, WorldData};
+use crate::world::{DirtyChunks, WorldData};
 use crate::{
     BlockType, ContinuousActionTimer, Conveyor, ConveyorRotationOffset, ConveyorShape,
     ConveyorVisual, CreativeMode, Crusher, DeliveryPlatform, Direction, Furnace,
     InputStateResourcesWithCursor, Inventory, MachineModels, Miner, PlayerCamera, BLOCK_SIZE,
-    CHUNK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE, REACH_DISTANCE,
+    CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE, REACH_DISTANCE,
 };
 
-use super::MachinePlaceQueries;
+use super::{ChunkAssets, MachinePlaceQueries};
 
 #[allow(clippy::too_many_arguments)]
 pub fn block_place(
@@ -29,8 +29,8 @@ pub fn block_place(
     platform_query: Query<&Transform, With<DeliveryPlatform>>,
     mut world_data: ResMut<WorldData>,
     mut inventory: ResMut<Inventory>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut dirty_chunks: ResMut<DirtyChunks>,
+    mut chunk_assets: ChunkAssets,
     windows: Query<&Window>,
     creative_mode: Res<CreativeMode>,
     input_resources: InputStateResourcesWithCursor,
@@ -258,39 +258,6 @@ pub fn block_place(
             player_facing
         };
 
-        let regenerate_chunk =
-            |coord: IVec2,
-             commands: &mut Commands,
-             world_data: &mut WorldData,
-             meshes: &mut Assets<Mesh>,
-             materials: &mut Assets<StandardMaterial>| {
-                if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
-                    for entity in old_entities {
-                        commands.entity(entity).try_despawn_recursive();
-                    }
-                }
-
-                if let Some(new_mesh) = world_data.generate_chunk_mesh(coord) {
-                    let mesh_handle = meshes.add(new_mesh);
-                    let material = materials.add(StandardMaterial {
-                        base_color: Color::WHITE,
-                        perceptual_roughness: 0.9,
-                        ..default()
-                    });
-
-                    let entity = commands
-                        .spawn((
-                            Mesh3d(mesh_handle),
-                            MeshMaterial3d(material),
-                            Transform::IDENTITY,
-                            ChunkMesh { coord },
-                        ))
-                        .id();
-
-                    world_data.chunk_entities.insert(coord, vec![entity]);
-                }
-            };
-
         match selected_type {
             BlockType::MinerBlock => {
                 info!(
@@ -329,8 +296,10 @@ pub fn block_place(
                         place_pos.y as f32 * BLOCK_SIZE + 0.5,
                         place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     ));
-                    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                    let material = materials.add(StandardMaterial {
+                    let cube_mesh = chunk_assets
+                        .meshes
+                        .add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = chunk_assets.materials.add(StandardMaterial {
                         base_color: selected_type.color(),
                         ..default()
                     });
@@ -409,21 +378,21 @@ pub fn block_place(
                         ConveyorVisual,
                     ));
                 } else {
-                    let conveyor_mesh = meshes.add(Cuboid::new(
+                    let conveyor_mesh = chunk_assets.meshes.add(Cuboid::new(
                         BLOCK_SIZE * CONVEYOR_BELT_WIDTH,
                         BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
                         BLOCK_SIZE,
                     ));
-                    let material = materials.add(StandardMaterial {
+                    let material = chunk_assets.materials.add(StandardMaterial {
                         base_color: selected_type.color(),
                         ..default()
                     });
-                    let arrow_mesh = meshes.add(Cuboid::new(
+                    let arrow_mesh = chunk_assets.meshes.add(Cuboid::new(
                         BLOCK_SIZE * 0.12,
                         BLOCK_SIZE * 0.03,
                         BLOCK_SIZE * 0.35,
                     ));
-                    let arrow_material = materials.add(StandardMaterial {
+                    let arrow_material = chunk_assets.materials.add(StandardMaterial {
                         base_color: Color::srgb(0.9, 0.9, 0.2),
                         ..default()
                     });
@@ -504,8 +473,10 @@ pub fn block_place(
                         place_pos.y as f32 * BLOCK_SIZE + 0.5,
                         place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     ));
-                    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                    let material = materials.add(StandardMaterial {
+                    let cube_mesh = chunk_assets
+                        .meshes
+                        .add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = chunk_assets.materials.add(StandardMaterial {
                         base_color: selected_type.color(),
                         ..default()
                     });
@@ -561,8 +532,10 @@ pub fn block_place(
                         place_pos.y as f32 * BLOCK_SIZE + 0.5,
                         place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     ));
-                    let cube_mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                    let material = materials.add(StandardMaterial {
+                    let cube_mesh = chunk_assets
+                        .meshes
+                        .add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                    let material = chunk_assets.materials.add(StandardMaterial {
                         base_color: selected_type.color(),
                         ..default()
                     });
@@ -584,36 +557,10 @@ pub fn block_place(
             _ => {
                 info!(category = "BLOCK", action = "place", ?place_pos, block_type = ?selected_type, "Block placed");
                 world_data.set_block(place_pos, selected_type);
-                regenerate_chunk(
-                    chunk_coord,
-                    &mut commands,
-                    &mut world_data,
-                    &mut meshes,
-                    &mut materials,
-                );
 
+                // Mark chunk and neighbors as dirty (mesh will be regenerated by process_dirty_chunks)
                 let local_pos = WorldData::world_to_local(place_pos);
-                let neighbor_offsets: [(i32, i32, bool); 4] = [
-                    (-1, 0, local_pos.x == 0),
-                    (1, 0, local_pos.x == CHUNK_SIZE - 1),
-                    (0, -1, local_pos.z == 0),
-                    (0, 1, local_pos.z == CHUNK_SIZE - 1),
-                ];
-
-                for (dx, dz, at_boundary) in neighbor_offsets {
-                    if at_boundary {
-                        let neighbor_coord = IVec2::new(chunk_coord.x + dx, chunk_coord.y + dz);
-                        if world_data.chunks.contains_key(&neighbor_coord) {
-                            regenerate_chunk(
-                                neighbor_coord,
-                                &mut commands,
-                                &mut world_data,
-                                &mut meshes,
-                                &mut materials,
-                            );
-                        }
-                    }
-                }
+                dirty_chunks.mark_dirty(chunk_coord, local_pos);
             }
         }
     }

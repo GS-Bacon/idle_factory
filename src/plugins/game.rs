@@ -11,14 +11,19 @@ use crate::game_spec;
 use crate::game_spec::RegistryPlugin;
 use crate::player::{GlobalInventory, Inventory};
 use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
-use crate::setup::{setup_initial_items, setup_lighting, setup_player, setup_ui};
+use crate::settings::SettingsPlugin;
+use crate::setup::{
+    handle_settings_back, handle_settings_sliders, handle_settings_toggles, setup_initial_items,
+    setup_lighting, setup_player, setup_ui, update_settings_ui, update_settings_visibility,
+};
 use crate::systems::{
     block_break, block_place, handle_assert_machine_event, handle_debug_event, handle_look_event,
-    handle_screenshot_event, handle_setblock_event, handle_spawn_machine_event,
-    handle_teleport_event, load_machine_models, player_look, player_move, quest_claim_rewards,
-    quest_deliver_button, quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement,
-    select_block_type, setup_highlight_cache, spawn_chunk_tasks, sync_legacy_ui_state,
-    tick_action_timers, toggle_cursor_lock, tutorial_dismiss, ui_action_handler, ui_escape_handler,
+    handle_pause_menu_buttons, handle_screenshot_event, handle_setblock_event,
+    handle_spawn_machine_event, handle_teleport_event, load_machine_models, player_look,
+    player_move, process_dirty_chunks, quest_claim_rewards, quest_deliver_button,
+    quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement, select_block_type,
+    setup_highlight_cache, spawn_chunk_tasks, sync_legacy_ui_state, tick_action_timers,
+    toggle_cursor_lock, tutorial_dismiss, ui_action_handler, ui_escape_handler,
     ui_global_inventory_handler, ui_inventory_handler, unload_distant_chunks,
     update_conveyor_shapes, update_delivery_ui, update_guide_markers, update_pause_ui,
     update_quest_ui, update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent,
@@ -28,7 +33,7 @@ use crate::ui::{
     global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
     setup_global_inventory_ui, update_global_inventory_ui, update_global_inventory_visibility,
 };
-use crate::world::{BiomeMap, ChunkMeshTasks, WorldData};
+use crate::world::{BiomeMap, ChunkMeshTasks, DirtyChunks, WorldData};
 
 /// Main game plugin that bundles all game systems.
 ///
@@ -40,6 +45,7 @@ impl Plugin for GamePlugin {
         // Add sub-plugins
         app.add_plugins(GameEventsPlugin)
             .add_plugins(RegistryPlugin)
+            .add_plugins(SettingsPlugin)
             .add_plugins(MachineSystemsPlugin)
             .add_plugins(UIPlugin)
             .add_plugins(SavePlugin)
@@ -56,6 +62,7 @@ impl Plugin for GamePlugin {
             // NOTE: ActiveSubQuests removed (dead code) - reimplement with sub-quest UI
             .init_resource::<GameFont>()
             .init_resource::<ChunkMeshTasks>()
+            .init_resource::<DirtyChunks>()
             .init_resource::<CreativeMode>()
             .init_resource::<ContinuousActionTimer>()
             .init_resource::<GlobalInventoryOpen>()
@@ -100,13 +107,14 @@ impl Plugin for GamePlugin {
 
 impl GamePlugin {
     fn add_update_systems(&self, app: &mut App) {
-        // Chunk systems: spawn → receive (ordered)
+        // Chunk systems: spawn → receive → LOD update (ordered)
         app.add_systems(
             Update,
             (
                 spawn_chunk_tasks,
                 receive_chunk_meshes,
                 unload_distant_chunks,
+                crate::systems::update_chunk_lod,
             )
                 .chain(),
         );
@@ -120,6 +128,7 @@ impl GamePlugin {
                 player_move,
                 tick_action_timers,
                 update_pause_ui,
+                handle_pause_menu_buttons,
             ),
         );
 
@@ -127,10 +136,13 @@ impl GamePlugin {
 
         // Targeting must run before block operations
         app.add_systems(Update, update_target_block);
-        app.add_systems(
-            Update,
-            (block_break, block_place).after(update_target_block),
-        );
+        // Block operations (break/place blocks)
+        // Note: No ordering constraint because systems have too many params for Bevy's trait impls
+        app.add_systems(Update, block_break);
+        app.add_systems(Update, block_place);
+
+        // Process dirty chunks (batched mesh regeneration - runs every frame)
+        app.add_systems(Update, process_dirty_chunks);
 
         app.add_systems(Update, select_block_type);
 
@@ -200,6 +212,18 @@ impl GamePlugin {
                 sync_legacy_ui_state,
             )
                 .chain(),
+        );
+
+        // Settings UI systems
+        app.add_systems(
+            Update,
+            (
+                update_settings_visibility,
+                update_settings_ui,
+                handle_settings_sliders,
+                handle_settings_toggles,
+                handle_settings_back,
+            ),
         );
     }
 }

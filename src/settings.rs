@@ -145,7 +145,7 @@ impl Plugin for SettingsPlugin {
         let settings = GameSettings::load();
         app.insert_resource(settings)
             .add_event::<SettingsChangedEvent>()
-            .add_systems(Update, auto_save_settings);
+            .add_systems(Update, (auto_save_settings, apply_settings_immediately));
     }
 }
 
@@ -179,6 +179,52 @@ fn auto_save_settings(
             dirty.dirty = false;
         }
     }
+}
+
+/// Apply settings changes immediately to the game
+pub fn apply_settings_immediately(
+    settings: Res<GameSettings>,
+    mut events: EventReader<SettingsChangedEvent>,
+    mut windows: Query<&mut Window>,
+    mut projection_query: Query<&mut Projection>,
+) {
+    // Only process if there were changes
+    if events.read().next().is_none() {
+        return;
+    }
+    // Drain remaining events
+    for _ in events.read() {}
+
+    // Apply window settings
+    if let Ok(mut window) = windows.get_single_mut() {
+        // VSync
+        window.present_mode = if settings.vsync_enabled {
+            bevy::window::PresentMode::AutoVsync
+        } else {
+            bevy::window::PresentMode::AutoNoVsync
+        };
+
+        // Fullscreen
+        window.mode = if settings.fullscreen {
+            bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Current)
+        } else {
+            bevy::window::WindowMode::Windowed
+        };
+    }
+
+    // Apply FOV to camera
+    for mut projection in projection_query.iter_mut() {
+        if let Projection::Perspective(ref mut persp) = *projection {
+            persp.fov = settings.fov.to_radians();
+        }
+    }
+
+    tracing::info!(
+        "Settings applied: vsync={}, fullscreen={}, fov={}",
+        settings.vsync_enabled,
+        settings.fullscreen,
+        settings.fov
+    );
 }
 
 #[cfg(test)]

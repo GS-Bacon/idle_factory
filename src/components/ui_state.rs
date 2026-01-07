@@ -18,6 +18,8 @@ pub enum UIContext {
     CommandInput,
     /// ポーズメニュー (ESC when stack is empty)
     PauseMenu,
+    /// 設定画面
+    Settings,
     /// マシンUI（汎用化、Entityで特定）
     Machine(Entity),
 }

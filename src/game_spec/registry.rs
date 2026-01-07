@@ -30,6 +30,10 @@ pub struct ItemDescriptor {
     pub stack_size: u32,
     /// Can be placed in world
     pub is_placeable: bool,
+    /// Base break time in seconds (before tool multiplier)
+    pub hardness: f32,
+    /// What this block drops when broken (None = drops itself)
+    pub drops: Option<BlockType>,
 }
 
 impl ItemDescriptor {
@@ -48,7 +52,26 @@ impl ItemDescriptor {
             category,
             stack_size,
             is_placeable,
+            hardness: 1.0, // Default hardness
+            drops: None,   // Default: drops itself
         }
+    }
+
+    /// Create with custom hardness
+    pub const fn with_hardness(mut self, hardness: f32) -> Self {
+        self.hardness = hardness;
+        self
+    }
+
+    /// Create with custom drops
+    pub const fn with_drops(mut self, drops: BlockType) -> Self {
+        self.drops = Some(drops);
+        self
+    }
+
+    /// Get what this block drops (self if None)
+    pub fn get_drops(&self, block_type: BlockType) -> BlockType {
+        self.drops.unwrap_or(block_type)
     }
 }
 
@@ -57,8 +80,9 @@ impl ItemDescriptor {
 // =============================================================================
 
 /// All item descriptors (indexed by BlockType)
+/// Hardness values: 1.0 = terrain, 0.5 = machines, 0.0 = instant
 pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
-    // Terrain
+    // Terrain (hardness 1.0)
     (
         BlockType::Stone,
         ItemDescriptor::new(
@@ -68,7 +92,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Terrain,
             999,
             true,
-        ),
+        )
+        .with_hardness(1.0),
     ),
     (
         BlockType::Grass,
@@ -79,9 +104,10 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Terrain,
             999,
             true,
-        ),
+        )
+        .with_hardness(0.8),
     ),
-    // Ores
+    // Ores (hardness 1.2 - slightly harder than stone)
     (
         BlockType::IronOre,
         ItemDescriptor::new(
@@ -91,7 +117,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Ore,
             999,
             true,
-        ),
+        )
+        .with_hardness(1.2),
     ),
     (
         BlockType::CopperOre,
@@ -102,7 +129,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Ore,
             999,
             true,
-        ),
+        )
+        .with_hardness(1.2),
     ),
     (
         BlockType::Coal,
@@ -113,9 +141,10 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Ore,
             999,
             true,
-        ),
+        )
+        .with_hardness(1.0),
     ),
-    // Processed
+    // Processed (not placeable, no hardness needed)
     (
         BlockType::IronIngot,
         ItemDescriptor::new(
@@ -160,7 +189,7 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             false,
         ),
     ),
-    // Machines
+    // Machines (hardness 0.5 - easier to break)
     (
         BlockType::MinerBlock,
         ItemDescriptor::new(
@@ -170,7 +199,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Machine,
             999,
             true,
-        ),
+        )
+        .with_hardness(0.5),
     ),
     (
         BlockType::ConveyorBlock,
@@ -181,7 +211,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Machine,
             999,
             true,
-        ),
+        )
+        .with_hardness(0.3),
     ),
     (
         BlockType::FurnaceBlock,
@@ -192,7 +223,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Machine,
             999,
             true,
-        ),
+        )
+        .with_hardness(0.5),
     ),
     (
         BlockType::CrusherBlock,
@@ -203,7 +235,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Machine,
             999,
             true,
-        ),
+        )
+        .with_hardness(0.5),
     ),
     (
         BlockType::AssemblerBlock,
@@ -214,7 +247,8 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Machine,
             999,
             true,
-        ),
+        )
+        .with_hardness(0.5),
     ),
     (
         BlockType::PlatformBlock,
@@ -225,9 +259,10 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
             BlockCategory::Machine,
             999,
             true,
-        ),
+        )
+        .with_hardness(0.5),
     ),
-    // Tools
+    // Tools (not placeable)
     (
         BlockType::StonePickaxe,
         ItemDescriptor::new(
@@ -382,5 +417,38 @@ mod tests {
     fn test_recipes_loaded() {
         let registry = GameRegistry::new();
         assert!(!registry.recipes().is_empty());
+    }
+
+    #[test]
+    fn test_hardness_values() {
+        let registry = GameRegistry::new();
+
+        // Machines have lower hardness (easier to break)
+        let miner = registry.item(BlockType::MinerBlock).unwrap();
+        assert_eq!(miner.hardness, 0.5);
+
+        let conveyor = registry.item(BlockType::ConveyorBlock).unwrap();
+        assert!(conveyor.hardness < 0.5); // Conveyor is even easier
+
+        // Ores are harder than stone
+        let iron_ore = registry.item(BlockType::IronOre).unwrap();
+        let stone = registry.item(BlockType::Stone).unwrap();
+        assert!(iron_ore.hardness > stone.hardness);
+    }
+
+    #[test]
+    fn test_block_type_hardness_method() {
+        // Test that BlockType.hardness() delegates to ItemDescriptor
+        assert_eq!(BlockType::Stone.hardness(), 1.0);
+        assert_eq!(BlockType::MinerBlock.hardness(), 0.5);
+        assert!(BlockType::IronOre.hardness() > BlockType::Stone.hardness());
+    }
+
+    #[test]
+    fn test_block_drops() {
+        // Most blocks drop themselves
+        assert_eq!(BlockType::Stone.drops(), BlockType::Stone);
+        assert_eq!(BlockType::IronOre.drops(), BlockType::IronOre);
+        assert_eq!(BlockType::MinerBlock.drops(), BlockType::MinerBlock);
     }
 }

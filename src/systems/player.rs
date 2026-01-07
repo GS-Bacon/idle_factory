@@ -3,13 +3,14 @@
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
     InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialPopup,
-    TutorialShown,
+    TutorialShown, UIAction, UIContext,
 };
+use crate::settings::GameSettings;
 use crate::systems::cursor;
 use crate::world::WorldData;
 use crate::{
-    CreativeMode, GRAVITY, JUMP_VELOCITY, KEY_ROTATION_SPEED, MOUSE_SENSITIVITY, PLAYER_HEIGHT,
-    PLAYER_SPEED, PLAYER_WIDTH, TERMINAL_VELOCITY,
+    CreativeMode, GRAVITY, JUMP_VELOCITY, KEY_ROTATION_SPEED, PLAYER_HEIGHT, PLAYER_SPEED,
+    PLAYER_WIDTH, TERMINAL_VELOCITY,
 };
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
@@ -56,6 +57,7 @@ pub fn player_look(
     interacting_machine: Res<InteractingMachine>,
     command_state: Res<CommandInputState>,
     tutorial_shown: Res<TutorialShown>,
+    settings: Res<GameSettings>,
 ) {
     // Block look while tutorial is showing
     if !tutorial_shown.0 {
@@ -126,8 +128,9 @@ pub fn player_look(
 
         // Only apply if delta is non-trivial (avoid jitter from small movements)
         if clamped_delta.length() > 0.1 {
-            camera.yaw -= clamped_delta.x * MOUSE_SENSITIVITY;
-            camera.pitch -= clamped_delta.y * MOUSE_SENSITIVITY;
+            let (sens_x, sens_y) = settings.effective_sensitivity();
+            camera.yaw -= clamped_delta.x * sens_x;
+            camera.pitch -= clamped_delta.y * sens_y;
         }
     }
 
@@ -426,6 +429,50 @@ pub fn update_pause_ui(
             cursor::release_cursor(&mut window);
         } else {
             cursor::lock_cursor(&mut window);
+        }
+    }
+}
+
+/// Handle pause menu button clicks
+pub fn handle_pause_menu_buttons(
+    mut interaction_query: Query<
+        (
+            &Interaction,
+            &crate::setup::ui::PauseMenuButton,
+            &mut BackgroundColor,
+        ),
+        Changed<Interaction>,
+    >,
+    mut cursor_state: ResMut<CursorLockState>,
+    mut app_exit: EventWriter<bevy::app::AppExit>,
+    mut action_writer: EventWriter<UIAction>,
+) {
+    for (interaction, button_type, mut bg_color) in interaction_query.iter_mut() {
+        match interaction {
+            Interaction::Pressed => {
+                match button_type {
+                    crate::setup::ui::PauseMenuButton::Resume => {
+                        // Resume game
+                        cursor_state.paused = false;
+                        action_writer.send(UIAction::Pop);
+                    }
+                    crate::setup::ui::PauseMenuButton::Settings => {
+                        // Open settings (will implement in D.3)
+                        action_writer.send(UIAction::Push(UIContext::Settings));
+                    }
+                    crate::setup::ui::PauseMenuButton::Quit => {
+                        // Exit application (native only)
+                        #[cfg(not(target_arch = "wasm32"))]
+                        app_exit.send(bevy::app::AppExit::Success);
+                    }
+                }
+            }
+            Interaction::Hovered => {
+                *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.95));
+            }
+            Interaction::None => {
+                *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9));
+            }
         }
     }
 }

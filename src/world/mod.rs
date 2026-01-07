@@ -11,10 +11,45 @@ use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::tasks::Task;
 use std::collections::HashMap;
 
+/// LOD level for chunk meshes
+/// Lower values = more detail
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ChunkLod {
+    /// Full detail - all blocks rendered
+    #[default]
+    Full = 0,
+    /// Medium detail - only top 3 layers (y >= GROUND_LEVEL - 2)
+    Medium = 1,
+    /// Low detail - only surface layer (y == GROUND_LEVEL)
+    Low = 2,
+}
+
+impl ChunkLod {
+    /// Calculate LOD level based on distance in chunks
+    pub fn from_distance(distance: i32) -> Self {
+        match distance {
+            0..=1 => ChunkLod::Full,
+            2..=3 => ChunkLod::Medium,
+            _ => ChunkLod::Low,
+        }
+    }
+
+    /// Get minimum Y level to render for this LOD
+    pub fn min_y(&self) -> i32 {
+        use crate::constants::GROUND_LEVEL;
+        match self {
+            ChunkLod::Full => 0,
+            ChunkLod::Medium => (GROUND_LEVEL - 2).max(0),
+            ChunkLod::Low => GROUND_LEVEL,
+        }
+    }
+}
+
 /// Marker for chunk mesh entity (single mesh per chunk)
 #[derive(Component)]
 pub struct ChunkMesh {
     pub coord: IVec2,
+    pub lod: ChunkLod,
 }
 
 /// Data for a generated chunk mesh (sent from async task)
@@ -47,6 +82,52 @@ pub enum PendingChunk {
 pub struct ChunkMeshTasks {
     /// Pending chunk generation (coord -> state)
     pub pending: HashMap<IVec2, PendingChunk>,
+}
+
+/// Resource to track chunks that need mesh regeneration due to block changes
+/// This enables batched mesh updates instead of immediate per-block regeneration
+#[derive(Resource, Default)]
+pub struct DirtyChunks {
+    /// Set of chunk coordinates that need mesh regeneration
+    pub chunks: std::collections::HashSet<IVec2>,
+}
+
+impl DirtyChunks {
+    /// Mark a chunk and its affected neighbors as needing mesh regeneration
+    pub fn mark_dirty(&mut self, chunk_coord: IVec2, local_pos: IVec3) {
+        use crate::constants::CHUNK_SIZE;
+
+        // Always mark the changed chunk
+        self.chunks.insert(chunk_coord);
+
+        // Mark neighbors if block is at boundary
+        if local_pos.x == 0 {
+            self.chunks
+                .insert(IVec2::new(chunk_coord.x - 1, chunk_coord.y));
+        }
+        if local_pos.x == CHUNK_SIZE - 1 {
+            self.chunks
+                .insert(IVec2::new(chunk_coord.x + 1, chunk_coord.y));
+        }
+        if local_pos.z == 0 {
+            self.chunks
+                .insert(IVec2::new(chunk_coord.x, chunk_coord.y - 1));
+        }
+        if local_pos.z == CHUNK_SIZE - 1 {
+            self.chunks
+                .insert(IVec2::new(chunk_coord.x, chunk_coord.y + 1));
+        }
+    }
+
+    /// Take all dirty chunks, clearing the set
+    pub fn take_all(&mut self) -> std::collections::HashSet<IVec2> {
+        std::mem::take(&mut self.chunks)
+    }
+
+    /// Check if any chunks need regeneration
+    pub fn is_empty(&self) -> bool {
+        self.chunks.is_empty()
+    }
 }
 
 /// Single chunk data - blocks stored in a flat array for fast access
@@ -277,10 +358,17 @@ impl ChunkData {
 
     /// Generate a combined mesh for the entire chunk with face culling using greedy meshing
     /// neighbor_checker: function to check if a block exists at world position (for cross-chunk checks)
-    pub fn generate_mesh_with_neighbors<F>(&self, chunk_coord: IVec2, neighbor_checker: F) -> Mesh
+    /// lod: Level of detail - affects which blocks are included in the mesh
+    pub fn generate_mesh_with_neighbors<F>(
+        &self,
+        chunk_coord: IVec2,
+        neighbor_checker: F,
+        lod: ChunkLod,
+    ) -> Mesh
     where
         F: Fn(IVec3) -> bool,
     {
+        let min_y = lod.min_y();
         // Pre-allocate with estimated capacity (greedy meshing produces fewer quads)
         let estimated_faces = (CHUNK_SIZE * CHUNK_SIZE) as usize;
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
@@ -355,6 +443,11 @@ impl ChunkData {
                             2 => (u, v, slice),
                             _ => unreachable!(),
                         };
+
+                        // LOD: Skip blocks below min_y threshold
+                        if y < min_y {
+                            continue;
+                        }
 
                         if let Some(block_type) = self.get_block(x, y, z) {
                             let (dx, dy, dz) = match axis {
@@ -563,8 +656,14 @@ impl ChunkData {
     }
 
     /// Simple mesh generation without neighbor checking (for async tasks)
+    /// Uses full LOD (all blocks)
     pub fn generate_mesh(&self, chunk_coord: IVec2) -> Mesh {
-        self.generate_mesh_with_neighbors(chunk_coord, |_| false)
+        self.generate_mesh_with_neighbors(chunk_coord, |_| false, ChunkLod::Full)
+    }
+
+    /// Simple mesh generation with LOD
+    pub fn generate_mesh_with_lod(&self, chunk_coord: IVec2, lod: ChunkLod) -> Mesh {
+        self.generate_mesh_with_neighbors(chunk_coord, |_| false, lod)
     }
 }
 
@@ -654,10 +753,19 @@ impl WorldData {
     }
 
     /// Generate mesh for a chunk with proper neighbor checking across chunk boundaries
+    /// Uses full LOD (all blocks)
     pub fn generate_chunk_mesh(&self, chunk_coord: IVec2) -> Option<Mesh> {
+        self.generate_chunk_mesh_with_lod(chunk_coord, ChunkLod::Full)
+    }
+
+    /// Generate mesh for a chunk with specific LOD level
+    pub fn generate_chunk_mesh_with_lod(&self, chunk_coord: IVec2, lod: ChunkLod) -> Option<Mesh> {
         let chunk_data = self.chunks.get(&chunk_coord)?;
-        let mesh = chunk_data
-            .generate_mesh_with_neighbors(chunk_coord, |world_pos| self.has_block(world_pos));
+        let mesh = chunk_data.generate_mesh_with_neighbors(
+            chunk_coord,
+            |world_pos| self.has_block(world_pos),
+            lod,
+        );
         Some(mesh)
     }
 }

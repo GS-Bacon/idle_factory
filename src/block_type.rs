@@ -208,6 +208,21 @@ impl BlockType {
         self.descriptor().category
     }
 
+    /// Get the hardness (base break time) for this block type
+    pub fn hardness(&self) -> f32 {
+        self.descriptor().hardness
+    }
+
+    /// Get what this block drops when broken
+    pub fn drops(&self) -> BlockType {
+        self.descriptor().get_drops(*self)
+    }
+
+    /// Get the max stack size for this block type
+    pub fn stack_size(&self) -> u32 {
+        self.descriptor().stack_size
+    }
+
     /// Returns true if this block type is in the given category
     pub fn is_category(&self, category: BlockCategory) -> bool {
         self.category() == category

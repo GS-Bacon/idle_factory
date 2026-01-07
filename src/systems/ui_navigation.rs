@@ -79,6 +79,9 @@ pub fn sync_legacy_ui_state(
         UIContext::PauseMenu => {
             cursor_lock.paused = true;
         }
+        UIContext::Settings => {
+            cursor_lock.paused = true;
+        }
         UIContext::Machine(entity) => {
             cursor_lock.paused = true;
             machine_res.0 = Some(entity);

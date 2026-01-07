@@ -69,19 +69,18 @@ pub mod ui_spec {
 pub mod breaking_spec {
     use super::BlockType;
 
+    /// Multiplier when breaking with bare hands (slower)
     pub const BARE_HAND_MULTIPLIER: f32 = 2.0;
+    /// Multiplier when breaking with stone pickaxe (normal speed)
     pub const STONE_PICKAXE_MULTIPLIER: f32 = 1.0;
-    pub const TERRAIN_BREAK_TIME: f32 = 1.0;
-    pub const MACHINE_BREAK_TIME: f32 = 0.5;
 
+    /// Get base break time from ItemDescriptor.hardness
+    /// This is now data-driven - each block type has its own hardness value
     pub fn get_base_break_time(block_type: BlockType) -> f32 {
-        if block_type.is_machine() {
-            MACHINE_BREAK_TIME
-        } else {
-            TERRAIN_BREAK_TIME
-        }
+        block_type.hardness()
     }
 
+    /// Get tool multiplier (affects break time)
     pub fn get_tool_multiplier(tool: Option<BlockType>) -> f32 {
         match tool {
             Some(BlockType::StonePickaxe) => STONE_PICKAXE_MULTIPLIER,

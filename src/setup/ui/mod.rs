@@ -3,8 +3,13 @@
 //! Creates all UI panels (hotbar, machine UIs, inventory, quests, etc.)
 
 mod inventory_ui;
+pub mod settings_ui;
 
 pub use inventory_ui::setup_inventory_ui;
+pub use settings_ui::{
+    handle_settings_back, handle_settings_sliders, handle_settings_toggles, setup_settings_ui,
+    update_settings_ui, update_settings_visibility,
+};
 
 // Re-export machine UI setup from ui module
 pub use crate::ui::machine_ui::setup_generic_machine_ui;
@@ -612,6 +617,9 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
         BorderRadius::all(Val::Px(QUEST_RADIUS)),
     ));
 
+    // Settings UI panel (hidden by default)
+    setup_settings_ui(&mut commands, font);
+
     // Pause overlay - shown when ESC pressed
     let font_pause = font.clone();
     commands
@@ -634,15 +642,81 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
             Visibility::Hidden, // Start hidden
         ))
         .with_children(|pause| {
+            // Title
             pause.spawn((
-                Text::new("PAUSED"),
+                Text::new("一時停止"),
                 text_font(&font_pause, 48.0),
                 TextColor(Color::WHITE),
             ));
+
+            // Button container
+            pause
+                .spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(12.0),
+                    margin: UiRect::top(Val::Px(20.0)),
+                    ..default()
+                })
+                .with_children(|btns| {
+                    // Resume button
+                    spawn_pause_button(btns, &font_pause, "再開", PauseMenuButton::Resume);
+                    // Settings button
+                    spawn_pause_button(btns, &font_pause, "設定", PauseMenuButton::Settings);
+                    // Quit button (native only)
+                    #[cfg(not(target_arch = "wasm32"))]
+                    spawn_pause_button(btns, &font_pause, "終了", PauseMenuButton::Quit);
+                });
+
+            // Hint text
             pause.spawn((
-                Text::new("クリックでゲーム再開"),
-                text_font(&font_pause, 18.0),
-                TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+                Text::new("ESCで再開"),
+                text_font(&font_pause, 14.0),
+                TextColor(Color::srgba(0.6, 0.6, 0.6, 1.0)),
+                Node {
+                    margin: UiRect::top(Val::Px(30.0)),
+                    ..default()
+                },
+            ));
+        });
+}
+
+/// Pause menu button types
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub enum PauseMenuButton {
+    Resume,
+    Settings,
+    #[allow(dead_code)]
+    Quit,
+}
+
+/// Spawn a pause menu button
+fn spawn_pause_button(
+    parent: &mut ChildBuilder,
+    font: &Handle<Font>,
+    label: &str,
+    button_type: PauseMenuButton,
+) {
+    parent
+        .spawn((
+            Button,
+            button_type,
+            Node {
+                width: Val::Px(200.0),
+                height: Val::Px(50.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+            BorderColor(Color::srgb(0.8, 0.5, 0.0)),
+            BorderRadius::all(Val::Px(8.0)),
+        ))
+        .with_children(|btn| {
+            btn.spawn((
+                Text::new(label),
+                text_font(font, 20.0),
+                TextColor(Color::WHITE),
             ));
         });
 }
