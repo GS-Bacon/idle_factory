@@ -34,6 +34,9 @@ pub use block_type::{BlockCategory, BlockType};
 pub use components::*;
 pub use constants::*;
 
+// Re-export core types (dynamic ID system)
+pub use core::{FluidId, ItemId, MachineId, RecipeId, SharedInterner, StringInterner};
+
 // Re-export world types
 pub use world::{BiomeMap, WorldData};
 
