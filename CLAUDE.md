@@ -157,13 +157,41 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 
 ## 参照ドキュメント
 
-| ファイル | 内容 |
-|----------|------|
-| `.claude/implementation-plan.md` | **統合実装計画（タスク一覧）** |
-| `.claude/architecture.md` | モジュール構成、依存関係 |
-| `.claude/bugs.md` | よくあるバグと対策 |
-| `.specify/memory/input-rules.md` | 入力マトリクス |
-| `.specify/memory/modeling-rules.md` | 3Dモデル作成ルール |
+| ファイル | 内容 | 優先度 |
+|----------|------|--------|
+| **`.claude/architecture-future.md`** | **将来アーキテクチャ設計（権威ソース）** | **最優先** |
+| `.claude/implementation-plan.md` | 統合実装計画（タスク一覧） | 高 |
+| `.claude/architecture.md` | 現在のモジュール構成 | 中 |
+| `.claude/bugs.md` | よくあるバグと対策 | 中 |
+| `.specify/memory/constitution.md` | プロジェクト憲章 | 中 |
+| `.specify/roadmap.md` | ロードマップ | 中 |
+
+## 将来アーキテクチャ設計ルール（必須）
+
+**`.claude/architecture-future.md` が全ての設計判断の権威ソース**
+
+### 新規実装時
+
+1. **必ず** `.claude/architecture-future.md` を参照
+2. 将来設計と矛盾する実装は禁止
+3. 将来設計にないパターンを使う場合は先に設計追記
+
+### 禁止パターン（レガシー）
+
+| 禁止 | 代替 |
+|------|------|
+| `PlayerInventory` (Resource) | `Inventory` (Component) + `LocalPlayer(Entity)` |
+| 個別機械ファイル (`furnace.rs`等) | `machines/generic.rs` |
+| `InteractingFurnace/Crusher/Miner` | `InteractingMachine(Option<Entity>)` |
+| ハードコード機械ロジック | `MachineSpec` + データ駆動 |
+| `BlockType` 直接参照 | `Id<Item>` (将来) |
+
+### 整理対象
+
+古い実装・タスク・ドキュメントを見つけたら：
+1. 将来設計と照合
+2. 矛盾があれば将来設計に従って修正
+3. 不要なら削除
 
 ## 修正済みバグ
 
@@ -273,15 +301,20 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 - カスタマイズ: プレイヤースキン、Blockbenchインポート
 - 拡張: Modding(フルアクセス)、マルチプレイ
 
-### 次回セッションへの引き継ぎ
+### 次のPhase: D.0（マルチ準備）
 
-**決定事項**:
-1. イベントシステムを先に設計（階層化で後方互換性維持）
-2. データ駆動Modding（TOML）→ 後からLua追加
-3. 文字列ID形式: `"namespace:id"`（例: `"mymod:custom_machine"`）
-4. Blockbenchインポート対応（.bbmodel直接読み込み）
+**詳細は `.claude/architecture-future.md` 参照**
 
-**次のアクション**:
-1. イベントシステムのアーキテクチャ設計
-2. ゲームAPI（状態アクセス）の設計
-3. TOML Moddingの実装
+| タスク | 内容 |
+|--------|------|
+| D.0.1 | `LocalPlayer(Entity)` リソース追加 |
+| D.0.2 | `Inventory` コンポーネント化 |
+| D.0.3 | 既存システムを段階的に移行 |
+| D.0.4 | `PlayerInventory` リソース削除 |
+| D.0.5 | `MachineBundle` 導入 |
+
+**決定済み設計**:
+- イベントシステム: `GuardedEventWriter` で循環防止
+- 動的ID: `Id<Category>` Phantom Type + `StringInterner`
+- Mod API: `"namespace:id"` 形式、セマンティックバージョニング
+- NetworkId: `EntityMap` で Entity ↔ NetworkId マッピング

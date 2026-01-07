@@ -13,7 +13,7 @@
 | 5 | 線路機能 | 列車による長距離輸送 | 中 |
 | 6 | ストレージ | 大容量倉庫、フィルター、自動整理 | 中 |
 | **自動化・AI** | | | |
-| 7 | ロボット（Lua） | プログラム可能な自動化（飛行含む） | 低〜中 |
+| 7 | ロボット | データ駆動プログラム（飛行含む） | 低〜中 |
 | 8 | Mob追加 | 敵/友好NPC | 中 |
 | **UI・UX** | | | |
 | 9 | マップ機能 | ワールド俯瞰表示 | 低 |
@@ -32,6 +32,625 @@
 - 研究ツリーはクエストと統合（レシピは基本アンロック済み、任意ロック可能）
 - 資源枯渇なし（Modで対応可能に）
 - 天候・昼夜は将来拡張可能な設計に（今は実装しない）
+
+---
+
+## 確定した設計判断（2026-01-07）
+
+以下の根本的な設計判断は**確定**。変更する場合は十分な理由が必要。
+
+| 判断 | 決定 | 理由 |
+|------|------|------|
+| **ID方式** | 動的ID + Phantom Type | 型安全 + Mod対応 |
+| **スクリプト** | 外部API（WebSocket） | Lua/WASM統合しない、外部Modに任せる |
+| **マルチ** | 確定実装、今すぐComponent化 | 後からは困難 |
+| **イベント** | 全フック（設計付き） | マルチ・Mod・デバッグ全てに必要 |
+
+---
+
+## 設計原則（2026-01-07 更新）
+
+### 1. 動的ID + Phantom Type（型安全な動的ID）
+
+**BlockType enum を廃止し、動的IDに移行する。ただし型安全性は維持。**
+
+```rust
+use std::marker::PhantomData;
+
+/// 型安全な動的ID
+/// - カテゴリ混同をコンパイル時に防止（Phantom Type）
+/// - 存在保証はRegistry経由でのみ生成することで担保
+/// - 高速比較（内部u32）
+/// - 可読性（Interned String で "namespace:id" 形式対応）
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Id<Category> {
+    raw: u32,
+    _marker: PhantomData<Category>,
+}
+
+// カテゴリマーカー（ゼロサイズ型）
+pub struct ItemCategory;
+pub struct MachineCategory;
+pub struct RecipeCategory;
+pub struct FluidCategory;
+
+// 型エイリアス
+pub type ItemId = Id<ItemCategory>;
+pub type MachineId = Id<MachineCategory>;
+pub type RecipeId = Id<RecipeCategory>;
+pub type FluidId = Id<FluidCategory>;
+
+impl<C> Id<C> {
+    /// Registry経由でのみ生成可能（pub(crate)）
+    ///
+    /// **設計意図**: ModはRegistryの`register()`戻り値でのみIDを取得する。
+    /// 直接`Id::new()`を呼べないことで、存在しないIDの作成を防止。
+    pub(crate) fn new(raw: u32) -> Self {
+        Self { raw, _marker: PhantomData }
+    }
+
+    pub fn raw(&self) -> u32 { self.raw }
+}
+
+// Interned String で文字列ID対応
+// Note: マルチプレイ時はRwLock<StringInterner>でスレッドセーフに
+pub struct StringInterner {
+    to_id: HashMap<String, u32>,
+    to_str: Vec<String>,
+}
+
+impl StringInterner {
+    pub fn get_or_intern(&mut self, s: &str) -> u32 { ... }
+    pub fn resolve(&self, id: u32) -> &str { ... }
+}
+
+// スレッドセーフ版（マルチプレイ用）
+pub type SharedInterner = Arc<RwLock<StringInterner>>;
+```
+
+**Registry経由でのみID生成**:
+```rust
+impl ItemRegistry {
+    /// 新アイテム登録（IDを返す）
+    pub fn register(&mut self, name: &str, desc: ItemDescriptor) -> ItemId {
+        let raw = self.interner.get_or_intern(name);
+        self.items.insert(raw, desc);
+        ItemId::new(raw)
+    }
+
+    /// ID → Descriptor
+    pub fn get(&self, id: ItemId) -> Option<&ItemDescriptor> {
+        self.items.get(&id.raw())
+    }
+
+    /// 文字列 → ID（存在しない場合None）
+    pub fn lookup(&self, name: &str) -> Option<ItemId> {
+        self.interner.get(name).map(ItemId::new)
+    }
+}
+```
+
+**型安全性の保証**:
+| 保証 | 達成方法 |
+|------|----------|
+| カテゴリ混同防止 | Phantom Type（`Id<ItemCategory>` と `Id<MachineCategory>` は別型）|
+| 存在保証 | Registry経由でのみ生成（`new` は `pub(crate)`）|
+| 高速比較 | 内部u32（`==` は整数比較）|
+| 可読性 | Interned String（`"mymod:super_ingot"` 形式）|
+| Mod対応 | 実行時に追加可能（enumではない）|
+
+**移行計画**:
+1. `Id<T>` と Registry を実装
+2. 組み込みアイテムを登録（起動時）
+3. 既存コードを段階的に移行（`BlockType` → `ItemId`）
+4. Mod読み込み時に追加アイテムを登録
+
+---
+
+### 1.1 セーブデータ互換性（動的IDの永続化）
+
+**問題**: ランタイム生成される`u32`をそのまま保存すると、Modの読み込み順が変わった瞬間にIDがズレてセーブデータが壊れる。
+
+**解決策**: セーブデータには**文字列ID**を保存する。
+
+```rust
+// セーブデータ構造
+#[derive(Serialize, Deserialize)]
+pub struct SaveData {
+    pub version: u32,
+    pub world: WorldSaveData,
+    pub player: PlayerSaveData,
+}
+
+// ブロックは文字列IDで保存
+#[derive(Serialize, Deserialize)]
+pub struct BlockSaveData {
+    pub id: String,  // "base:iron_ore", "mymod:super_block"
+    pub pos: IVec3,
+    pub metadata: Option<serde_json::Value>,
+}
+
+// ロード時に再マッピング
+impl SaveData {
+    pub fn load(path: &Path, registry: &ItemRegistry) -> Result<Self, LoadError> {
+        let data: SaveData = serde_json::from_reader(File::open(path)?)?;
+
+        // 各ブロックのIDを文字列→ItemIdに変換
+        for block in &data.world.blocks {
+            match registry.lookup(&block.id) {
+                Some(id) => { /* OK */ },
+                None => {
+                    // Modが削除された場合のフォールバック
+                    warn!("Unknown block ID: {}, replacing with air", block.id);
+                    // → 空気ブロックに置換、またはエラー
+                }
+            }
+        }
+        Ok(data)
+    }
+}
+```
+
+**Mod削除時のフォールバック**:
+| ケース | 対応 |
+|--------|------|
+| 不明なブロック | 空気に置換 + 警告ログ |
+| 不明なアイテム | インベントリから削除 + 警告ログ |
+| 不明な機械 | 基本ブロックに置換 + アイテムドロップ |
+
+---
+
+### 2. マルチプレイ対応の原則
+
+**マルチプレイは確定実装。PlayerInventory Component化は最優先。**
+
+| 原則 | 内容 | 対応状況 |
+|------|------|----------|
+| **No Singletons for Player Data** | プレイヤー固有データはComponentにする | ⚠️ **最優先で変更** |
+| **NetworkId層** | Entity参照はNetworkId経由にする | 未実装 |
+| **サーバー権威モデル** | 全状態変更はイベント経由 | イベントシステムで対応 |
+
+```rust
+// ❌ 現在（シングルトン）- 廃止予定
+#[derive(Resource)]
+pub struct PlayerInventory { ... }
+
+// ✅ 将来（コンポーネント）
+#[derive(Component)]
+pub struct Inventory { ... }
+
+// プレイヤーはEntityになる
+commands.spawn((Player, Inventory::default(), NetworkId(uuid)));
+```
+
+#### NetworkId と Entity のマッピング
+
+**問題**: `Entity` はサーバーとクライアントで異なる値になる。
+
+```rust
+/// ネットワーク上で一意なID（UUID）
+#[derive(Component, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct NetworkId(pub u64);
+
+/// サーバー/クライアント間のEntityマッピング
+#[derive(Resource, Default)]
+pub struct EntityMap {
+    network_to_entity: HashMap<NetworkId, Entity>,
+    entity_to_network: HashMap<Entity, NetworkId>,
+}
+
+impl EntityMap {
+    /// NetworkId → Entity（ローカル）
+    pub fn get_entity(&self, network_id: NetworkId) -> Option<Entity> {
+        self.network_to_entity.get(&network_id).copied()
+    }
+
+    /// Entity → NetworkId
+    pub fn get_network_id(&self, entity: Entity) -> Option<NetworkId> {
+        self.entity_to_network.get(&entity).copied()
+    }
+
+    /// 新規登録（サーバー側でEntity生成時）
+    pub fn register(&mut self, entity: Entity, network_id: NetworkId) {
+        self.network_to_entity.insert(network_id, entity);
+        self.entity_to_network.insert(entity, network_id);
+    }
+
+    /// 削除（Entity despawn時）
+    pub fn unregister(&mut self, entity: Entity) {
+        if let Some(network_id) = self.entity_to_network.remove(&entity) {
+            self.network_to_entity.remove(&network_id);
+        }
+    }
+}
+
+/// NetworkIdを自動生成（サーバー側）
+#[derive(Resource)]
+pub struct NetworkIdGenerator {
+    next_id: u64,
+}
+
+impl NetworkIdGenerator {
+    pub fn next(&mut self) -> NetworkId {
+        let id = NetworkId(self.next_id);
+        self.next_id += 1;
+        id
+    }
+}
+```
+
+**使用パターン**:
+```rust
+// ネットワークメッセージでは NetworkId を使用
+struct SpawnMachineMessage {
+    network_id: NetworkId,
+    machine_type: MachineId,
+    pos: IVec3,
+}
+
+// ローカル処理では EntityMap で変換
+fn handle_spawn_machine(
+    msg: SpawnMachineMessage,
+    mut commands: Commands,
+    mut entity_map: ResMut<EntityMap>,
+) {
+    let entity = commands.spawn(MachineBundle::new(...)).id();
+    entity_map.register(entity, msg.network_id);
+}
+```
+
+**移行戦略**:
+```rust
+// Step 1: 互換レイヤー（一時的）
+#[derive(Resource)]
+pub struct LocalPlayer(pub Entity);  // ローカルプレイヤーのEntity
+
+// Step 2: 新コードはQuery使用
+fn system(
+    local_player: Res<LocalPlayer>,
+    query: Query<&mut Inventory>,
+) {
+    if let Ok(mut inv) = query.get_mut(local_player.0) { ... }
+}
+
+// Step 3: 既存コード段階的移行
+// Step 4: PlayerInventory Resource 削除
+```
+
+### Modding の原則
+
+**ゲーム本体にスクリプト言語（Lua等）は統合しない。**
+
+| 層 | 手段 | できること |
+|----|------|-----------|
+| **Data Mod** | TOML/JSON | 新アイテム、機械、レシピ、数値バランス |
+| **Hook** | 外部API（WebSocket等） | イベントへの反応、条件分岐 |
+| **Override** | 外部API | システムの置換、フル制御 |
+
+**理由**:
+1. ゲーム本体がシンプルに保てる
+2. mlua等のRust-Lua統合の複雑さを回避
+3. Mod作者の言語選択の自由度が高い（Lua, Python, JS等）
+4. セキュリティリスク（サンドボックス問題）が軽減
+
+### 3. イベントシステム（全フック設計）
+
+**全ての状態変更をイベント経由にする。** マルチプレイ同期・Modフック・デバッグ全てに必要。
+
+#### 基本設計
+
+```rust
+// Bevy Observer（0.14+）を基盤として使用
+#[derive(Event)]
+pub struct BlockPlaced {
+    pub pos: IVec3,
+    pub block: ItemId,      // 動的ID
+    pub player: Entity,
+    pub source: EventSource,
+}
+
+#[derive(Clone, Copy)]
+pub enum EventSource {
+    Player(Entity),
+    Machine(Entity),
+    Mod(ModId),
+    System,  // ワールド生成など
+}
+
+// 登録
+app.add_observer(on_block_placed);
+
+fn on_block_placed(trigger: Trigger<BlockPlaced>, ...) {
+    // 処理
+}
+```
+
+#### イベントカタログ（網羅的）
+
+**ブロック系**:
+| イベント | 発火タイミング | データ |
+|----------|----------------|--------|
+| `BlockPlacing` | 配置直前（キャンセル可能） | pos, block, player |
+| `BlockPlaced` | 配置完了後 | pos, block, player |
+| `BlockBreaking` | 破壊開始時 | pos, block, player, progress |
+| `BlockBroken` | 破壊完了後 | pos, block, player, drops |
+
+**機械系**:
+| イベント | 発火タイミング | データ |
+|----------|----------------|--------|
+| `MachineSpawned` | 機械Entity生成後 | entity, machine_id, pos |
+| `MachineStarted` | 加工開始時 | entity, recipe_id, inputs |
+| `MachineCompleted` | 加工完了時 | entity, recipe_id, outputs |
+| `MachineFuelConsumed` | 燃料消費時 | entity, fuel_id, amount |
+| `MachineRemoved` | 機械撤去時 | entity, machine_id, pos |
+
+**プレイヤー系**:
+| イベント | 発火タイミング | データ |
+|----------|----------------|--------|
+| `PlayerSpawned` | プレイヤー参加時 | entity, network_id |
+| `PlayerMoved` | 位置変更時 | entity, from, to |
+| `InventoryChanged` | インベントリ変更時 | entity, slot, item_id, delta |
+| `PlayerDamaged` | ダメージ時（将来） | entity, amount, source |
+| `PlayerDied` | 死亡時（将来） | entity, cause |
+
+**物流系**:
+| イベント | 発火タイミング | データ |
+|----------|----------------|--------|
+| `ConveyorTransfer` | アイテム移動時 | from_pos, to_pos, item_id |
+| `ItemPickedUp` | アイテム取得時 | entity, item_id, count |
+| `ItemDropped` | アイテム落下時 | entity, item_id, count, pos |
+| `ItemDelivered` | 納品時 | item_id, count, quest_id |
+
+**クエスト系**:
+| イベント | 発火タイミング | データ |
+|----------|----------------|--------|
+| `QuestStarted` | クエスト開始時 | quest_id |
+| `QuestProgressed` | 進捗更新時 | quest_id, progress |
+| `QuestCompleted` | クエスト完了時 | quest_id, rewards |
+
+#### 循環防止・パフォーマンス対策
+
+```rust
+/// イベントシステム設定
+#[derive(Resource)]
+pub struct EventSystemConfig {
+    /// 最大連鎖深さ（循環防止）
+    pub max_depth: u8,  // デフォルト: 16
+
+    /// デバッグログ
+    pub log_enabled: bool,
+
+    /// 外部通知を除外するイベント（パフォーマンス用）
+    pub external_exclude: HashSet<EventKind>,
+}
+
+/// 現在の連鎖深さを追跡（システム内部用）
+#[derive(Resource, Default)]
+pub struct EventDepth(pub u8);
+
+/// 高頻度イベントはバッチ化
+pub struct BatchedEvents<E: Event> {
+    events: Vec<E>,
+    flush_interval: f32,  // 秒
+}
+```
+
+#### 循環防止の実装詳細
+
+**誰がチェックするか**: イベント送信用のラッパーAPIで強制。
+
+```rust
+/// 安全なイベント送信（深さチェック付き）
+pub struct GuardedEventWriter<'w, E: Event> {
+    writer: EventWriter<'w, E>,
+    depth: ResMut<'w, EventDepth>,
+    config: Res<'w, EventSystemConfig>,
+}
+
+impl<E: Event> GuardedEventWriter<'_, E> {
+    /// 深さチェック付きイベント送信
+    pub fn send(&mut self, event: E) -> Result<(), EventError> {
+        if self.depth.0 >= self.config.max_depth {
+            error!("Event depth exceeded: {:?}", std::any::type_name::<E>());
+            return Err(EventError::MaxDepthExceeded);
+        }
+        self.depth.0 += 1;
+        self.writer.send(event);
+        Ok(())
+    }
+}
+
+/// フレーム開始時にリセット
+fn reset_event_depth(mut depth: ResMut<EventDepth>) {
+    depth.0 = 0;
+}
+
+// First system in schedule
+app.add_systems(First, reset_event_depth);
+```
+
+**強制方法**: 通常の `EventWriter` を直接使わず、`GuardedEventWriter` のみを公開。
+
+#### 高頻度イベントの除外リスト
+
+以下のイベントは**デフォルトで外部Mod通知をOFF**（内部処理のみ）:
+
+| イベント | 理由 | 代替手段 |
+|----------|------|----------|
+| `ConveyorTransfer` | 毎フレーム大量発生（数千/秒） | バッチ化して統計イベントで通知 |
+| `PlayerMoved` | 毎フレーム発生 | 位置変化が閾値超えた時のみ通知 |
+
+**設定可能**:
+```rust
+// Mod側でオプトイン可能
+{ "action": "subscribe", "events": ["conveyor_transfer"], "force": true }
+// → 警告付きで許可（パフォーマンス影響を理解した上で）
+```
+
+#### 外部Mod通知
+
+```rust
+/// イベントを外部Modに通知
+pub struct ModEventBridge {
+    subscribers: HashMap<EventKind, Vec<ModConnection>>,
+}
+
+impl ModEventBridge {
+    /// イベント発火時に呼ばれる
+    fn on_event<E: Event + Serialize>(&self, event: &E) {
+        let kind = E::kind();
+        if let Some(subscribers) = self.subscribers.get(&kind) {
+            let json = serde_json::to_string(event).unwrap();
+            for conn in subscribers {
+                conn.send(&json);  // WebSocket送信
+            }
+        }
+    }
+}
+```
+
+**理由**:
+- Bevy組み込みなのでメンテ不要
+- ECS哲学に沿った設計
+- システムスケジューリングで実行順序制御
+- 全フックにより：マルチ同期、Mod対応、デバッグログ、undo/redo が可能
+
+---
+
+### 4. スクリプト方針（外部API、将来WASM）
+
+**ゲーム本体にスクリプト言語（Lua等）は統合しない。**
+OpenComputersと同じパターン：**Modが必要なら自分で統合する。**
+
+```
+[ゲーム本体] ←Mod API→ [スクリプトMod]
+                              ↑
+                         Mod作者がLua/Python/WASMを組み込む
+```
+
+#### 段階的対応
+
+| Phase | 方式 | 内容 |
+|-------|------|------|
+| **Phase 1** | 外部API（WebSocket） | 今すぐ実装可能、シンプル |
+| **永久にしない** | Lua/WASM統合 | 複雑さに見合わない、外部Modに任せる |
+
+#### レイテンシ許容設計（固定Tick）
+
+**問題**: WebSocket往復は50-100ms。60FPSだと3-6フレーム遅延。
+
+**解決策**: Minecraft同様の**固定Tick**（1秒=20tick=50ms/tick）を採用。
+
+```rust
+// Bevy FixedUpdate を使用
+app.insert_resource(Time::<Fixed>::from_hz(20.0)); // 20 tick/秒
+
+// ゲームロジックはFixedUpdateで実行
+app.add_systems(FixedUpdate, (
+    machine_tick,
+    conveyor_tick,
+    signal_tick,
+    mod_event_process,  // Mod APIからのコマンド処理
+));
+
+// 描画はUpdateで（スムーズな補間）
+app.add_systems(Update, (
+    interpolate_positions,
+    render_ui,
+));
+```
+
+**レイテンシ許容範囲**:
+| 操作 | 許容遅延 | WebSocket対応 |
+|------|----------|---------------|
+| ブロック配置 | 1-2 tick (50-100ms) | ✅ 問題なし |
+| 機械制御 | 1-2 tick | ✅ 問題なし |
+| ロボット指示 | 2-3 tick | ✅ 問題なし |
+| 戦闘（将来） | 0-1 tick | ✅ ゲーム本体で処理、Modは結果を受け取るのみ |
+
+**結論**: 固定Tick採用により、**外部API方式で十分な精度を確保可能**。
+
+#### Mod API Server
+
+```rust
+pub struct ModApiServer {
+    listener: TcpListener,  // WebSocket
+    connections: Vec<ModConnection>,
+}
+
+// API エンドポイント
+enum ModAction {
+    // 購読
+    Subscribe { events: Vec<EventKind> },
+    Unsubscribe { events: Vec<EventKind> },
+
+    // 読み取り
+    GetRegistry,  // アイテム/機械/レシピ一覧
+    GetEntity { id: NetworkId },
+    GetWorld { chunk: IVec2 },
+
+    // 書き込み（権限チェック付き）
+    RegisterItem { descriptor: ItemDescriptor },
+    SpawnEntity { kind: EntityKind, pos: Vec3 },
+    ModifyEntity { id: NetworkId, changes: EntityChanges },
+}
+```
+
+#### Mod API バージョニング
+
+**問題**: API変更時に既存Modが壊れる。
+
+```rust
+/// APIバージョン（セマンティックバージョニング）
+pub const MOD_API_VERSION: &str = "1.0.0";
+
+/// 接続時のハンドシェイク
+#[derive(Serialize, Deserialize)]
+pub struct HandshakeRequest {
+    /// Modが要求するAPIバージョン
+    pub api_version: String,
+    /// Mod識別子
+    pub mod_id: String,
+    /// Mod名（表示用）
+    pub mod_name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct HandshakeResponse {
+    /// サーバーのAPIバージョン
+    pub api_version: String,
+    /// 互換性ステータス
+    pub compatibility: Compatibility,
+    /// 非推奨警告（あれば）
+    pub deprecation_warnings: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Compatibility {
+    /// 完全互換
+    Full,
+    /// 後方互換（一部機能が使えない）
+    Backward { missing_features: Vec<String> },
+    /// 非互換（接続拒否）
+    Incompatible { reason: String },
+}
+```
+
+**バージョニングルール**:
+| 変更内容 | バージョン | 対応 |
+|----------|-----------|------|
+| 新機能追加 | minor (1.1.0) | 後方互換 |
+| バグ修正 | patch (1.0.1) | 後方互換 |
+| 破壊的変更 | major (2.0.0) | 非互換警告 |
+
+**メッセージ形式**:
+```json
+{
+    "api_version": "1.0",
+    "action": "subscribe",
+    "events": ["block_placed", "machine_processed"]
+}
+```
 
 ---
 
@@ -138,7 +757,7 @@ pub enum SignalCondition {
     Always,
     InventoryFull,
     InventoryEmpty,
-    HasItem(BlockType),
+    HasItem(ItemId),  // 動的ID
     PowerLow,
     Timer { interval_secs: f32 },
 }
@@ -249,9 +868,13 @@ pub struct StorageNetwork {
 - コンベアとの接続
 - 自動整理機能
 
+**依存関係**: ストレージはコンベアシステム（`logistics/conveyor.rs`）に依存。コンベアのIoPort接続ロジックを再利用。
+
 ---
 
-### 7. ロボット（Lua）
+### 7. ロボット（データ駆動）
+
+**設計方針**: プリセット動作をデータ駆動で定義。Mod APIで動的に追加・変更可能。
 
 **データ構造**
 ```rust
@@ -259,10 +882,37 @@ pub struct StorageNetwork {
 pub struct Robot {
     pub position: Vec3,  // 浮動小数点（飛行対応）
     pub inventory: Vec<MachineSlot>,
-    pub script: Handle<LuaScript>,
+    pub program_id: RobotProgramId,  // データ駆動
+    pub program_params: RobotProgramParams,
     pub state: RobotState,
     pub can_fly: bool,
     pub fuel: f32,
+}
+
+// game_spec/robots.rs
+pub struct RobotProgramSpec {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub description: &'static str,
+    pub required_params: &'static [ParamDef],
+}
+
+/// パラメータ定義（UI自動生成用）
+pub struct ParamDef {
+    pub name: &'static str,
+    pub param_type: ParamType,  // Position, Entity, ItemFilter, etc.
+}
+
+/// 実行時パラメータ
+pub struct RobotProgramParams {
+    pub values: HashMap<String, ParamValue>,
+}
+
+pub enum ParamValue {
+    Position(IVec3),
+    Entity(Entity),
+    ItemFilter(Vec<ItemId>),
+    Number(f32),
 }
 
 pub enum RobotState {
@@ -274,21 +924,69 @@ pub enum RobotState {
 }
 ```
 
-**Lua API**
-```lua
-robot.move(direction)      -- 移動
-robot.fly(x, y, z)         -- 飛行（飛行可能な場合）
-robot.mine()               -- 前方を採掘
-robot.place(item)          -- 設置
-robot.transfer(from, to)   -- アイテム移動
-robot.detect()             -- 前方ブロック検知
-robot.signal()             -- 信号送信
-robot.craft(recipe)        -- クラフト実行
+**組み込みプログラム**
+```rust
+// game_spec/robots.rs
+pub const ROBOT_PROGRAMS: &[RobotProgramSpec] = &[
+    RobotProgramSpec {
+        id: "mine_and_deliver",
+        name: "採掘→納品",
+        required_params: &[
+            ParamDef { name: "target", param_type: ParamType::Position },
+            ParamDef { name: "delivery", param_type: ParamType::Entity },
+        ],
+    },
+    RobotProgramSpec {
+        id: "patrol_route",
+        name: "巡回",
+        required_params: &[
+            ParamDef { name: "waypoints", param_type: ParamType::PositionList },
+        ],
+    },
+    RobotProgramSpec {
+        id: "filter_transfer",
+        name: "フィルター転送",
+        required_params: &[
+            ParamDef { name: "from", param_type: ParamType::Entity },
+            ParamDef { name: "to", param_type: ParamType::Entity },
+            ParamDef { name: "filter", param_type: ParamType::ItemFilter },
+        ],
+    },
+];
+```
+
+**Mod APIでの拡張**
+```json
+// 新プログラム登録
+{
+    "action": "register_robot_program",
+    "program": {
+        "id": "mymod:smart_miner",
+        "name": "スマート採掘",
+        "required_params": [
+            { "name": "area", "type": "PositionRange" },
+            { "name": "priority", "type": "ItemFilter" }
+        ]
+    }
+}
+
+// ロボットにプログラム設定
+{
+    "action": "set_robot_program",
+    "robot_id": "uuid",
+    "program_id": "mymod:smart_miner",
+    "params": {
+        "area": { "min": [0, 0, 0], "max": [10, 10, 10] },
+        "priority": ["base:diamond_ore", "base:iron_ore"]
+    }
+}
 ```
 
 **拡張ポイント**
-- 新モジュール: `scripting/` （mlua統合）
-- `game_spec/robot_api.rs` でAPI定義
+- 新モジュール: `systems/robot.rs`
+- `game_spec/robots.rs` でプログラム定義
+- UIはパラメータ定義から自動生成
+- Mod APIで新プログラム追加可能
 
 ---
 
@@ -543,83 +1241,86 @@ pub fn load_bbmodel(path: &str) -> Result<BlockbenchModel, Error>;
 
 **目標: Factorioレベルの深いMod対応**
 
+**設計方針（2026-01-07 更新）**:
+- **ゲーム本体にスクリプト言語（Lua等）は統合しない**
+- ゲームはAPI（イベント + データ）を提供
+- Mod作者は外部プロセスから好きな言語で連携（Lua, Python, JS等）
+
 **Modで変更可能にする範囲**
 | レイヤー | 内容 | 実現方法 |
 |----------|------|----------|
-| コンテンツ | ブロック、アイテム、機械、レシピ | データファイル（JSON/Lua） |
-| ロジック | 機械動作、物流ルール、レシピ計算 | Luaスクリプト |
-| UI | カスタムUI、HUD、メニュー | Lua + テンプレート |
-| システム | システム実行順序、イベントフック | Luaイベント |
+| コンテンツ | ブロック、アイテム、機械、レシピ | データファイル（TOML/JSON） |
+| ロジック | 機械動作、物流ルール | 外部API（WebSocket/JSON-RPC） |
+| UI | カスタムUI、HUD | 外部API経由で描画指示 |
+| システム | イベントフック | Bevy Observer + 外部通知 |
 | レンダリング | シェーダー、エフェクト | カスタムシェーダー |
 | モデル | 機械・Mobの3Dモデル | Blockbench直接インポート |
 | サウンド | BGM、効果音 | OGG/WAVファイル |
 | スキン | プレイヤー見た目 | PNG画像 |
 
-**アーキテクチャ変更**
+**アーキテクチャ**
 
 ```rust
-// 現在: BlockType は enum（コンパイル時固定）
-pub enum BlockType { Stone, IronOre, ... }
-
-// 必要: 動的ID + Luaバインディング
-pub struct BlockId(u32);
+// 動的ID（Mod追加アイテム用）
+pub struct ItemId(u32);
 
 pub struct ModRegistry {
-    pub blocks: HashMap<BlockId, BlockDescriptor>,
     pub items: HashMap<ItemId, ItemDescriptor>,
     pub machines: HashMap<MachineId, MachineDescriptor>,
     pub recipes: HashMap<RecipeId, RecipeDescriptor>,
-    pub scripts: HashMap<String, LuaScript>,
     pub models: HashMap<String, BlockbenchModel>,
     pub sounds: HashMap<String, SoundSpec>,
 }
+
+// 外部Mod API
+pub struct ModApiServer {
+    // WebSocket or JSON-RPC
+    pub connections: Vec<ModConnection>,
+}
 ```
 
-**Luaイベントシステム**
-```lua
--- mod.lua
-mod.on_init(function()
-    -- Mod初期化
-end)
+**Mod API（外部プロセスから呼び出し）**
+```json
+// WebSocket経由でイベント購読
+{ "action": "subscribe", "events": ["block_placed", "machine_processed"] }
 
-mod.on_tick(function(delta)
-    -- 毎フレーム処理
-end)
+// イベント通知（ゲーム→Mod）
+{ "event": "block_placed", "pos": [10, 5, 20], "block": "iron_ore" }
 
-mod.on_machine_tick(function(machine)
-    -- 機械処理をオーバーライド
-    if machine.type == "my_custom_machine" then
-        -- カスタムロジック
-    end
-end)
+// アクション実行（Mod→ゲーム）
+{ "action": "register_item", "id": "mymod:super_ingot", "descriptor": {...} }
+{ "action": "spawn_entity", "type": "machine", "pos": [10, 5, 20] }
+```
 
-mod.on_item_transfer(function(from, to, item)
-    -- 物流ルールをカスタマイズ
-end)
+**Data Mod（TOML形式）**
+```toml
+# mods/my_mod/items.toml
+[[items]]
+id = "mymod:super_ingot"
+name = "超合金インゴット"
+color = [0.8, 0.8, 0.2]
+stack_size = 64
 
-mod.register_ui("my_panel", function()
-    -- カスタムUIを描画
-end)
-
--- Blockbenchモデル登録
-mod.register_model("my_machine", "models/my_machine.bbmodel")
+[[recipes]]
+machine = "furnace"
+inputs = [{ id = "mymod:rare_ore", count = 2 }]
+outputs = [{ id = "mymod:super_ingot", count = 1 }]
 ```
 
 **必要な基盤**
-1. **Lua統合**: mlua クレート
-2. **イベントシステム**: フックポイントを全システムに追加
-3. **動的レジストリ**: enum廃止、ID化
+1. **Bevy Observer**: イベントフックポイント
+2. **動的レジストリ**: enum廃止、ID化
+3. **Mod API Server**: WebSocket/JSON-RPC
 4. **アセットローダー**: Mod用アセットパス対応
-5. **サンドボックス**: ファイルアクセス制限
-6. **Blockbenchローダー**: .bbmodel パーサー
+5. **Blockbenchローダー**: .bbmodel パーサー
 
 **実装順序**
-1. Phase C: 内部でDescriptor化（現在進行中）
-2. Luaランタイム統合（ロボット機能と共通）
-3. イベントシステム設計
-4. 動的レジストリへの移行
+1. Phase C: 内部でDescriptor化 ✅完了
+2. Bevy Observerでイベントシステム
+3. 動的レジストリへの移行
+4. Mod API Server実装
 5. Blockbenchローダー実装
-6. Mod API設計・公開
+6. Mod API仕様公開
 
 ---
 
@@ -648,27 +1349,27 @@ pub struct Authority {
 
 ---
 
-## 依存関係グラフ（Lua後付け設計）
+## 依存関係グラフ（2026-01-07 更新）
 
 ```
                     ┌─────────────────────────────────┐
-                    │      イベントシステム           │
-                    │  （フックポイント + ゲームAPI） │
+                    │   Bevy Observer イベント基盤    │
+                    │   （フックポイント）            │
                     └─────────────────────────────────┘
                                    │
             ┌──────────────────────┼──────────────────────┐
             │                      │                      │
             ↓                      ↓                      ↓
     ┌───────────────┐    ┌─────────────────┐    ┌─────────────┐
-    │データ駆動Mod  │    │  動的レジストリ  │    │  ゲームAPI  │
-    │(JSON/TOML)    │    │  (enum廃止)     │    │  (状態参照) │
+    │データ駆動Mod  │    │  動的レジストリ  │    │  Mod API    │
+    │(TOML/JSON)    │    │  (enum廃止)     │    │ (WebSocket) │
     └───────────────┘    └─────────────────┘    └─────────────┘
             │                      │                      │
             └──────────────────────┼──────────────────────┘
                                    │
                     ┌──────────────┴──────────────┐
-                    │    データ駆動Modding完成    │
-                    │  （コンテンツ追加が可能）   │
+                    │    フルアクセスModding完成   │
+                    │  （外部プロセスから制御可能）│
                     └─────────────────────────────┘
                                    │
     ┌──────────────────────────────┼──────────────────────────────┐
@@ -691,77 +1392,84 @@ pub struct Authority {
     │         │  │スキン       │  │          │  │インポート │
     └─────────┘  └─────────────┘  └──────────┘  └───────────┘
 
-    ┌──────────┐
-    │クラフト  │
-    │システム  │
-    └──────────┘
-
-
-            スクリプト機能（後付け）
-            ══════════════════════════
-
-                    ┌─────────────────┐
-                    │    Lua統合      │ ← イベントシステム + ゲームAPIに接続
-                    └─────────────────┘
-                             │
-                             ↓
-                    ┌─────────────────┐
-                    │    ロボット     │
-                    └─────────────────┘
+    ┌──────────┐  ┌──────────┐
+    │クラフト  │  │ロボット  │ ← プリセット動作
+    │システム  │  │          │   Mod APIで拡張可能
+    └──────────┘  └──────────┘
 
 
             最後に実装
             ══════════
 
                     ┌─────────────────┐
-                    │ マルチプレイ基盤│
+                    │ マルチプレイ基盤│ ← PlayerInventory Component化が前提
                     └─────────────────┘
 ```
 
 **設計方針**:
-- イベントシステムとゲームAPIを先に整備
-- Luaは後付けで、既存のフックポイントに接続するだけ
-- データ駆動Modding（JSON/TOML）で大半のMod対応が可能
-- ロジック変更が必要な場合のみLuaを使用
+- **ゲーム本体にLua等のスクリプト言語は統合しない**
+- Bevy ObserverでイベントAPIを提供
+- 外部ModはWebSocket/JSON-RPC経由で連携
+- データ駆動Modding（TOML/JSON）で大半のMod対応が可能
+- ロジック変更は外部プロセスから
 
 ---
 
-## 推奨実装順序（フルアクセスModding優先）
+## 推奨実装順序（2026-01-07 更新）
+
+### 最優先（基盤）
+
+**これらは機能追加より先にやる。後からは困難。**
+
+| Phase | 機能 | 理由 | 状態 |
+|-------|------|------|------|
+| **D.0** | **PlayerInventory Component化 + MachineBundle + 安全API** | マルチ確定、後から困難 | ⚠️ 最優先 |
+| **D.1** | **イベントシステム（全フック）** | マルチ同期・Mod・デバッグ | 未着手 |
+| **D.2** | **動的ID + Phantom Type + newtype** | Mod追加アイテム、型安全 | 未着手 |
+
+### 基盤フェーズ（D.0-D.2 完了後）
 
 | Phase | 機能 | 理由 |
 |-------|------|------|
-| **基盤フェーズ** | | |
-| D.1 | Phase C完了 | Descriptor化が全ての前提 |
-| D.2 | イベントシステム | フックポイント（Lua後付け可能に） |
-| D.3 | ゲームAPI整理 | 状態アクセスの統一インターフェース |
-| D.4 | データ駆動Modding | JSON/TOMLでコンテンツ追加 |
-| D.5 | 動的レジストリ | BlockType enum → 動的ID |
-| D.6 | Blockbenchローダー | モデル追加の基盤 |
-| **独立機能（並行可）** | | |
-| D.7 | マップ機能 | 独立、QoL向上 |
-| D.8 | ブループリント | 独立、大規模建築効率化 |
-| D.9 | クラフトシステム | 手動クラフト |
-| D.10 | ストレージ | 倉庫ブロック |
-| D.11 | 統計・分析 | 生産可視化 |
-| D.12 | サウンド | BGM、効果音 |
-| D.13 | 実績システム | Steam連携 |
-| D.14 | プレイヤースキン | 見た目変更 |
-| **Mod対応しながら機能追加** | | |
+| D.3 | Mod API Server | WebSocket/JSON-RPC基盤 |
+| D.4 | データ駆動Modding | TOML/JSONでコンテンツ追加 |
+| D.5 | Blockbenchローダー | モデル追加の基盤 |
+
+### 独立機能（並行可）
+
+| Phase | 機能 | 理由 |
+|-------|------|------|
+| D.6 | マップ機能 | 独立、QoL向上 |
+| D.7 | ブループリント | 独立、大規模建築効率化 |
+| D.8 | クラフトシステム | 手動クラフト |
+| D.9 | ストレージ | 倉庫ブロック |
+| D.10 | 統計・分析 | 生産可視化 |
+| D.11 | サウンド | BGM、効果音 |
+| D.12 | 実績システム | Steam連携 |
+| D.13 | プレイヤースキン | 見た目変更 |
+| D.14 | ロボット（データ駆動） | Mod APIで拡張可能 |
+
+### Mod対応しながら機能追加
+
+| Phase | 機能 | 理由 |
+|-------|------|------|
 | D.15 | 電力システム + Mod API | 最初のMod対応機能として |
 | D.16 | 液体・気体 + Mod API | 電力と同パターン |
 | D.17 | 信号制御 + Mod API | 電力・流体の条件分岐 |
 | D.18 | 線路機能 + Mod API | 信号制御で閉塞管理 |
 | D.19 | Mob + Mod API | 敵/NPCのMod追加可能に |
-| **スクリプト機能（後付け）** | | |
-| D.20 | Lua統合 | イベントシステム + ゲームAPIに接続 |
-| D.21 | ロボット | Lua APIで動作 |
-| **最後** | | |
-| D.22 | マルチプレイ | 全機能の同期設計 |
+
+### 最後
+
+| Phase | 機能 | 理由 |
+|-------|------|------|
+| D.20 | マルチプレイ本実装 | 全機能の同期設計（D.0-D.2が前提） |
 
 **ポイント**:
+- **D.0-D.2 は機能追加より優先**（後から変更は困難）
+- **ゲーム本体にLua/WASM等は統合しない** → 外部Modに任せる
 - 各機能追加時にMod APIも同時設計
-- 「後からMod対応」ではなく「Mod対応しながら機能追加」
-- これでModが深くいじれる設計になる
+- ロボットはデータ駆動、Mod APIで外部から制御拡張可能
 
 ---
 
@@ -828,25 +1536,177 @@ pub enum WeatherType {
 
 ---
 
+## AI安全基盤（コンパイラ/テストによる保護）
+
+**目標**: AIが一部のファイルだけ読んで機能追加しても、全体が壊れない状態を作る。
+
+### 保護の原則
+
+| 原則 | 内容 |
+|------|------|
+| **コンパイラが守る** | 型システムで不整合を検出 |
+| **テストが守る** | 壊れたら即座にわかる |
+| **Bundleが守る** | 必須コンポーネントをBundleで強制 |
+| **APIが守る** | 直接操作を禁止、安全なAPIのみ公開 |
+
+### D.0と同時に実装すべき保護策
+
+#### 1. MachineBundle導入
+
+```rust
+#[derive(Bundle)]
+pub struct MachineBundle {
+    pub machine: Machine,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    // 必須コンポーネントを全て含む
+}
+
+// AIはこれだけ書けばOK
+commands.spawn(MachineBundle::new(&MINER, pos, Direction::North));
+```
+
+#### 2. 安全なワールド操作API
+
+```rust
+// WorldData の直接操作を禁止
+impl WorldData {
+    /// 内部専用（外部から呼べない）
+    pub(crate) fn set_block_internal(&mut self, pos: IVec3, block: BlockType) { ... }
+}
+
+// ✅ 安全なAPI（イベント自動発火）
+pub struct WorldCommands<'w> { ... }
+
+impl WorldCommands<'_> {
+    /// ブロック配置（BlockPlacedイベント自動発火）
+    pub fn place_block(&mut self, pos: IVec3, block: ItemId, source: EventSource) {
+        self.world.set_block_internal(pos, block);
+        self.events.send(BlockPlaced { pos, block, source });
+    }
+}
+```
+
+**強制方法**: `set_block` を `pub(crate)` にして外部から直接呼べなくする
+
+#### 3. 網羅性テスト
+
+```rust
+#[test]
+fn all_recipe_items_exist_in_registry() {
+    for recipe in ALL_RECIPES {
+        for (input, _) in recipe.inputs {
+            assert!(ITEM_DESCRIPTORS.iter().any(|(bt, _)| *bt == *input));
+        }
+    }
+}
+
+#[test]
+fn machine_ports_match_ui_slots() {
+    for machine in ALL_MACHINES {
+        for port in machine.ports {
+            assert!(machine.ui_slots.iter().any(|s| s.slot_id == port.slot_id));
+        }
+    }
+}
+
+#[test]
+fn all_recipe_machines_have_recipes() {
+    for machine in ALL_MACHINES {
+        if let ProcessType::Recipe(mt) = machine.process_type {
+            assert!(
+                get_recipes_for_machine(mt).len() > 0,
+                "Machine {} has Recipe process type but no recipes",
+                machine.id
+            );
+        }
+    }
+}
+
+#[test]
+fn all_placeable_blocks_have_model_or_fallback() {
+    for (block_type, desc) in ITEM_DESCRIPTORS {
+        if desc.is_placeable {
+            let glb = format!("assets/models/{}.glb", block_type.model_name());
+            let vox = format!("assets/models/{}.vox", block_type.model_name());
+            assert!(
+                Path::new(&glb).exists() || Path::new(&vox).exists() || block_type.has_fallback(),
+                "BlockType::{:?} has no model file",
+                block_type
+            );
+        }
+    }
+}
+```
+
+#### 4. デバッグダンプ機能（F12）
+
+```rust
+// AIがゲーム状態を把握できるようにする
+pub fn dump_game_state(...) -> String {
+    serde_json::to_string_pretty(&GameStateDump {
+        machines: ...,
+        conveyors: ...,
+        inventory: ...,
+    }).unwrap()
+}
+```
+
+### newtype パターン（Phase D.2で実装）
+
+```rust
+// 型混同をコンパイルエラーに
+pub struct InputSlotId(pub u8);
+pub struct OutputSlotId(pub u8);
+pub struct FuelSlotId(pub u8);
+
+pub enum SlotRef {
+    Input(InputSlotId),
+    Output(OutputSlotId),
+    Fuel(FuelSlotId),
+}
+```
+
+### 変更影響マップ
+
+#### BlockType を追加した場合
+- ✅ 必須: `game_spec/registry.rs` の `ITEM_DESCRIPTORS` に追加
+- ✅ 必須: `cargo test test_all_block_types_registered` が通る
+- 可能性: レシピ、地形生成、3Dモデル
+
+#### MachineSpec を追加した場合
+- ✅ 必須: `game_spec/machines.rs` の `ALL_MACHINES` に追加
+- ✅ 必須: `game_spec/recipes.rs` に対応レシピ追加
+- ✅ 必須: `block_type.rs` に対応する `BlockType` 追加
+- 自動: UI生成、tick処理、コンベア接続
+
+---
+
 ## 次のアクション
 
-1. **Phase C完了**（現在進行中）
-   - BlockDescriptor, ItemDescriptor の実装
-   - レジストリシステム完成
+### 完了済み
+- ✅ Phase C完了（BlockDescriptor, ItemDescriptor, GameRegistry）
 
-2. **Phase D: 基盤強化**
-   - UIState統合（壊れそうな箇所の修正）
-   - IoPort拡張（PortType追加）
-   - Network基盤の設計
+### Phase D: 基盤強化（順序厳守）
 
-3. **Lua統合 + Blockbenchローダー**
-   - mlua クレート導入
-   - .bbmodel パーサー実装
+| 順序 | タスク | 状態 | 備考 |
+|------|--------|------|------|
+| **D.0** | PlayerInventory Component化 + MachineBundle + 安全API | 未着手 | **Phase D開始の前提条件** |
+| D.1 | イベントシステム（Bevy Observer） | 未着手 | D.0完了後 |
+| D.2 | 動的ID + Phantom Type + newtype | 未着手 | D.1完了後 |
+| D.3 | Mod API Server（WebSocket） | 未着手 | D.2完了後 |
+| D.4 | データ駆動Modding（TOML） | 未着手 | D.3と並行可 |
+| D.5 | Blockbenchローダー | 未着手 | 独立して実装可 |
 
-4. **独立機能から実装**
-   - マップ機能
-   - ブループリント
-   - クラフトシステム
+※ 推奨実装順序セクションと同期済み
 
-5. **基盤システム実装**
-   - 電力 → 液体 → 信号 の順
+### 独立機能（Phase D完了後、並行可）
+- マップ機能
+- ブループリント
+- クラフトシステム
+- ストレージ
+- サウンド
+
+### 基盤システム（Mod API対応しながら）
+- 電力 → 液体 → 信号 → 線路 の順
