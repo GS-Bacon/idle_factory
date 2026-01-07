@@ -1460,4 +1460,152 @@ mod tests {
         assert_eq!(keyframes[1].value, Vec3::new(1.0, 1.0, 1.0)); // scale
         assert_eq!(keyframes[2].value, Vec3::new(1.0, 0.0, 0.0));
     }
+
+    #[test]
+    fn test_load_bbmodel_integration() {
+        // Integration test: full JSON with elements, bones, and animations
+        let json = r#"{
+            "name": "animated_machine",
+            "meta": {
+                "format_version": "4.10",
+                "model_format": "free"
+            },
+            "resolution": {
+                "width": 16,
+                "height": 16
+            },
+            "elements": [
+                {
+                    "uuid": "base-uuid",
+                    "name": "base",
+                    "type": "cube",
+                    "from": [0, 0, 0],
+                    "to": [16, 4, 16],
+                    "origin": [8, 2, 8],
+                    "rotation": [0, 0, 0],
+                    "faces": {
+                        "north": {"uv": [0, 0, 16, 4], "texture": 0},
+                        "south": {"uv": [0, 0, 16, 4], "texture": 0},
+                        "east": {"uv": [0, 0, 16, 4], "texture": 0},
+                        "west": {"uv": [0, 0, 16, 4], "texture": 0},
+                        "up": {"uv": [0, 0, 16, 16], "texture": 0},
+                        "down": {"uv": [0, 0, 16, 16], "texture": 0}
+                    }
+                },
+                {
+                    "uuid": "arm-uuid",
+                    "name": "arm",
+                    "type": "cube",
+                    "from": [6, 4, 6],
+                    "to": [10, 12, 10],
+                    "origin": [8, 4, 8],
+                    "rotation": [0, 0, 0],
+                    "faces": {
+                        "north": {"uv": [0, 0, 4, 8], "texture": 0},
+                        "south": {"uv": [0, 0, 4, 8], "texture": 0},
+                        "east": {"uv": [0, 0, 4, 8], "texture": 0},
+                        "west": {"uv": [0, 0, 4, 8], "texture": 0},
+                        "up": {"uv": [0, 0, 4, 4], "texture": 0},
+                        "down": {"uv": [0, 0, 4, 4], "texture": 0}
+                    }
+                }
+            ],
+            "outliner": [
+                {
+                    "name": "body",
+                    "origin": [8, 0, 8],
+                    "children": [
+                        "base-uuid",
+                        {
+                            "name": "arm_bone",
+                            "origin": [8, 4, 8],
+                            "children": ["arm-uuid"]
+                        }
+                    ]
+                }
+            ],
+            "animations": [
+                {
+                    "name": "rotate",
+                    "loop": "loop",
+                    "length": 2.0,
+                    "animators": {
+                        "arm_bone": {
+                            "rotation": [
+                                {
+                                    "time": 0,
+                                    "data_points": [{"x": 0, "y": 0, "z": 0}],
+                                    "interpolation": "linear"
+                                },
+                                {
+                                    "time": 1.0,
+                                    "data_points": [{"x": 0, "y": 180, "z": 0}],
+                                    "interpolation": "linear"
+                                },
+                                {
+                                    "time": 2.0,
+                                    "data_points": [{"x": 0, "y": 360, "z": 0}],
+                                    "interpolation": "linear"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ],
+            "textures": []
+        }"#;
+
+        // Parse raw bbmodel
+        let raw: RawBbmodel = serde_json::from_str(json).unwrap();
+
+        // Generate mesh
+        let mesh = generate_mesh(
+            &raw.elements,
+            UVec2::new(raw.resolution.width, raw.resolution.height),
+        )
+        .unwrap();
+
+        // Parse bones
+        let bones = parse_outliner(&raw.outliner, None);
+
+        // Parse animations
+        let animations = parse_animations(&raw.animations);
+
+        // Verify mesh (2 elements * 6 faces * 4 vertices = 48)
+        let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
+        let pos_count = match positions {
+            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            _ => 0,
+        };
+        assert_eq!(pos_count, 48);
+
+        // Verify bones
+        assert_eq!(bones.len(), 1);
+        assert_eq!(bones[0].name, "body");
+        assert_eq!(bones[0].children.len(), 2);
+
+        // Verify nested bone
+        if let BoneChild::Bone(arm_bone) = &bones[0].children[1] {
+            assert_eq!(arm_bone.name, "arm_bone");
+            assert_eq!(arm_bone.parent, Some("body".to_string()));
+            assert_eq!(arm_bone.origin, Vec3::new(8.0, 4.0, 8.0));
+        } else {
+            panic!("Expected nested bone");
+        }
+
+        // Verify animations
+        assert_eq!(animations.len(), 1);
+        assert_eq!(animations[0].name, "rotate");
+        assert_eq!(animations[0].loop_mode, LoopMode::Loop);
+        assert_eq!(animations[0].length, 2.0);
+
+        // Verify keyframes (arm_bone is the animator key in JSON)
+        let keyframes = animations[0].bone_keyframes.get("arm_bone").unwrap();
+        assert_eq!(keyframes.len(), 3);
+        assert_eq!(keyframes[0].channel, AnimationChannel::Rotation);
+        assert_eq!(keyframes[0].time, 0.0);
+        assert_eq!(keyframes[1].time, 1.0);
+        assert_eq!(keyframes[2].time, 2.0);
+        assert_eq!(keyframes[1].value, Vec3::new(0.0, 180.0, 0.0));
+    }
 }
