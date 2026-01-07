@@ -4,6 +4,7 @@
 //! Currently supports static models only (no animations).
 
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
+use bevy::image::{CompressedImageFormats, ImageSampler, ImageType};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::render::render_asset::RenderAssetUsages;
@@ -29,8 +30,8 @@ pub struct BlockbenchModel {
     pub resolution: UVec2,
     /// Generated mesh from elements
     pub mesh: Mesh,
-    /// Embedded texture data (raw RGBA bytes, if parsed)
-    /// Note: Texture loading is currently not implemented (requires image crate)
+    /// Embedded texture data (raw PNG/JPEG bytes)
+    /// Use `create_texture()` to convert to a Bevy Image
     pub texture_data: Option<TextureData>,
 }
 
@@ -43,6 +44,43 @@ pub struct TextureData {
     pub uv_width: Option<u32>,
     /// Height from UV settings (if available)
     pub uv_height: Option<u32>,
+}
+
+impl BlockbenchModel {
+    /// Create a Bevy Image from embedded texture data
+    ///
+    /// Returns `None` if no texture data is embedded in the model.
+    pub fn create_texture(&self) -> Option<Image> {
+        let texture_data = self.texture_data.as_ref()?;
+
+        // Determine image format from PNG magic bytes
+        let image_type = if texture_data
+            .raw_bytes
+            .starts_with(&[0x89, 0x50, 0x4E, 0x47])
+        {
+            ImageType::Extension("png")
+        } else if texture_data.raw_bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+            ImageType::Extension("jpg")
+        } else {
+            tracing::warn!("Unknown embedded texture format in bbmodel");
+            return None;
+        };
+
+        match Image::from_buffer(
+            &texture_data.raw_bytes,
+            image_type,
+            CompressedImageFormats::NONE,
+            true, // is_srgb
+            ImageSampler::Default,
+            RenderAssetUsages::RENDER_WORLD,
+        ) {
+            Ok(image) => Some(image),
+            Err(e) => {
+                tracing::warn!("Failed to decode bbmodel texture: {:?}", e);
+                None
+            }
+        }
+    }
 }
 
 /// Blockbench asset loader
@@ -475,16 +513,24 @@ pub fn spawn_bbmodel(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    images: &mut Assets<Image>,
     model: &BlockbenchModel,
     transform: Transform,
 ) -> Entity {
     let mesh_handle = meshes.add(model.mesh.clone());
 
-    // Note: Texture loading is not yet implemented
-    // Would need image crate as a regular dependency to decode PNG data
-    let material = StandardMaterial {
-        base_color: Color::WHITE,
-        ..default()
+    // Create material with embedded texture if available
+    let material = if let Some(image) = model.create_texture() {
+        let texture_handle = images.add(image);
+        StandardMaterial {
+            base_color_texture: Some(texture_handle),
+            ..default()
+        }
+    } else {
+        StandardMaterial {
+            base_color: Color::WHITE,
+            ..default()
+        }
     };
     let material_handle = materials.add(material);
 
@@ -738,5 +784,70 @@ mod tests {
             _ => 0,
         };
         assert_eq!(pos_count, 72); // 3 elements * 6 faces * 4 vertices
+    }
+
+    #[test]
+    fn test_create_texture_from_png() {
+        // 1x1 red pixel PNG encoded as base64
+        let png_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+        let raw_bytes = base64_decode(png_base64).unwrap();
+
+        let model = BlockbenchModel {
+            name: "test".to_string(),
+            resolution: UVec2::new(16, 16),
+            mesh: Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            ),
+            texture_data: Some(TextureData {
+                raw_bytes,
+                uv_width: Some(1),
+                uv_height: Some(1),
+            }),
+        };
+
+        let image = model.create_texture();
+        assert!(image.is_some());
+
+        let image = image.unwrap();
+        // 1x1 RGBA image = 4 bytes
+        assert_eq!(image.width(), 1);
+        assert_eq!(image.height(), 1);
+    }
+
+    #[test]
+    fn test_create_texture_no_data() {
+        let model = BlockbenchModel {
+            name: "test".to_string(),
+            resolution: UVec2::new(16, 16),
+            mesh: Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            ),
+            texture_data: None,
+        };
+
+        let image = model.create_texture();
+        assert!(image.is_none());
+    }
+
+    #[test]
+    fn test_create_texture_invalid_format() {
+        let model = BlockbenchModel {
+            name: "test".to_string(),
+            resolution: UVec2::new(16, 16),
+            mesh: Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            ),
+            texture_data: Some(TextureData {
+                raw_bytes: vec![0x00, 0x01, 0x02, 0x03], // Invalid image data
+                uv_width: Some(1),
+                uv_height: Some(1),
+            }),
+        };
+
+        let image = model.create_texture();
+        assert!(image.is_none());
     }
 }

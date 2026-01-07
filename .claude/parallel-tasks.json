@@ -227,6 +227,120 @@
       ],
       "status": "pending",
       "description": "隣接チャンクの境界面のみ更新"
+    },
+    {
+      "id": "d0-step1",
+      "name": "D.0 Step1: targeting/block_operations移行",
+      "parallel_group": "core",
+      "depends_on": [],
+      "branch": "refactor/d0-step1",
+      "files": [
+        "src/systems/targeting/guide.rs",
+        "src/systems/targeting/conveyor.rs",
+        "src/systems/targeting/highlight.rs",
+        "src/systems/block_operations/breaking.rs",
+        "src/systems/block_operations/placement.rs"
+      ],
+      "status": "in_progress",
+      "description": "Inventory Resource → LocalPlayer + Query移行 (5箇所)"
+    },
+    {
+      "id": "d0-step2",
+      "name": "D.0 Step2: machines/commands移行",
+      "parallel_group": "core",
+      "depends_on": [
+        "d0-step1"
+      ],
+      "branch": "refactor/d0-step2",
+      "files": [
+        "src/machines/generic.rs",
+        "src/systems/command/executor.rs",
+        "src/systems/command/ui.rs"
+      ],
+      "status": "pending",
+      "description": "Inventory Resource → LocalPlayer + Query移行 (3箇所)"
+    },
+    {
+      "id": "d0-step3",
+      "name": "D.0 Step3: hotbar移行",
+      "parallel_group": "ui",
+      "depends_on": [
+        "d0-step2"
+      ],
+      "branch": "refactor/d0-step3",
+      "files": [
+        "src/systems/hotbar.rs"
+      ],
+      "status": "pending",
+      "description": "Inventory Resource → LocalPlayer + Query移行 (4箇所)"
+    },
+    {
+      "id": "d0-step4",
+      "name": "D.0 Step4: inventory_ui移行",
+      "parallel_group": "ui",
+      "depends_on": [
+        "d0-step3"
+      ],
+      "branch": "refactor/d0-step4",
+      "files": [
+        "src/systems/inventory_ui.rs"
+      ],
+      "status": "pending",
+      "description": "Inventory Resource → LocalPlayer + Query移行 (5箇所)"
+    },
+    {
+      "id": "d0-step5",
+      "name": "D.0 Step5: save移行",
+      "parallel_group": "core",
+      "depends_on": [
+        "d0-step4"
+      ],
+      "branch": "refactor/d0-step5",
+      "files": [
+        "src/save/systems.rs"
+      ],
+      "status": "pending",
+      "description": "Inventory Resource → LocalPlayer + Query移行 (2箇所)"
+    },
+    {
+      "id": "d0-step6",
+      "name": "D.0 Step6: cleanup",
+      "parallel_group": "core",
+      "depends_on": [
+        "d0-step5"
+      ],
+      "branch": "refactor/d0-step6",
+      "files": [
+        "src/player/inventory.rs"
+      ],
+      "status": "pending",
+      "description": "sync_inventory_system削除、Inventory Resource削除"
+    },
+    {
+      "id": "d5-texture",
+      "name": "D.5.3: Blockbenchテクスチャ",
+      "parallel_group": "core",
+      "depends_on": [],
+      "branch": "feat/d5-texture",
+      "files": [
+        "src/blockbench.rs"
+      ],
+      "status": "pending",
+      "description": "base64 → Image変換（imageクレート使用）"
+    },
+    {
+      "id": "d5-animation",
+      "name": "D.5.4: Blockbenchアニメーション",
+      "parallel_group": "core",
+      "depends_on": [
+        "d5-texture"
+      ],
+      "branch": "feat/d5-animation",
+      "files": [
+        "src/blockbench.rs"
+      ],
+      "status": "pending",
+      "description": "keyframes, bones対応"
     }
   ],
   "parallel_groups": {
