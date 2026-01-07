@@ -1,7 +1,8 @@
 //! Machine components: Miner, Conveyor, Furnace, Crusher
 
 use crate::constants::*;
-use crate::game_spec::{find_recipe, MachineType};
+use crate::core::ItemId;
+use crate::game_spec::{find_recipe_by_id, MachineType};
 use crate::BlockType;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -81,6 +82,42 @@ pub struct ConveyorItem {
     pub visual_entity: Option<Entity>,
     /// Lateral offset for side-merge animation (-0.5 to 0.5, 0 = centered)
     pub lateral_offset: f32,
+}
+
+impl ConveyorItem {
+    /// Create a new conveyor item from ItemId
+    pub fn new(item_id: ItemId, progress: f32) -> Self {
+        Self {
+            block_type: item_id
+                .try_into()
+                .expect("ItemId must be convertible to BlockType"),
+            progress,
+            visual_entity: None,
+            lateral_offset: 0.0,
+        }
+    }
+
+    /// Create a new conveyor item from BlockType
+    pub fn from_block_type(block_type: BlockType, progress: f32) -> Self {
+        Self {
+            block_type,
+            progress,
+            visual_entity: None,
+            lateral_offset: 0.0,
+        }
+    }
+
+    /// Get the item as ItemId (preferred API)
+    pub fn item_id(&self) -> ItemId {
+        self.block_type.into()
+    }
+
+    /// Set the item type from ItemId
+    pub fn set_item_id(&mut self, item_id: ItemId) {
+        self.block_type = item_id
+            .try_into()
+            .expect("ItemId must be convertible to BlockType");
+    }
 }
 
 /// Conveyor shape based on input connections
@@ -325,6 +362,27 @@ impl MachineSlot {
         self.item_type = None;
         self.count = 0;
     }
+
+    /// Get item type as ItemId (preferred API)
+    pub fn item_id(&self) -> Option<ItemId> {
+        self.item_type.map(|bt| bt.into())
+    }
+
+    /// Add items using ItemId (preferred API)
+    pub fn add_id(&mut self, item: ItemId, amount: u32) -> u32 {
+        let block_type: BlockType = item
+            .try_into()
+            .expect("ItemId must be convertible to BlockType");
+        self.add(block_type, amount)
+    }
+
+    /// Set item type from ItemId
+    pub fn set_item_id(&mut self, item: ItemId) {
+        self.item_type = Some(
+            item.try_into()
+                .expect("ItemId must be convertible to BlockType"),
+        );
+    }
 }
 
 /// Generic machine slots container
@@ -456,19 +514,22 @@ impl Machine {
 
 /// Get smelt output for an ore type (uses recipe system)
 pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
-    find_recipe(MachineType::Furnace, ore)
+    let item_id: ItemId = ore.into();
+    find_recipe_by_id(MachineType::Furnace, item_id)
         .and_then(|recipe| recipe.outputs.first())
         .map(|output| output.item)
 }
 
 /// Check if this ore can be crushed (uses recipe system)
 pub fn can_crush(ore: BlockType) -> bool {
-    find_recipe(MachineType::Crusher, ore).is_some()
+    let item_id: ItemId = ore.into();
+    find_recipe_by_id(MachineType::Crusher, item_id).is_some()
 }
 
 /// Get crush output for an ore type (uses recipe system)
 pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
-    find_recipe(MachineType::Crusher, ore)
+    let item_id: ItemId = ore.into();
+    find_recipe_by_id(MachineType::Crusher, item_id)
         .and_then(|recipe| recipe.outputs.first())
         .map(|output| (output.item, output.count))
 }

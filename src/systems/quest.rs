@@ -1,6 +1,7 @@
 //! Quest and delivery platform systems
 
 use crate::components::*;
+use crate::core::ItemId;
 use crate::player::GlobalInventory;
 use crate::{game_spec, BlockType, BLOCK_SIZE, PLATFORM_SIZE};
 use bevy::prelude::*;
@@ -104,7 +105,7 @@ pub fn quest_claim_rewards(
 
     // Add rewards to GlobalInventory (machines and items)
     for (block_type, amount) in &quest.rewards {
-        global_inventory.add_item(*block_type, *amount);
+        global_inventory.add_item_by_id(ItemId::from(*block_type), *amount);
     }
 
     current_quest.rewards_claimed = true;
@@ -122,7 +123,7 @@ fn can_deliver_from_global_inventory(global_inventory: &GlobalInventory, quest: 
     quest
         .required_items
         .iter()
-        .all(|(item, required)| global_inventory.get_count(*item) >= *required)
+        .all(|(item, required)| global_inventory.get_count_by_id(ItemId::from(*item)) >= *required)
 }
 
 /// Update quest UI (supports multiple required items with progress bars)
@@ -188,7 +189,7 @@ pub fn update_quest_ui(
 
         // Update progress bars for each required item (based on GlobalInventory)
         for (i, (item, required)) in quest.required_items.iter().enumerate() {
-            let in_storage = global_inventory.get_count(*item);
+            let in_storage = global_inventory.get_count_by_id(ItemId::from(*item));
             let progress_pct = if *required > 0 {
                 (in_storage as f32 / *required as f32 * 100.0).min(100.0)
             } else {
@@ -283,7 +284,7 @@ pub fn quest_deliver_button(
 
                 // Consume items from GlobalInventory
                 for (item, required) in &quest.required_items {
-                    global_inventory.remove_item(*item, *required);
+                    global_inventory.remove_item_by_id(ItemId::from(*item), *required);
                 }
 
                 // Mark quest as complete
@@ -437,45 +438,44 @@ pub fn load_machine_models(
     models.loaded = false;
 
     // Load item sprites for UI
-    use crate::BlockType;
-    item_sprites.textures.insert(
-        BlockType::IronOre,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::IronOre),
         asset_server.load("textures/items/iron_ore.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::CopperOre,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::CopperOre),
         asset_server.load("textures/items/copper_ore.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::Coal,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::Coal),
         asset_server.load("textures/items/coal.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::Stone,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::Stone),
         asset_server.load("textures/items/stone.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::IronIngot,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::IronIngot),
         asset_server.load("textures/items/iron_ingot.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::CopperIngot,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::CopperIngot),
         asset_server.load("textures/items/copper_ingot.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::MinerBlock,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::MinerBlock),
         asset_server.load("textures/items/miner.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::ConveyorBlock,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::ConveyorBlock),
         asset_server.load("textures/items/conveyor.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::FurnaceBlock,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::FurnaceBlock),
         asset_server.load("textures/items/furnace.png"),
     );
-    item_sprites.textures.insert(
-        BlockType::CrusherBlock,
+    item_sprites.insert_id(
+        ItemId::from(BlockType::CrusherBlock),
         asset_server.load("textures/items/crusher.png"),
     );
 }

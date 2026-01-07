@@ -1,9 +1,15 @@
 //! Crafting system for player crafting and crafting stations
+//!
+//! ## BlockType vs ItemId
+//!
+//! Recipe definitions use `BlockType` for `const` compatibility.
+//! For ItemId-based lookups, use `*_with_ids()` methods.
 
 use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::block_type::BlockType;
+use crate::core::ItemId;
 use crate::game_spec::recipes::{RecipeInput, RecipeOutput};
 
 /// クラフト可能な場所
@@ -51,7 +57,8 @@ impl CraftingRecipe {
         }
     }
 
-    /// 入力アイテムが足りているか確認
+    /// 入力アイテムが足りているか確認 (BlockType version)
+    #[deprecated(note = "Use can_craft_with_ids() instead")]
     pub fn can_craft(&self, inventory: &HashMap<BlockType, u32>) -> bool {
         for input in &self.inputs {
             let have = inventory.get(&input.item).copied().unwrap_or(0);
@@ -62,9 +69,38 @@ impl CraftingRecipe {
         true
     }
 
-    /// 必要なアイテム一覧を取得
+    /// 入力アイテムが足りているか確認 (ItemId version)
+    pub fn can_craft_with_ids(&self, inventory: &HashMap<ItemId, u32>) -> bool {
+        for input in &self.inputs {
+            let item_id: ItemId = input.item.into();
+            let have = inventory.get(&item_id).copied().unwrap_or(0);
+            if have < input.count {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// 必要なアイテム一覧を取得 (BlockType version)
+    #[deprecated(note = "Use required_item_ids() instead")]
     pub fn required_items(&self) -> Vec<(BlockType, u32)> {
         self.inputs.iter().map(|i| (i.item, i.count)).collect()
+    }
+
+    /// 必要なアイテム一覧を取得 (ItemId version)
+    pub fn required_item_ids(&self) -> Vec<(ItemId, u32)> {
+        self.inputs
+            .iter()
+            .map(|i| (i.item.into(), i.count))
+            .collect()
+    }
+
+    /// 出力アイテム一覧を取得 (ItemId version)
+    pub fn output_item_ids(&self) -> Vec<(ItemId, u32)> {
+        self.outputs
+            .iter()
+            .map(|o| (o.item.into(), o.count))
+            .collect()
     }
 }
 
@@ -78,15 +114,42 @@ pub struct CraftingRecipeBuilder {
 }
 
 impl CraftingRecipeBuilder {
-    /// 入力アイテムを追加
+    /// 入力アイテムを追加 (BlockType version)
+    #[deprecated(note = "Use input_id() instead")]
     pub fn input(mut self, item: BlockType, count: u32) -> Self {
         self.inputs.push(RecipeInput::new(item, count, 0));
         self
     }
 
-    /// 出力アイテムを追加
+    /// 入力アイテムを追加 (ItemId version)
+    ///
+    /// # Panics
+    /// Panics if the ItemId doesn't correspond to a base game BlockType
+    pub fn input_id(mut self, item: ItemId, count: u32) -> Self {
+        let block_type: BlockType = item
+            .try_into()
+            .expect("ItemId must be a base game item for crafting recipe");
+        self.inputs.push(RecipeInput::new(block_type, count, 0));
+        self
+    }
+
+    /// 出力アイテムを追加 (BlockType version)
+    #[deprecated(note = "Use output_id() instead")]
     pub fn output(mut self, item: BlockType, count: u32) -> Self {
         self.outputs.push(RecipeOutput::guaranteed(item, count));
+        self
+    }
+
+    /// 出力アイテムを追加 (ItemId version)
+    ///
+    /// # Panics
+    /// Panics if the ItemId doesn't correspond to a base game BlockType
+    pub fn output_id(mut self, item: ItemId, count: u32) -> Self {
+        let block_type: BlockType = item
+            .try_into()
+            .expect("ItemId must be a base game item for crafting recipe");
+        self.outputs
+            .push(RecipeOutput::guaranteed(block_type, count));
         self
     }
 
@@ -228,8 +291,18 @@ pub struct CraftCompletedEvent {
     pub crafter: Entity,
     /// レシピ名
     pub recipe_name: String,
-    /// 出力アイテム
+    /// 出力アイテム (BlockType version - deprecated)
     pub outputs: Vec<(BlockType, u32)>,
+}
+
+impl CraftCompletedEvent {
+    /// 出力アイテムをItemId形式で取得
+    pub fn output_ids(&self) -> Vec<(ItemId, u32)> {
+        self.outputs
+            .iter()
+            .map(|(bt, count)| ((*bt).into(), *count))
+            .collect()
+    }
 }
 
 /// クラフトプラグイン
@@ -246,6 +319,7 @@ impl Plugin for CraftPlugin {
 }
 
 /// デフォルトレシピの登録
+#[allow(deprecated)] // Uses legacy BlockType API - will migrate when all items use ItemId
 fn setup_default_recipes(mut registry: ResMut<CraftingRegistry>) {
     // 手持ちクラフト - 石のツール
     registry.register(
@@ -326,6 +400,7 @@ fn update_crafting(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
     fn test_crafting_station_default() {
@@ -334,6 +409,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_crafting_recipe_builder() {
         let recipe = CraftingRecipe::builder("test", CraftingStation::Hand, 1.0)
             .input(BlockType::Stone, 2)
@@ -347,6 +423,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_crafting_recipe_can_craft() {
         let recipe = CraftingRecipe::builder("test", CraftingStation::Hand, 1.0)
             .input(BlockType::Stone, 5)
@@ -411,6 +488,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_crafting_registry() {
         let mut registry = CraftingRegistry::new();
 
@@ -438,6 +516,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_crafting_recipe_required_items() {
         let recipe = CraftingRecipe::builder("test", CraftingStation::Hand, 1.0)
             .input(BlockType::Stone, 5)
@@ -449,5 +528,83 @@ mod tests {
         assert_eq!(required.len(), 2);
         assert!(required.contains(&(BlockType::Stone, 5)));
         assert!(required.contains(&(BlockType::Coal, 2)));
+    }
+
+    // =========================================================================
+    // ItemId API tests
+    // =========================================================================
+
+    #[test]
+    fn test_crafting_recipe_builder_with_item_id() {
+        let recipe = CraftingRecipe::builder("test_id", CraftingStation::Hand, 1.5)
+            .input_id(items::stone(), 3)
+            .input_id(items::coal(), 1)
+            .output_id(items::iron_ingot(), 2)
+            .build();
+
+        assert_eq!(recipe.name, "test_id");
+        assert_eq!(recipe.inputs.len(), 2);
+        assert_eq!(recipe.outputs.len(), 1);
+        assert_eq!(recipe.craft_time, 1.5);
+    }
+
+    #[test]
+    fn test_can_craft_with_ids() {
+        let recipe = CraftingRecipe::builder("test_id", CraftingStation::Hand, 1.0)
+            .input_id(items::stone(), 5)
+            .input_id(items::coal(), 2)
+            .output_id(items::iron_ore(), 1)
+            .build();
+
+        let mut inventory = HashMap::new();
+        inventory.insert(items::stone(), 10);
+        inventory.insert(items::coal(), 3);
+
+        assert!(recipe.can_craft_with_ids(&inventory));
+
+        inventory.insert(items::coal(), 1);
+        assert!(!recipe.can_craft_with_ids(&inventory));
+    }
+
+    #[test]
+    fn test_required_item_ids() {
+        let recipe = CraftingRecipe::builder("test_id", CraftingStation::Hand, 1.0)
+            .input_id(items::stone(), 5)
+            .input_id(items::coal(), 2)
+            .output_id(items::iron_ore(), 1)
+            .build();
+
+        let required = recipe.required_item_ids();
+        assert_eq!(required.len(), 2);
+        assert!(required.contains(&(items::stone(), 5)));
+        assert!(required.contains(&(items::coal(), 2)));
+    }
+
+    #[test]
+    fn test_output_item_ids() {
+        let recipe = CraftingRecipe::builder("test_id", CraftingStation::Hand, 1.0)
+            .input_id(items::stone(), 1)
+            .output_id(items::iron_ingot(), 3)
+            .output_id(items::copper_ingot(), 2)
+            .build();
+
+        let outputs = recipe.output_item_ids();
+        assert_eq!(outputs.len(), 2);
+        assert!(outputs.contains(&(items::iron_ingot(), 3)));
+        assert!(outputs.contains(&(items::copper_ingot(), 2)));
+    }
+
+    #[test]
+    fn test_craft_completed_event_output_ids() {
+        let event = CraftCompletedEvent {
+            crafter: Entity::PLACEHOLDER,
+            recipe_name: "test".to_string(),
+            outputs: vec![(BlockType::IronIngot, 5), (BlockType::CopperIngot, 3)],
+        };
+
+        let output_ids = event.output_ids();
+        assert_eq!(output_ids.len(), 2);
+        assert!(output_ids.contains(&(items::iron_ingot(), 5)));
+        assert!(output_ids.contains(&(items::copper_ingot(), 3)));
     }
 }

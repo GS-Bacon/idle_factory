@@ -41,7 +41,7 @@ pub fn update_hotbar_ui(
     // Update slot backgrounds - use slot index for selection
     for (slot, mut bg, mut border) in slot_query.iter_mut() {
         let is_selected = inventory.selected_slot == slot.0;
-        let has_item = inventory.get_slot(slot.0).is_some();
+        let has_item = inventory.get_slot_item_id(slot.0).is_some();
 
         if is_selected {
             // Selected slot - same highlight for empty and filled
@@ -60,8 +60,8 @@ pub fn update_hotbar_ui(
 
     // Update slot sprite images with visibility control
     for (slot_image, mut image_node, mut visibility) in image_query.iter_mut() {
-        if let Some(block_type) = inventory.get_slot(slot_image.0) {
-            if let Some(sprite_handle) = item_sprites.get(block_type) {
+        if let Some(item_id) = inventory.get_slot_item_id(slot_image.0) {
+            if let Some(sprite_handle) = item_sprites.get_id(item_id) {
                 image_node.image = sprite_handle.clone();
                 *visibility = Visibility::Inherited;
             } else {
@@ -74,7 +74,7 @@ pub fn update_hotbar_ui(
 
     // Update slot counts (only show number when count > 1)
     for (slot_count, mut text) in count_query.iter_mut() {
-        if let Some(_block_type) = inventory.get_slot(slot_count.0) {
+        if inventory.get_slot_item_id(slot_count.0).is_some() {
             let count = inventory.get_slot_count(slot_count.0);
             if count > 1 {
                 **text = count.to_string();
@@ -115,9 +115,15 @@ pub fn update_hotbar_item_name(
     };
 
     // Show selected item name
-    if let Some(block_type) = inventory.selected_block() {
-        let name = block_type.name();
-        text.0 = name.to_string();
+    if let Some(item_id) = inventory.selected_item_id() {
+        // Get display name - try to convert to BlockType for name
+        let name = if let Ok(block_type) = crate::BlockType::try_from(item_id) {
+            block_type.name().to_string()
+        } else {
+            // Fallback to ItemId string name
+            item_id.name().unwrap_or("Unknown").to_string()
+        };
+        text.0 = name.clone();
         // Center the text by adjusting margin based on text length
         let char_width = 8.0; // Approximate character width
         node.margin.left = Val::Px(-(name.len() as f32 * char_width / 2.0));
@@ -214,12 +220,18 @@ pub fn update_held_item_3d(
         return;
     };
 
-    // Get selected block type
-    if let Some(block_type) = inventory.selected_block() {
-        // Show the item with appropriate material
-        if let Some(block_material) = cache.materials.get(&block_type) {
-            material.0 = block_material.clone();
-            *visibility = Visibility::Inherited;
+    // Get selected item
+    if let Some(item_id) = inventory.selected_item_id() {
+        // Convert to BlockType for material lookup
+        if let Ok(block_type) = crate::BlockType::try_from(item_id) {
+            if let Some(block_material) = cache.materials.get(&block_type) {
+                material.0 = block_material.clone();
+                *visibility = Visibility::Inherited;
+            } else {
+                *visibility = Visibility::Hidden;
+            }
+        } else {
+            *visibility = Visibility::Hidden;
         }
     } else {
         // No item selected - hide

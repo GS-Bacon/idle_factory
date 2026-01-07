@@ -12,13 +12,16 @@ pub use machines::{
     get_input_ports, get_machine_spec, get_output_ports, IoPort, MachineSpec, MachineState,
     PortSide, ProcessType, UiSlotDef, UiSlotType, ALL_MACHINES, ASSEMBLER, CRUSHER, FURNACE, MINER,
 };
+#[allow(deprecated)]
 pub use recipes::{
-    find_recipe, get_recipes_for_machine, FuelRequirement, MachineType, RecipeInput, RecipeOutput,
-    RecipeSpec, ALL_RECIPES, FURNACE_RECIPES, RECIPE_SMELT_COPPER, RECIPE_SMELT_IRON,
+    find_recipe, find_recipe_by_id, get_recipes_for_machine, FuelRequirement, MachineType,
+    RecipeInput, RecipeOutput, RecipeSpec, ALL_RECIPES, FURNACE_RECIPES, RECIPE_SMELT_COPPER,
+    RECIPE_SMELT_IRON,
 };
 pub use registry::{GameRegistry, ItemDescriptor, RegistryPlugin, ITEM_DESCRIPTORS};
 
 use crate::block_type::BlockType;
+use crate::core::{items, ItemId};
 
 // =============================================================================
 // v0.2 New System Specs
@@ -137,12 +140,24 @@ pub mod biome_mining_spec {
 // =============================================================================
 
 /// Initial equipment (added to global inventory)
+/// Deprecated: Use `initial_equipment_by_id()` instead for new code.
+#[deprecated(since = "0.4.0", note = "Use initial_equipment_by_id() instead")]
 pub const INITIAL_EQUIPMENT: &[(BlockType, u32)] = &[
     (BlockType::StonePickaxe, 1),
     (BlockType::MinerBlock, 2),
     (BlockType::ConveyorBlock, 90),
     (BlockType::FurnaceBlock, 1),
 ];
+
+/// Initial equipment as ItemId (preferred for new code)
+pub fn initial_equipment_by_id() -> Vec<(ItemId, u32)> {
+    vec![
+        (items::stone_pickaxe(), 1),
+        (items::miner_block(), 2),
+        (items::conveyor_block(), 90),
+        (items::furnace_block(), 1),
+    ]
+}
 
 /// Creative mode equipment (for debug/testing)
 #[allow(dead_code)]
@@ -282,7 +297,14 @@ mod tests {
 
     #[test]
     fn test_initial_equipment_not_empty() {
-        assert!(!INITIAL_EQUIPMENT.is_empty());
+        #[allow(deprecated)]
+        let legacy_equipment = INITIAL_EQUIPMENT;
+        assert!(!legacy_equipment.is_empty());
+
+        // Test new ItemId-based function
+        let equipment = initial_equipment_by_id();
+        assert!(!equipment.is_empty());
+        assert_eq!(equipment.len(), 4); // StonePickaxe, Miner, Conveyor, Furnace
     }
 
     #[test]

@@ -14,8 +14,10 @@ use crate::components::{
     GlobalInventorySlotImage, GlobalInventoryUI, ItemCategory, ItemSprites,
 };
 use crate::constants::ui_colors;
+use crate::core::ItemId;
 use crate::player::GlobalInventory;
 use crate::systems::cursor;
+use crate::BlockType;
 
 /// Slots per page (8 columns x 4 rows)
 pub const SLOTS_PER_PAGE: usize = 32;
@@ -70,7 +72,7 @@ pub fn global_inventory_page_nav(
         Changed<Interaction>,
     >,
 ) {
-    let items = global_inventory.get_all_items();
+    let items = global_inventory.get_all_items_by_id();
     let total_pages = items.len().max(1).div_ceil(SLOTS_PER_PAGE);
 
     for (interaction, page_button, mut bg_color) in button_query.iter_mut() {
@@ -128,17 +130,26 @@ pub fn update_global_inventory_ui(
 
     // Filter items by category and search
     let search_lower = search.0.to_lowercase();
-    let items: Vec<_> = global_inventory
-        .get_all_items()
+    let items: Vec<(ItemId, u32)> = global_inventory
+        .get_all_items_by_id()
         .into_iter()
-        .filter(|(block_type, _)| {
+        .filter(|(item_id, _)| {
+            // Convert to BlockType for category matching (returns false for mod items)
+            let block_type: Option<BlockType> = (*item_id).try_into().ok();
+
             // Filter by category
-            if !category.0.matches(*block_type) {
+            if let Some(bt) = block_type {
+                if !category.0.matches(bt) {
+                    return false;
+                }
+            } else if category.0 != ItemCategory::All {
+                // Mod items only show in "All" category
                 return false;
             }
+
             // Filter by search text
             if !search_lower.is_empty() {
-                let name = block_type.name().to_lowercase();
+                let name = item_id.name().unwrap_or("").to_lowercase();
                 if !name.contains(&search_lower) {
                     return false;
                 }
@@ -169,8 +180,8 @@ pub fn update_global_inventory_ui(
     for (slot_image, mut vis, mut image_node) in slot_image_query.iter_mut() {
         let item_idx = start_idx + slot_image.0;
         if item_idx < items.len() {
-            let (block_type, _) = items[item_idx];
-            if let Some(sprite_handle) = item_sprites.get(block_type) {
+            let (item_id, _) = items[item_idx];
+            if let Some(sprite_handle) = item_sprites.get_id(item_id) {
                 image_node.image = sprite_handle;
                 *vis = Visibility::Visible;
             } else {

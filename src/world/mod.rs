@@ -1,4 +1,8 @@
 //! World and chunk management system
+//!
+//! ## ItemId Support
+//!
+//! For ItemId-based APIs, use `get_block_id()`, `set_block_by_id()`.
 
 pub mod biome;
 
@@ -6,6 +10,7 @@ pub use biome::{mining_random, BiomeMap};
 
 use crate::block_type::BlockType;
 use crate::constants::*;
+use crate::core::ItemId;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::tasks::Task;
@@ -752,6 +757,28 @@ impl WorldData {
         self.get_block(world_pos).is_some()
     }
 
+    // =========================================================================
+    // ItemId API
+    // =========================================================================
+
+    /// Get block at world position as ItemId
+    pub fn get_block_id(&self, world_pos: IVec3) -> Option<ItemId> {
+        self.get_block(world_pos).map(|bt| bt.into())
+    }
+
+    /// Set block at world position using ItemId
+    pub fn set_block_by_id(&mut self, world_pos: IVec3, item_id: ItemId) {
+        if let Ok(block_type) = item_id.try_into() {
+            self.set_block(world_pos, block_type);
+        }
+    }
+
+    /// Remove block at world position, returns the removed block as ItemId
+    #[allow(dead_code)]
+    pub fn remove_block_as_id(&mut self, world_pos: IVec3) -> Option<ItemId> {
+        self.remove_block(world_pos).map(|bt| bt.into())
+    }
+
     /// Generate mesh for a chunk with proper neighbor checking across chunk boundaries
     /// Uses full LOD (all blocks)
     pub fn generate_chunk_mesh(&self, chunk_coord: IVec2) -> Option<Mesh> {
@@ -958,5 +985,37 @@ mod tests {
         if let Some(bevy::render::mesh::VertexAttributeValues::Float32x3(pos)) = positions {
             assert!(!pos.is_empty(), "Mesh should have vertices");
         }
+    }
+
+    // =========================================================================
+    // ItemId API tests
+    // =========================================================================
+
+    #[test]
+    fn test_world_data_item_id_api() {
+        use crate::core::items;
+
+        let mut world = WorldData::default();
+        let chunk_coord = IVec2::ZERO;
+        world
+            .chunks
+            .insert(chunk_coord, ChunkData::generate(chunk_coord));
+
+        let pos = IVec3::new(5, GROUND_LEVEL, 5);
+
+        // Get block as ItemId
+        let block_id = world.get_block_id(pos);
+        assert!(block_id.is_some());
+
+        // Set block by ItemId
+        world.set_block_by_id(pos, items::stone());
+        let new_block = world.get_block_id(pos);
+        assert!(new_block.is_some());
+        assert_eq!(new_block.unwrap().name(), Some("base:stone"));
+
+        // Remove and get as ItemId
+        let removed = world.remove_block_as_id(pos);
+        assert!(removed.is_some());
+        assert_eq!(removed.unwrap().name(), Some("base:stone"));
     }
 }

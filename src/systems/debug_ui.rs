@@ -350,7 +350,7 @@ pub fn export_e2e_state(
             .required_items
             .iter()
             .map(|(item, amount)| {
-                let in_storage = global_inventory.get_count(*item);
+                let in_storage = global_inventory.get_count_by_id((*item).into());
                 format!("{}:{}/{}", item.name(), in_storage, amount)
             })
             .collect();

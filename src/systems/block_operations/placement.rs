@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::components::Machine;
+use crate::core::ItemId;
 use crate::events::game_events::{BlockPlaced, EventSource, MachineSpawned};
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::systems::TutorialEvent;
@@ -63,7 +64,11 @@ pub fn block_place(
         return;
     }
 
-    let Some(selected_type) = inventory.selected_block() else {
+    // Get selected item and convert to BlockType
+    let Some(selected_item_id) = inventory.selected_item_id() else {
+        return;
+    };
+    let Ok(selected_type) = BlockType::try_from(selected_item_id) else {
         return;
     };
 
@@ -196,7 +201,7 @@ pub fn block_place(
         }
 
         // Consume from inventory (unless in creative mode)
-        if !creative_mode.enabled && !inventory.consume_item(selected_type, 1) {
+        if !creative_mode.enabled && !inventory.consume_item_by_id(ItemId::from(selected_type), 1) {
             // Not enough in inventory
             return;
         }

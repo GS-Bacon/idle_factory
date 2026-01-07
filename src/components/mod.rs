@@ -15,6 +15,7 @@ pub use player::*;
 pub use ui::*;
 pub use ui_state::*;
 
+use crate::core::ItemId;
 use crate::BlockType;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -111,7 +112,20 @@ pub struct GuideMarker;
 #[derive(Resource, Default)]
 pub struct GuideMarkers {
     pub entities: Vec<Entity>,
+    /// Last selected item (use last_selected_id() for ItemId access)
     pub last_selected: Option<BlockType>,
+}
+
+impl GuideMarkers {
+    /// Get last selected as ItemId (preferred API)
+    pub fn last_selected_id(&self) -> Option<ItemId> {
+        self.last_selected.map(|bt| bt.into())
+    }
+
+    /// Set last selected from ItemId
+    pub fn set_last_selected_id(&mut self, item: Option<ItemId>) {
+        self.last_selected = item.and_then(|id| id.try_into().ok());
+    }
 }
 
 /// Conveyor rotation offset (R key cycles through 0-3)
@@ -148,14 +162,54 @@ pub enum TutorialAction {
     BreakBlock,
     /// Open inventory
     OpenInventory,
-    /// Place a specific machine type
+    /// Place a specific machine type (internally stores BlockType for const compatibility)
     PlaceMachine(BlockType),
     /// Place consecutive conveyors
     PlaceConveyors { count: u32 },
     /// Create a valid machine connection line
     CreateConnection,
-    /// Produce a specific item
+    /// Produce a specific item (internally stores BlockType for const compatibility)
     ProduceItem(BlockType),
+}
+
+impl TutorialAction {
+    /// Get the machine type as ItemId if this is a PlaceMachine action
+    pub fn place_machine_id(&self) -> Option<ItemId> {
+        match self {
+            TutorialAction::PlaceMachine(bt) => Some((*bt).into()),
+            _ => None,
+        }
+    }
+
+    /// Get the item type as ItemId if this is a ProduceItem action
+    pub fn produce_item_id(&self) -> Option<ItemId> {
+        match self {
+            TutorialAction::ProduceItem(bt) => Some((*bt).into()),
+            _ => None,
+        }
+    }
+
+    /// Check if this action matches a placed machine (by ItemId)
+    pub fn matches_place_machine_id(&self, item: ItemId) -> bool {
+        match self {
+            TutorialAction::PlaceMachine(bt) => {
+                let expected: ItemId = (*bt).into();
+                expected == item
+            }
+            _ => false,
+        }
+    }
+
+    /// Check if this action matches a produced item (by ItemId)
+    pub fn matches_produce_item_id(&self, item: ItemId) -> bool {
+        match self {
+            TutorialAction::ProduceItem(bt) => {
+                let expected: ItemId = (*bt).into();
+                expected == item
+            }
+            _ => false,
+        }
+    }
 }
 
 /// Tutorial step definition
@@ -278,12 +332,65 @@ pub struct TutorialProgressBarFill;
 pub struct QuestDef {
     /// Quest description
     pub description: &'static str,
-    /// Required item type
-    pub required_item: BlockType,
+    /// Required item type (internally stores BlockType)
+    required_item: BlockType,
     /// Required amount
     pub required_amount: u32,
-    /// Rewards: (BlockType, amount)
-    pub rewards: Vec<(BlockType, u32)>,
+    /// Rewards: (BlockType, amount) - internally stores BlockType
+    rewards: Vec<(BlockType, u32)>,
+}
+
+#[allow(dead_code)]
+impl QuestDef {
+    /// Create a new quest definition using ItemIds
+    pub fn new(
+        description: &'static str,
+        required_item: ItemId,
+        required_amount: u32,
+        rewards: Vec<(ItemId, u32)>,
+    ) -> Self {
+        Self {
+            description,
+            required_item: required_item
+                .try_into()
+                .expect("ItemId must be convertible to BlockType"),
+            required_amount,
+            rewards: rewards
+                .into_iter()
+                .map(|(id, count)| {
+                    let bt: BlockType = id
+                        .try_into()
+                        .expect("ItemId must be convertible to BlockType");
+                    (bt, count)
+                })
+                .collect(),
+        }
+    }
+
+    /// Get required item as ItemId (preferred API)
+    pub fn required_item_id(&self) -> ItemId {
+        self.required_item.into()
+    }
+
+    /// Get required item as BlockType (deprecated)
+    #[deprecated(since = "0.4.0", note = "Use required_item_id() instead")]
+    pub fn required_item(&self) -> BlockType {
+        self.required_item
+    }
+
+    /// Get rewards as ItemIds (preferred API)
+    pub fn rewards_ids(&self) -> Vec<(ItemId, u32)> {
+        self.rewards
+            .iter()
+            .map(|(bt, count)| ((*bt).into(), *count))
+            .collect()
+    }
+
+    /// Get rewards as BlockTypes (deprecated)
+    #[deprecated(since = "0.4.0", note = "Use rewards_ids() instead")]
+    pub fn rewards(&self) -> &Vec<(BlockType, u32)> {
+        &self.rewards
+    }
 }
 
 /// Current quest state
@@ -356,6 +463,7 @@ pub struct DeliveryUI;
 pub struct DeliveryUIText;
 
 /// All available items for creative mode, organized by category
+/// Note: Uses BlockType internally for const compatibility
 pub const CREATIVE_ITEMS: &[(BlockType, &str)] = &[
     // Blocks
     (BlockType::Stone, "Blocks"),
@@ -374,6 +482,14 @@ pub const CREATIVE_ITEMS: &[(BlockType, &str)] = &[
     (BlockType::FurnaceBlock, "Machines"),
 ];
 
+/// Get creative items as ItemIds with categories
+pub fn creative_items_ids() -> Vec<(ItemId, &'static str)> {
+    CREATIVE_ITEMS
+        .iter()
+        .map(|(bt, cat)| ((*bt).into(), *cat))
+        .collect()
+}
+
 /// State for save/load operations
 #[derive(Resource, Default)]
 pub struct SaveLoadState {
@@ -388,12 +504,53 @@ pub struct SaveLoadState {
 /// Resource to hold item sprite textures for UI
 #[derive(Resource, Default)]
 pub struct ItemSprites {
+    /// Textures indexed by BlockType (use get_id/insert_id for ItemId access)
     pub textures: HashMap<BlockType, Handle<Image>>,
 }
 
 impl ItemSprites {
-    /// Get sprite handle for a block type, returns None if not loaded
+    /// Get sprite handle for an ItemId (preferred API)
+    pub fn get_id(&self, item_id: ItemId) -> Option<Handle<Image>> {
+        let block_type: BlockType = item_id.try_into().ok()?;
+        self.textures.get(&block_type).cloned()
+    }
+
+    /// Get sprite handle for a block type (deprecated)
+    #[deprecated(since = "0.4.0", note = "Use get_id() instead")]
     pub fn get(&self, block_type: BlockType) -> Option<Handle<Image>> {
         self.textures.get(&block_type).cloned()
+    }
+
+    /// Insert a sprite for an ItemId
+    pub fn insert_id(&mut self, item_id: ItemId, handle: Handle<Image>) {
+        if let Ok(block_type) = item_id.try_into() {
+            self.textures.insert(block_type, handle);
+        }
+    }
+
+    /// Insert a sprite for a BlockType (deprecated)
+    #[deprecated(since = "0.4.0", note = "Use insert_id() instead")]
+    pub fn insert(&mut self, block_type: BlockType, handle: Handle<Image>) {
+        self.textures.insert(block_type, handle);
+    }
+
+    /// Check if a sprite exists for an ItemId
+    pub fn contains_id(&self, item_id: ItemId) -> bool {
+        let Ok(block_type) = item_id.try_into() else {
+            return false;
+        };
+        self.textures.contains_key(&block_type)
+    }
+
+    /// Check if any sprites are still loading
+    pub fn any_loading(&self, assets: &AssetServer) -> bool {
+        self.textures
+            .values()
+            .any(|h| matches!(assets.load_state(h.id()), bevy::asset::LoadState::Loading))
+    }
+
+    /// Get iterator over all textures (for internal use)
+    pub fn iter(&self) -> impl Iterator<Item = (&BlockType, &Handle<Image>)> {
+        self.textures.iter()
     }
 }

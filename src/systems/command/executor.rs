@@ -3,6 +3,7 @@
 //! Parses and executes slash commands like /creative, /give, /tp, etc.
 
 use crate::components::{CreativeMode, LoadGameEvent, SaveGameEvent};
+use crate::core::ItemId;
 use crate::events::SpawnMachineEvent;
 use crate::player::PlayerInventory;
 use crate::utils::parse_item_name;
@@ -55,7 +56,7 @@ pub fn execute_command(
                 let count: u32 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(64);
 
                 if let Some(block_type) = parse_item_name(&item_name) {
-                    inventory.add_item(block_type, count);
+                    inventory.add_item_by_id(ItemId::from(block_type), count);
                     info!("Gave {} x{}", block_type.name(), count);
                 }
             }
@@ -245,7 +246,7 @@ pub fn execute_command(
                         direction: None,
                     });
                     // Give coal for furnace
-                    inventory.add_item(BlockType::Coal, 16);
+                    inventory.add_item_by_id(ItemId::from(BlockType::Coal), 16);
                     info!("Production test: Miner -> 3x Conveyor -> Furnace spawned at y=8");
                 }
                 Some("stress") => {
@@ -278,7 +279,7 @@ pub fn execute_command(
                         let min_count: u32 = parts[3].parse().unwrap_or(1);
 
                         if let Some(block_type) = parse_item_name(&item_name) {
-                            let actual = inventory.get_total_count(block_type);
+                            let actual = inventory.get_total_count_by_id(ItemId::from(block_type));
                             if actual >= min_count {
                                 info!(
                                     "✓ PASS: {} >= {} (actual: {})",

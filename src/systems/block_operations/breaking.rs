@@ -109,7 +109,9 @@ pub fn block_break(
     };
 
     // Get selected tool
-    let selected_tool = inventory.selected_block();
+    let selected_tool = inventory
+        .selected_item_id()
+        .and_then(|id| BlockType::try_from(id).ok());
     let tool_multiplier = breaking_spec::get_tool_multiplier(selected_tool);
     let base_time = breaking_spec::get_base_break_time(block_type);
     let total_time = base_time * tool_multiplier;
@@ -290,7 +292,7 @@ fn execute_machine_break(
                             commands.entity(visual_entity).despawn();
                         }
                     }
-                    inventory.add_item(item.block_type, 1);
+                    inventory.add_item_by_id(item.block_type.into(), 1);
                 }
                 info!(
                     category = "MACHINE",
@@ -302,20 +304,20 @@ fn execute_machine_break(
                 );
             }
             commands.entity(entity).despawn_recursive();
-            inventory.add_item(BlockType::ConveyorBlock, 1);
+            inventory.add_item_by_id(BlockType::ConveyorBlock.into(), 1);
         }
         BlockType::MinerBlock | BlockType::CrusherBlock | BlockType::FurnaceBlock => {
             // Return contents from machine slots
             if let Ok((_, machine, _)) = machines.machine.get(entity) {
                 // Return fuel
                 if machine.slots.fuel > 0 {
-                    inventory.add_item(BlockType::Coal, machine.slots.fuel);
+                    inventory.add_item_by_id(BlockType::Coal.into(), machine.slots.fuel);
                 }
                 // Return input items
                 for input_slot in &machine.slots.inputs {
                     if let Some(item_type) = input_slot.item_type {
                         if input_slot.count > 0 {
-                            inventory.add_item(item_type, input_slot.count);
+                            inventory.add_item_by_id(item_type.into(), input_slot.count);
                         }
                     }
                 }
@@ -323,7 +325,7 @@ fn execute_machine_break(
                 for output_slot in &machine.slots.outputs {
                     if let Some(item_type) = output_slot.item_type {
                         if output_slot.count > 0 {
-                            inventory.add_item(item_type, output_slot.count);
+                            inventory.add_item_by_id(item_type.into(), output_slot.count);
                         }
                     }
                 }
@@ -335,7 +337,7 @@ fn execute_machine_break(
                 "Machine broken"
             );
             commands.entity(entity).despawn_recursive();
-            inventory.add_item(machine_type, 1);
+            inventory.add_item_by_id(machine_type.into(), 1);
         }
         _ => {}
     }
@@ -355,7 +357,7 @@ fn execute_block_break(
     world_data.remove_block(break_pos);
 
     // Add block to inventory
-    inventory.add_item(block_type, 1);
+    inventory.add_item_by_id(block_type.into(), 1);
 
     info!(
         category = "BLOCK",

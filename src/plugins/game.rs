@@ -73,25 +73,27 @@ impl Plugin for GamePlugin {
             .add_plugins(ModdingPlugin);
 
         // Initialize resources
-        app.insert_resource(GlobalInventory::with_items(game_spec::INITIAL_EQUIPMENT))
-            .init_resource::<WorldData>()
-            .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
-            .init_resource::<CursorLockState>()
-            .init_resource::<CurrentQuest>()
-            .init_resource::<crate::systems::quest::QuestCache>()
-            // NOTE: ActiveSubQuests removed (dead code) - reimplement with sub-quest UI
-            .init_resource::<GameFont>()
-            .init_resource::<ChunkMeshTasks>()
-            .init_resource::<DirtyChunks>()
-            .init_resource::<CreativeMode>()
-            .init_resource::<ContinuousActionTimer>()
-            .init_resource::<GlobalInventoryOpen>()
-            .init_resource::<GlobalInventoryPage>()
-            .init_resource::<GlobalInventoryCategory>()
-            .init_resource::<GlobalInventorySearch>()
-            .init_resource::<BreakingProgress>()
-            // Sky blue background color (simple skybox)
-            .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)));
+        app.insert_resource(GlobalInventory::with_items_by_id(
+            &game_spec::initial_equipment_by_id(),
+        ))
+        .init_resource::<WorldData>()
+        .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
+        .init_resource::<CursorLockState>()
+        .init_resource::<CurrentQuest>()
+        .init_resource::<crate::systems::quest::QuestCache>()
+        // NOTE: ActiveSubQuests removed (dead code) - reimplement with sub-quest UI
+        .init_resource::<GameFont>()
+        .init_resource::<ChunkMeshTasks>()
+        .init_resource::<DirtyChunks>()
+        .init_resource::<CreativeMode>()
+        .init_resource::<ContinuousActionTimer>()
+        .init_resource::<GlobalInventoryOpen>()
+        .init_resource::<GlobalInventoryPage>()
+        .init_resource::<GlobalInventoryCategory>()
+        .init_resource::<GlobalInventorySearch>()
+        .init_resource::<BreakingProgress>()
+        // Sky blue background color (simple skybox)
+        .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)));
 
         // Register events
         app.add_event::<TeleportEvent>()

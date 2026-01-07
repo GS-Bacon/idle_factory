@@ -7,6 +7,7 @@ use crate::components::{
     InventoryUI, TutorialAction, TutorialPanel, TutorialProgress, TutorialProgressBarBg,
     TutorialProgressBarFill, TutorialProgressText, TutorialShown, TutorialStepText, TUTORIAL_STEPS,
 };
+use crate::core::ItemId;
 use crate::player::GlobalInventory;
 
 /// Event for tutorial action notifications
@@ -252,7 +253,7 @@ pub fn update_tutorial_ui(
 /// Check if global inventory has new items for production tracking
 pub fn track_production(
     global_inventory: Res<GlobalInventory>,
-    mut last_counts: Local<std::collections::HashMap<BlockType, u32>>,
+    mut last_counts: Local<std::collections::HashMap<ItemId, u32>>,
     mut events: EventWriter<TutorialEvent>,
     progress: Res<TutorialProgress>,
 ) {
@@ -261,11 +262,14 @@ pub fn track_production(
     }
 
     // Check for new items
-    for (block_type, count) in global_inventory.get_all_items() {
-        let last = last_counts.get(&block_type).copied().unwrap_or(0);
+    for (item_id, count) in global_inventory.get_all_items_by_id() {
+        let last = last_counts.get(&item_id).copied().unwrap_or(0);
         if count > last {
-            events.send(TutorialEvent::ItemProduced(block_type));
+            // Convert ItemId to BlockType for tutorial event
+            if let Ok(block_type) = BlockType::try_from(item_id) {
+                events.send(TutorialEvent::ItemProduced(block_type));
+            }
         }
-        last_counts.insert(block_type, count);
+        last_counts.insert(item_id, count);
     }
 }

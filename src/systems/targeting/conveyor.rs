@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use crate::components::Machine;
+use crate::core::ItemId;
 use crate::meshes::create_conveyor_mesh;
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{
@@ -26,8 +27,11 @@ pub fn rotate_conveyor_placement(
     let Ok(inventory) = inventories.get(local_player.0) else {
         return;
     };
-    let selected = inventory.get_selected_type();
-    let is_rotatable = selected.is_some_and(|bt| bt == BlockType::ConveyorBlock || bt.is_machine());
+    let selected_item_id: Option<ItemId> = inventory.get_selected_item_id();
+    // Convert to BlockType to check if rotatable
+    let selected_block_type: Option<BlockType> = selected_item_id.and_then(|id| id.try_into().ok());
+    let is_rotatable =
+        selected_block_type.is_some_and(|bt| bt == BlockType::ConveyorBlock || bt.is_machine());
     if !is_rotatable {
         // Reset rotation when not placing rotatable block
         rotation.offset = 0;

@@ -1,9 +1,15 @@
 //! Statistics and analysis system
+//!
+//! ## BlockType vs ItemId
+//!
+//! Internal storage uses `BlockType` for compatibility.
+//! For ItemId-based access, use `*_by_id()` methods.
 
 use bevy::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
 use crate::block_type::BlockType;
+use crate::core::ItemId;
 use crate::events::game_events::{ItemDelivered, MachineCompleted, MachineStarted};
 
 /// 時系列データ
@@ -80,7 +86,12 @@ impl ProductionStats {
         Self::default()
     }
 
-    /// 生産を記録
+    // =========================================================================
+    // BlockType API (deprecated)
+    // =========================================================================
+
+    /// 生産を記録 (BlockType version)
+    #[deprecated(since = "0.4.0", note = "Use record_production_by_id() instead")]
     pub fn record_production(&mut self, item: BlockType, count: u32, timestamp: f64) {
         let series = self
             .items_produced
@@ -91,7 +102,8 @@ impl ProductionStats {
         *self.total_produced.entry(item).or_insert(0) += count as u64;
     }
 
-    /// 消費を記録
+    /// 消費を記録 (BlockType version)
+    #[deprecated(since = "0.4.0", note = "Use record_consumption_by_id() instead")]
     pub fn record_consumption(&mut self, item: BlockType, count: u32, timestamp: f64) {
         let series = self
             .items_consumed
@@ -102,14 +114,70 @@ impl ProductionStats {
         *self.total_consumed.entry(item).or_insert(0) += count as u64;
     }
 
-    /// 総生産数を取得
+    /// 総生産数を取得 (BlockType version)
+    #[deprecated(since = "0.4.0", note = "Use get_total_produced_by_id() instead")]
     pub fn get_total_produced(&self, item: BlockType) -> u64 {
         self.total_produced.get(&item).copied().unwrap_or(0)
     }
 
-    /// 総消費数を取得
+    /// 総消費数を取得 (BlockType version)
+    #[deprecated(since = "0.4.0", note = "Use get_total_consumed_by_id() instead")]
     pub fn get_total_consumed(&self, item: BlockType) -> u64 {
         self.total_consumed.get(&item).copied().unwrap_or(0)
+    }
+
+    // =========================================================================
+    // ItemId API (preferred)
+    // =========================================================================
+
+    /// 生産を記録 (ItemId version)
+    pub fn record_production_by_id(&mut self, item_id: ItemId, count: u32, timestamp: f64) {
+        if let Ok(item) = item_id.try_into() {
+            #[allow(deprecated)]
+            self.record_production(item, count, timestamp);
+        }
+    }
+
+    /// 消費を記録 (ItemId version)
+    pub fn record_consumption_by_id(&mut self, item_id: ItemId, count: u32, timestamp: f64) {
+        if let Ok(item) = item_id.try_into() {
+            #[allow(deprecated)]
+            self.record_consumption(item, count, timestamp);
+        }
+    }
+
+    /// 総生産数を取得 (ItemId version)
+    pub fn get_total_produced_by_id(&self, item_id: ItemId) -> u64 {
+        if let Ok(item) = item_id.try_into() {
+            #[allow(deprecated)]
+            return self.get_total_produced(item);
+        }
+        0
+    }
+
+    /// 総消費数を取得 (ItemId version)
+    pub fn get_total_consumed_by_id(&self, item_id: ItemId) -> u64 {
+        if let Ok(item) = item_id.try_into() {
+            #[allow(deprecated)]
+            return self.get_total_consumed(item);
+        }
+        0
+    }
+
+    /// 全生産統計をItemId形式で取得
+    pub fn get_all_produced_by_id(&self) -> Vec<(ItemId, u64)> {
+        self.total_produced
+            .iter()
+            .map(|(bt, count)| ((*bt).into(), *count))
+            .collect()
+    }
+
+    /// 全消費統計をItemId形式で取得
+    pub fn get_all_consumed_by_id(&self) -> Vec<(ItemId, u64)> {
+        self.total_consumed
+            .iter()
+            .map(|(bt, count)| ((*bt).into(), *count))
+            .collect()
     }
 }
 
@@ -132,12 +200,18 @@ pub struct DeliveryStats {
 }
 
 impl DeliveryStats {
-    /// 納品を記録
+    // =========================================================================
+    // BlockType API (deprecated)
+    // =========================================================================
+
+    /// 納品を記録 (BlockType version)
+    #[deprecated(since = "0.4.0", note = "Use record_delivery_by_id() instead")]
     pub fn record_delivery(&mut self, item: BlockType, count: u32) {
         *self.total_delivered.entry(item).or_insert(0) += count as u64;
     }
 
-    /// 総納品数を取得
+    /// 総納品数を取得 (BlockType version)
+    #[deprecated(since = "0.4.0", note = "Use get_total_delivered_by_id() instead")]
     pub fn get_total_delivered(&self, item: BlockType) -> u64 {
         self.total_delivered.get(&item).copied().unwrap_or(0)
     }
@@ -146,9 +220,39 @@ impl DeliveryStats {
     pub fn get_grand_total(&self) -> u64 {
         self.total_delivered.values().sum()
     }
+
+    // =========================================================================
+    // ItemId API (preferred)
+    // =========================================================================
+
+    /// 納品を記録 (ItemId version)
+    pub fn record_delivery_by_id(&mut self, item_id: ItemId, count: u32) {
+        if let Ok(item) = item_id.try_into() {
+            #[allow(deprecated)]
+            self.record_delivery(item, count);
+        }
+    }
+
+    /// 総納品数を取得 (ItemId version)
+    pub fn get_total_delivered_by_id(&self, item_id: ItemId) -> u64 {
+        if let Ok(item) = item_id.try_into() {
+            #[allow(deprecated)]
+            return self.get_total_delivered(item);
+        }
+        0
+    }
+
+    /// 全納品統計をItemId形式で取得
+    pub fn get_all_delivered_by_id(&self) -> Vec<(ItemId, u64)> {
+        self.total_delivered
+            .iter()
+            .map(|(bt, count)| ((*bt).into(), *count))
+            .collect()
+    }
 }
 
 /// 機械完了イベントを購読して生産統計を記録
+#[allow(deprecated)] // Uses legacy BlockType API from events
 fn handle_machine_completed(
     mut events: EventReader<MachineCompleted>,
     mut stats: ResMut<ProductionStats>,
@@ -163,6 +267,7 @@ fn handle_machine_completed(
 }
 
 /// 機械開始イベントを購読して消費統計を記録
+#[allow(deprecated)] // Uses legacy BlockType API from events
 fn handle_machine_started(
     mut events: EventReader<MachineStarted>,
     mut stats: ResMut<ProductionStats>,
@@ -177,6 +282,7 @@ fn handle_machine_started(
 }
 
 /// 納品イベントを購読して納品統計を記録
+#[allow(deprecated)] // Uses legacy BlockType API from events
 fn handle_item_delivered(mut events: EventReader<ItemDelivered>, mut stats: ResMut<DeliveryStats>) {
     for event in events.read() {
         stats.record_delivery(event.item, event.count);
@@ -203,6 +309,11 @@ impl Plugin for StatisticsPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
+
+    // =========================================================================
+    // TimeSeries tests (no deprecation)
+    // =========================================================================
 
     #[test]
     fn test_time_series_basic() {
@@ -227,7 +338,12 @@ mod tests {
         assert_eq!(ts.latest(), Some(4.0));
     }
 
+    // =========================================================================
+    // Legacy BlockType tests
+    // =========================================================================
+
     #[test]
+    #[allow(deprecated)]
     fn test_production_stats() {
         let mut stats = ProductionStats::new();
         stats.record_production(BlockType::IronIngot, 10, 0.0);
@@ -244,6 +360,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_delivery_stats() {
         let mut stats = DeliveryStats::default();
         stats.record_delivery(BlockType::IronIngot, 10);
@@ -253,5 +370,65 @@ mod tests {
         assert_eq!(stats.get_total_delivered(BlockType::IronIngot), 15);
         assert_eq!(stats.get_total_delivered(BlockType::Stone), 3);
         assert_eq!(stats.get_grand_total(), 18);
+    }
+
+    // =========================================================================
+    // New ItemId tests
+    // =========================================================================
+
+    #[test]
+    fn test_production_stats_by_id() {
+        let mut stats = ProductionStats::new();
+        stats.record_production_by_id(items::iron_ingot(), 10, 0.0);
+        stats.record_production_by_id(items::iron_ingot(), 5, 1.0);
+
+        assert_eq!(stats.get_total_produced_by_id(items::iron_ingot()), 15);
+        assert_eq!(stats.get_total_produced_by_id(items::stone()), 0);
+    }
+
+    #[test]
+    fn test_consumption_stats_by_id() {
+        let mut stats = ProductionStats::new();
+        stats.record_consumption_by_id(items::coal(), 5, 0.0);
+        stats.record_consumption_by_id(items::coal(), 3, 1.0);
+
+        assert_eq!(stats.get_total_consumed_by_id(items::coal()), 8);
+        assert_eq!(stats.get_total_consumed_by_id(items::stone()), 0);
+    }
+
+    #[test]
+    fn test_delivery_stats_by_id() {
+        let mut stats = DeliveryStats::default();
+        stats.record_delivery_by_id(items::iron_ingot(), 10);
+        stats.record_delivery_by_id(items::iron_ingot(), 5);
+        stats.record_delivery_by_id(items::stone(), 3);
+
+        assert_eq!(stats.get_total_delivered_by_id(items::iron_ingot()), 15);
+        assert_eq!(stats.get_total_delivered_by_id(items::stone()), 3);
+        assert_eq!(stats.get_grand_total(), 18);
+    }
+
+    #[test]
+    fn test_get_all_by_id() {
+        let mut stats = ProductionStats::new();
+        stats.record_production_by_id(items::iron_ingot(), 10, 0.0);
+        stats.record_production_by_id(items::copper_ingot(), 5, 1.0);
+
+        let all_produced = stats.get_all_produced_by_id();
+        assert_eq!(all_produced.len(), 2);
+
+        // Check totals (order not guaranteed in HashMap)
+        let iron_total: u64 = all_produced
+            .iter()
+            .filter(|(id, _)| *id == items::iron_ingot())
+            .map(|(_, c)| *c)
+            .sum();
+        let copper_total: u64 = all_produced
+            .iter()
+            .filter(|(id, _)| *id == items::copper_ingot())
+            .map(|(_, c)| *c)
+            .sum();
+        assert_eq!(iron_total, 10);
+        assert_eq!(copper_total, 5);
     }
 }

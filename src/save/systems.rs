@@ -397,7 +397,7 @@ pub fn handle_load_event(
                     info!("[SAVE] Migrating old global_inventory items to unified inventory");
                     for (bt_save, count) in &data.global_inventory.items {
                         let bt: BlockType = bt_save.clone().into();
-                        inventory.add_item(bt, *count);
+                        inventory.add_item_by_id(bt.into(), *count);
                     }
                 }
 
@@ -579,7 +579,7 @@ pub fn handle_load_event(
                 // Note: GlobalInventory is cleared first, then items are added
                 for (bt, count) in &data.quests.delivered {
                     let block_type: BlockType = bt.clone().into();
-                    global_inventory.add_item(block_type, *count);
+                    global_inventory.add_item_by_id(block_type.into(), *count);
                 }
 
                 // Apply game mode

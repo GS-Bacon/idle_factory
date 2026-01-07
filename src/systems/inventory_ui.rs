@@ -1,6 +1,7 @@
 //! Inventory UI systems
 
 use crate::components::*;
+use crate::core::ItemId;
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::setup::ui::{
     SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
@@ -20,7 +21,7 @@ pub fn set_ui_open_state(_ui_open: bool) {
 fn return_held_item_to_inventory(inventory: &mut PlayerInventory, held_item: &mut HeldItem) {
     if let Some((block_type, count)) = held_item.0.take() {
         // Try to add to inventory
-        let remaining = inventory.add_item(block_type, count);
+        let remaining = inventory.add_item_by_id(ItemId::from(block_type), count);
         if remaining > 0 {
             // If inventory is full, item is lost (or could be dropped later)
             // For now, just put back what couldn't fit
@@ -441,7 +442,7 @@ pub fn inventory_update_slots(
     for (slot_image, mut image_node, mut visibility) in image_query.iter_mut() {
         let slot_idx = slot_image.0;
         if let Some((block_type, _count)) = inventory.slots[slot_idx] {
-            if let Some(sprite_handle) = item_sprites.get(block_type) {
+            if let Some(sprite_handle) = item_sprites.get_id(ItemId::from(block_type)) {
                 image_node.image = sprite_handle;
                 *visibility = Visibility::Visible;
             } else {
@@ -520,7 +521,7 @@ pub fn update_held_item_display(
 
             // Update sprite image
             if let Ok(mut image) = held_image_query.get_single_mut() {
-                if let Some(sprite) = item_sprites.get(*block_type) {
+                if let Some(sprite) = item_sprites.get_id(ItemId::from(*block_type)) {
                     image.image = sprite;
                 }
             }
@@ -687,7 +688,7 @@ pub fn update_creative_catalog_sprites(
 
     for (item, mut image, mut visibility) in query.iter_mut() {
         if should_show {
-            if let Some(sprite) = item_sprites.get(item.0) {
+            if let Some(sprite) = item_sprites.get_id(ItemId::from(item.0)) {
                 image.image = sprite;
                 *visibility = Visibility::Visible;
             } else {

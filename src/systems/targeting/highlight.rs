@@ -4,6 +4,7 @@ use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 
 use crate::components::Machine;
+use crate::core::ItemId;
 use crate::meshes::{
     create_conveyor_mesh, create_conveyor_wireframe_mesh, create_wireframe_cube_mesh,
 };
@@ -242,10 +243,12 @@ pub fn update_target_highlight(
     let has_placeable_item = inventory.has_selected();
 
     // Check what item is selected
-    let selected_item = inventory.get_selected_type();
-    let placing_conveyor = selected_item == Some(BlockType::ConveyorBlock);
+    let selected_item_id: Option<ItemId> = inventory.get_selected_item_id();
+    // Convert to BlockType for pattern matching
+    let selected_block_type: Option<BlockType> = selected_item_id.and_then(|id| id.try_into().ok());
+    let placing_conveyor = selected_block_type == Some(BlockType::ConveyorBlock);
     let placing_machine = matches!(
-        selected_item,
+        selected_block_type,
         Some(BlockType::MinerBlock | BlockType::FurnaceBlock | BlockType::CrusherBlock)
     );
 

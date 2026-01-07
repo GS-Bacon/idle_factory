@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use crate::components::Machine;
+use crate::core::ItemId;
 use crate::meshes::create_wireframe_cube_mesh;
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{BlockType, Conveyor, Direction, GuideMarker, GuideMarkers};
@@ -29,7 +30,10 @@ pub fn update_guide_markers(
     let Ok(inventory) = inventories.get(local_player.0) else {
         return;
     };
-    let selected = inventory.get_selected_type();
+    let selected_item_id: Option<ItemId> = inventory.get_selected_item_id();
+
+    // Convert ItemId to Option<BlockType> for comparison with last_selected
+    let selected: Option<BlockType> = selected_item_id.and_then(|id| id.try_into().ok());
 
     // Clear markers if selection changed or nothing selected
     if selected != guide_markers.last_selected {

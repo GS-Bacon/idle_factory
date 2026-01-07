@@ -4,8 +4,9 @@
 //! using `MachineSpec` to determine behavior.
 
 use crate::components::Machine;
+use crate::core::{items, ItemId};
 use crate::events::game_events::{MachineCompleted, MachineStarted};
-use crate::game_spec::{find_recipe, MachineType, ProcessType};
+use crate::game_spec::{find_recipe_by_id, MachineType, ProcessType};
 use crate::world::biome::{BiomeMap, BiomeType};
 use crate::{BlockType, Conveyor};
 use bevy::prelude::*;
@@ -147,7 +148,7 @@ fn tick_recipe(
 
     // Find recipe
     let input = input_item?;
-    let recipe = find_recipe(machine_type, input)?;
+    let recipe = find_recipe_by_id(machine_type, input.into())?;
 
     // Check fuel requirement
     if spec.requires_fuel && machine.slots.fuel == 0 {
@@ -529,23 +530,25 @@ pub fn generic_machine_ui_input(
                 // Take from output / put to input
                 if slot_btn.is_input {
                     // Try to put selected item into input slot
-                    if let Some(selected) = inventory.selected_block() {
-                        if let Some(input_slot) =
-                            machine.slots.inputs.get_mut(slot_btn.slot_id as usize)
-                        {
-                            if (input_slot.item_type.is_none()
-                                || input_slot.item_type == Some(selected))
-                                && inventory.consume_item(selected, 1)
+                    if let Some(selected_id) = inventory.selected_item_id() {
+                        if let Ok(selected) = BlockType::try_from(selected_id) {
+                            if let Some(input_slot) =
+                                machine.slots.inputs.get_mut(slot_btn.slot_id as usize)
                             {
-                                input_slot.add(selected, 1);
+                                if (input_slot.item_type.is_none()
+                                    || input_slot.item_type == Some(selected))
+                                    && inventory.consume_item_by_id(selected_id, 1)
+                                {
+                                    input_slot.add(selected, 1);
+                                }
                             }
                         }
                     }
                 } else if slot_btn.is_fuel {
                     // Put coal into fuel slot
-                    if let Some(selected) = inventory.selected_block() {
-                        if selected == BlockType::Coal && inventory.consume_item(BlockType::Coal, 1)
-                        {
+                    let coal_id = items::coal();
+                    if let Some(selected_id) = inventory.selected_item_id() {
+                        if selected_id == coal_id && inventory.consume_item_by_id(coal_id, 1) {
                             machine.slots.fuel += 1;
                         }
                     }
@@ -557,7 +560,8 @@ pub fn generic_machine_ui_input(
                         if let Some(item_type) = output_slot.item_type {
                             let taken = output_slot.take(1);
                             if taken > 0 {
-                                inventory.add_item(item_type, taken);
+                                let item_id: ItemId = item_type.into();
+                                inventory.add_item_by_id(item_id, taken);
                             }
                         }
                     }

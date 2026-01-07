@@ -1,5 +1,46 @@
 # 骨格設計：将来機能の拡張ポイント
 
+## 設計プロセスのチェックリスト（2026-01-07 追加）
+
+**教訓**: D.2（動的ID）設計時、「基盤の型定義」は詳細に書いたが「移行中の安全性」を見落とし、Modアイテムでパニックする時限爆弾を埋め込んでしまった。
+
+### 新機能設計時の必須チェック
+
+| # | チェック項目 | 質問例 |
+|---|-------------|--------|
+| 1 | **境界条件** | 内部↔外部、base game↔Mod、信頼できる↔信頼できないデータの境界は？ |
+| 2 | **移行中の安全性** | 旧型と新型が共存する期間、どちらかが欠けたらどうなる？ |
+| 3 | **失敗ケース** | 不正入力、欠落データ、未知のIDが来たらどうなる？ |
+| 4 | **パニック監査** | この機能で `expect`, `unwrap`, `panic!` を使う箇所は？本当に必要？ |
+| 5 | **フォールバック** | 失敗時のデフォルト動作は？ログ出力？スキップ？エラー表示？ |
+
+### 設計書に含めるべき項目
+
+```markdown
+## 新機能: XXX
+
+### 正常系
+（従来通りの設計）
+
+### 境界・エラー処理 ← 追加必須
+- 外部入力の検証方法
+- 不明なIDのフォールバック
+- 移行中の互換性保証
+
+### パニック箇所 ← 追加必須
+- なし / または理由付きで列挙
+```
+
+### アンチパターン
+
+| やりがち | 問題 | 対策 |
+|----------|------|------|
+| 「基盤作ったから完了」 | 移行中に爆弾が残る | 移行完了条件を明記 |
+| 「段階的に移行」だけ | 境界の安全性が曖昧 | 境界での失敗処理を先に書く |
+| 「内部なのでunwrap」 | Modが内部に入ってくる | Mod経路を洗い出す |
+
+---
+
 ## 機能リスト（全17機能）
 
 | # | 機能 | 概要 | 既存影響度 |
@@ -1683,23 +1724,265 @@ pub enum SlotRef {
 
 ---
 
+## パニック防止戦略（2026-01-07 策定）
+
+**目標**: Modアイテム追加・削除でゲームがクラッシュしない設計
+
+### パニックの分類と対処方針
+
+| カテゴリ | 発生源 | 対処方針 | 優先度 |
+|----------|--------|----------|--------|
+| **Mod境界** | `BlockType↔ItemId`変換 | **フォールバック必須** | 🔴 最優先 |
+| **外部入力** | セーブデータ、TOML | **Result返却 + ログ** | 🔴 高 |
+| **アセット** | Blockbench等 | **エラー画像/メッシュ置換** | 🟡 中 |
+| **内部ロジック** | 「起こり得ない」状態 | **debug_assertのみ** | 🟢 低 |
+
+### 現状のパニック箇所（2026-01-07時点）
+
+```
+unwrap(): 92箇所
+expect(): 72箇所
+panic!:   15箇所
+合計:     179箇所
+```
+
+### 致命的なパニック箇所（Modアイテム経路）
+
+| ファイル | 行 | 問題 | 対策 |
+|----------|-----|------|------|
+| machines.rs:93 | ConveyorItem::new | Modアイテムがコンベアに乗ると即死 | ItemId直接保持 |
+| machines.rs:119 | ConveyorItem::set_item_id | 同上 | 同上 |
+| machines.rs:375 | MachineSlot::new | Modアイテムがスロットに入ると即死 | 同上 |
+| machines.rs:383 | MachineSlot設定 | 同上 | 同上 |
+| mod.rs:356 | Quest::new | Modアイテムがクエスト要求に入ると即死 | 同上 |
+| mod.rs:363 | Quest報酬 | 同上 | 同上 |
+| craft/mod.rs:131,150 | レシピ | Modアイテムのレシピで即死 | 同上 |
+
+### その他の危険なパニック箇所
+
+| 優先度 | ファイル | 問題 | 対策 |
+|--------|----------|------|------|
+| 🔴 P0 | core/id.rs:191 | `from_block_type_static` が無条件パニック | Result返却に変更 |
+| 🔴 P1 | save/format.rs:1660 | 不明ItemIDでパニック | フォールバック（空気に置換） |
+| 🟡 P2 | blockbench.rs:907,945,997等 | JSON/Base64パース失敗でパニック | Resultチェーン |
+| 🟡 P2 | blockbench.rs:1235,1269,1285等 | 不正bone構造でパニック | フォールバックメッシュ |
+
+### 設計と実装の乖離
+
+| 設計書の記述 | 現状 | 差異 |
+|------------|------|------|
+| パニック防止戦略 P.1-P.5 | ConveyorItem, MachineSlot, Quest | ❌ 完全未着手 |
+| Mod境界でのフォールバック | save/format.rs | ❌ パニック直結 |
+| ValidItemId型 | 未実装 | ❌ ItemIdは未検証で使用 |
+| GuardedEventWriter | events/guarded_writer.rs | ✅ 実装済み、だが未使用 |
+| EntityMap | 未実装 | ❌ LocalPlayerがEntity直接参照 |
+
+### 境界条件の見落とし
+
+#### 1. Base Game ↔ Mod
+
+| 経路 | 危険な操作 | 現状 | 対策 |
+|------|-----------|------|------|
+| コンベア | ItemId → BlockType | パニック | ItemId直接保持 |
+| マシン | ItemId → BlockType | パニック | ItemId直接保持 |
+| クエスト | Modアイテム要求 | パニック | ItemId対応 |
+| セーブ | 不明ItemId | パニック | フォールバック |
+| レシピ | Modレシピ | パニック | Mod専用API |
+
+#### 2. 内部データ ↔ 外部入力
+
+| 入力元 | バリデーション | リスク |
+|--------|--------------|--------|
+| セーブファイル | 部分的 | Mod削除時に不明ID→パニック |
+| Blockbench | なし | 不正bone構造→パニック |
+| TOML/Mod定義 | なし | 未実装 |
+
+#### 3. Single ↔ Multi Player
+
+| データ | 現状 | 問題 |
+|--------|------|------|
+| LocalPlayer | Entity直接参照 | マルチでEntity異なる |
+| Machine State | Entity + Position | 同期機構なし |
+
+### 不足しているテスト
+
+```rust
+// ❌ 未実装：Modアイテムがコンベアを生き残るか
+#[test]
+fn mod_item_on_conveyor_no_panic() {
+    let mod_item = ItemId::from_string("test_mod:custom_ore");
+    let conveyor = ConveyorItem::new(mod_item);  // 現在はパニック
+}
+
+// ❌ 未実装：Mod削除後のセーブ再ロード
+#[test]
+fn save_with_unknown_item_has_fallback() {
+    // 不明アイテムは空気に置換されるべき
+}
+
+// ❌ 未実装：不正Blockbenchファイル
+#[test]
+fn malformed_blockbench_returns_error() {
+    let result = load_blockbench("{ invalid }");
+    assert!(result.is_err());  // 現在はパニック
+}
+```
+
+### 対策パターン
+
+#### パターンA: フォールバックアイテム（Mod境界用）
+
+```rust
+// 不明なアイテムを表す特別なItemId
+pub const UNKNOWN_ITEM: ItemId = ItemId::from_raw(0); // "base:unknown"
+
+// ConveyorItemの安全な実装
+impl ConveyorItem {
+    pub fn new(item_id: ItemId) -> Self {
+        Self {
+            item_id,  // BlockTypeを経由しない！
+            progress: 0.0,
+            visual_entity: None,
+        }
+    }
+
+    /// 描画時のみBlockType参照（失敗したらフォールバック表示）
+    pub fn visual_block_type(&self) -> BlockType {
+        self.item_id.to_block_type()
+            .unwrap_or(BlockType::Stone) // 見た目だけなので石でOK
+    }
+}
+```
+
+#### パターンB: Result型での伝播（セーブ/ロード用）
+
+```rust
+pub fn load_game(path: &Path) -> Result<SaveData, LoadError> {
+    // 不明アイテムはログ出力して除外
+    let items: Vec<_> = save.inventory
+        .into_iter()
+        .filter_map(|item| {
+            if registry.exists(item.id) {
+                Some(item)
+            } else {
+                warn!("Unknown item '{}' removed from save", item.id);
+                None
+            }
+        })
+        .collect();
+    Ok(SaveData { inventory: items, .. })
+}
+```
+
+#### パターンC: 型による制約（ValidItemId）
+
+```rust
+/// Registryに存在することが保証されたItemId
+pub struct ValidItemId(ItemId);
+
+impl GameRegistry {
+    /// 未検証のIDを検証
+    pub fn validate(&self, id: ItemId) -> Option<ValidItemId> {
+        if self.items.contains(id.raw()) {
+            Some(ValidItemId(id))
+        } else {
+            None
+        }
+    }
+}
+```
+
+### 安全性レベル定義
+
+| レベル | 定義 | 必要作業 |
+|--------|------|----------|
+| **L1** | Mod対応として最低限 | P.0-P.3 |
+| **L2** | 外部入力全般に堅牢 | L1 + P.4 + GuardedEventWriter使用 |
+| **L3** | 将来拡張も安全 | L2 + P.5 + EntityMap + StringInterner |
+
+### 修正フェーズ
+
+| Phase | 対象 | 内容 | レベル | 状態 |
+|-------|------|------|--------|------|
+| **P.0** | core/id.rs | `from_block_type_static`をResult返却 | L1 | ❌ 未着手 |
+| **P.1** | ConveyorItem, MachineSlot | BlockType廃止→ItemId直接保持 | L1 | ❌ 未着手 |
+| **P.2** | Quest, Craft | 同上 | L1 | ❌ 未着手 |
+| **P.3** | セーブ/ロード | 不明アイテムフィルタリング | L1 | ❌ 未着手 |
+| **P.4** | Blockbench | フォールバックメッシュ | L2 | ❌ 未着手 |
+| **P.5** | ValidItemId | 型安全強化 | L3 | ❌ 未着手 |
+
+### 追加タスク（L2-L3用）
+
+| タスク | 内容 | レベル | 状態 |
+|--------|------|--------|------|
+| **GuardedEventWriter使用** | 全イベント送信箇所で使用開始 | L2 | ❌ 未着手 |
+| **EntityMap実装** | NetworkId ↔ Entity マッピング | L3 | ❌ 未着手 |
+| **StringInterner安全化** | Arc<RwLock>でスレッドセーフに | L3 | ❌ 未着手 |
+
+### 作業順序
+
+```
+今すぐ（L1達成）
+├── P.0: core/id.rs Result返却
+├── P.1: ConveyorItem, MachineSlot
+├── P.2: Quest, Craft
+└── P.3: セーブ/ロード フォールバック
+    ↓
+D.15着手前（L2達成）
+├── P.4: Blockbench エラーハンドリング
+└── GuardedEventWriter使用開始
+    ↓
+D.15-D.19と並行（L3達成）
+├── P.5: ValidItemId導入
+└── EntityMap実装
+    ↓
+D.20（マルチ）前
+└── StringInternerスレッドセーフ化
+```
+
+### 検証テスト（P.1完了後に追加）
+
+```rust
+#[test]
+fn mod_item_survives_conveyor_flow() {
+    // Modアイテム（BlockTypeに存在しない）を作成
+    let mod_item = ItemId::from_string("test_mod:super_ingot");
+
+    // コンベアに乗せる → パニックしない
+    let conveyor_item = ConveyorItem::new(mod_item);
+
+    // 機械スロットに入れる → パニックしない
+    let slot = MachineSlot::new(mod_item, 1);
+
+    // 描画用BlockType取得 → フォールバック
+    assert!(conveyor_item.visual_block_type().is_some());
+}
+```
+
+---
+
 ## 次のアクション
 
 ### 完了済み
 - ✅ Phase C完了（BlockDescriptor, ItemDescriptor, GameRegistry）
+- ✅ Phase D.0-D.14 基盤実装完了
 
-### Phase D: 基盤強化（順序厳守）
+### Phase D: 基盤強化（実装状況）
 
 | 順序 | タスク | 状態 | 備考 |
 |------|--------|------|------|
-| **D.0** | PlayerInventory Component化 + MachineBundle + 安全API | 未着手 | **Phase D開始の前提条件** |
-| D.1 | イベントシステム（Bevy Observer） | 未着手 | D.0完了後 |
-| D.2 | 動的ID + Phantom Type + newtype | 未着手 | D.1完了後 |
-| D.3 | Mod API Server（WebSocket） | 未着手 | D.2完了後 |
-| D.4 | データ駆動Modding（TOML） | 未着手 | D.3と並行可 |
-| D.5 | Blockbenchローダー | 未着手 | 独立して実装可 |
+| **D.0** | PlayerInventory Component化 + MachineBundle | ✅ 完了 | |
+| D.1 | イベントシステム | ✅ 完了 | 7イベント送信、7箇所購読 |
+| D.2 | 動的ID基盤 | ✅ 基盤完了 | 移行10%、段階的に継続 |
+| D.3 | Mod API Server | ✅ 基盤完了 | WebSocket未起動 |
+| D.4 | データ駆動Modding | ✅ 完了 | 起動時ロード実装済み |
+| D.5-D.14 | 各機能Plugin | ✅ 完了 | 全登録済み |
 
-※ 推奨実装順序セクションと同期済み
+### 次の優先タスク
+
+1. **パニック防止 P.1-P.2**: ConveyorItem, MachineSlot, QuestのBlockType依存除去
+2. **Phase D.15**: 電力システム（新アーキ実証）
+3. **BlockType移行**: 新機能実装時に段階的に
 
 ### 独立機能（Phase D完了後、並行可）
 - マップ機能

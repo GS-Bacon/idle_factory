@@ -410,8 +410,8 @@ pub fn conveyor_transfer(
             }
             TransferTarget::Delivery => {
                 // Deliver the item to GlobalInventory
-                global_inventory.add_item(item.block_type, 1);
-                let total = global_inventory.get_count(item.block_type);
+                global_inventory.add_item_by_id(item.block_type.into(), 1);
+                let total = global_inventory.get_count_by_id(item.block_type.into());
                 info!(category = "QUEST", action = "deliver", item = ?item.block_type, total = total, "Item delivered to storage");
                 if let Some(visual) = item.visual_entity {
                     commands.entity(visual).despawn();

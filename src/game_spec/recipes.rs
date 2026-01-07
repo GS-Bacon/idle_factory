@@ -1,7 +1,13 @@
 //! Recipe system specification
 //!
 //! All processing recipes are defined as `RecipeSpec`.
+//!
+//! ## BlockType vs ItemId
+//!
+//! Recipe definitions use `BlockType` for `const` compatibility.
+//! For ItemId-based lookups, use `find_recipe_by_id()`.
 
+use crate::core::ItemId;
 use crate::BlockType;
 
 /// Machine type for recipes
@@ -285,11 +291,21 @@ pub const ALL_RECIPES: &[&RecipeSpec] = &[
     &RECIPE_CRAFT_ASSEMBLER,
 ];
 
-/// Find recipe by input item and machine type
+/// Find recipe by input item and machine type (BlockType version)
+#[deprecated(note = "Use find_recipe_by_id() instead")]
 pub fn find_recipe(machine: MachineType, input: BlockType) -> Option<&'static RecipeSpec> {
     ALL_RECIPES
         .iter()
         .find(|r| r.machine == machine && r.inputs.iter().any(|i| i.item == input))
+        .copied()
+}
+
+/// Find recipe by input item ID and machine type (ItemId version)
+pub fn find_recipe_by_id(machine: MachineType, input: ItemId) -> Option<&'static RecipeSpec> {
+    let block_type: BlockType = input.try_into().ok()?;
+    ALL_RECIPES
+        .iter()
+        .find(|r| r.machine == machine && r.inputs.iter().any(|i| i.item == block_type))
         .copied()
 }
 
@@ -301,11 +317,38 @@ pub fn get_recipes_for_machine(machine: MachineType) -> impl Iterator<Item = &'s
         .copied()
 }
 
+// =============================================================================
+// ItemId Helpers
+// =============================================================================
+
+impl RecipeInput {
+    /// Get input item as ItemId
+    pub fn item_id(&self) -> ItemId {
+        self.item.into()
+    }
+}
+
+impl RecipeOutput {
+    /// Get output item as ItemId
+    pub fn item_id(&self) -> ItemId {
+        self.item.into()
+    }
+}
+
+impl FuelRequirement {
+    /// Get fuel type as ItemId
+    pub fn fuel_id(&self) -> ItemId {
+        self.fuel_type.into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
+    #[allow(deprecated)]
     fn test_recipe_system() {
         for recipe in ALL_RECIPES {
             assert!(
@@ -336,6 +379,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_fuel_requirements() {
         let iron_smelt = find_recipe(MachineType::Furnace, BlockType::IronOre).unwrap();
         assert!(iron_smelt.fuel.is_some());
@@ -345,6 +389,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_output_chances() {
         for recipe in ALL_RECIPES {
             for output in recipe.outputs {
@@ -379,6 +424,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_crusher_doubles_output() {
         let iron_crush = find_recipe(MachineType::Crusher, BlockType::IronOre).unwrap();
         assert_eq!(iron_crush.outputs[0].count, 2); // Ore -> Dust x2
@@ -386,9 +432,48 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_dust_smelting_faster() {
         let iron_dust_smelt = find_recipe(MachineType::Furnace, BlockType::IronDust).unwrap();
         assert!(iron_dust_smelt.fuel.is_some()); // Dust also needs fuel
         assert!(iron_dust_smelt.craft_time < 2.0); // Faster than ore (1.5s vs 2.0s)
+    }
+
+    // =========================================================================
+    // ItemId API tests
+    // =========================================================================
+
+    #[test]
+    fn test_find_recipe_by_id() {
+        // Furnace recipe lookup
+        let iron_smelt = find_recipe_by_id(MachineType::Furnace, items::iron_ore());
+        assert!(iron_smelt.is_some());
+        assert_eq!(iron_smelt.unwrap().id, "smelt_iron");
+
+        // Crusher recipe lookup
+        let copper_crush = find_recipe_by_id(MachineType::Crusher, items::copper_ore());
+        assert!(copper_crush.is_some());
+        assert_eq!(copper_crush.unwrap().id, "crush_copper");
+
+        // Non-matching lookup
+        let no_recipe = find_recipe_by_id(MachineType::Furnace, items::stone());
+        assert!(no_recipe.is_none());
+    }
+
+    #[test]
+    fn test_recipe_item_id_helpers() {
+        let recipe = &RECIPE_SMELT_IRON;
+
+        // Input item_id
+        let input_id = recipe.inputs[0].item_id();
+        assert_eq!(input_id.name(), Some("base:iron_ore"));
+
+        // Output item_id
+        let output_id = recipe.outputs[0].item_id();
+        assert_eq!(output_id.name(), Some("base:iron_ingot"));
+
+        // Fuel item_id
+        let fuel_id = recipe.fuel.unwrap().fuel_id();
+        assert_eq!(fuel_id.name(), Some("base:coal"));
     }
 }
