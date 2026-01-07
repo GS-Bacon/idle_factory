@@ -1,7 +1,7 @@
 //! Blockbench .bbmodel file loader
 //!
 //! Loads Blockbench project files (.bbmodel) and converts them to Bevy meshes.
-//! Currently supports static models only (no animations).
+//! Supports animations via keyframe data.
 
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 use bevy::image::{CompressedImageFormats, ImageSampler, ImageType};
@@ -35,6 +35,71 @@ pub struct BlockbenchModel {
     pub texture_data: Option<TextureData>,
     /// Bone hierarchy from outliner
     pub bones: Vec<Bone>,
+    /// Animations
+    pub animations: Vec<Animation>,
+}
+
+/// Animation from Blockbench
+#[derive(Debug, Clone)]
+pub struct Animation {
+    /// Animation name
+    pub name: String,
+    /// Loop mode
+    pub loop_mode: LoopMode,
+    /// Total animation length in seconds
+    pub length: f32,
+    /// Keyframes per bone (bone UUID -> keyframes)
+    pub bone_keyframes: std::collections::HashMap<String, Vec<Keyframe>>,
+}
+
+/// Animation loop mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LoopMode {
+    /// Play once
+    #[default]
+    Once,
+    /// Loop continuously
+    Loop,
+    /// Hold on last frame
+    Hold,
+}
+
+/// Single animation keyframe
+#[derive(Debug, Clone)]
+pub struct Keyframe {
+    /// Which property is being animated
+    pub channel: AnimationChannel,
+    /// Time in seconds
+    pub time: f32,
+    /// Value (position/scale as Vec3, rotation as Euler angles in degrees)
+    pub value: Vec3,
+    /// Interpolation method
+    pub interpolation: Interpolation,
+}
+
+/// Animation channel type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnimationChannel {
+    /// Position offset
+    Position,
+    /// Rotation in Euler angles (degrees)
+    Rotation,
+    /// Scale factor
+    Scale,
+}
+
+/// Keyframe interpolation method
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Interpolation {
+    /// Linear interpolation
+    #[default]
+    Linear,
+    /// Catmull-Rom spline
+    CatmullRom,
+    /// Bezier curve
+    Bezier,
+    /// Step (no interpolation)
+    Step,
 }
 
 /// Bone (skeletal hierarchy node) from Blockbench outliner
@@ -133,7 +198,108 @@ struct RawBbmodel {
     /// Outliner (bone hierarchy)
     #[serde(default)]
     outliner: Vec<serde_json::Value>,
+    /// Animations
+    #[serde(default)]
+    animations: Vec<RawAnimation>,
 }
+
+/// Raw animation from JSON
+#[derive(Debug, Deserialize)]
+struct RawAnimation {
+    /// Animation name
+    #[serde(default)]
+    name: String,
+    /// Loop mode: "once", "loop", or "hold"
+    #[serde(rename = "loop", default)]
+    loop_mode: String,
+    /// Animation length in seconds
+    #[serde(default)]
+    length: f32,
+    /// Animators by bone UUID
+    #[serde(default)]
+    animators: std::collections::HashMap<String, RawAnimator>,
+}
+
+/// Raw animator for a single bone
+#[derive(Debug, Deserialize)]
+struct RawAnimator {
+    /// Position keyframes
+    #[serde(default)]
+    position: Vec<RawKeyframe>,
+    /// Rotation keyframes
+    #[serde(default)]
+    rotation: Vec<RawKeyframe>,
+    /// Scale keyframes
+    #[serde(default)]
+    scale: Vec<RawKeyframe>,
+}
+
+/// Raw keyframe from JSON
+#[derive(Debug, Deserialize)]
+struct RawKeyframe {
+    /// Time in seconds (can be number or string)
+    #[serde(default, deserialize_with = "deserialize_time")]
+    time: f32,
+    /// Value as [x, y, z] or single values
+    #[serde(default, rename = "data_points")]
+    data_points: Vec<RawDataPoint>,
+    /// Interpolation mode
+    #[serde(default)]
+    interpolation: String,
+}
+
+/// Raw data point (value at keyframe)
+#[derive(Debug, Deserialize)]
+struct RawDataPoint {
+    #[serde(default, deserialize_with = "deserialize_value")]
+    x: f32,
+    #[serde(default, deserialize_with = "deserialize_value")]
+    y: f32,
+    #[serde(default, deserialize_with = "deserialize_value")]
+    z: f32,
+}
+
+/// Deserialize time which can be a number or string
+fn deserialize_time<'de, D>(deserializer: D) -> Result<f32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error;
+
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::Number(n) => n
+            .as_f64()
+            .map(|v| v as f32)
+            .ok_or_else(|| D::Error::custom("expected number")),
+        serde_json::Value::String(s) => s
+            .parse::<f32>()
+            .map_err(|_| D::Error::custom(format!("invalid time string: {}", s))),
+        _ => Ok(0.0),
+    }
+}
+
+/// Deserialize value which can be a number or string (for expressions)
+fn deserialize_value<'de, D>(deserializer: D) -> Result<f32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::Number(n) => Ok(n.as_f64().unwrap_or(0.0) as f32),
+        serde_json::Value::String(s) => s.parse::<f32>().unwrap_or(0.0).pipe(Ok),
+        _ => Ok(0.0),
+    }
+}
+
+/// Helper trait for pipe syntax
+trait Pipe: Sized {
+    fn pipe<T, F: FnOnce(Self) -> T>(self, f: F) -> T {
+        f(self)
+    }
+}
+
+impl<T> Pipe for T {}
 
 #[derive(Debug, Deserialize, Default)]
 struct RawMeta {
@@ -288,11 +454,15 @@ impl AssetLoader for BlockbenchLoader {
         // Parse bone hierarchy from outliner
         let bones = parse_outliner(&raw.outliner, None);
 
+        // Parse animations
+        let animations = parse_animations(&raw.animations);
+
         tracing::info!(
-            "Loaded bbmodel: {} ({} elements, {} bones, {}x{} resolution)",
+            "Loaded bbmodel: {} ({} elements, {} bones, {} animations, {}x{} resolution)",
             name,
             raw.elements.len(),
             bones.len(),
+            animations.len(),
             resolution.x,
             resolution.y
         );
@@ -303,6 +473,7 @@ impl AssetLoader for BlockbenchLoader {
             mesh,
             texture_data,
             bones,
+            animations,
         })
     }
 
@@ -400,6 +571,89 @@ fn parse_bone_object(
         parent: parent_name.map(|s| s.to_string()),
         origin,
         children,
+    })
+}
+
+/// Parse animations from raw animation data
+fn parse_animations(raw_anims: &[RawAnimation]) -> Vec<Animation> {
+    raw_anims.iter().map(parse_animation).collect()
+}
+
+/// Parse a single animation
+fn parse_animation(raw: &RawAnimation) -> Animation {
+    let loop_mode = match raw.loop_mode.as_str() {
+        "loop" => LoopMode::Loop,
+        "hold" => LoopMode::Hold,
+        _ => LoopMode::Once,
+    };
+
+    let mut bone_keyframes = std::collections::HashMap::new();
+
+    for (bone_uuid, animator) in &raw.animators {
+        let mut keyframes = Vec::new();
+
+        // Parse position keyframes
+        for kf in &animator.position {
+            if let Some(keyframe) = parse_keyframe(kf, AnimationChannel::Position) {
+                keyframes.push(keyframe);
+            }
+        }
+
+        // Parse rotation keyframes
+        for kf in &animator.rotation {
+            if let Some(keyframe) = parse_keyframe(kf, AnimationChannel::Rotation) {
+                keyframes.push(keyframe);
+            }
+        }
+
+        // Parse scale keyframes
+        for kf in &animator.scale {
+            if let Some(keyframe) = parse_keyframe(kf, AnimationChannel::Scale) {
+                keyframes.push(keyframe);
+            }
+        }
+
+        // Sort keyframes by time
+        keyframes.sort_by(|a, b| {
+            a.time
+                .partial_cmp(&b.time)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        if !keyframes.is_empty() {
+            bone_keyframes.insert(bone_uuid.clone(), keyframes);
+        }
+    }
+
+    Animation {
+        name: raw.name.clone(),
+        loop_mode,
+        length: raw.length,
+        bone_keyframes,
+    }
+}
+
+/// Parse a single keyframe
+fn parse_keyframe(raw: &RawKeyframe, channel: AnimationChannel) -> Option<Keyframe> {
+    // Get value from first data point
+    let value = if let Some(dp) = raw.data_points.first() {
+        Vec3::new(dp.x, dp.y, dp.z)
+    } else {
+        return None;
+    };
+
+    let interpolation = match raw.interpolation.as_str() {
+        "catmullrom" => Interpolation::CatmullRom,
+        "bezier" => Interpolation::Bezier,
+        "step" => Interpolation::Step,
+        _ => Interpolation::Linear,
+    };
+
+    Some(Keyframe {
+        channel,
+        time: raw.time,
+        value,
+        interpolation,
     })
 }
 
@@ -904,6 +1158,7 @@ mod tests {
                 uv_height: Some(1),
             }),
             bones: vec![],
+            animations: vec![],
         };
 
         let image = model.create_texture();
@@ -926,6 +1181,7 @@ mod tests {
             ),
             texture_data: None,
             bones: vec![],
+            animations: vec![],
         };
 
         let image = model.create_texture();
@@ -947,6 +1203,7 @@ mod tests {
                 uv_height: Some(1),
             }),
             bones: vec![],
+            animations: vec![],
         };
 
         let image = model.create_texture();
@@ -1045,5 +1302,162 @@ mod tests {
 
         // Root-level elements are not bones, so bones should be empty
         assert!(bones.is_empty());
+    }
+
+    #[test]
+    fn test_parse_animation_simple() {
+        // Simple animation with position and rotation keyframes
+        let raw = RawAnimation {
+            name: "walk".to_string(),
+            loop_mode: "loop".to_string(),
+            length: 1.0,
+            animators: {
+                let mut map = std::collections::HashMap::new();
+                map.insert(
+                    "bone-uuid-1".to_string(),
+                    RawAnimator {
+                        position: vec![
+                            RawKeyframe {
+                                time: 0.0,
+                                data_points: vec![RawDataPoint {
+                                    x: 0.0,
+                                    y: 0.0,
+                                    z: 0.0,
+                                }],
+                                interpolation: "linear".to_string(),
+                            },
+                            RawKeyframe {
+                                time: 0.5,
+                                data_points: vec![RawDataPoint {
+                                    x: 0.0,
+                                    y: 1.0,
+                                    z: 0.0,
+                                }],
+                                interpolation: "linear".to_string(),
+                            },
+                        ],
+                        rotation: vec![RawKeyframe {
+                            time: 0.0,
+                            data_points: vec![RawDataPoint {
+                                x: 0.0,
+                                y: 45.0,
+                                z: 0.0,
+                            }],
+                            interpolation: "catmullrom".to_string(),
+                        }],
+                        scale: vec![],
+                    },
+                );
+                map
+            },
+        };
+
+        let anim = parse_animation(&raw);
+
+        assert_eq!(anim.name, "walk");
+        assert_eq!(anim.loop_mode, LoopMode::Loop);
+        assert_eq!(anim.length, 1.0);
+        assert_eq!(anim.bone_keyframes.len(), 1);
+
+        let keyframes = anim.bone_keyframes.get("bone-uuid-1").unwrap();
+        assert_eq!(keyframes.len(), 3); // 2 position + 1 rotation
+
+        // Keyframes should be sorted by time
+        assert_eq!(keyframes[0].time, 0.0);
+        assert_eq!(keyframes[1].time, 0.0);
+        assert_eq!(keyframes[2].time, 0.5);
+    }
+
+    #[test]
+    fn test_parse_animation_all_interpolation_types() {
+        // Test all interpolation types
+        let raw = RawAnimation {
+            name: "test".to_string(),
+            loop_mode: "once".to_string(),
+            length: 2.0,
+            animators: {
+                let mut map = std::collections::HashMap::new();
+                map.insert(
+                    "bone-1".to_string(),
+                    RawAnimator {
+                        position: vec![
+                            RawKeyframe {
+                                time: 0.0,
+                                data_points: vec![RawDataPoint {
+                                    x: 0.0,
+                                    y: 0.0,
+                                    z: 0.0,
+                                }],
+                                interpolation: "linear".to_string(),
+                            },
+                            RawKeyframe {
+                                time: 0.5,
+                                data_points: vec![RawDataPoint {
+                                    x: 1.0,
+                                    y: 0.0,
+                                    z: 0.0,
+                                }],
+                                interpolation: "catmullrom".to_string(),
+                            },
+                            RawKeyframe {
+                                time: 1.0,
+                                data_points: vec![RawDataPoint {
+                                    x: 2.0,
+                                    y: 0.0,
+                                    z: 0.0,
+                                }],
+                                interpolation: "bezier".to_string(),
+                            },
+                            RawKeyframe {
+                                time: 1.5,
+                                data_points: vec![RawDataPoint {
+                                    x: 3.0,
+                                    y: 0.0,
+                                    z: 0.0,
+                                }],
+                                interpolation: "step".to_string(),
+                            },
+                        ],
+                        rotation: vec![],
+                        scale: vec![RawKeyframe {
+                            time: 0.0,
+                            data_points: vec![RawDataPoint {
+                                x: 1.0,
+                                y: 1.0,
+                                z: 1.0,
+                            }],
+                            interpolation: "linear".to_string(),
+                        }],
+                    },
+                );
+                map
+            },
+        };
+
+        let anim = parse_animation(&raw);
+
+        assert_eq!(anim.name, "test");
+        assert_eq!(anim.loop_mode, LoopMode::Once);
+        assert_eq!(anim.length, 2.0);
+
+        let keyframes = anim.bone_keyframes.get("bone-1").unwrap();
+        assert_eq!(keyframes.len(), 5); // 4 position + 1 scale
+
+        // Check interpolation types (keyframes are sorted by time)
+        assert_eq!(keyframes[0].interpolation, Interpolation::Linear); // position at 0.0
+        assert_eq!(keyframes[1].interpolation, Interpolation::Linear); // scale at 0.0
+        assert_eq!(keyframes[2].interpolation, Interpolation::CatmullRom); // position at 0.5
+        assert_eq!(keyframes[3].interpolation, Interpolation::Bezier); // position at 1.0
+        assert_eq!(keyframes[4].interpolation, Interpolation::Step); // position at 1.5
+
+        // Check channels
+        assert_eq!(keyframes[0].channel, AnimationChannel::Position);
+        assert_eq!(keyframes[1].channel, AnimationChannel::Scale);
+        assert_eq!(keyframes[2].channel, AnimationChannel::Position);
+
+        // Check values
+        assert_eq!(keyframes[0].value, Vec3::new(0.0, 0.0, 0.0));
+        assert_eq!(keyframes[1].value, Vec3::new(1.0, 1.0, 1.0)); // scale
+        assert_eq!(keyframes[2].value, Vec3::new(1.0, 0.0, 0.0));
     }
 }
