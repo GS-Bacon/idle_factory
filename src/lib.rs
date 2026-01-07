@@ -16,6 +16,7 @@ pub mod game_spec;
 pub mod logging;
 pub mod logistics;
 pub mod machines;
+pub mod map;
 pub mod meshes;
 pub mod player;
 pub mod plugins;
@@ -23,6 +24,7 @@ pub mod rng;
 pub mod save;
 pub mod settings;
 pub mod setup;
+pub mod statistics;
 pub mod systems;
 pub mod ui;
 #[cfg(feature = "updater")]
@@ -60,6 +62,12 @@ pub use utils::{
 
 // Re-export achievements
 pub use achievements::{AchievementUnlocked, AchievementsPlugin, PlayerAchievements};
+
+// Re-export map types
+pub use map::{MapData, MapMarker, MapPlugin, MarkerType, ToggleMap};
+
+// Re-export statistics types
+pub use statistics::{ProductionStats, StatisticsPlugin, TimeSeries};
 
 // Re-export plugins for testing
 pub use audio::{AudioPlugin, SoundCategory, SoundSettings};
