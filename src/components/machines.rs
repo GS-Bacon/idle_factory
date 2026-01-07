@@ -252,6 +252,36 @@ pub struct ConveyorItemVisual;
 
 use crate::game_spec::MachineSpec;
 
+// =============================================================================
+// MachineBundle - Safe machine spawning (Phase D.0)
+// =============================================================================
+
+/// Bundle for spawning machines with all required components.
+#[derive(Bundle)]
+pub struct MachineBundle {
+    pub machine: Machine,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
+}
+
+impl MachineBundle {
+    /// Create a new MachineBundle from spec
+    pub fn new(spec: &'static MachineSpec, position: IVec3, facing: Direction) -> Self {
+        let world_pos = crate::utils::grid_to_world_center(position);
+        Self {
+            machine: Machine::new(spec, position, facing),
+            transform: Transform::from_translation(world_pos).with_rotation(facing.to_rotation()),
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::Inherited,
+            inherited_visibility: InheritedVisibility::default(),
+            view_visibility: ViewVisibility::default(),
+        }
+    }
+}
+
 /// Slot storage for a machine (type + count)
 #[derive(Clone, Debug, Default)]
 pub struct MachineSlot {

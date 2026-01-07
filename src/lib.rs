@@ -3,6 +3,7 @@
 //! This library exposes the core game types and systems for use in tests and the main binary.
 
 pub mod block_type;
+pub mod blockbench;
 pub mod components;
 pub mod constants;
 pub mod core;
@@ -53,6 +54,7 @@ pub use utils::{
 };
 
 // Re-export plugins for testing
+pub use blockbench::BlockbenchPlugin;
 pub use plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 pub use vox_loader::VoxLoaderPlugin;
 

@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "test_machine",
+  "resolution": {
+    "width": 32,
+    "height": 32
+  },
+  "elements": [
+    {
+      "uuid": "base-0001",
+      "name": "base",
+      "type": "cube",
+      "box_uv": false,
+      "from": [0, 0, 0],
+      "to": [16, 4, 16],
+      "origin": [8, 2, 8],
+      "rotation": [0, 0, 0],
+      "faces": {
+        "north": {"uv": [0, 0, 16, 4], "texture": 0},
+        "south": {"uv": [0, 0, 16, 4], "texture": 0},
+        "east": {"uv": [0, 0, 16, 4], "texture": 0},
+        "west": {"uv": [0, 0, 16, 4], "texture": 0},
+        "up": {"uv": [0, 0, 16, 16], "texture": 0},
+        "down": {"uv": [0, 0, 16, 16], "texture": 0}
+      }
+    },
+    {
+      "uuid": "body-0002",
+      "name": "body",
+      "type": "cube",
+      "box_uv": false,
+      "from": [2, 4, 2],
+      "to": [14, 14, 14],
+      "origin": [8, 9, 8],
+      "rotation": [0, 0, 0],
+      "faces": {
+        "north": {"uv": [16, 0, 28, 10], "texture": 0},
+        "south": {"uv": [16, 0, 28, 10], "texture": 0},
+        "east": {"uv": [16, 0, 28, 10], "texture": 0},
+        "west": {"uv": [16, 0, 28, 10], "texture": 0},
+        "up": {"uv": [16, 16, 28, 28], "texture": 0},
+        "down": {"uv": [16, 16, 28, 28], "texture": 0}
+      }
+    },
+    {
+      "uuid": "arm-0003",
+      "name": "arm",
+      "type": "cube",
+      "box_uv": false,
+      "from": [6, 10, -4],
+      "to": [10, 12, 2],
+      "origin": [8, 11, 0],
+      "rotation": [0, 45, 0],
+      "faces": {
+        "north": {"uv": [0, 16, 4, 18], "texture": 0},
+        "south": {"uv": [0, 16, 4, 18], "texture": 0},
+        "east": {"uv": [0, 16, 6, 18], "texture": 0},
+        "west": {"uv": [0, 16, 6, 18], "texture": 0},
+        "up": {"uv": [0, 16, 4, 22], "texture": 0},
+        "down": {"uv": [0, 16, 4, 22], "texture": 0}
+      }
+    }
+  ],
+  "textures": [],
+  "outliner": [
+    {
+      "name": "machine",
+      "origin": [8, 8, 8],
+      "rotation": [0, 0, 0],
+      "uuid": "group-0001",
+      "children": ["base-0001", "body-0002", "arm-0003"]
+    }
+  ]
+}

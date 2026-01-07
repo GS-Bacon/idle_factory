@@ -245,6 +245,124 @@ impl Inventory {
     }
 }
 
+// =============================================================================
+// PlayerInventory (Component) - For multiplayer-ready architecture
+// =============================================================================
+
+/// Player inventory component (multiplayer-ready)
+#[derive(Component, Clone, Debug)]
+pub struct PlayerInventory {
+    pub slots: [Option<(BlockType, u32)>; NUM_SLOTS],
+    pub selected_slot: usize,
+}
+
+impl Default for PlayerInventory {
+    fn default() -> Self {
+        Self {
+            slots: [None; NUM_SLOTS],
+            selected_slot: 0,
+        }
+    }
+}
+
+impl PlayerInventory {
+    pub fn with_initial_items(items: &[(BlockType, u32)]) -> Self {
+        let mut inv = Self::default();
+        for (block_type, amount) in items {
+            inv.add_item(*block_type, *amount);
+        }
+        inv
+    }
+
+    pub fn is_hotbar_slot(slot: usize) -> bool {
+        slot < HOTBAR_SLOTS
+    }
+
+    pub fn is_main_slot(slot: usize) -> bool {
+        (HOTBAR_SLOTS..NUM_SLOTS).contains(&slot)
+    }
+
+    pub fn get_slot(&self, slot: usize) -> Option<BlockType> {
+        self.slots.get(slot).and_then(|s| s.map(|(bt, _)| bt))
+    }
+
+    pub fn get_slot_count(&self, slot: usize) -> u32 {
+        self.slots
+            .get(slot)
+            .and_then(|s| s.map(|(_, c)| c))
+            .unwrap_or(0)
+    }
+
+    pub fn add_item(&mut self, block_type: BlockType, mut amount: u32) -> u32 {
+        for slot in self.slots.iter_mut() {
+            if amount == 0 {
+                break;
+            }
+            if let Some((bt, count)) = slot {
+                if *bt == block_type && *count < MAX_STACK_SIZE {
+                    let space = MAX_STACK_SIZE - *count;
+                    let to_add = amount.min(space);
+                    *count += to_add;
+                    amount -= to_add;
+                }
+            }
+        }
+        for slot in self.slots.iter_mut() {
+            if amount == 0 {
+                break;
+            }
+            if slot.is_none() {
+                let to_add = amount.min(MAX_STACK_SIZE);
+                *slot = Some((block_type, to_add));
+                amount -= to_add;
+            }
+        }
+        amount
+    }
+
+    pub fn get_total_count(&self, block_type: BlockType) -> u32 {
+        self.slots
+            .iter()
+            .flatten()
+            .filter(|(bt, _)| *bt == block_type)
+            .map(|(_, count)| count)
+            .sum()
+    }
+}
+
+// =============================================================================
+// LocalPlayer Resource
+// =============================================================================
+
+/// Resource holding the local player's entity
+#[derive(Resource)]
+pub struct LocalPlayer(pub Entity);
+
+// =============================================================================
+// Inventory Sync System
+// =============================================================================
+
+/// Sync Inventory (Resource) with PlayerInventory (Component)
+pub fn sync_inventory_system(
+    mut legacy_inv: ResMut<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    mut inventory_query: Query<&mut PlayerInventory>,
+) {
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(mut component_inv) = inventory_query.get_mut(local_player.0) else {
+        return;
+    };
+    if legacy_inv.is_changed() {
+        component_inv.slots = legacy_inv.slots;
+        component_inv.selected_slot = legacy_inv.selected_slot;
+    } else if component_inv.is_changed() {
+        legacy_inv.slots = component_inv.slots;
+        legacy_inv.selected_slot = component_inv.selected_slot;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
