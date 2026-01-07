@@ -257,7 +257,7 @@
         "src/systems/command/executor.rs",
         "src/systems/command/ui.rs"
       ],
-      "status": "pending",
+      "status": "completed",
       "description": "Inventory Resource → LocalPlayer + Query移行 (3箇所)"
     },
     {
@@ -271,7 +271,7 @@
       "files": [
         "src/systems/hotbar.rs"
       ],
-      "status": "pending",
+      "status": "completed",
       "description": "Inventory Resource → LocalPlayer + Query移行 (4箇所)"
     },
     {
@@ -285,7 +285,7 @@
       "files": [
         "src/systems/inventory_ui.rs"
       ],
-      "status": "pending",
+      "status": "completed",
       "description": "Inventory Resource → LocalPlayer + Query移行 (5箇所)"
     },
     {
@@ -299,7 +299,7 @@
       "files": [
         "src/save/systems.rs"
       ],
-      "status": "pending",
+      "status": "completed",
       "description": "Inventory Resource → LocalPlayer + Query移行 (2箇所)"
     },
     {
@@ -313,7 +313,7 @@
       "files": [
         "src/player/inventory.rs"
       ],
-      "status": "pending",
+      "status": "completed",
       "description": "sync_inventory_system削除、Inventory Resource削除"
     },
     {
@@ -339,7 +339,7 @@
       "files": [
         "src/blockbench.rs"
       ],
-      "status": "in_progress",
+      "status": "completed",
       "description": "keyframes, bones対応"
     }
   ],

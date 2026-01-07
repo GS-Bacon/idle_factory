@@ -8,9 +8,9 @@
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **~19,000行** |
-| テスト | **344件** 通過 |
+| テスト | **140件** 通過 |
 | Clippy警告 | **0件** |
-| Phase | **C 完了** → **D 準備中** |
+| Phase | **D.0/D.5 完了** → **D.1 次** |
 
 ---
 
@@ -20,38 +20,32 @@
 
 | # | タスク | 内容 | 状態 |
 |---|--------|------|------|
-| D.0 | **マルチ準備** | PlayerInventory Component化 + MachineBundle + 安全API | ⚠️ 最優先 |
+| D.0 | **マルチ準備** | PlayerInventory Component化 + LocalPlayer + Query | ✅ 完了 |
 | D.1 | **イベントシステム** | Bevy Observer + 全フック + GuardedEventWriter | 未着手 |
 | D.2 | **動的ID** | Phantom Type + StringInterner + Registry | 未着手 |
 | D.3 | **Mod API Server** | WebSocket/JSON-RPC + バージョニング | 未着手 |
 | D.4 | **データ駆動Mod** | TOML/JSONでコンテンツ追加 | 未着手 |
-| D.5 | **Blockbenchローダー** | .bbmodel直接読み込み | 未着手 |
+| D.5 | **Blockbenchローダー** | .bbmodel直接読み込み + アニメーション | ✅ 完了 |
 
-### D.0 詳細
+### D.0 完了内容 (2026-01-07)
 
-```rust
-// ❌ 現在（シングルトン）
-#[derive(Resource)]
-pub struct PlayerInventory { ... }
+- `LocalPlayer(Entity)` リソース導入
+- `PlayerInventory` Component化（`Inventory` Resource削除）
+- 全システムを `LocalPlayer + Query<&PlayerInventory>` パターンに移行
+  - targeting/block_operations (5箇所)
+  - machines/generic.rs, command/*.rs (3箇所)
+  - hotbar.rs (4箇所)
+  - inventory_ui.rs (5箇所)
+  - save/systems.rs (2箇所)
+- `sync_inventory_system` 削除
+- **-413行** 削減
 
-// ✅ 将来（コンポーネント）
-#[derive(Component)]
-pub struct Inventory { ... }
+### D.5 完了内容 (2026-01-07)
 
-// MachineBundle導入
-#[derive(Bundle)]
-pub struct MachineBundle {
-    pub machine: Machine,
-    pub transform: Transform,
-    // 必須コンポーネント全て含む
-}
-```
-
-**移行手順**:
-1. `LocalPlayer(Entity)` リソース追加
-2. `Inventory` コンポーネント化
-3. 既存システムを段階的に移行
-4. `PlayerInventory` リソース削除
+- テクスチャ読み込み（base64 → Image）
+- Bone階層構造パース
+- Keyframe/Animation構造パース
+- `load_bbmodel()` でアニメーション返却
 
 ---
 
