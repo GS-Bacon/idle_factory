@@ -258,7 +258,7 @@ use crate::components::{
     CursorLockState, GenericMachineProgressBar, GenericMachineSlotButton, GenericMachineSlotCount,
     GenericMachineUI, InteractingMachine, InventoryOpen, PlayerCamera,
 };
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::systems::cursor;
 use crate::REACH_DISTANCE;
 use bevy::window::CursorGrabMode;
@@ -446,7 +446,8 @@ pub fn machine_visual_feedback(
 pub fn generic_machine_ui_input(
     interacting: Res<InteractingMachine>,
     mut machine_query: Query<&mut Machine>,
-    mut inventory: ResMut<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    mut inventory_query: Query<&mut PlayerInventory>,
     mut slot_btn_query: Query<
         (
             &Interaction,
@@ -461,6 +462,14 @@ pub fn generic_machine_ui_input(
     };
 
     let Ok(mut machine) = machine_query.get_mut(entity) else {
+        return;
+    };
+
+    let Some(local_player) = local_player else {
+        return;
+    };
+
+    let Ok(mut inventory) = inventory_query.get_mut(local_player.0) else {
         return;
     };
 

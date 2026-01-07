@@ -4,7 +4,7 @@
 
 use crate::components::{CreativeMode, LoadGameEvent, SaveGameEvent};
 use crate::events::SpawnMachineEvent;
-use crate::player::Inventory;
+use crate::player::PlayerInventory;
 use crate::utils::parse_item_name;
 use crate::BlockType;
 use bevy::prelude::*;
@@ -20,7 +20,7 @@ use super::{
 pub fn execute_command(
     command: &str,
     creative_mode: &mut ResMut<CreativeMode>,
-    inventory: &mut ResMut<Inventory>,
+    inventory: &mut Mut<PlayerInventory>,
     save_events: &mut EventWriter<SaveGameEvent>,
     load_events: &mut EventWriter<LoadGameEvent>,
     tp_events: &mut EventWriter<TeleportEvent>,
@@ -278,7 +278,7 @@ pub fn execute_command(
                         let min_count: u32 = parts[3].parse().unwrap_or(1);
 
                         if let Some(block_type) = parse_item_name(&item_name) {
-                            let actual = inventory.get_item_count(block_type);
+                            let actual = inventory.get_total_count(block_type);
                             if actual >= min_count {
                                 info!(
                                     "✓ PASS: {} >= {} (actual: {})",

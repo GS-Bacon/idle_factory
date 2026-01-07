@@ -9,7 +9,7 @@ use crate::components::*;
 use crate::events::GameEventsPlugin;
 use crate::game_spec;
 use crate::game_spec::RegistryPlugin;
-use crate::player::{GlobalInventory, Inventory};
+use crate::player::GlobalInventory;
 use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 use crate::settings::SettingsPlugin;
 use crate::setup::{
@@ -52,8 +52,7 @@ impl Plugin for GamePlugin {
             .add_plugins(DebugPlugin);
 
         // Initialize resources
-        app.insert_resource(Inventory::with_initial_items(game_spec::INITIAL_EQUIPMENT))
-            .insert_resource(GlobalInventory::with_items(game_spec::INITIAL_EQUIPMENT))
+        app.insert_resource(GlobalInventory::with_items(game_spec::INITIAL_EQUIPMENT))
             .init_resource::<WorldData>()
             .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
             .init_resource::<CursorLockState>()

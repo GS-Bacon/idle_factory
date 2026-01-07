@@ -4310,10 +4310,8 @@ fn test_place_not_inside_conveyor() {
 // Bevy App Simulation Tests
 // =====================================================
 
-use idle_factory::{
-    BlockBreakEvent, BlockPlaceEvent, GameEventsPlugin, Inventory as RealInventory,
-    QuestProgressEvent,
-};
+use idle_factory::player::PlayerInventory;
+use idle_factory::{BlockBreakEvent, BlockPlaceEvent, GameEventsPlugin, QuestProgressEvent};
 
 /// Test that GameEventsPlugin registers all events correctly
 #[test]
@@ -4345,22 +4343,25 @@ fn test_game_events_plugin_registers_events() {
     // If we get here without panic, events are registered correctly
 }
 
-/// Test Inventory resource in Bevy App context
+/// Test PlayerInventory component in Bevy App context
 #[test]
-fn test_inventory_resource_in_app() {
+fn test_inventory_component_in_app() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
 
-    // Insert inventory with initial items
-    app.insert_resource(RealInventory::with_initial_items(&[
-        (BlockType::Stone, 64),
-        (BlockType::IronOre, 32),
-    ]));
+    // Spawn player entity with inventory
+    let player_entity = app
+        .world_mut()
+        .spawn(PlayerInventory::with_initial_items(&[
+            (BlockType::Stone, 64),
+            (BlockType::IronOre, 32),
+        ]))
+        .id();
 
     app.update();
 
     // Verify inventory state
-    let inventory = app.world().resource::<RealInventory>();
+    let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
 
     // Check first slot has stone
     assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
@@ -4371,18 +4372,23 @@ fn test_inventory_resource_in_app() {
     assert_eq!(inventory.get_slot_count(1), 32);
 }
 
-/// Test inventory add_item system behavior
+/// Test inventory add_item stacking behavior
 #[test]
 fn test_inventory_stacking_in_app() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    app.insert_resource(RealInventory::default());
+
+    // Spawn player entity with empty inventory
+    let player_entity = app.world_mut().spawn(PlayerInventory::default()).id();
 
     app.update();
 
     // Add items through world access
     {
-        let mut inventory = app.world_mut().resource_mut::<RealInventory>();
+        let mut inventory = app
+            .world_mut()
+            .get_mut::<PlayerInventory>(player_entity)
+            .unwrap();
         inventory.add_item(BlockType::Coal, 100);
         inventory.add_item(BlockType::Coal, 100);
         inventory.add_item(BlockType::Coal, 100);
@@ -4391,7 +4397,7 @@ fn test_inventory_stacking_in_app() {
     app.update();
 
     // Verify stacking behavior
-    let inventory = app.world().resource::<RealInventory>();
+    let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
 
     // Coal should be stacked (999 max per slot)
     let total_coal: u32 = (0..idle_factory::constants::NUM_SLOTS)
@@ -4462,31 +4468,34 @@ fn test_inventory_slot_selection() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
 
-    let mut inv = RealInventory::default();
+    let mut inv = PlayerInventory::default();
     inv.add_item(BlockType::Grass, 10);
     inv.add_item(BlockType::Coal, 20);
     inv.add_item(BlockType::Stone, 30);
 
-    app.insert_resource(inv);
+    let player_entity = app.world_mut().spawn(inv).id();
     app.update();
 
     // Initial selection is slot 0
     {
-        let inventory = app.world().resource::<RealInventory>();
+        let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
         assert_eq!(inventory.selected_slot, 0);
         assert_eq!(inventory.selected_block(), Some(BlockType::Grass));
     }
 
     // Change selection to slot 2
     {
-        let mut inventory = app.world_mut().resource_mut::<RealInventory>();
+        let mut inventory = app
+            .world_mut()
+            .get_mut::<PlayerInventory>(player_entity)
+            .unwrap();
         inventory.selected_slot = 2;
     }
 
     app.update();
 
     {
-        let inventory = app.world().resource::<RealInventory>();
+        let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
         assert_eq!(inventory.selected_slot, 2);
         assert_eq!(inventory.selected_block(), Some(BlockType::Stone));
     }

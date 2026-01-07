@@ -57,7 +57,7 @@ mod tests {
     use idle_factory::components::*;
     use idle_factory::constants::{CONVEYOR_MAX_ITEMS, HOTBAR_SLOTS, NUM_SLOTS};
     use idle_factory::game_spec::{find_recipe, MachineType};
-    use idle_factory::player::Inventory;
+    use idle_factory::player::PlayerInventory;
     use idle_factory::systems::quest::get_main_quests;
     use idle_factory::utils::{ray_aabb_intersection, ray_aabb_intersection_with_normal};
     use idle_factory::world::{ChunkData, WorldData};
@@ -156,9 +156,9 @@ mod tests {
 
     #[test]
     fn test_inventory_add() {
-        let mut inventory = Inventory::default();
+        let mut inventory = PlayerInventory::default();
         inventory.add_item(BlockType::Stone, 1);
-        assert_eq!(inventory.get_item_count(BlockType::Stone), 1);
+        assert_eq!(inventory.get_total_count(BlockType::Stone), 1);
     }
 
     #[test]
@@ -197,11 +197,11 @@ mod tests {
 
     #[test]
     fn test_inventory_consumption() {
-        let mut inventory = Inventory::default();
+        let mut inventory = PlayerInventory::default();
         inventory.add_item(BlockType::Stone, 10);
         inventory.selected_slot = 0;
         assert_eq!(inventory.get_slot_count(0), 10);
-        inventory.consume_selected();
+        inventory.consume_item(BlockType::Stone, 1);
         assert_eq!(inventory.get_slot_count(0), 9);
     }
 

@@ -8,7 +8,7 @@
 
 use crate::components::*;
 use crate::events::SpawnMachineEvent;
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::systems::cursor;
 use crate::{GlobalInventoryOpen, InteractingMachine};
 use bevy::prelude::*;
@@ -81,14 +81,18 @@ pub fn command_input_toggle(
 
 /// Handle command input text entry
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn command_input_handler(
     key_input: Res<ButtonInput<KeyCode>>,
     mut command_state: ResMut<CommandInputState>,
-    mut ui_query: Query<&mut Visibility, With<CommandInputUI>>,
-    mut text_query: Query<&mut Text, With<CommandInputText>>,
+    mut ui_query: Query<
+        (Option<&mut Visibility>, Option<&mut Text>),
+        Or<(With<CommandInputUI>, With<CommandInputText>)>,
+    >,
     mut windows: Query<&mut Window>,
     mut creative_mode: ResMut<CreativeMode>,
-    mut inventory: ResMut<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    mut inventory_query: Query<&mut PlayerInventory>,
     mut save_events: EventWriter<SaveGameEvent>,
     mut load_events: EventWriter<LoadGameEvent>,
     mut tp_events: EventWriter<TeleportEvent>,
@@ -109,8 +113,10 @@ pub fn command_input_handler(
         command_state.text.clear();
         command_state.suggestion_index = 0;
 
-        for mut vis in ui_query.iter_mut() {
-            *vis = Visibility::Hidden;
+        for (vis, _) in ui_query.iter_mut() {
+            if let Some(mut vis) = vis {
+                *vis = Visibility::Hidden;
+            }
         }
 
         // Lock cursor
@@ -138,8 +144,10 @@ pub fn command_input_handler(
         command_state.text.clear();
         command_state.suggestion_index = 0;
 
-        for mut vis in ui_query.iter_mut() {
-            *vis = Visibility::Hidden;
+        for (vis, _) in ui_query.iter_mut() {
+            if let Some(mut vis) = vis {
+                *vis = Visibility::Hidden;
+            }
         }
 
         // Lock cursor
@@ -147,7 +155,13 @@ pub fn command_input_handler(
             cursor::lock_cursor(&mut window);
         }
 
-        // Execute command
+        // Execute command (requires player inventory)
+        let Some(local_player) = local_player.as_ref() else {
+            return;
+        };
+        let Ok(mut inventory) = inventory_query.get_mut(local_player.0) else {
+            return;
+        };
         execute_command(
             &command,
             &mut creative_mode,
@@ -190,8 +204,10 @@ pub fn command_input_handler(
     }
 
     // Update display text
-    for mut text in text_query.iter_mut() {
-        text.0 = format!("> {}|", command_state.text);
+    for (_, text) in ui_query.iter_mut() {
+        if let Some(mut text) = text {
+            text.0 = format!("> {}|", command_state.text);
+        }
     }
 }
 

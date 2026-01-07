@@ -7,7 +7,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::components::{Conveyor, Crusher, Furnace, Miner, PlayerCamera};
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::world::WorldData;
 
 /// Serializable snapshot of game state
@@ -132,17 +132,20 @@ fn extract_inventory(world: &World) -> InventoryDump {
     let mut selected_slot = 0;
     let mut total_items = 0u32;
 
-    if let Some(inventory) = world.get_resource::<Inventory>() {
-        selected_slot = inventory.selected_slot;
-        for slot in &inventory.slots {
-            if let Some((block_type, count)) = slot {
-                total_items += count;
-                slots.push(Some(ItemStackDump {
-                    item: block_type.name().to_string(),
-                    count: *count,
-                }));
-            } else {
-                slots.push(None);
+    // Get inventory via LocalPlayer + PlayerInventory
+    if let Some(local_player) = world.get_resource::<LocalPlayer>() {
+        if let Some(inventory) = world.get::<PlayerInventory>(local_player.0) {
+            selected_slot = inventory.selected_slot;
+            for slot in &inventory.slots {
+                if let Some((block_type, count)) = slot {
+                    total_items += count;
+                    slots.push(Some(ItemStackDump {
+                        item: block_type.name().to_string(),
+                        count: *count,
+                    }));
+                } else {
+                    slots.push(None);
+                }
             }
         }
     }
