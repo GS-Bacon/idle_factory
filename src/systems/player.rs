@@ -2,8 +2,8 @@
 
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
-    InteractingCrusher, InteractingFurnace, InventoryOpen, PauseUI, Player, PlayerCamera,
-    PlayerPhysics, TutorialPopup, TutorialShown,
+    InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialPopup,
+    TutorialShown,
 };
 use crate::systems::cursor;
 use crate::world::WorldData;
@@ -19,16 +19,14 @@ use tracing::info;
 pub fn toggle_cursor_lock(
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
-    interacting_furnace: Res<InteractingFurnace>,
-    interacting_crusher: Res<InteractingCrusher>,
+    interacting_machine: Res<InteractingMachine>,
     creative_inv_open: Res<InventoryOpen>,
     mut cursor_state: ResMut<CursorLockState>,
 ) {
     let mut window = windows.single_mut();
 
     // Check if any UI is open
-    let any_ui_open =
-        interacting_furnace.0.is_some() || interacting_crusher.0.is_some() || creative_inv_open.0;
+    let any_ui_open = interacting_machine.0.is_some() || creative_inv_open.0;
 
     // Click to lock cursor (when not locked or paused, and no UI open)
     // Also handle case where cursor may have been released
@@ -55,8 +53,7 @@ pub fn player_look(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut cursor_lock_state: ResMut<CursorLockState>,
     inventory_open: Res<InventoryOpen>,
-    interacting_furnace: Res<InteractingFurnace>,
-    interacting_crusher: Res<InteractingCrusher>,
+    interacting_machine: Res<InteractingMachine>,
     command_state: Res<CommandInputState>,
     tutorial_shown: Res<TutorialShown>,
 ) {
@@ -67,8 +64,7 @@ pub fn player_look(
 
     // Don't look around while any UI is open or game is paused (input matrix: Mouse Move)
     if inventory_open.0
-        || interacting_furnace.0.is_some()
-        || interacting_crusher.0.is_some()
+        || interacting_machine.0.is_some()
         || command_state.open
         || cursor_lock_state.paused
     {

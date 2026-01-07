@@ -5,8 +5,8 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    CommandInputState, Crusher, CursorLockState, Furnace, GlobalInventoryOpen, InteractingCrusher,
-    InteractingFurnace, InteractingMiner, InventoryOpen, Miner, UIAction, UIContext, UIState,
+    CommandInputState, CursorLockState, GlobalInventoryOpen, InteractingMachine, InventoryOpen,
+    UIAction, UIContext, UIState,
 };
 
 /// Handle UIAction events and update UIState
@@ -38,19 +38,13 @@ pub fn ui_action_handler(mut ui_state: ResMut<UIState>, mut action_events: Event
 
 /// Sync UIState to legacy resources for backwards compatibility
 /// This allows gradual migration without breaking existing systems
-#[allow(clippy::too_many_arguments)]
 pub fn sync_legacy_ui_state(
     ui_state: Res<UIState>,
     mut inv_open: ResMut<InventoryOpen>,
     mut global_inv_open: ResMut<GlobalInventoryOpen>,
     mut cmd_state: ResMut<CommandInputState>,
-    mut furnace_res: ResMut<InteractingFurnace>,
-    mut crusher_res: ResMut<InteractingCrusher>,
-    mut miner_res: ResMut<InteractingMiner>,
+    mut machine_res: ResMut<InteractingMachine>,
     mut cursor_lock: ResMut<CursorLockState>,
-    furnace_query: Query<Entity, With<Furnace>>,
-    crusher_query: Query<Entity, With<Crusher>>,
-    miner_query: Query<Entity, With<Miner>>,
 ) {
     // Only sync if UIState changed
     if !ui_state.is_changed() {
@@ -63,9 +57,7 @@ pub fn sync_legacy_ui_state(
     inv_open.0 = false;
     global_inv_open.0 = false;
     cmd_state.open = false;
-    furnace_res.0 = None;
-    crusher_res.0 = None;
-    miner_res.0 = None;
+    machine_res.0 = None;
 
     // Set legacy state based on current UIState
     match current {
@@ -89,14 +81,7 @@ pub fn sync_legacy_ui_state(
         }
         UIContext::Machine(entity) => {
             cursor_lock.paused = true;
-            // Determine machine type by checking which query contains the entity
-            if furnace_query.get(entity).is_ok() {
-                furnace_res.0 = Some(entity);
-            } else if crusher_query.get(entity).is_ok() {
-                crusher_res.0 = Some(entity);
-            } else if miner_query.get(entity).is_ok() {
-                miner_res.0 = Some(entity);
-            }
+            machine_res.0 = Some(entity);
         }
     }
 }

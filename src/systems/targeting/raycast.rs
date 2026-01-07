@@ -5,7 +5,7 @@ use bevy::window::CursorGrabMode;
 
 use crate::utils::dda_raycast;
 use crate::world::WorldData;
-use crate::{CursorLockState, InteractingFurnace, PlayerCamera, TargetBlock, REACH_DISTANCE};
+use crate::{CursorLockState, InteractingMachine, PlayerCamera, TargetBlock, REACH_DISTANCE};
 
 /// Update target block based on player's view direction
 pub fn update_target_block(
@@ -13,11 +13,11 @@ pub fn update_target_block(
     world_data: Res<WorldData>,
     windows: Query<&Window>,
     mut target: ResMut<TargetBlock>,
-    interacting_furnace: Res<InteractingFurnace>,
+    interacting_machine: Res<InteractingMachine>,
     cursor_state: Res<CursorLockState>,
 ) {
     // Don't update target while UI is open or paused
-    if interacting_furnace.0.is_some() || cursor_state.paused {
+    if interacting_machine.0.is_some() || cursor_state.paused {
         target.break_target = None;
         target.place_target = None;
         return;

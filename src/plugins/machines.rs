@@ -8,10 +8,7 @@
 
 use bevy::prelude::*;
 
-use crate::components::{
-    ConveyorRotationOffset, InteractingCrusher, InteractingFurnace, InteractingMachine,
-    InteractingMiner, MachineModels,
-};
+use crate::components::{ConveyorRotationOffset, InteractingMachine, MachineModels};
 use crate::machines::{
     generic_machine_interact, generic_machine_tick, generic_machine_ui_input,
     machine_visual_feedback, update_generic_machine_ui,
@@ -23,11 +20,8 @@ pub struct MachineSystemsPlugin;
 
 impl Plugin for MachineSystemsPlugin {
     fn build(&self, app: &mut App) {
-        // Machine-related resources (Legacy resources kept for compatibility)
-        app.init_resource::<InteractingFurnace>()
-            .init_resource::<InteractingCrusher>()
-            .init_resource::<InteractingMiner>()
-            .init_resource::<InteractingMachine>()
+        // Machine-related resources
+        app.init_resource::<InteractingMachine>()
             .init_resource::<MachineModels>()
             .init_resource::<ConveyorRotationOffset>();
 

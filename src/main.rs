@@ -224,9 +224,7 @@ mod tests {
     fn test_input_state_priority() {
         let state = InputState::current(
             &InventoryOpen(false),
-            &InteractingFurnace(None),
-            &InteractingCrusher(None),
-            &InteractingMiner(None),
+            &InteractingMachine(None),
             &CommandInputState::default(),
             &CursorLockState::default(),
         );
@@ -234,9 +232,7 @@ mod tests {
 
         let state = InputState::current(
             &InventoryOpen(true),
-            &InteractingFurnace(None),
-            &InteractingCrusher(None),
-            &InteractingMiner(None),
+            &InteractingMachine(None),
             &CommandInputState::default(),
             &CursorLockState {
                 paused: true,

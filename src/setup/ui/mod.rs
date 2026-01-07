@@ -7,7 +7,7 @@ mod inventory_ui;
 pub use inventory_ui::setup_inventory_ui;
 
 // Re-export machine UI setup from ui module
-pub use crate::ui::machine_ui::{setup_crusher_ui, setup_furnace_ui, setup_miner_ui};
+pub use crate::ui::machine_ui::setup_generic_machine_ui;
 
 use crate::components::*;
 use bevy::prelude::*;
@@ -217,14 +217,11 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
         BackgroundColor(Color::WHITE),
     ));
 
-    // Furnace UI panel (hidden by default)
-    setup_furnace_ui(&mut commands, font);
-
-    // Crusher UI panel (hidden by default)
-    setup_crusher_ui(&mut commands, font);
-
-    // Miner UI panel (hidden by default)
-    setup_miner_ui(&mut commands, font);
+    // Machine UI panels (hidden by default, data-driven from MachineSpec)
+    use crate::game_spec::{CRUSHER, FURNACE, MINER};
+    setup_generic_machine_ui(&mut commands, &FURNACE, font);
+    setup_generic_machine_ui(&mut commands, &CRUSHER, font);
+    setup_generic_machine_ui(&mut commands, &MINER, font);
 
     // Inventory UI panel (hidden by default)
     setup_inventory_ui(&mut commands, font);

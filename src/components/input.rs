@@ -1,9 +1,7 @@
 //! Input state management
 
 use super::player::CursorLockState;
-use super::ui::{
-    CommandInputState, InteractingCrusher, InteractingFurnace, InteractingMiner, InventoryOpen,
-};
+use super::ui::{CommandInputState, InteractingMachine, InventoryOpen};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
@@ -15,12 +13,8 @@ pub enum InputState {
     Gameplay,
     /// Inventory is open - only inventory interactions active
     Inventory,
-    /// Furnace UI is open - only machine interactions active
-    FurnaceUI,
-    /// Crusher UI is open - only machine interactions active
-    CrusherUI,
-    /// Miner UI is open - only machine interactions active
-    MinerUI,
+    /// Machine UI is open - only machine interactions active
+    MachineUI,
     /// Command input is open - only text input active
     Command,
     /// Game is paused (ESC) - only click to resume
@@ -31,9 +25,7 @@ impl InputState {
     /// Determine current input state from all UI resources
     pub fn current(
         inventory_open: &InventoryOpen,
-        interacting_furnace: &InteractingFurnace,
-        interacting_crusher: &InteractingCrusher,
-        interacting_miner: &InteractingMiner,
+        interacting_machine: &InteractingMachine,
         command_state: &CommandInputState,
         cursor_state: &CursorLockState,
     ) -> Self {
@@ -43,12 +35,8 @@ impl InputState {
             InputState::Command
         } else if inventory_open.0 {
             InputState::Inventory
-        } else if interacting_furnace.0.is_some() {
-            InputState::FurnaceUI
-        } else if interacting_crusher.0.is_some() {
-            InputState::CrusherUI
-        } else if interacting_miner.0.is_some() {
-            InputState::MinerUI
+        } else if interacting_machine.0.is_some() {
+            InputState::MachineUI
         } else {
             InputState::Gameplay
         }
@@ -93,9 +81,7 @@ impl InputState {
 #[derive(SystemParam)]
 pub struct InputStateResources<'w> {
     pub inventory_open: Res<'w, InventoryOpen>,
-    pub interacting_furnace: Res<'w, InteractingFurnace>,
-    pub interacting_crusher: Res<'w, InteractingCrusher>,
-    pub interacting_miner: Res<'w, InteractingMiner>,
+    pub interacting_machine: Res<'w, InteractingMachine>,
     pub command_state: Res<'w, CommandInputState>,
 }
 
@@ -104,9 +90,7 @@ impl InputStateResources<'_> {
     pub fn get_state_with(&self, cursor_state: &CursorLockState) -> InputState {
         InputState::current(
             &self.inventory_open,
-            &self.interacting_furnace,
-            &self.interacting_crusher,
-            &self.interacting_miner,
+            &self.interacting_machine,
             &self.command_state,
             cursor_state,
         )
@@ -117,9 +101,7 @@ impl InputStateResources<'_> {
 #[derive(SystemParam)]
 pub struct InputStateResourcesWithCursor<'w> {
     pub inventory_open: Res<'w, InventoryOpen>,
-    pub interacting_furnace: Res<'w, InteractingFurnace>,
-    pub interacting_crusher: Res<'w, InteractingCrusher>,
-    pub interacting_miner: Res<'w, InteractingMiner>,
+    pub interacting_machine: Res<'w, InteractingMachine>,
     pub command_state: Res<'w, CommandInputState>,
     pub cursor_state: Res<'w, CursorLockState>,
 }
@@ -128,9 +110,7 @@ impl InputStateResourcesWithCursor<'_> {
     pub fn get_state(&self) -> InputState {
         InputState::current(
             &self.inventory_open,
-            &self.interacting_furnace,
-            &self.interacting_crusher,
-            &self.interacting_miner,
+            &self.interacting_machine,
             &self.command_state,
             &self.cursor_state,
         )
