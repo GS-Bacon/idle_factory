@@ -20,6 +20,7 @@ pub mod logistics;
 pub mod machines;
 pub mod map;
 pub mod meshes;
+pub mod modding;
 pub mod player;
 pub mod plugins;
 pub mod rng;
@@ -96,6 +97,12 @@ pub use skin::{
 pub use robot::{
     Robot, RobotCommand, RobotCommandCompletedEvent, RobotCommandQueue, RobotInventory,
     RobotPlugin, RobotState, RobotType, SpawnRobotEvent,
+};
+
+// Re-export modding types
+pub use modding::{
+    LoadedMod, ModErrorEvent, ModInfo, ModLoadedEvent, ModManager, ModState, ModUnloadedEvent,
+    ModdingPlugin,
 };
 
 // Re-export plugins for testing
