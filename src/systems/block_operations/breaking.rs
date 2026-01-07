@@ -4,15 +4,16 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::game_spec::breaking_spec;
+use crate::player::PlayerInventory;
 use crate::systems::TutorialEvent;
 use crate::utils::ray_aabb_intersection;
 use crate::world::{DirtyChunks, WorldData};
 use crate::{
     BlockType, BreakingProgress, ConveyorItemVisual, CreativeMode, CursorLockState,
-    InputStateResources, Inventory, TargetBlock, BLOCK_SIZE, PLATFORM_SIZE, REACH_DISTANCE,
+    InputStateResources, TargetBlock, BLOCK_SIZE, PLATFORM_SIZE, REACH_DISTANCE,
 };
 
-use super::MachineBreakQueries;
+use super::{LocalPlayerInventory, MachineBreakQueries};
 
 /// What type of thing we're trying to break
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -29,7 +30,7 @@ pub fn block_break(
     mouse_button: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&GlobalTransform, &crate::PlayerCamera)>,
     machines: MachineBreakQueries,
-    mut inventory: ResMut<Inventory>,
+    mut player_inventory: LocalPlayerInventory,
     windows: Query<&Window>,
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
     mut cursor_state: ResMut<CursorLockState>,
@@ -42,6 +43,10 @@ pub fn block_break(
     creative_mode: Res<CreativeMode>,
     mut tutorial_events: EventWriter<TutorialEvent>,
 ) {
+    let Some(mut inventory) = player_inventory.get_mut() else {
+        breaking_progress.reset();
+        return;
+    };
     // Only break blocks when cursor is locked and not paused
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
@@ -292,7 +297,7 @@ fn execute_machine_break(
     machine_type: BlockType,
     machines: &MachineBreakQueries,
     item_visual_query: &Query<Entity, With<ConveyorItemVisual>>,
-    inventory: &mut Inventory,
+    inventory: &mut PlayerInventory,
 ) {
     match machine_type {
         BlockType::ConveyorBlock => {
@@ -386,7 +391,7 @@ fn execute_block_break(
     block_type: BlockType,
     world_data: &mut WorldData,
     dirty_chunks: &mut DirtyChunks,
-    inventory: &mut Inventory,
+    inventory: &mut PlayerInventory,
 ) {
     // Remove the block
     world_data.remove_block(break_pos);

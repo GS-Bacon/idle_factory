@@ -328,6 +328,55 @@ impl PlayerInventory {
             .map(|(_, count)| count)
             .sum()
     }
+
+    /// Get the currently selected block type (None if empty slot selected)
+    pub fn selected_block(&self) -> Option<BlockType> {
+        self.get_slot(self.selected_slot)
+    }
+
+    /// Check if we have the selected block type with count > 0
+    pub fn has_selected(&self) -> bool {
+        self.slots
+            .get(self.selected_slot)
+            .and_then(|s| s.as_ref())
+            .map(|(_, c)| *c > 0)
+            .unwrap_or(false)
+    }
+
+    /// Get the selected block type if any
+    pub fn get_selected_type(&self) -> Option<BlockType> {
+        self.slots
+            .get(self.selected_slot)
+            .and_then(|s| s.as_ref())
+            .filter(|(_, c)| *c > 0)
+            .map(|(bt, _)| *bt)
+    }
+
+    /// Consume a specific block type from inventory (across multiple slots), returns true if successful
+    pub fn consume_item(&mut self, block_type: BlockType, mut amount: u32) -> bool {
+        // First check if we have enough total
+        if self.get_total_count(block_type) < amount {
+            return false;
+        }
+
+        // Consume from slots
+        for slot in self.slots.iter_mut() {
+            if amount == 0 {
+                break;
+            }
+            if let Some((bt, count)) = slot {
+                if *bt == block_type {
+                    let to_consume = amount.min(*count);
+                    *count -= to_consume;
+                    amount -= to_consume;
+                    if *count == 0 {
+                        *slot = None;
+                    }
+                }
+            }
+        }
+        true
+    }
 }
 
 // =============================================================================

@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use crate::meshes::{
     create_conveyor_mesh, create_conveyor_wireframe_mesh, create_wireframe_cube_mesh,
 };
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::utils::{auto_conveyor_direction, yaw_to_direction};
 use crate::{
     BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, Crusher, Direction, Furnace, Miner,
@@ -223,7 +223,8 @@ pub fn update_target_highlight(
     break_query: Query<Entity, (With<TargetHighlight>, Without<PlaceHighlight>)>,
     place_query: Query<Entity, (With<PlaceHighlight>, Without<TargetHighlight>)>,
     cache: Res<HighlightMeshCache>,
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventories: Query<&PlayerInventory>,
     conveyor_query: Query<&Conveyor>,
     miner_query: Query<&Miner>,
     crusher_query: Query<&Crusher>,
@@ -231,6 +232,13 @@ pub fn update_target_highlight(
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
     rotation: Res<ConveyorRotationOffset>,
 ) {
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(inventory) = inventories.get(local_player.0) else {
+        return;
+    };
+
     // Check if player has a placeable item selected
     let has_placeable_item = inventory.has_selected();
 

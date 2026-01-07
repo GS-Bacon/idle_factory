@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use crate::meshes::create_conveyor_mesh;
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{
     BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, ConveyorVisual, Crusher, Direction,
     Furnace, InputStateResourcesWithCursor, MachineModels,
@@ -14,10 +14,17 @@ use crate::{
 pub fn rotate_conveyor_placement(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut rotation: ResMut<ConveyorRotationOffset>,
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventories: Query<&PlayerInventory>,
     input_resources: InputStateResourcesWithCursor,
 ) {
     // Only active when placing conveyors or machines
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(inventory) = inventories.get(local_player.0) else {
+        return;
+    };
     let selected = inventory.get_selected_type();
     let is_rotatable = selected.is_some_and(|bt| bt == BlockType::ConveyorBlock || bt.is_machine());
     if !is_rotatable {

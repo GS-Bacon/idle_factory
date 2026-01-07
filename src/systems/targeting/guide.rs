@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use crate::meshes::create_wireframe_cube_mesh;
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{BlockType, Conveyor, Crusher, Direction, Furnace, GuideMarker, GuideMarkers, Miner};
 
 /// Update guide markers based on selected item
@@ -16,13 +16,20 @@ pub fn update_guide_markers(
     mut guide_markers: ResMut<GuideMarkers>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventories: Query<&PlayerInventory>,
     time: Res<Time>,
     miner_query: Query<&Miner>,
     conveyor_query: Query<&Conveyor>,
     furnace_query: Query<&Transform, (With<Furnace>, Without<GuideMarker>)>,
     crusher_query: Query<&Transform, (With<Crusher>, Without<GuideMarker>)>,
 ) {
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(inventory) = inventories.get(local_player.0) else {
+        return;
+    };
     let selected = inventory.get_selected_type();
 
     // Clear markers if selection changed or nothing selected

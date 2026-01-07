@@ -13,7 +13,29 @@ pub use placement::block_place;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{Conveyor, Crusher, DeliveryPlatform, Furnace, Miner};
+
+/// Bundled local player inventory access (reduces parameter count)
+#[derive(SystemParam)]
+pub struct LocalPlayerInventory<'w, 's> {
+    local_player: Option<Res<'w, LocalPlayer>>,
+    inventories: Query<'w, 's, &'static mut PlayerInventory>,
+}
+
+impl LocalPlayerInventory<'_, '_> {
+    /// Get mutable access to the local player's inventory
+    pub fn get_mut(&mut self) -> Option<Mut<'_, PlayerInventory>> {
+        let local_player = self.local_player.as_ref()?;
+        self.inventories.get_mut(local_player.0).ok()
+    }
+
+    /// Get read-only access to the local player's inventory
+    pub fn get(&self) -> Option<&PlayerInventory> {
+        let local_player = self.local_player.as_ref()?;
+        self.inventories.get(local_player.0).ok()
+    }
+}
 
 /// Bundled machine queries for block_break system (reduces parameter count)
 #[derive(SystemParam)]

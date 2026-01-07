@@ -14,11 +14,11 @@ use crate::world::{DirtyChunks, WorldData};
 use crate::{
     BlockType, ContinuousActionTimer, Conveyor, ConveyorRotationOffset, ConveyorShape,
     ConveyorVisual, CreativeMode, Crusher, DeliveryPlatform, Direction, Furnace,
-    InputStateResourcesWithCursor, Inventory, MachineModels, Miner, PlayerCamera, BLOCK_SIZE,
+    InputStateResourcesWithCursor, MachineModels, Miner, PlayerCamera, BLOCK_SIZE,
     CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE, REACH_DISTANCE,
 };
 
-use super::{ChunkAssets, MachinePlaceQueries};
+use super::{ChunkAssets, LocalPlayerInventory, MachinePlaceQueries};
 
 #[allow(clippy::too_many_arguments)]
 pub fn block_place(
@@ -28,7 +28,7 @@ pub fn block_place(
     machines: MachinePlaceQueries,
     platform_query: Query<&Transform, With<DeliveryPlatform>>,
     mut world_data: ResMut<WorldData>,
-    mut inventory: ResMut<Inventory>,
+    mut player_inventory: LocalPlayerInventory,
     mut dirty_chunks: ResMut<DirtyChunks>,
     mut chunk_assets: ChunkAssets,
     windows: Query<&Window>,
@@ -39,6 +39,9 @@ pub fn block_place(
     machine_models: Res<MachineModels>,
     mut tutorial_events: EventWriter<TutorialEvent>,
 ) {
+    let Some(mut inventory) = player_inventory.get_mut() else {
+        return;
+    };
     let window = windows.single();
     let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
 
