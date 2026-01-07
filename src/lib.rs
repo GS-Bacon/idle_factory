@@ -2,6 +2,8 @@
 //!
 //! This library exposes the core game types and systems for use in tests and the main binary.
 
+pub mod achievements;
+pub mod audio;
 pub mod block_type;
 pub mod blockbench;
 pub mod components;
@@ -56,7 +58,11 @@ pub use utils::{
     GridPos, WorldPos,
 };
 
+// Re-export achievements
+pub use achievements::{AchievementUnlocked, AchievementsPlugin, PlayerAchievements};
+
 // Re-export plugins for testing
+pub use audio::{AudioPlugin, SoundCategory, SoundSettings};
 pub use blockbench::BlockbenchPlugin;
 pub use plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 pub use vox_loader::VoxLoaderPlugin;
