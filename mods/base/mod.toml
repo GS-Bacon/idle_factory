@@ -1,0 +1,12 @@
+# Base Game Mod - Core items, machines and recipes
+# This is the foundation mod that provides all vanilla game content.
+
+[mod]
+id = "base"
+name = "Base Game"
+version = "0.3.78"
+description = "Core game content including terrain, ores, processed materials, machines and tools"
+author = "Idle Factory Team"
+
+[mod.dependencies]
+# No dependencies - this is the base mod

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::components::Machine;
-use crate::events::game_events::{BlockPlaced, EventSource};
+use crate::events::game_events::{BlockPlaced, EventSource, MachineSpawned};
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::systems::TutorialEvent;
 use crate::utils::{
@@ -14,9 +14,9 @@ use crate::utils::{
 use crate::world::{DirtyChunks, WorldData};
 use crate::{
     BlockType, ContinuousActionTimer, Conveyor, ConveyorRotationOffset, ConveyorShape,
-    ConveyorVisual, CreativeMode, Crusher, DeliveryPlatform, Direction, Furnace,
-    InputStateResourcesWithCursor, MachineModels, Miner, PlayerCamera, BLOCK_SIZE,
-    CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH, PLATFORM_SIZE, REACH_DISTANCE,
+    ConveyorVisual, CreativeMode, DeliveryPlatform, Direction, InputStateResourcesWithCursor,
+    MachineModels, PlayerCamera, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH,
+    PLATFORM_SIZE, REACH_DISTANCE,
 };
 
 use super::{BlockPlaceEvents, ChunkAssets, LocalPlayerInventory, MachinePlaceQueries};
@@ -108,27 +108,14 @@ pub fn block_place(
         }
     }
 
-    // Check if looking at a furnace or crusher - if so, don't place
-    for furnace_transform in machines.furnace.iter() {
-        let furnace_pos = furnace_transform.translation;
+    // Check if looking at any machine (miner, furnace, crusher) - if so, don't place
+    for (_, machine_transform) in machines.machine.iter() {
+        let machine_pos = machine_transform.translation;
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
             ray_direction,
-            furnace_pos - Vec3::splat(half_size),
-            furnace_pos + Vec3::splat(half_size),
-        ) {
-            if t > 0.0 && t < REACH_DISTANCE {
-                return;
-            }
-        }
-    }
-    for (_, crusher_transform) in machines.crusher.iter() {
-        let crusher_pos = crusher_transform.translation;
-        if let Some(t) = ray_aabb_intersection(
-            ray_origin,
-            ray_direction,
-            crusher_pos - Vec3::splat(half_size),
-            crusher_pos + Vec3::splat(half_size),
+            machine_pos - Vec3::splat(half_size),
+            machine_pos + Vec3::splat(half_size),
         ) {
             if t > 0.0 && t < REACH_DISTANCE {
                 return;
@@ -202,20 +189,8 @@ pub fn block_place(
                 return;
             }
         }
-        for miner in machines.miner.iter() {
-            if miner.position == place_pos {
-                return;
-            }
-        }
-        for (crusher, _) in machines.crusher.iter() {
-            if crusher.position == place_pos {
-                return;
-            }
-        }
-        for furnace_transform in machines.furnace.iter() {
-            // Note: Using world_to_grid (BLOCK_SIZE=1.0 assumed)
-            let furnace_pos = crate::world_to_grid(furnace_transform.translation);
-            if furnace_pos == place_pos {
+        for (machine, _) in machines.machine.iter() {
+            if machine.position == place_pos {
                 return;
             }
         }
@@ -237,14 +212,8 @@ pub fn block_place(
                 .collect();
 
             let mut machine_positions: Vec<IVec3> = Vec::new();
-            for miner in machines.miner.iter() {
-                machine_positions.push(miner.position);
-            }
-            for (crusher, _) in machines.crusher.iter() {
-                machine_positions.push(crusher.position);
-            }
-            for furnace_transform in machines.furnace.iter() {
-                machine_positions.push(crate::world_to_grid(furnace_transform.translation));
+            for (machine, _) in machines.machine.iter() {
+                machine_positions.push(machine.position);
             }
 
             let mut dir =
@@ -274,27 +243,24 @@ pub fn block_place(
                     "Miner placed"
                 );
 
-                if let Some(model) = machine_models.miner.clone() {
+                let entity = if let Some(model) = machine_models.miner.clone() {
                     // VOX model has origin at bottom center, so Y offset is 0
                     let model_transform = Transform::from_translation(Vec3::new(
                         place_pos.x as f32 * BLOCK_SIZE + 0.5,
                         place_pos.y as f32 * BLOCK_SIZE,
                         place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     ));
-                    commands.spawn((
-                        SceneRoot(model),
-                        model_transform.with_rotation(player_facing.to_rotation()),
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Miner {
-                            position: place_pos,
-                            facing: player_facing,
-                            ..default()
-                        },
-                        Machine::new(&MINER, place_pos, player_facing),
-                    ));
+                    commands
+                        .spawn((
+                            SceneRoot(model),
+                            model_transform.with_rotation(player_facing.to_rotation()),
+                            GlobalTransform::default(),
+                            Visibility::default(),
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
+                            Machine::new(&MINER, place_pos, player_facing),
+                        ))
+                        .id()
                 } else {
                     // Fallback cube mesh has center origin, so Y offset is +0.5
                     let cube_transform = Transform::from_translation(Vec3::new(
@@ -309,18 +275,21 @@ pub fn block_place(
                         base_color: selected_type.color(),
                         ..default()
                     });
-                    commands.spawn((
-                        Mesh3d(cube_mesh),
-                        MeshMaterial3d(material),
-                        cube_transform.with_rotation(player_facing.to_rotation()),
-                        Miner {
-                            position: place_pos,
-                            facing: player_facing,
-                            ..default()
-                        },
-                        Machine::new(&MINER, place_pos, player_facing),
-                    ));
-                }
+                    commands
+                        .spawn((
+                            Mesh3d(cube_mesh),
+                            MeshMaterial3d(material),
+                            cube_transform.with_rotation(player_facing.to_rotation()),
+                            Machine::new(&MINER, place_pos, player_facing),
+                        ))
+                        .id()
+                };
+                // Send MachineSpawned event
+                events.machine_spawned.send(MachineSpawned {
+                    entity,
+                    machine_type: BlockType::MinerBlock,
+                    pos: place_pos,
+                });
                 // Tutorial event for miner placement
                 events
                     .tutorial
@@ -365,79 +334,89 @@ pub fn block_place(
                     place_pos.z as f32 * BLOCK_SIZE + 0.5,
                 );
 
-                if let Some(model_handle) = machine_models.get_conveyor_model(final_shape) {
-                    commands.spawn((
-                        SceneRoot(model_handle),
-                        Transform::from_translation(conveyor_pos)
-                            .with_rotation(final_direction.to_rotation()),
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Conveyor {
-                            position: place_pos,
-                            direction: final_direction,
-                            output_direction: final_direction, // Will be updated by update_conveyor_shapes
-                            items: Vec::new(),
-                            last_output_index: 0,
-                            last_input_source: 0,
-                            shape: final_shape,
-                        },
-                        ConveyorVisual,
-                    ));
-                } else {
-                    let conveyor_mesh = chunk_assets.meshes.add(Cuboid::new(
-                        BLOCK_SIZE * CONVEYOR_BELT_WIDTH,
-                        BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
-                        BLOCK_SIZE,
-                    ));
-                    let material = chunk_assets.materials.add(StandardMaterial {
-                        base_color: selected_type.color(),
-                        ..default()
-                    });
-                    let arrow_mesh = chunk_assets.meshes.add(Cuboid::new(
-                        BLOCK_SIZE * 0.12,
-                        BLOCK_SIZE * 0.03,
-                        BLOCK_SIZE * 0.35,
-                    ));
-                    let arrow_material = chunk_assets.materials.add(StandardMaterial {
-                        base_color: Color::srgb(0.9, 0.9, 0.2),
-                        ..default()
-                    });
-                    let belt_y = place_pos.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT / 2.0;
-                    commands
-                        .spawn((
-                            Mesh3d(conveyor_mesh),
-                            MeshMaterial3d(material),
-                            Transform::from_translation(Vec3::new(
-                                place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                                belt_y,
-                                place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                let entity =
+                    if let Some(model_handle) = machine_models.get_conveyor_model(final_shape) {
+                        commands
+                            .spawn((
+                                SceneRoot(model_handle),
+                                Transform::from_translation(conveyor_pos)
+                                    .with_rotation(final_direction.to_rotation()),
+                                GlobalTransform::default(),
+                                Visibility::default(),
+                                InheritedVisibility::default(),
+                                ViewVisibility::default(),
+                                Conveyor {
+                                    position: place_pos,
+                                    direction: final_direction,
+                                    output_direction: final_direction, // Will be updated by update_conveyor_shapes
+                                    items: Vec::new(),
+                                    last_output_index: 0,
+                                    last_input_source: 0,
+                                    shape: final_shape,
+                                },
+                                ConveyorVisual,
                             ))
-                            .with_rotation(final_direction.to_rotation()),
-                            Conveyor {
-                                position: place_pos,
-                                direction: final_direction,
-                                output_direction: final_direction,
-                                items: Vec::new(),
-                                last_output_index: 0,
-                                last_input_source: 0,
-                                shape: final_shape,
-                            },
-                            ConveyorVisual,
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn((
-                                Mesh3d(arrow_mesh),
-                                MeshMaterial3d(arrow_material),
-                                Transform::from_translation(Vec3::new(
-                                    0.0,
-                                    CONVEYOR_BELT_HEIGHT / 2.0 + 0.02,
-                                    -0.25,
-                                )),
-                            ));
+                            .id()
+                    } else {
+                        let conveyor_mesh = chunk_assets.meshes.add(Cuboid::new(
+                            BLOCK_SIZE * CONVEYOR_BELT_WIDTH,
+                            BLOCK_SIZE * CONVEYOR_BELT_HEIGHT,
+                            BLOCK_SIZE,
+                        ));
+                        let material = chunk_assets.materials.add(StandardMaterial {
+                            base_color: selected_type.color(),
+                            ..default()
                         });
-                }
+                        let arrow_mesh = chunk_assets.meshes.add(Cuboid::new(
+                            BLOCK_SIZE * 0.12,
+                            BLOCK_SIZE * 0.03,
+                            BLOCK_SIZE * 0.35,
+                        ));
+                        let arrow_material = chunk_assets.materials.add(StandardMaterial {
+                            base_color: Color::srgb(0.9, 0.9, 0.2),
+                            ..default()
+                        });
+                        let belt_y = place_pos.y as f32 * BLOCK_SIZE + CONVEYOR_BELT_HEIGHT / 2.0;
+                        commands
+                            .spawn((
+                                Mesh3d(conveyor_mesh),
+                                MeshMaterial3d(material),
+                                Transform::from_translation(Vec3::new(
+                                    place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                                    belt_y,
+                                    place_pos.z as f32 * BLOCK_SIZE + 0.5,
+                                ))
+                                .with_rotation(final_direction.to_rotation()),
+                                Conveyor {
+                                    position: place_pos,
+                                    direction: final_direction,
+                                    output_direction: final_direction,
+                                    items: Vec::new(),
+                                    last_output_index: 0,
+                                    last_input_source: 0,
+                                    shape: final_shape,
+                                },
+                                ConveyorVisual,
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn((
+                                    Mesh3d(arrow_mesh),
+                                    MeshMaterial3d(arrow_material),
+                                    Transform::from_translation(Vec3::new(
+                                        0.0,
+                                        CONVEYOR_BELT_HEIGHT / 2.0 + 0.02,
+                                        -0.25,
+                                    )),
+                                ));
+                            })
+                            .id()
+                    };
+                // Send MachineSpawned event
+                events.machine_spawned.send(MachineSpawned {
+                    entity,
+                    machine_type: BlockType::ConveyorBlock,
+                    pos: place_pos,
+                });
                 rotation.offset = 0;
                 // Tutorial event for conveyor placement
                 events.tutorial.send(TutorialEvent::ConveyorPlaced {
@@ -453,27 +432,24 @@ pub fn block_place(
                     "Crusher placed"
                 );
 
-                if let Some(model) = machine_models.crusher.clone() {
+                let entity = if let Some(model) = machine_models.crusher.clone() {
                     // VOX model has origin at bottom center, so Y offset is 0
                     let model_transform = Transform::from_translation(Vec3::new(
                         place_pos.x as f32 * BLOCK_SIZE + 0.5,
                         place_pos.y as f32 * BLOCK_SIZE,
                         place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     ));
-                    commands.spawn((
-                        SceneRoot(model),
-                        model_transform.with_rotation(player_facing.to_rotation()),
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Crusher {
-                            position: place_pos,
-                            facing: player_facing,
-                            ..default()
-                        },
-                        Machine::new(&CRUSHER, place_pos, player_facing),
-                    ));
+                    commands
+                        .spawn((
+                            SceneRoot(model),
+                            model_transform.with_rotation(player_facing.to_rotation()),
+                            GlobalTransform::default(),
+                            Visibility::default(),
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
+                            Machine::new(&CRUSHER, place_pos, player_facing),
+                        ))
+                        .id()
                 } else {
                     // Fallback cube mesh has center origin, so Y offset is +0.5
                     let cube_transform = Transform::from_translation(Vec3::new(
@@ -488,18 +464,21 @@ pub fn block_place(
                         base_color: selected_type.color(),
                         ..default()
                     });
-                    commands.spawn((
-                        Mesh3d(cube_mesh),
-                        MeshMaterial3d(material),
-                        cube_transform.with_rotation(player_facing.to_rotation()),
-                        Crusher {
-                            position: place_pos,
-                            facing: player_facing,
-                            ..default()
-                        },
-                        Machine::new(&CRUSHER, place_pos, player_facing),
-                    ));
-                }
+                    commands
+                        .spawn((
+                            Mesh3d(cube_mesh),
+                            MeshMaterial3d(material),
+                            cube_transform.with_rotation(player_facing.to_rotation()),
+                            Machine::new(&CRUSHER, place_pos, player_facing),
+                        ))
+                        .id()
+                };
+                // Send MachineSpawned event
+                events.machine_spawned.send(MachineSpawned {
+                    entity,
+                    machine_type: BlockType::CrusherBlock,
+                    pos: place_pos,
+                });
                 // Tutorial event for crusher placement
                 events
                     .tutorial
@@ -514,27 +493,24 @@ pub fn block_place(
                     "Furnace placed"
                 );
 
-                if let Some(model) = machine_models.furnace.clone() {
+                let entity = if let Some(model) = machine_models.furnace.clone() {
                     // VOX model has origin at bottom center, so Y offset is 0
                     let model_transform = Transform::from_translation(Vec3::new(
                         place_pos.x as f32 * BLOCK_SIZE + 0.5,
                         place_pos.y as f32 * BLOCK_SIZE,
                         place_pos.z as f32 * BLOCK_SIZE + 0.5,
                     ));
-                    commands.spawn((
-                        SceneRoot(model),
-                        model_transform.with_rotation(player_facing.to_rotation()),
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Furnace {
-                            position: place_pos,
-                            facing: player_facing,
-                            ..default()
-                        },
-                        Machine::new(&FURNACE, place_pos, player_facing),
-                    ));
+                    commands
+                        .spawn((
+                            SceneRoot(model),
+                            model_transform.with_rotation(player_facing.to_rotation()),
+                            GlobalTransform::default(),
+                            Visibility::default(),
+                            InheritedVisibility::default(),
+                            ViewVisibility::default(),
+                            Machine::new(&FURNACE, place_pos, player_facing),
+                        ))
+                        .id()
                 } else {
                     // Fallback cube mesh has center origin, so Y offset is +0.5
                     let cube_transform = Transform::from_translation(Vec3::new(
@@ -549,18 +525,21 @@ pub fn block_place(
                         base_color: selected_type.color(),
                         ..default()
                     });
-                    commands.spawn((
-                        Mesh3d(cube_mesh),
-                        MeshMaterial3d(material),
-                        cube_transform.with_rotation(player_facing.to_rotation()),
-                        Furnace {
-                            position: place_pos,
-                            facing: player_facing,
-                            ..default()
-                        },
-                        Machine::new(&FURNACE, place_pos, player_facing),
-                    ));
-                }
+                    commands
+                        .spawn((
+                            Mesh3d(cube_mesh),
+                            MeshMaterial3d(material),
+                            cube_transform.with_rotation(player_facing.to_rotation()),
+                            Machine::new(&FURNACE, place_pos, player_facing),
+                        ))
+                        .id()
+                };
+                // Send MachineSpawned event
+                events.machine_spawned.send(MachineSpawned {
+                    entity,
+                    machine_type: BlockType::FurnaceBlock,
+                    pos: place_pos,
+                });
                 // Tutorial event for furnace placement
                 events
                     .tutorial

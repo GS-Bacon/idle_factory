@@ -3,14 +3,15 @@
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 
+use crate::components::Machine;
 use crate::meshes::{
     create_conveyor_mesh, create_conveyor_wireframe_mesh, create_wireframe_cube_mesh,
 };
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::utils::{auto_conveyor_direction, yaw_to_direction};
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, Crusher, Direction, Furnace, Miner,
-    PlaceHighlight, PlayerCamera, TargetBlock, TargetHighlight, BLOCK_SIZE,
+    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, Direction, PlaceHighlight,
+    PlayerCamera, TargetBlock, TargetHighlight, BLOCK_SIZE,
 };
 
 /// Marker for conveyor preview arrow
@@ -226,9 +227,7 @@ pub fn update_target_highlight(
     local_player: Option<Res<LocalPlayer>>,
     inventories: Query<&PlayerInventory>,
     conveyor_query: Query<&Conveyor>,
-    miner_query: Query<&Miner>,
-    crusher_query: Query<&Crusher>,
-    furnace_query: Query<&Transform, With<Furnace>>,
+    machine_query: Query<&Machine>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
     rotation: Res<ConveyorRotationOffset>,
 ) {
@@ -268,14 +267,8 @@ pub fn update_target_highlight(
 
                 // Collect machine positions
                 let mut machine_positions: Vec<IVec3> = Vec::new();
-                for miner in miner_query.iter() {
-                    machine_positions.push(miner.position);
-                }
-                for crusher in crusher_query.iter() {
-                    machine_positions.push(crusher.position);
-                }
-                for furnace_transform in furnace_query.iter() {
-                    machine_positions.push(crate::world_to_grid(furnace_transform.translation));
+                for machine in machine_query.iter() {
+                    machine_positions.push(machine.position);
                 }
 
                 // Apply rotation offset (R key)

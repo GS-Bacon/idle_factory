@@ -2,6 +2,7 @@
 
 use crate::components::{BiomeHudText, PlayerPhysics, *};
 use crate::world::{BiomeMap, WorldData};
+use crate::BlockType;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::prelude::*;
 use serde::Serialize;
@@ -295,9 +296,7 @@ pub fn export_e2e_state(
     current_quest: Res<CurrentQuest>,
     global_inventory: Res<crate::player::GlobalInventory>,
     conveyor_query: Query<&Conveyor>,
-    miner_query: Query<&Miner>,
-    furnace_query: Query<(&Furnace, &Transform)>,
-    crusher_query: Query<&Crusher>,
+    machine_query: Query<&crate::components::Machine>,
     stuck_detector: Res<super::invariants::StuckDetector>,
     violation_log: Res<super::invariants::ViolationLog>,
 ) {
@@ -379,46 +378,43 @@ pub fn export_e2e_state(
 
     // Collect machine info with detailed state
     let mut machines: Vec<E2EMachineInfo> = Vec::new();
-    for miner in miner_query.iter() {
+    for machine in machine_query.iter() {
+        let machine_type_str = match machine.spec.block_type {
+            BlockType::MinerBlock => "Miner",
+            BlockType::FurnaceBlock => "Furnace",
+            BlockType::CrusherBlock => "Crusher",
+            _ => "Unknown",
+        };
+
+        let input = machine
+            .slots
+            .inputs
+            .first()
+            .and_then(|s| s.item_type.map(|bt| (format!("{:?}", bt), s.count)));
+        let output = machine
+            .slots
+            .outputs
+            .first()
+            .and_then(|s| s.item_type.map(|bt| (format!("{:?}", bt), s.count)));
+        let fuel = if machine.spec.requires_fuel {
+            Some(machine.slots.fuel)
+        } else {
+            None
+        };
+        let buffer = if machine.spec.block_type == BlockType::MinerBlock {
+            output.clone()
+        } else {
+            None
+        };
+
         machines.push(E2EMachineInfo {
-            position: [miner.position.x, miner.position.y, miner.position.z],
-            machine_type: "Miner".to_string(),
-            progress: miner.progress,
-            input: None,
-            output: None,
-            fuel: None,
-            buffer: miner.buffer.map(|(bt, count)| (format!("{:?}", bt), count)),
-        });
-    }
-    for (furnace, transform) in furnace_query.iter() {
-        let pos = transform.translation / crate::BLOCK_SIZE;
-        machines.push(E2EMachineInfo {
-            position: [pos.x as i32, pos.y as i32, pos.z as i32],
-            machine_type: "Furnace".to_string(),
-            progress: furnace.progress,
-            input: furnace
-                .input_type
-                .map(|bt| (format!("{:?}", bt), furnace.input_count)),
-            output: furnace
-                .output_type
-                .map(|bt| (format!("{:?}", bt), furnace.output_count)),
-            fuel: Some(furnace.fuel),
-            buffer: None,
-        });
-    }
-    for crusher in crusher_query.iter() {
-        machines.push(E2EMachineInfo {
-            position: [crusher.position.x, crusher.position.y, crusher.position.z],
-            machine_type: "Crusher".to_string(),
-            progress: crusher.progress,
-            input: crusher
-                .input_type
-                .map(|bt| (format!("{:?}", bt), crusher.input_count)),
-            output: crusher
-                .output_type
-                .map(|bt| (format!("{:?}", bt), crusher.output_count)),
-            fuel: None,
-            buffer: None,
+            position: [machine.position.x, machine.position.y, machine.position.z],
+            machine_type: machine_type_str.to_string(),
+            progress: machine.progress,
+            input,
+            output,
+            fuel,
+            buffer,
         });
     }
 

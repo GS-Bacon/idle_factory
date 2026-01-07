@@ -13,8 +13,9 @@ pub use placement::block_place;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use crate::components::Machine;
 use crate::player::{LocalPlayer, PlayerInventory};
-use crate::{Conveyor, Crusher, DeliveryPlatform, Furnace, Miner};
+use crate::{Conveyor, DeliveryPlatform};
 
 /// Bundled local player inventory access (reduces parameter count)
 #[derive(SystemParam)]
@@ -46,9 +47,7 @@ impl LocalPlayerInventory<'_, '_> {
 #[derive(SystemParam)]
 pub struct MachineBreakQueries<'w, 's> {
     pub conveyor: Query<'w, 's, (Entity, &'static Conveyor, &'static GlobalTransform)>,
-    pub miner: Query<'w, 's, (Entity, &'static Miner, &'static GlobalTransform)>,
-    pub crusher: Query<'w, 's, (Entity, &'static Crusher, &'static GlobalTransform)>,
-    pub furnace: Query<'w, 's, (Entity, &'static Furnace, &'static GlobalTransform)>,
+    pub machine: Query<'w, 's, (Entity, &'static Machine, &'static GlobalTransform)>,
     pub platform: Query<'w, 's, &'static Transform, With<DeliveryPlatform>>,
 }
 
@@ -56,9 +55,7 @@ pub struct MachineBreakQueries<'w, 's> {
 #[derive(SystemParam)]
 pub struct MachinePlaceQueries<'w, 's> {
     pub conveyor: Query<'w, 's, &'static Conveyor>,
-    pub miner: Query<'w, 's, &'static Miner>,
-    pub crusher: Query<'w, 's, (&'static Crusher, &'static Transform)>,
-    pub furnace: Query<'w, 's, &'static Transform, With<Furnace>>,
+    pub machine: Query<'w, 's, (&'static Machine, &'static Transform)>,
 }
 
 /// Bundled chunk render assets (reduces parameter count)
@@ -80,4 +77,5 @@ pub struct BlockBreakEvents<'w> {
 pub struct BlockPlaceEvents<'w> {
     pub tutorial: EventWriter<'w, crate::systems::TutorialEvent>,
     pub block_placed: EventWriter<'w, crate::events::game_events::BlockPlaced>,
+    pub machine_spawned: EventWriter<'w, crate::events::game_events::MachineSpawned>,
 }

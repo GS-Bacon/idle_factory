@@ -7,7 +7,12 @@ use std::collections::HashMap;
 use crate::block_type::BlockType;
 
 /// Save data version for compatibility checking
+/// - 0.1.0: Initial format (enum-based BlockTypeSave)
+/// - 0.2.0: String ID format preparation (dual support)
 pub const SAVE_VERSION: &str = "0.1.0";
+
+/// New save version with string ID format
+pub const SAVE_VERSION_V2: &str = "0.2.0";
 
 /// Auto-save interval in seconds
 pub const AUTO_SAVE_INTERVAL: f32 = 60.0;
@@ -187,6 +192,151 @@ impl From<BlockTypeSave> for BlockType {
             BlockTypeSave::CopperDust => BlockType::CopperDust,
             BlockTypeSave::PlatformBlock => BlockType::PlatformBlock,
         }
+    }
+}
+
+// =============================================================================
+// String ID Format (V2) - Preparation for future migration
+// =============================================================================
+
+/// Default namespace for base game items
+pub const DEFAULT_NAMESPACE: &str = "base";
+
+impl BlockTypeSave {
+    /// Convert to string ID format ("namespace:id")
+    /// Uses "base" namespace for all vanilla items
+    pub fn to_string_id(&self) -> String {
+        let id = match self {
+            BlockTypeSave::Stone => "stone",
+            BlockTypeSave::Grass => "grass",
+            BlockTypeSave::IronOre => "iron_ore",
+            BlockTypeSave::Coal => "coal",
+            BlockTypeSave::IronIngot => "iron_ingot",
+            BlockTypeSave::MinerBlock => "miner_block",
+            BlockTypeSave::ConveyorBlock => "conveyor_block",
+            BlockTypeSave::CopperOre => "copper_ore",
+            BlockTypeSave::CopperIngot => "copper_ingot",
+            BlockTypeSave::CrusherBlock => "crusher_block",
+            BlockTypeSave::FurnaceBlock => "furnace_block",
+            BlockTypeSave::StonePickaxe => "stone_pickaxe",
+            BlockTypeSave::AssemblerBlock => "assembler_block",
+            BlockTypeSave::IronDust => "iron_dust",
+            BlockTypeSave::CopperDust => "copper_dust",
+            BlockTypeSave::PlatformBlock => "platform_block",
+        };
+        format!("{}:{}", DEFAULT_NAMESPACE, id)
+    }
+
+    /// Parse from string ID format ("namespace:id")
+    /// Returns None if the format is invalid or unknown
+    pub fn from_string_id(s: &str) -> Option<Self> {
+        // Parse "namespace:id" format
+        let (namespace, id) = if let Some(colon_pos) = s.find(':') {
+            (&s[..colon_pos], &s[colon_pos + 1..])
+        } else {
+            // Fallback: treat as just ID with default namespace
+            (DEFAULT_NAMESPACE, s)
+        };
+
+        // Only support base namespace for now
+        if namespace != DEFAULT_NAMESPACE {
+            return None;
+        }
+
+        match id {
+            "stone" => Some(BlockTypeSave::Stone),
+            "grass" => Some(BlockTypeSave::Grass),
+            "iron_ore" => Some(BlockTypeSave::IronOre),
+            "coal" => Some(BlockTypeSave::Coal),
+            "iron_ingot" => Some(BlockTypeSave::IronIngot),
+            "miner_block" | "miner" => Some(BlockTypeSave::MinerBlock),
+            "conveyor_block" | "conveyor" => Some(BlockTypeSave::ConveyorBlock),
+            "copper_ore" => Some(BlockTypeSave::CopperOre),
+            "copper_ingot" => Some(BlockTypeSave::CopperIngot),
+            "crusher_block" | "crusher" => Some(BlockTypeSave::CrusherBlock),
+            "furnace_block" | "furnace" => Some(BlockTypeSave::FurnaceBlock),
+            "stone_pickaxe" | "pickaxe" => Some(BlockTypeSave::StonePickaxe),
+            "assembler_block" | "assembler" => Some(BlockTypeSave::AssemblerBlock),
+            "iron_dust" => Some(BlockTypeSave::IronDust),
+            "copper_dust" => Some(BlockTypeSave::CopperDust),
+            "platform_block" | "platform" => Some(BlockTypeSave::PlatformBlock),
+            _ => None,
+        }
+    }
+}
+
+/// New format item stack using string IDs (V2)
+/// This allows for mod items and future extensibility
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ItemStackV2 {
+    /// Item ID in "namespace:id" format (e.g., "base:iron_ore", "mymod:copper_plate")
+    pub item_id: String,
+    /// Number of items in this stack
+    pub count: u32,
+}
+
+impl ItemStackV2 {
+    /// Create a new item stack with the given ID and count
+    pub fn new(item_id: impl Into<String>, count: u32) -> Self {
+        Self {
+            item_id: item_id.into(),
+            count,
+        }
+    }
+
+    /// Try to convert to the old enum-based format
+    /// Returns None if the item ID is not a known base game item
+    pub fn to_legacy(&self) -> Option<ItemStack> {
+        BlockTypeSave::from_string_id(&self.item_id).map(|item_type| ItemStack {
+            item_type,
+            count: self.count,
+        })
+    }
+}
+
+impl From<ItemStack> for ItemStackV2 {
+    fn from(old: ItemStack) -> Self {
+        ItemStackV2 {
+            item_id: old.item_type.to_string_id(),
+            count: old.count,
+        }
+    }
+}
+
+impl From<&ItemStack> for ItemStackV2 {
+    fn from(old: &ItemStack) -> Self {
+        ItemStackV2 {
+            item_id: old.item_type.to_string_id(),
+            count: old.count,
+        }
+    }
+}
+
+/// Convert V2 format back to legacy (if possible)
+impl TryFrom<ItemStackV2> for ItemStack {
+    type Error = String;
+
+    fn try_from(v2: ItemStackV2) -> Result<Self, Self::Error> {
+        BlockTypeSave::from_string_id(&v2.item_id)
+            .map(|item_type| ItemStack {
+                item_type,
+                count: v2.count,
+            })
+            .ok_or_else(|| format!("Unknown item ID: {}", v2.item_id))
+    }
+}
+
+/// Helper to convert BlockType directly to string ID
+impl BlockType {
+    /// Convert to save string ID format ("base:stone", "base:iron_ore", etc.)
+    pub fn to_save_string_id(&self) -> String {
+        let save: BlockTypeSave = (*self).into();
+        save.to_string_id()
+    }
+
+    /// Parse from save string ID format
+    pub fn from_save_string_id(s: &str) -> Option<Self> {
+        BlockTypeSave::from_string_id(s).map(|bt| bt.into())
     }
 }
 
@@ -871,5 +1021,255 @@ mod tests {
 
             assert_eq!(restored.direction, dir);
         }
+    }
+
+    // === String ID Format (V2) Tests ===
+
+    #[test]
+    fn test_block_type_save_to_string_id() {
+        // Test all BlockTypeSave variants
+        assert_eq!(BlockTypeSave::Stone.to_string_id(), "base:stone");
+        assert_eq!(BlockTypeSave::Grass.to_string_id(), "base:grass");
+        assert_eq!(BlockTypeSave::IronOre.to_string_id(), "base:iron_ore");
+        assert_eq!(BlockTypeSave::Coal.to_string_id(), "base:coal");
+        assert_eq!(BlockTypeSave::IronIngot.to_string_id(), "base:iron_ingot");
+        assert_eq!(BlockTypeSave::MinerBlock.to_string_id(), "base:miner_block");
+        assert_eq!(
+            BlockTypeSave::ConveyorBlock.to_string_id(),
+            "base:conveyor_block"
+        );
+        assert_eq!(BlockTypeSave::CopperOre.to_string_id(), "base:copper_ore");
+        assert_eq!(
+            BlockTypeSave::CopperIngot.to_string_id(),
+            "base:copper_ingot"
+        );
+        assert_eq!(
+            BlockTypeSave::CrusherBlock.to_string_id(),
+            "base:crusher_block"
+        );
+        assert_eq!(
+            BlockTypeSave::FurnaceBlock.to_string_id(),
+            "base:furnace_block"
+        );
+        assert_eq!(
+            BlockTypeSave::StonePickaxe.to_string_id(),
+            "base:stone_pickaxe"
+        );
+        assert_eq!(
+            BlockTypeSave::AssemblerBlock.to_string_id(),
+            "base:assembler_block"
+        );
+        assert_eq!(BlockTypeSave::IronDust.to_string_id(), "base:iron_dust");
+        assert_eq!(BlockTypeSave::CopperDust.to_string_id(), "base:copper_dust");
+        assert_eq!(
+            BlockTypeSave::PlatformBlock.to_string_id(),
+            "base:platform_block"
+        );
+    }
+
+    #[test]
+    fn test_block_type_save_from_string_id() {
+        // Test basic parsing
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:stone"),
+            Some(BlockTypeSave::Stone)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:iron_ore"),
+            Some(BlockTypeSave::IronOre)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:miner_block"),
+            Some(BlockTypeSave::MinerBlock)
+        );
+
+        // Test aliases (short names)
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:miner"),
+            Some(BlockTypeSave::MinerBlock)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:conveyor"),
+            Some(BlockTypeSave::ConveyorBlock)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:furnace"),
+            Some(BlockTypeSave::FurnaceBlock)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:crusher"),
+            Some(BlockTypeSave::CrusherBlock)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:pickaxe"),
+            Some(BlockTypeSave::StonePickaxe)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("base:platform"),
+            Some(BlockTypeSave::PlatformBlock)
+        );
+
+        // Test fallback (no namespace)
+        assert_eq!(
+            BlockTypeSave::from_string_id("stone"),
+            Some(BlockTypeSave::Stone)
+        );
+        assert_eq!(
+            BlockTypeSave::from_string_id("iron_ore"),
+            Some(BlockTypeSave::IronOre)
+        );
+
+        // Test invalid cases
+        assert_eq!(BlockTypeSave::from_string_id("unknown:stone"), None);
+        assert_eq!(BlockTypeSave::from_string_id("base:unknown_item"), None);
+        assert_eq!(BlockTypeSave::from_string_id("mod:custom_item"), None);
+        assert_eq!(BlockTypeSave::from_string_id(""), None);
+    }
+
+    #[test]
+    fn test_block_type_save_string_id_roundtrip() {
+        // Test that all BlockTypeSave variants can be converted to string and back
+        let all_types = [
+            BlockTypeSave::Stone,
+            BlockTypeSave::Grass,
+            BlockTypeSave::IronOre,
+            BlockTypeSave::Coal,
+            BlockTypeSave::IronIngot,
+            BlockTypeSave::MinerBlock,
+            BlockTypeSave::ConveyorBlock,
+            BlockTypeSave::CopperOre,
+            BlockTypeSave::CopperIngot,
+            BlockTypeSave::CrusherBlock,
+            BlockTypeSave::FurnaceBlock,
+            BlockTypeSave::StonePickaxe,
+            BlockTypeSave::AssemblerBlock,
+            BlockTypeSave::IronDust,
+            BlockTypeSave::CopperDust,
+            BlockTypeSave::PlatformBlock,
+        ];
+
+        for bt in all_types {
+            let string_id = bt.to_string_id();
+            let restored = BlockTypeSave::from_string_id(&string_id)
+                .unwrap_or_else(|| panic!("Failed to parse string ID: {}", string_id));
+            assert_eq!(bt, restored, "Roundtrip failed for {:?}", bt);
+        }
+    }
+
+    #[test]
+    fn test_item_stack_v2_new() {
+        let stack = ItemStackV2::new("base:iron_ore", 64);
+        assert_eq!(stack.item_id, "base:iron_ore");
+        assert_eq!(stack.count, 64);
+    }
+
+    #[test]
+    fn test_item_stack_v2_serialization() {
+        let stack = ItemStackV2::new("base:iron_ore", 64);
+
+        let json = serde_json::to_string(&stack).expect("serialization should succeed");
+        assert!(json.contains("base:iron_ore"));
+        assert!(json.contains("64"));
+
+        let restored: ItemStackV2 =
+            serde_json::from_str(&json).expect("deserialization should succeed");
+        assert_eq!(restored, stack);
+    }
+
+    #[test]
+    fn test_item_stack_v2_from_legacy() {
+        let legacy = ItemStack {
+            item_type: BlockTypeSave::IronOre,
+            count: 32,
+        };
+
+        let v2: ItemStackV2 = legacy.clone().into();
+        assert_eq!(v2.item_id, "base:iron_ore");
+        assert_eq!(v2.count, 32);
+
+        // Also test reference conversion
+        let v2_ref: ItemStackV2 = (&legacy).into();
+        assert_eq!(v2_ref.item_id, "base:iron_ore");
+        assert_eq!(v2_ref.count, 32);
+    }
+
+    #[test]
+    fn test_item_stack_v2_to_legacy() {
+        // Test successful conversion
+        let v2 = ItemStackV2::new("base:iron_ore", 64);
+        let legacy = v2.to_legacy().expect("conversion should succeed");
+        assert_eq!(legacy.item_type, BlockTypeSave::IronOre);
+        assert_eq!(legacy.count, 64);
+
+        // Test conversion of unknown item (mod item)
+        let mod_item = ItemStackV2::new("mymod:copper_plate", 10);
+        assert!(mod_item.to_legacy().is_none());
+    }
+
+    #[test]
+    fn test_item_stack_v2_try_from() {
+        // Test successful TryFrom
+        let v2 = ItemStackV2::new("base:stone", 100);
+        let legacy: ItemStack = v2.try_into().expect("TryFrom should succeed");
+        assert_eq!(legacy.item_type, BlockTypeSave::Stone);
+        assert_eq!(legacy.count, 100);
+
+        // Test failed TryFrom
+        let mod_item = ItemStackV2::new("unknown:item", 1);
+        let result: Result<ItemStack, _> = mod_item.try_into();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unknown item ID"));
+    }
+
+    #[test]
+    fn test_item_stack_v2_roundtrip() {
+        // Legacy -> V2 -> Legacy roundtrip
+        let original = ItemStack {
+            item_type: BlockTypeSave::CopperIngot,
+            count: 999,
+        };
+
+        let v2: ItemStackV2 = original.clone().into();
+        let restored: ItemStack = v2.try_into().expect("roundtrip should succeed");
+
+        assert_eq!(original.item_type, restored.item_type);
+        assert_eq!(original.count, restored.count);
+    }
+
+    #[test]
+    fn test_block_type_save_string_id_helpers() {
+        // Test BlockType::to_save_string_id
+        assert_eq!(BlockType::Stone.to_save_string_id(), "base:stone");
+        assert_eq!(BlockType::IronOre.to_save_string_id(), "base:iron_ore");
+        assert_eq!(
+            BlockType::MinerBlock.to_save_string_id(),
+            "base:miner_block"
+        );
+
+        // Test BlockType::from_save_string_id
+        assert_eq!(
+            BlockType::from_save_string_id("base:stone"),
+            Some(BlockType::Stone)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:iron_ore"),
+            Some(BlockType::IronOre)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:miner"),
+            Some(BlockType::MinerBlock)
+        );
+        assert_eq!(BlockType::from_save_string_id("unknown:item"), None);
+    }
+
+    #[test]
+    fn test_item_stack_v2_json_format() {
+        // Verify the JSON format is what we expect
+        let stack = ItemStackV2::new("base:iron_ore", 64);
+        let json = serde_json::to_string_pretty(&stack).expect("serialization should succeed");
+
+        // The JSON should be human-readable with string IDs
+        assert!(json.contains(r#""item_id": "base:iron_ore""#));
+        assert!(json.contains(r#""count": 64"#));
     }
 }

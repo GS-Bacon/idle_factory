@@ -1,10 +1,12 @@
 //! Conveyor systems: transfer, visuals
 
+use crate::components::{can_crush, Machine};
 use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
+use crate::events::game_events::{ConveyorTransfer, ItemDelivered};
 use crate::player::GlobalInventory;
 use crate::{
-    BlockType, Conveyor, ConveyorItemVisual, ConveyorShape, Crusher, DeliveryPlatform, Direction,
-    Furnace, MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
+    BlockType, Conveyor, ConveyorItemVisual, ConveyorShape, DeliveryPlatform, Direction,
+    MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
 };
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -16,10 +18,11 @@ pub fn conveyor_transfer(
     time: Res<Time>,
     mut commands: Commands,
     mut conveyor_query: Query<(Entity, &mut Conveyor)>,
-    mut furnace_query: Query<(&Transform, &mut Furnace)>,
-    mut crusher_query: Query<&mut Crusher>,
+    mut machine_query: Query<&mut Machine>,
     platform_query: Query<(&Transform, &DeliveryPlatform)>,
     mut global_inventory: ResMut<GlobalInventory>,
+    mut transfer_events: EventWriter<ConveyorTransfer>,
+    mut delivery_events: EventWriter<ItemDelivered>,
 ) {
     // Build lookup maps
     let conveyor_positions: HashMap<IVec3, Entity> = conveyor_query
@@ -27,17 +30,21 @@ pub fn conveyor_transfer(
         .map(|(e, c)| (c.position, e))
         .collect();
 
-    // Collect furnace positions
-    let furnace_positions: HashMap<IVec3, Entity> = furnace_query
-        .iter()
-        .map(|(_, f)| (f.position, Entity::PLACEHOLDER))
-        .collect();
+    // Collect furnace and crusher positions from Machine components
+    let mut furnace_positions: HashMap<IVec3, Entity> = HashMap::new();
+    let mut crusher_positions: HashMap<IVec3, Entity> = HashMap::new();
 
-    // Collect crusher positions
-    let crusher_positions: HashMap<IVec3, Entity> = crusher_query
-        .iter()
-        .map(|c| (c.position, Entity::PLACEHOLDER))
-        .collect();
+    for (entity, machine) in machine_query.iter().map(|m| (Entity::PLACEHOLDER, m)) {
+        match machine.spec.block_type {
+            BlockType::FurnaceBlock => {
+                furnace_positions.insert(machine.position, entity);
+            }
+            BlockType::CrusherBlock => {
+                crusher_positions.insert(machine.position, entity);
+            }
+            _ => {}
+        }
+    }
 
     // Check if position is on delivery platform
     let platform_bounds: Option<(IVec3, IVec3)> = platform_query.iter().next().map(|(t, _)| {
@@ -54,16 +61,21 @@ pub fn conveyor_transfer(
         source_entity: Entity,
         source_pos: IVec3, // Position of source conveyor (for join progress calculation)
         item_index: usize,
+        item_type: BlockType, // For event emission
         target: TransferTarget,
     }
     enum TransferTarget {
-        Conveyor(Entity), // Target conveyor entity
+        Conveyor(Entity, IVec3), // Target conveyor entity and position
         Furnace(IVec3),
         Crusher(IVec3),
         Delivery,
     }
 
     let mut actions: Vec<TransferAction> = Vec::new();
+
+    // Collect events to send
+    let mut conveyor_transfer_items: Vec<(IVec3, IVec3, BlockType)> = Vec::new();
+    let mut delivered_items: Vec<(BlockType, u32)> = Vec::new();
 
     // Track splitter output indices for round-robin (entity -> next output index)
     let mut splitter_indices: HashMap<Entity, usize> = HashMap::new();
@@ -110,6 +122,7 @@ pub fn conveyor_transfer(
                             source_entity: entity,
                             source_pos: conveyor.position,
                             item_index: idx,
+                            item_type: item.block_type,
                             target: TransferTarget::Delivery,
                         });
                         // Update splitter index for next item
@@ -130,7 +143,8 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        target: TransferTarget::Conveyor(next_entity),
+                        item_type: item.block_type,
+                        target: TransferTarget::Conveyor(next_entity, next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
                         let current = splitter_indices
@@ -145,6 +159,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
+                        item_type: item.block_type,
                         target: TransferTarget::Furnace(next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -160,6 +175,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
+                        item_type: item.block_type,
                         target: TransferTarget::Crusher(next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -190,7 +206,7 @@ pub fn conveyor_transfer(
     // Group sources by target conveyor for zipper merge (HashSet for O(1) dedup)
     let mut sources_by_target: HashMap<Entity, HashSet<Entity>> = HashMap::new();
     for action in &actions {
-        if let TransferTarget::Conveyor(target) = action.target {
+        if let TransferTarget::Conveyor(target, _) = action.target {
             sources_by_target
                 .entry(target)
                 .or_default()
@@ -227,7 +243,7 @@ pub fn conveyor_transfer(
     let conveyor_transfer_ok: HashMap<(Entity, usize), Option<(f32, f32)>> = actions
         .iter()
         .filter_map(|action| {
-            if let TransferTarget::Conveyor(target_entity) = action.target {
+            if let TransferTarget::Conveyor(target_entity, _) = action.target {
                 let result = conveyor_query.get(target_entity).ok().and_then(|(_, c)| {
                     // Calculate join info (progress, lateral_offset) based on source position
                     c.get_join_info(action.source_pos)
@@ -257,7 +273,7 @@ pub fn conveyor_transfer(
         let item = source_conv.items[action.item_index].clone();
 
         match action.target {
-            TransferTarget::Conveyor(target_entity) => {
+            TransferTarget::Conveyor(target_entity, target_pos) => {
                 // Zipper merge: check if this source is allowed for this target
                 if let Some(&allowed) = allowed_source.get(&target_entity) {
                     if allowed != action.source_entity {
@@ -286,60 +302,69 @@ pub fn conveyor_transfer(
                     ));
                     // Mark target for last_input_source update
                     targets_to_update.insert(target_entity);
+                    // Collect event for ConveyorTransfer
+                    conveyor_transfer_items.push((action.source_pos, target_pos, action.item_type));
                 }
             }
             TransferTarget::Furnace(furnace_pos) => {
                 let mut accepted = false;
-                for (_, mut furnace) in furnace_query.iter_mut() {
-                    if furnace.position == furnace_pos {
-                        // Calculate input ports based on furnace facing direction
-                        // FURNACE spec: Back=ore(slot0), Left=fuel(slot1), Right=fuel(slot1)
-                        let back_port = furnace.position + furnace.facing.opposite().to_ivec3();
-                        let left_port = furnace.position + furnace.facing.left().to_ivec3();
-                        let right_port = furnace.position + furnace.facing.right().to_ivec3();
+                for mut machine in machine_query.iter_mut() {
+                    if machine.spec.block_type != BlockType::FurnaceBlock
+                        || machine.position != furnace_pos
+                    {
+                        continue;
+                    }
+                    // Calculate input ports based on furnace facing direction
+                    // FURNACE spec: Back=ore(slot0), Left=fuel(slot1), Right=fuel(slot1)
+                    let back_port = machine.position + machine.facing.opposite().to_ivec3();
+                    let left_port = machine.position + machine.facing.left().to_ivec3();
+                    let right_port = machine.position + machine.facing.right().to_ivec3();
 
-                        // Determine which port the conveyor is at
-                        let at_back = action.source_pos == back_port;
-                        let at_left = action.source_pos == left_port;
-                        let at_right = action.source_pos == right_port;
+                    // Determine which port the conveyor is at
+                    let at_back = action.source_pos == back_port;
+                    let at_left = action.source_pos == left_port;
+                    let at_right = action.source_pos == right_port;
 
-                        if !at_back && !at_left && !at_right {
-                            break; // Not at any input port, reject
+                    if !at_back && !at_left && !at_right {
+                        break; // Not at any input port, reject
+                    }
+
+                    // Accept items based on port type
+                    let input_count = machine.slots.inputs.first().map(|s| s.count).unwrap_or(0);
+                    let input_type = machine.slots.inputs.first().and_then(|s| s.item_type);
+                    let can_accept = match item.block_type {
+                        BlockType::Coal => {
+                            // Fuel only from left or right ports
+                            (at_left || at_right) && machine.slots.fuel < 64
                         }
-
-                        // Accept items based on port type
-                        let can_accept = match item.block_type {
-                            BlockType::Coal => {
-                                // Fuel only from left or right ports
-                                (at_left || at_right) && furnace.fuel < 64
-                            }
+                        BlockType::IronOre
+                        | BlockType::CopperOre
+                        | BlockType::IronDust
+                        | BlockType::CopperDust => {
+                            // Ore/Dust only from back port
+                            at_back
+                                && (input_type.is_none() || input_type == Some(item.block_type))
+                                && input_count < 64
+                        }
+                        _ => false,
+                    };
+                    if can_accept {
+                        match item.block_type {
+                            BlockType::Coal => machine.slots.fuel += 1,
                             BlockType::IronOre
                             | BlockType::CopperOre
                             | BlockType::IronDust
                             | BlockType::CopperDust => {
-                                // Ore/Dust only from back port
-                                at_back
-                                    && furnace.can_add_input(item.block_type)
-                                    && furnace.input_count < 64
-                            }
-                            _ => false,
-                        };
-                        if can_accept {
-                            match item.block_type {
-                                BlockType::Coal => furnace.fuel += 1,
-                                BlockType::IronOre
-                                | BlockType::CopperOre
-                                | BlockType::IronDust
-                                | BlockType::CopperDust => {
-                                    furnace.input_type = Some(item.block_type);
-                                    furnace.input_count += 1;
+                                if let Some(input_slot) = machine.slots.inputs.first_mut() {
+                                    input_slot.item_type = Some(item.block_type);
+                                    input_slot.count += 1;
                                 }
-                                _ => {}
                             }
-                            accepted = true;
+                            _ => {}
                         }
-                        break;
+                        accepted = true;
                     }
+                    break;
                 }
                 if accepted {
                     if let Some(visual) = item.visual_entity {
@@ -350,25 +375,31 @@ pub fn conveyor_transfer(
             }
             TransferTarget::Crusher(crusher_pos) => {
                 let mut accepted = false;
-                for mut crusher in crusher_query.iter_mut() {
-                    if crusher.position == crusher_pos {
-                        // Check if conveyor is at input port (back of crusher)
-                        let input_port = crusher.position + crusher.facing.opposite().to_ivec3();
-                        if action.source_pos != input_port {
-                            break; // Not at input port, reject
-                        }
-
-                        let can_accept = Crusher::can_crush(item.block_type)
-                            && (crusher.input_type.is_none()
-                                || crusher.input_type == Some(item.block_type))
-                            && crusher.input_count < 64;
-                        if can_accept {
-                            crusher.input_type = Some(item.block_type);
-                            crusher.input_count += 1;
-                            accepted = true;
-                        }
-                        break;
+                for mut machine in machine_query.iter_mut() {
+                    if machine.spec.block_type != BlockType::CrusherBlock
+                        || machine.position != crusher_pos
+                    {
+                        continue;
                     }
+                    // Check if conveyor is at input port (back of crusher)
+                    let input_port = machine.position + machine.facing.opposite().to_ivec3();
+                    if action.source_pos != input_port {
+                        break; // Not at input port, reject
+                    }
+
+                    let input_count = machine.slots.inputs.first().map(|s| s.count).unwrap_or(0);
+                    let input_type = machine.slots.inputs.first().and_then(|s| s.item_type);
+                    let can_accept_item = can_crush(item.block_type)
+                        && (input_type.is_none() || input_type == Some(item.block_type))
+                        && input_count < 64;
+                    if can_accept_item {
+                        if let Some(input_slot) = machine.slots.inputs.first_mut() {
+                            input_slot.item_type = Some(item.block_type);
+                            input_slot.count += 1;
+                        }
+                        accepted = true;
+                    }
+                    break;
                 }
                 if accepted {
                     if let Some(visual) = item.visual_entity {
@@ -386,6 +417,8 @@ pub fn conveyor_transfer(
                     commands.entity(visual).despawn();
                 }
                 source_conv.items.remove(action.item_index);
+                // Collect event for ItemDelivered
+                delivered_items.push((action.item_type, 1));
             }
         }
     }
@@ -402,6 +435,18 @@ pub fn conveyor_transfer(
         if let Ok((_, mut target_conv)) = conveyor_query.get_mut(target_entity) {
             target_conv.last_input_source += 1;
         }
+    }
+
+    // Send collected events
+    for (from_pos, to_pos, item) in conveyor_transfer_items {
+        transfer_events.send(ConveyorTransfer {
+            from_pos,
+            to_pos,
+            item,
+        });
+    }
+    for (item, count) in delivered_items {
+        delivery_events.send(ItemDelivered { item, count });
     }
 
     // Persist splitter output indices

@@ -14,7 +14,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 TASKS_FILE="$PROJECT_ROOT/.claude/parallel-tasks.json"
-WORKTREES_DIR="$PROJECT_ROOT/../idle_factory_worktrees"
+WORKTREES_DIR="/mnt/build/worktrees"  # 300GB ディスク
 
 # 色定義
 RED='\033[0;31m'
@@ -44,8 +44,8 @@ MIN_FREE_GB=10      # 最低限確保する空き容量（GB）
 check_disk_space() {
     local num_worktrees="${1:-1}"
 
-    # 現在の空き容量を取得（GB単位）
-    local free_gb=$(df -BG "$PROJECT_ROOT" | tail -1 | awk '{print $4}' | sed 's/G//')
+    # 現在の空き容量を取得（GB単位）- worktreeディスクを確認
+    local free_gb=$(df -BG "$WORKTREES_DIR" | tail -1 | awk '{print $4}' | sed 's/G//')
 
     # 必要な容量を計算
     local needed_gb=$((num_worktrees * WORKTREE_SIZE_GB + MIN_FREE_GB))
@@ -85,7 +85,7 @@ cleanup_worktrees() {
     if [[ $cleaned -gt 0 ]]; then
         log_success "${cleaned}個のworktreeを削除しました"
         # 削除後の容量を表示
-        local free_gb=$(df -BG "$PROJECT_ROOT" | tail -1 | awk '{print $4}' | sed 's/G//')
+        local free_gb=$(df -BG "$WORKTREES_DIR" | tail -1 | awk '{print $4}' | sed 's/G//')
         log_info "現在の空き容量: ${free_gb}GB"
     else
         log_info "クリーンアップ対象なし"

@@ -224,9 +224,10 @@ fn find_break_target(
         }
     }
 
-    // Check miners
-    for (entity, _miner, miner_transform) in machines.miner.iter() {
-        let pos = miner_transform.translation();
+    // Check all machines (miner, crusher, furnace)
+    for (entity, machine, machine_transform) in machines.machine.iter() {
+        let pos = machine_transform.translation();
+        let block_type = machine.spec.block_type;
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
             ray_direction,
@@ -234,37 +235,7 @@ fn find_break_target(
             pos + Vec3::splat(half_size),
         ) {
             if t > 0.0 && t < REACH_DISTANCE && closest.as_ref().is_none_or(|(_, d)| t < *d) {
-                closest = Some((BreakTarget::Machine(entity, BlockType::MinerBlock), t));
-            }
-        }
-    }
-
-    // Check crushers
-    for (entity, _crusher, crusher_transform) in machines.crusher.iter() {
-        let pos = crusher_transform.translation();
-        if let Some(t) = ray_aabb_intersection(
-            ray_origin,
-            ray_direction,
-            pos - Vec3::splat(half_size),
-            pos + Vec3::splat(half_size),
-        ) {
-            if t > 0.0 && t < REACH_DISTANCE && closest.as_ref().is_none_or(|(_, d)| t < *d) {
-                closest = Some((BreakTarget::Machine(entity, BlockType::CrusherBlock), t));
-            }
-        }
-    }
-
-    // Check furnaces
-    for (entity, _furnace, furnace_transform) in machines.furnace.iter() {
-        let pos = furnace_transform.translation();
-        if let Some(t) = ray_aabb_intersection(
-            ray_origin,
-            ray_direction,
-            pos - Vec3::splat(half_size),
-            pos + Vec3::splat(half_size),
-        ) {
-            if t > 0.0 && t < REACH_DISTANCE && closest.as_ref().is_none_or(|(_, d)| t < *d) {
-                closest = Some((BreakTarget::Machine(entity, BlockType::FurnaceBlock), t));
+                closest = Some((BreakTarget::Machine(entity, block_type), t));
             }
         }
     }
@@ -333,62 +304,38 @@ fn execute_machine_break(
             commands.entity(entity).despawn_recursive();
             inventory.add_item(BlockType::ConveyorBlock, 1);
         }
-        BlockType::MinerBlock => {
-            info!(
-                category = "MACHINE",
-                action = "break",
-                machine = "miner",
-                "Miner broken"
-            );
-            commands.entity(entity).despawn_recursive();
-            inventory.add_item(BlockType::MinerBlock, 1);
-        }
-        BlockType::CrusherBlock => {
-            if let Ok((_, crusher, _)) = machines.crusher.get(entity) {
-                if let Some(input_type) = crusher.input_type {
-                    if crusher.input_count > 0 {
-                        inventory.add_item(input_type, crusher.input_count);
+        BlockType::MinerBlock | BlockType::CrusherBlock | BlockType::FurnaceBlock => {
+            // Return contents from machine slots
+            if let Ok((_, machine, _)) = machines.machine.get(entity) {
+                // Return fuel
+                if machine.slots.fuel > 0 {
+                    inventory.add_item(BlockType::Coal, machine.slots.fuel);
+                }
+                // Return input items
+                for input_slot in &machine.slots.inputs {
+                    if let Some(item_type) = input_slot.item_type {
+                        if input_slot.count > 0 {
+                            inventory.add_item(item_type, input_slot.count);
+                        }
                     }
                 }
-                if let Some(output_type) = crusher.output_type {
-                    if crusher.output_count > 0 {
-                        inventory.add_item(output_type, crusher.output_count);
-                    }
-                }
-            }
-            info!(
-                category = "MACHINE",
-                action = "break",
-                machine = "crusher",
-                "Crusher broken"
-            );
-            commands.entity(entity).despawn_recursive();
-            inventory.add_item(BlockType::CrusherBlock, 1);
-        }
-        BlockType::FurnaceBlock => {
-            if let Ok((_, furnace, _)) = machines.furnace.get(entity) {
-                if furnace.fuel > 0 {
-                    inventory.add_item(BlockType::Coal, furnace.fuel);
-                }
-                if let Some(input_type) = furnace.input_type {
-                    if furnace.input_count > 0 {
-                        inventory.add_item(input_type, furnace.input_count);
-                    }
-                }
-                if let Some(output_type) = furnace.output_type {
-                    if furnace.output_count > 0 {
-                        inventory.add_item(output_type, furnace.output_count);
+                // Return output items
+                for output_slot in &machine.slots.outputs {
+                    if let Some(item_type) = output_slot.item_type {
+                        if output_slot.count > 0 {
+                            inventory.add_item(item_type, output_slot.count);
+                        }
                     }
                 }
             }
             info!(
                 category = "MACHINE",
                 action = "break",
-                machine = "furnace",
-                "Furnace broken"
+                machine = ?machine_type,
+                "Machine broken"
             );
             commands.entity(entity).despawn_recursive();
-            inventory.add_item(BlockType::FurnaceBlock, 1);
+            inventory.add_item(machine_type, 1);
         }
         _ => {}
     }

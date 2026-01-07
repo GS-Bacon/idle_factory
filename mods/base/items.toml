@@ -1,0 +1,193 @@
+# Base Game Items
+# All item definitions for the base game
+
+# =============================================================================
+# Terrain (hardness 1.0)
+# =============================================================================
+
+[[item]]
+id = "stone"
+name = "Stone"
+short_name = "Stn"
+description = "Basic building material"
+stack_size = 999
+category = "terrain"
+is_placeable = true
+hardness = 1.0
+color = [0.5, 0.5, 0.5]
+
+[[item]]
+id = "grass"
+name = "Grass"
+short_name = "Grs"
+description = "Natural ground cover"
+stack_size = 999
+category = "terrain"
+is_placeable = true
+hardness = 0.8
+color = [0.2, 0.8, 0.2]
+
+# =============================================================================
+# Ores (hardness 1.2)
+# =============================================================================
+
+[[item]]
+id = "iron_ore"
+name = "Iron Ore"
+short_name = "FeO"
+description = "Raw iron ore, can be smelted or crushed"
+stack_size = 999
+category = "ore"
+is_placeable = true
+hardness = 1.2
+color = [0.6, 0.5, 0.4]
+
+[[item]]
+id = "copper_ore"
+name = "Copper Ore"
+short_name = "CuO"
+description = "Raw copper ore, can be smelted or crushed"
+stack_size = 999
+category = "ore"
+is_placeable = true
+hardness = 1.2
+color = [0.7, 0.4, 0.3]
+
+[[item]]
+id = "coal"
+name = "Coal"
+short_name = "C"
+description = "Fuel for furnaces"
+stack_size = 999
+category = "ore"
+is_placeable = true
+hardness = 1.0
+color = [0.15, 0.15, 0.15]
+
+# =============================================================================
+# Processed Materials
+# =============================================================================
+
+[[item]]
+id = "iron_ingot"
+name = "Iron Ingot"
+short_name = "Fe"
+description = "Processed iron, used for crafting"
+stack_size = 999
+category = "processed"
+is_placeable = false
+color = [0.8, 0.8, 0.85]
+
+[[item]]
+id = "copper_ingot"
+name = "Copper Ingot"
+short_name = "Cu"
+description = "Processed copper, used for crafting"
+stack_size = 999
+category = "processed"
+is_placeable = false
+color = [0.9, 0.5, 0.3]
+
+[[item]]
+id = "iron_dust"
+name = "Iron Dust"
+short_name = "FeD"
+description = "Crushed iron ore, smelts faster"
+stack_size = 999
+category = "processed"
+is_placeable = false
+color = [0.7, 0.7, 0.75]
+
+[[item]]
+id = "copper_dust"
+name = "Copper Dust"
+short_name = "CuD"
+description = "Crushed copper ore, smelts faster"
+stack_size = 999
+category = "processed"
+is_placeable = false
+color = [0.85, 0.55, 0.4]
+
+# =============================================================================
+# Machines (hardness 0.5)
+# =============================================================================
+
+[[item]]
+id = "miner_block"
+name = "Miner"
+short_name = "Min"
+description = "Automatically extracts resources from terrain"
+stack_size = 999
+category = "machine"
+is_placeable = true
+hardness = 0.5
+color = [0.8, 0.6, 0.2]
+
+[[item]]
+id = "conveyor_block"
+name = "Conveyor"
+short_name = "Conv"
+description = "Transports items between machines"
+stack_size = 999
+category = "machine"
+is_placeable = true
+hardness = 0.3
+color = [0.3, 0.3, 0.35]
+
+[[item]]
+id = "furnace_block"
+name = "Furnace"
+short_name = "Fur"
+description = "Smelts ores into ingots, requires fuel"
+stack_size = 999
+category = "machine"
+is_placeable = true
+hardness = 0.5
+color = [0.4, 0.3, 0.3]
+
+[[item]]
+id = "crusher_block"
+name = "Crusher"
+short_name = "Cru"
+description = "Crushes ores into dust, doubles output"
+stack_size = 999
+category = "machine"
+is_placeable = true
+hardness = 0.5
+color = [0.4, 0.3, 0.5]
+
+[[item]]
+id = "assembler_block"
+name = "Assembler"
+short_name = "Asm"
+description = "Crafts machines and components"
+stack_size = 999
+category = "machine"
+is_placeable = true
+hardness = 0.5
+color = [0.3, 0.5, 0.4]
+
+[[item]]
+id = "platform_block"
+name = "Platform"
+short_name = "Plt"
+description = "Storage platform for items"
+stack_size = 999
+category = "machine"
+is_placeable = true
+hardness = 0.5
+color = [0.2, 0.5, 0.3]
+
+# =============================================================================
+# Tools
+# =============================================================================
+
+[[item]]
+id = "stone_pickaxe"
+name = "Stone Pickaxe"
+short_name = "Pick"
+description = "Basic mining tool"
+stack_size = 1
+category = "tool"
+is_placeable = false
+color = [0.6, 0.6, 0.6]

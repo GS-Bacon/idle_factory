@@ -4,9 +4,10 @@ use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use std::collections::HashSet;
 
+use crate::components::Machine;
 use crate::meshes::create_wireframe_cube_mesh;
 use crate::player::{LocalPlayer, PlayerInventory};
-use crate::{BlockType, Conveyor, Crusher, Direction, Furnace, GuideMarker, GuideMarkers, Miner};
+use crate::{BlockType, Conveyor, Direction, GuideMarker, GuideMarkers};
 
 /// Update guide markers based on selected item
 /// Shows recommended placement positions for machines
@@ -19,10 +20,8 @@ pub fn update_guide_markers(
     local_player: Option<Res<LocalPlayer>>,
     inventories: Query<&PlayerInventory>,
     time: Res<Time>,
-    miner_query: Query<&Miner>,
+    machine_query: Query<&Machine>,
     conveyor_query: Query<&Conveyor>,
-    furnace_query: Query<&Transform, (With<Furnace>, Without<GuideMarker>)>,
-    crusher_query: Query<&Transform, (With<Crusher>, Without<GuideMarker>)>,
 ) {
     let Some(local_player) = local_player else {
         return;
@@ -60,12 +59,7 @@ pub fn update_guide_markers(
     let guide_positions = match block_type {
         BlockType::ConveyorBlock => {
             // Show positions extending from existing machines
-            generate_conveyor_guide_positions(
-                &miner_query,
-                &conveyor_query,
-                &furnace_query,
-                &crusher_query,
-            )
+            generate_conveyor_guide_positions(&machine_query, &conveyor_query)
         }
         BlockType::FurnaceBlock | BlockType::CrusherBlock => {
             // Show positions along conveyor paths
@@ -108,26 +102,18 @@ pub fn update_guide_markers(
 
 /// Generate guide positions for conveyors (extending from existing machines)
 fn generate_conveyor_guide_positions(
-    miner_query: &Query<&Miner>,
+    machine_query: &Query<&Machine>,
     conveyor_query: &Query<&Conveyor>,
-    furnace_query: &Query<&Transform, (With<Furnace>, Without<GuideMarker>)>,
-    crusher_query: &Query<&Transform, (With<Crusher>, Without<GuideMarker>)>,
 ) -> Vec<IVec3> {
     let mut positions = Vec::new();
     let mut existing: HashSet<IVec3> = HashSet::new();
 
     // Collect existing machine positions
-    for miner in miner_query.iter() {
-        existing.insert(miner.position);
+    for machine in machine_query.iter() {
+        existing.insert(machine.position);
     }
     for conveyor in conveyor_query.iter() {
         existing.insert(conveyor.position);
-    }
-    for transform in furnace_query.iter() {
-        existing.insert(crate::world_to_grid(transform.translation));
-    }
-    for transform in crusher_query.iter() {
-        existing.insert(crate::world_to_grid(transform.translation));
     }
 
     // Show positions adjacent to conveyor ends
@@ -145,9 +131,13 @@ fn generate_conveyor_guide_positions(
     }
 
     // Show positions adjacent to miners (output side)
-    for miner in miner_query.iter() {
+    for machine in machine_query.iter() {
+        // Only suggest for miners
+        if machine.spec.block_type != crate::BlockType::MinerBlock {
+            continue;
+        }
         for dir in [IVec3::X, IVec3::NEG_X, IVec3::Z, IVec3::NEG_Z] {
-            let adj = miner.position + dir;
+            let adj = machine.position + dir;
             if !existing.contains(&adj) && !positions.contains(&adj) {
                 positions.push(adj);
                 break; // Only one suggestion per miner

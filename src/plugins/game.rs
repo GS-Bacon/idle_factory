@@ -5,17 +5,27 @@
 
 use bevy::prelude::*;
 
+use crate::achievements::AchievementsPlugin;
+use crate::audio::AudioPlugin;
+use crate::blueprint::BlueprintPlugin;
 use crate::components::*;
+use crate::craft::CraftPlugin;
 use crate::events::GameEventsPlugin;
 use crate::game_spec;
 use crate::game_spec::RegistryPlugin;
+use crate::map::MapPlugin;
+use crate::modding::ModdingPlugin;
 use crate::player::GlobalInventory;
 use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
+use crate::robot::RobotPlugin;
 use crate::settings::SettingsPlugin;
 use crate::setup::{
     handle_settings_back, handle_settings_sliders, handle_settings_toggles, setup_initial_items,
     setup_lighting, setup_player, setup_ui, update_settings_ui, update_settings_visibility,
 };
+use crate::skin::SkinPlugin;
+use crate::statistics::StatisticsPlugin;
+use crate::storage::StoragePlugin;
 use crate::systems::{
     block_break, block_place, handle_assert_machine_event, handle_debug_event, handle_look_event,
     handle_pause_menu_buttons, handle_screenshot_event, handle_setblock_event,
@@ -49,7 +59,18 @@ impl Plugin for GamePlugin {
             .add_plugins(MachineSystemsPlugin)
             .add_plugins(UIPlugin)
             .add_plugins(SavePlugin)
-            .add_plugins(DebugPlugin);
+            .add_plugins(DebugPlugin)
+            // Phase D plugins (基盤強化)
+            .add_plugins(MapPlugin)
+            .add_plugins(BlueprintPlugin)
+            .add_plugins(CraftPlugin)
+            .add_plugins(StoragePlugin)
+            .add_plugins(StatisticsPlugin)
+            .add_plugins(AudioPlugin)
+            .add_plugins(AchievementsPlugin)
+            .add_plugins(SkinPlugin)
+            .add_plugins(RobotPlugin)
+            .add_plugins(ModdingPlugin);
 
         // Initialize resources
         app.insert_resource(GlobalInventory::with_items(game_spec::INITIAL_EQUIPMENT))

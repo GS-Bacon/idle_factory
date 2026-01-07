@@ -7,10 +7,10 @@
 
 use crate::components::*;
 use crate::events::SpawnMachineEvent;
+use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::world::WorldData;
 use crate::{
-    BlockType, Conveyor, ConveyorShape, ConveyorVisual, Crusher, Direction, Furnace, MachineModels,
-    Miner, BLOCK_SIZE,
+    BlockType, Conveyor, ConveyorShape, ConveyorVisual, Direction, MachineModels, BLOCK_SIZE,
 };
 use bevy::prelude::*;
 use tracing::info;
@@ -181,10 +181,7 @@ pub fn handle_spawn_machine_event(
                         Visibility::default(),
                         InheritedVisibility::default(),
                         ViewVisibility::default(),
-                        Miner {
-                            position: pos,
-                            ..default()
-                        },
+                        Machine::new(&MINER, pos, Direction::North),
                     ));
                 } else {
                     let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -196,10 +193,7 @@ pub fn handle_spawn_machine_event(
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
                         transform,
-                        Miner {
-                            position: pos,
-                            ..default()
-                        },
+                        Machine::new(&MINER, pos, Direction::North),
                     ));
                 }
                 info!("Spawned miner at {:?}", pos);
@@ -215,7 +209,7 @@ pub fn handle_spawn_machine_event(
                         Visibility::default(),
                         InheritedVisibility::default(),
                         ViewVisibility::default(),
-                        Furnace::default(),
+                        Machine::new(&FURNACE, pos, Direction::North),
                     ));
                 } else {
                     let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -227,7 +221,7 @@ pub fn handle_spawn_machine_event(
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
                         transform,
-                        Furnace::default(),
+                        Machine::new(&FURNACE, pos, Direction::North),
                     ));
                 }
                 info!("Spawned furnace at {:?}", pos);
@@ -243,11 +237,7 @@ pub fn handle_spawn_machine_event(
                         Visibility::default(),
                         InheritedVisibility::default(),
                         ViewVisibility::default(),
-                        Crusher {
-                            position: pos,
-                            facing: Direction::North, // Default for spawned machines
-                            ..default()
-                        },
+                        Machine::new(&CRUSHER, pos, Direction::North),
                     ));
                 } else {
                     let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -259,11 +249,7 @@ pub fn handle_spawn_machine_event(
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
                         transform,
-                        Crusher {
-                            position: pos,
-                            facing: Direction::North, // Default for spawned machines
-                            ..default()
-                        },
+                        Machine::new(&CRUSHER, pos, Direction::North),
                     ));
                 }
                 info!("Spawned crusher at {:?}", pos);
@@ -279,9 +265,7 @@ pub fn handle_spawn_machine_event(
 pub fn handle_debug_event(
     mut events: EventReader<DebugEvent>,
     conveyor_query: Query<(Entity, &Conveyor, &GlobalTransform)>,
-    miner_query: Query<(Entity, &Miner)>,
-    furnace_query: Query<(Entity, &Furnace)>,
-    crusher_query: Query<(Entity, &Crusher)>,
+    machine_query: Query<(Entity, &Machine)>,
 ) {
     for event in events.read() {
         match event.debug_type {
@@ -317,55 +301,63 @@ pub fn handle_debug_event(
             DebugEventType::Machine => {
                 info!("=== Machine Debug Dump ===");
 
-                // Miners
-                let miner_count = miner_query.iter().count();
-                info!("--- Miners ({}) ---", miner_count);
-                for (entity, miner) in miner_query.iter() {
-                    info!(
-                        "  {:?}: pos={:?}, facing={:?}, progress={:.1}%, buffer={:?}",
-                        entity,
-                        miner.position,
-                        miner.facing,
-                        miner.progress * 100.0,
-                        miner
-                            .buffer
-                            .map(|(bt, count)| format!("{}x{}", bt.name(), count)),
-                    );
-                }
+                let mut miner_count = 0;
+                let mut furnace_count = 0;
+                let mut crusher_count = 0;
 
-                // Furnaces
-                let furnace_count = furnace_query.iter().count();
-                info!("--- Furnaces ({}) ---", furnace_count);
-                for (entity, furnace) in furnace_query.iter() {
-                    info!(
-                        "  {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, fuel={}, progress={:.1}%",
-                        entity,
-                        furnace.position,
-                        furnace.facing,
-                        furnace.input_type.map(|b| b.name()),
-                        furnace.input_count,
-                        furnace.output_type.map(|b| b.name()),
-                        furnace.output_count,
-                        furnace.fuel,
-                        furnace.progress * 100.0,
-                    );
-                }
-
-                // Crushers
-                let crusher_count = crusher_query.iter().count();
-                info!("--- Crushers ({}) ---", crusher_count);
-                for (entity, crusher) in crusher_query.iter() {
-                    info!(
-                        "  {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, progress={:.1}%",
-                        entity,
-                        crusher.position,
-                        crusher.facing,
-                        crusher.input_type.map(|b| b.name()),
-                        crusher.input_count,
-                        crusher.output_type.map(|b| b.name()),
-                        crusher.output_count,
-                        crusher.progress * 100.0,
-                    );
+                for (entity, machine) in machine_query.iter() {
+                    match machine.spec.block_type {
+                        BlockType::MinerBlock => {
+                            let output = machine
+                                .slots
+                                .outputs
+                                .first()
+                                .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                            info!(
+                                "Miner {:?}: pos={:?}, facing={:?}, progress={:.1}%, buffer={:?}",
+                                entity,
+                                machine.position,
+                                machine.facing,
+                                machine.progress * 100.0,
+                                output.map(|(bt, count)| format!("{}x{}", bt.name(), count)),
+                            );
+                            miner_count += 1;
+                        }
+                        BlockType::FurnaceBlock => {
+                            let input = machine.slots.inputs.first();
+                            let output = machine.slots.outputs.first();
+                            info!(
+                                "Furnace {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, fuel={}, progress={:.1}%",
+                                entity,
+                                machine.position,
+                                machine.facing,
+                                input.and_then(|s| s.item_type).map(|b| b.name()),
+                                input.map(|s| s.count).unwrap_or(0),
+                                output.and_then(|s| s.item_type).map(|b| b.name()),
+                                output.map(|s| s.count).unwrap_or(0),
+                                machine.slots.fuel,
+                                machine.progress * 100.0,
+                            );
+                            furnace_count += 1;
+                        }
+                        BlockType::CrusherBlock => {
+                            let input = machine.slots.inputs.first();
+                            let output = machine.slots.outputs.first();
+                            info!(
+                                "Crusher {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, progress={:.1}%",
+                                entity,
+                                machine.position,
+                                machine.facing,
+                                input.and_then(|s| s.item_type).map(|b| b.name()),
+                                input.map(|s| s.count).unwrap_or(0),
+                                output.and_then(|s| s.item_type).map(|b| b.name()),
+                                output.map(|s| s.count).unwrap_or(0),
+                                machine.progress * 100.0,
+                            );
+                            crusher_count += 1;
+                        }
+                        _ => {}
+                    }
                 }
 
                 info!(
@@ -382,70 +374,32 @@ pub fn handle_debug_event(
                     .map(|(e, c, _)| (c.position, e))
                     .collect();
 
-                // Check miner output connections
-                info!("--- Miner Outputs ---");
-                for (entity, miner) in miner_query.iter() {
-                    let output_pos = miner.position + miner.facing.to_ivec3();
-                    let connected = conveyor_positions.get(&output_pos);
-                    info!(
-                        "  {:?} @ {:?} facing {:?} -> output {:?}: {:?}",
-                        entity,
-                        miner.position,
-                        miner.facing,
-                        output_pos,
-                        connected
-                            .map(|e| format!("{:?}", e))
-                            .unwrap_or_else(|| "none".to_string())
-                    );
-                }
-
-                // Check furnace input/output connections
-                info!("--- Furnace Connections ---");
-                for (entity, furnace) in furnace_query.iter() {
-                    let input_pos = furnace.position + furnace.facing.opposite().to_ivec3();
-                    let output_pos = furnace.position + furnace.facing.to_ivec3();
+                for (entity, machine) in machine_query.iter() {
+                    let input_pos = machine.position + machine.facing.opposite().to_ivec3();
+                    let output_pos = machine.position + machine.facing.to_ivec3();
                     let input_connected = conveyor_positions.get(&input_pos);
                     let output_connected = conveyor_positions.get(&output_pos);
+
+                    let machine_name = match machine.spec.block_type {
+                        BlockType::MinerBlock => "Miner",
+                        BlockType::FurnaceBlock => "Furnace",
+                        BlockType::CrusherBlock => "Crusher",
+                        _ => "Unknown",
+                    };
+
                     info!(
-                        "  {:?} @ {:?} facing {:?}",
-                        entity, furnace.position, furnace.facing
+                        "{} {:?} @ {:?} facing {:?}",
+                        machine_name, entity, machine.position, machine.facing
                     );
                     info!(
-                        "    input {:?}: {:?}",
+                        "  input {:?}: {:?}",
                         input_pos,
                         input_connected
                             .map(|e| format!("{:?}", e))
                             .unwrap_or_else(|| "none".to_string())
                     );
                     info!(
-                        "    output {:?}: {:?}",
-                        output_pos,
-                        output_connected
-                            .map(|e| format!("{:?}", e))
-                            .unwrap_or_else(|| "none".to_string())
-                    );
-                }
-
-                // Check crusher input/output connections
-                info!("--- Crusher Connections ---");
-                for (entity, crusher) in crusher_query.iter() {
-                    let input_pos = crusher.position + crusher.facing.opposite().to_ivec3();
-                    let output_pos = crusher.position + crusher.facing.to_ivec3();
-                    let input_connected = conveyor_positions.get(&input_pos);
-                    let output_connected = conveyor_positions.get(&output_pos);
-                    info!(
-                        "  {:?} @ {:?} facing {:?}",
-                        entity, crusher.position, crusher.facing
-                    );
-                    info!(
-                        "    input {:?}: {:?}",
-                        input_pos,
-                        input_connected
-                            .map(|e| format!("{:?}", e))
-                            .unwrap_or_else(|| "none".to_string())
-                    );
-                    info!(
-                        "    output {:?}: {:?}",
+                        "  output {:?}: {:?}",
                         output_pos,
                         output_connected
                             .map(|e| format!("{:?}", e))
@@ -462,25 +416,32 @@ pub fn handle_debug_event(
 /// Handle assert machine events - verify machine states for E2E testing
 pub fn handle_assert_machine_event(
     mut events: EventReader<AssertMachineEvent>,
-    miner_query: Query<&Miner>,
+    machine_query: Query<&Machine>,
     conveyor_query: Query<&Conveyor>,
-    crusher_query: Query<&Crusher>,
-    furnace_query: Query<&Furnace>,
 ) {
     for event in events.read() {
         match event.assert_type {
             MachineAssertType::MinerWorking => {
-                let working_miners: Vec<_> = miner_query
+                let working_miners: Vec<_> = machine_query
                     .iter()
-                    .filter(|m| m.progress > 0.0 || m.buffer.is_some())
+                    .filter(|m| {
+                        m.spec.block_type == BlockType::MinerBlock
+                            && (m.progress > 0.0
+                                || m.slots
+                                    .outputs
+                                    .first()
+                                    .map(|s| s.item_type.is_some())
+                                    .unwrap_or(false))
+                    })
                     .collect();
+                let total_miners = machine_query
+                    .iter()
+                    .filter(|m| m.spec.block_type == BlockType::MinerBlock)
+                    .count();
                 if !working_miners.is_empty() {
-                    info!("✓ PASS: {} miner(s) working", working_miners.len());
+                    info!("PASS: {} miner(s) working", working_miners.len());
                 } else {
-                    tracing::error!(
-                        "✗ FAIL: No miners working (total: {})",
-                        miner_query.iter().count()
-                    );
+                    tracing::error!("FAIL: No miners working (total: {})", total_miners);
                 }
             }
             MachineAssertType::ConveyorHasItems => {
@@ -491,37 +452,32 @@ pub fn handle_assert_machine_event(
                 let total_items: usize = conveyors_with_items.iter().map(|c| c.items.len()).sum();
                 if total_items > 0 {
                     info!(
-                        "✓ PASS: {} item(s) on {} conveyor(s)",
+                        "PASS: {} item(s) on {} conveyor(s)",
                         total_items,
                         conveyors_with_items.len()
                     );
                 } else {
                     tracing::error!(
-                        "✗ FAIL: No items on conveyors (total conveyors: {})",
+                        "FAIL: No items on conveyors (total conveyors: {})",
                         conveyor_query.iter().count()
                     );
                 }
             }
             MachineAssertType::MachineCount { machine, min_count } => {
-                let actual_count = match machine {
-                    BlockType::MinerBlock => miner_query.iter().count(),
-                    BlockType::ConveyorBlock => conveyor_query.iter().count(),
-                    BlockType::CrusherBlock => crusher_query.iter().count(),
-                    BlockType::FurnaceBlock => furnace_query.iter().count(),
-                    _ => 0,
-                };
-                if actual_count as u32 >= min_count {
+                let count = machine_query
+                    .iter()
+                    .filter(|m| m.spec.block_type == machine)
+                    .count() as u32;
+                if count >= min_count {
                     info!(
-                        "✓ PASS: {} count {} >= {}",
-                        machine.name(),
-                        actual_count,
-                        min_count
+                        "PASS: {} {:?}(s) found (min: {})",
+                        count, machine, min_count
                     );
                 } else {
                     tracing::error!(
-                        "✗ FAIL: {} count {} < {}",
-                        machine.name(),
-                        actual_count,
+                        "FAIL: Only {} {:?}(s) found (min: {})",
+                        count,
+                        machine,
                         min_count
                     );
                 }
@@ -530,19 +486,12 @@ pub fn handle_assert_machine_event(
     }
 }
 
-/// Handle screenshot events - capture game screen using Bevy's Screenshot system
-pub fn handle_screenshot_event(mut commands: Commands, mut events: EventReader<ScreenshotEvent>) {
+/// Handle screenshot events
+pub fn handle_screenshot_event(mut events: EventReader<ScreenshotEvent>, mut commands: Commands) {
     for event in events.read() {
-        // Ensure screenshots directory exists
-        let _ = std::fs::create_dir_all("screenshots/game");
-
-        let path = format!("screenshots/game/{}.png", event.filename);
-
-        // Spawn Screenshot entity with observer to save to disk
+        info!("Taking screenshot: {}", event.filename);
         commands
             .spawn(Screenshot::primary_window())
-            .observe(save_to_disk(path.clone()));
-
-        info!("Screenshot scheduled: {}", path);
+            .observe(save_to_disk(event.filename.clone()));
     }
 }

@@ -2,7 +2,8 @@
 
 use super::format as save;
 use crate::components::*;
-use crate::components::{Furnace, LoadGameEvent, SaveGameEvent};
+use crate::components::{LoadGameEvent, SaveGameEvent};
+use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::world::WorldData;
 use crate::{BlockType, Direction, BLOCK_SIZE};
@@ -16,10 +17,8 @@ pub fn collect_save_data(
     camera_query: &Query<&PlayerCamera>,
     inventory: &PlayerInventory,
     world_data: &WorldData,
-    miner_query: &Query<&Miner>,
+    machine_query: &Query<&Machine>,
     conveyor_query: &Query<&Conveyor>,
-    furnace_query: &Query<(&Furnace, &GlobalTransform)>,
-    crusher_query: &Query<&Crusher>,
     _delivery_query: &Query<&DeliveryPlatform>,
     current_quest: &CurrentQuest,
     creative_mode: &CreativeMode,
@@ -93,16 +92,75 @@ pub fn collect_save_data(
     // Collect machines
     let mut machines = Vec::new();
 
-    // Miners
-    for miner in miner_query.iter() {
-        machines.push(MachineSaveData::Miner(MinerSaveData {
-            position: miner.position.into(),
-            progress: miner.progress,
-            buffer: miner.buffer.map(|(bt, count)| ItemStack {
-                item_type: bt.into(),
-                count,
-            }),
-        }));
+    // All machines (Miner, Furnace, Crusher) using Machine component
+    for machine in machine_query.iter() {
+        match machine.spec.block_type {
+            BlockType::MinerBlock => {
+                let buffer = machine
+                    .slots
+                    .outputs
+                    .first()
+                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                machines.push(MachineSaveData::Miner(MinerSaveData {
+                    position: machine.position.into(),
+                    progress: machine.progress,
+                    buffer: buffer.map(|(bt, count)| ItemStack {
+                        item_type: bt.into(),
+                        count,
+                    }),
+                }));
+            }
+            BlockType::FurnaceBlock => {
+                let input = machine
+                    .slots
+                    .inputs
+                    .first()
+                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                let output = machine
+                    .slots
+                    .outputs
+                    .first()
+                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                machines.push(MachineSaveData::Furnace(FurnaceSaveData {
+                    position: machine.position.into(),
+                    fuel: machine.slots.fuel,
+                    input: input.map(|(bt, count)| ItemStack {
+                        item_type: bt.into(),
+                        count,
+                    }),
+                    output: output.map(|(bt, count)| ItemStack {
+                        item_type: bt.into(),
+                        count,
+                    }),
+                    progress: machine.progress,
+                }));
+            }
+            BlockType::CrusherBlock => {
+                let input = machine
+                    .slots
+                    .inputs
+                    .first()
+                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                let output = machine
+                    .slots
+                    .outputs
+                    .first()
+                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                machines.push(MachineSaveData::Crusher(CrusherSaveData {
+                    position: machine.position.into(),
+                    input: input.map(|(bt, count)| ItemStack {
+                        item_type: bt.into(),
+                        count,
+                    }),
+                    output: output.map(|(bt, count)| ItemStack {
+                        item_type: bt.into(),
+                        count,
+                    }),
+                    progress: machine.progress,
+                }));
+            }
+            _ => {}
+        }
     }
 
     // Conveyors
@@ -137,40 +195,6 @@ pub fn collect_save_data(
             items,
             last_output_index: conveyor.last_output_index,
             last_input_source: conveyor.last_input_source,
-        }));
-    }
-
-    // Furnaces
-    for (furnace, transform) in furnace_query.iter() {
-        let pos = crate::world_to_grid(transform.translation());
-        machines.push(MachineSaveData::Furnace(FurnaceSaveData {
-            position: pos.into(),
-            fuel: furnace.fuel,
-            input: furnace.input_type.map(|bt| ItemStack {
-                item_type: bt.into(),
-                count: furnace.input_count,
-            }),
-            output: furnace.output_type.map(|bt| ItemStack {
-                item_type: bt.into(),
-                count: furnace.output_count,
-            }),
-            progress: furnace.progress,
-        }));
-    }
-
-    // Crushers
-    for crusher in crusher_query.iter() {
-        machines.push(MachineSaveData::Crusher(CrusherSaveData {
-            position: crusher.position.into(),
-            input: crusher.input_type.map(|bt| ItemStack {
-                item_type: bt.into(),
-                count: crusher.input_count,
-            }),
-            output: crusher.output_type.map(|bt| ItemStack {
-                item_type: bt.into(),
-                count: crusher.output_count,
-            }),
-            progress: crusher.progress,
         }));
     }
 
@@ -257,10 +281,8 @@ pub fn handle_save_event(
     local_player: Option<Res<LocalPlayer>>,
     inventory_query: Query<&PlayerInventory>,
     world_data: Res<WorldData>,
-    miner_query: Query<&Miner>,
+    machine_query: Query<&Machine>,
     conveyor_query: Query<&Conveyor>,
-    furnace_query: Query<(&Furnace, &GlobalTransform)>,
-    crusher_query: Query<&Crusher>,
     delivery_query: Query<&DeliveryPlatform>,
     current_quest: Res<CurrentQuest>,
     creative_mode: Res<CreativeMode>,
@@ -281,10 +303,8 @@ pub fn handle_save_event(
             &camera_query,
             inventory,
             &world_data,
-            &miner_query,
+            &machine_query,
             &conveyor_query,
-            &furnace_query,
-            &crusher_query,
             &delivery_query,
             &current_quest,
             &creative_mode,
@@ -325,10 +345,7 @@ pub fn handle_load_event(
     mut creative_mode: ResMut<CreativeMode>,
     mut global_inventory: ResMut<crate::player::GlobalInventory>,
     // All machine entities to despawn (combined query)
-    machine_entities: Query<
-        Entity,
-        Or<(With<Miner>, With<Conveyor>, With<Furnace>, With<Crusher>)>,
-    >,
+    machine_entities: Query<Entity, Or<(With<Machine>, With<Conveyor>)>>,
 ) {
     // Get local player's inventory
     let Some(local_player) = local_player else {
@@ -412,17 +429,16 @@ pub fn handle_load_event(
 
                             let cube_mesh =
                                 meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            let mut machine_comp = Machine::new(&MINER, pos, Direction::North);
+                            machine_comp.progress = miner_data.progress;
+                            if let Some(buffer) = &miner_data.buffer {
+                                if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
+                                    output_slot.item_type = Some(buffer.item_type.clone().into());
+                                    output_slot.count = buffer.count;
+                                }
+                            }
                             commands.spawn((
-                                Miner {
-                                    position: pos,
-                                    facing: Direction::North, // Default for old saves
-                                    progress: miner_data.progress,
-                                    buffer: miner_data
-                                        .buffer
-                                        .as_ref()
-                                        .map(|b| (b.item_type.clone().into(), b.count)),
-                                    tick_count: 0,
-                                },
+                                machine_comp,
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: BlockType::MinerBlock.color(),
@@ -444,13 +460,11 @@ pub fn handle_load_event(
                             let items: Vec<ConveyorItem> = conveyor_data
                                 .items
                                 .iter()
-                                .map(|item| {
-                                    ConveyorItem {
-                                        block_type: item.item_type.clone().into(),
-                                        progress: item.progress,
-                                        visual_entity: None, // Will be created by update_conveyor_item_visuals
-                                        lateral_offset: item.lateral_offset,
-                                    }
+                                .map(|item| ConveyorItem {
+                                    block_type: item.item_type.clone().into(),
+                                    progress: item.progress,
+                                    visual_entity: None, // Will be created by update_conveyor_item_visuals
+                                    lateral_offset: item.lateral_offset,
                                 })
                                 .collect();
 
@@ -494,31 +508,23 @@ pub fn handle_load_event(
 
                             let cube_mesh =
                                 meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            let mut machine_comp = Machine::new(&FURNACE, pos, Direction::North);
+                            machine_comp.slots.fuel = furnace_data.fuel;
+                            machine_comp.progress = furnace_data.progress;
+                            if let Some(input) = &furnace_data.input {
+                                if let Some(input_slot) = machine_comp.slots.inputs.first_mut() {
+                                    input_slot.item_type = Some(input.item_type.clone().into());
+                                    input_slot.count = input.count;
+                                }
+                            }
+                            if let Some(output) = &furnace_data.output {
+                                if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
+                                    output_slot.item_type = Some(output.item_type.clone().into());
+                                    output_slot.count = output.count;
+                                }
+                            }
                             commands.spawn((
-                                Furnace {
-                                    position: pos,
-                                    facing: Direction::North, // Default for old saves
-                                    fuel: furnace_data.fuel,
-                                    input_type: furnace_data
-                                        .input
-                                        .as_ref()
-                                        .map(|s| s.item_type.clone().into()),
-                                    input_count: furnace_data
-                                        .input
-                                        .as_ref()
-                                        .map(|s| s.count)
-                                        .unwrap_or(0),
-                                    output_type: furnace_data
-                                        .output
-                                        .as_ref()
-                                        .map(|s| s.item_type.clone().into()),
-                                    output_count: furnace_data
-                                        .output
-                                        .as_ref()
-                                        .map(|s| s.count)
-                                        .unwrap_or(0),
-                                    progress: furnace_data.progress,
-                                },
+                                machine_comp,
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: BlockType::FurnaceBlock.color(),
@@ -537,30 +543,22 @@ pub fn handle_load_event(
 
                             let cube_mesh =
                                 meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                            let mut machine_comp = Machine::new(&CRUSHER, pos, Direction::North);
+                            machine_comp.progress = crusher_data.progress;
+                            if let Some(input) = &crusher_data.input {
+                                if let Some(input_slot) = machine_comp.slots.inputs.first_mut() {
+                                    input_slot.item_type = Some(input.item_type.clone().into());
+                                    input_slot.count = input.count;
+                                }
+                            }
+                            if let Some(output) = &crusher_data.output {
+                                if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
+                                    output_slot.item_type = Some(output.item_type.clone().into());
+                                    output_slot.count = output.count;
+                                }
+                            }
                             commands.spawn((
-                                Crusher {
-                                    position: pos,
-                                    facing: Direction::North, // Default for old saves
-                                    input_type: crusher_data
-                                        .input
-                                        .as_ref()
-                                        .map(|s| s.item_type.clone().into()),
-                                    input_count: crusher_data
-                                        .input
-                                        .as_ref()
-                                        .map(|s| s.count)
-                                        .unwrap_or(0),
-                                    output_type: crusher_data
-                                        .output
-                                        .as_ref()
-                                        .map(|s| s.item_type.clone().into()),
-                                    output_count: crusher_data
-                                        .output
-                                        .as_ref()
-                                        .map(|s| s.count)
-                                        .unwrap_or(0),
-                                    progress: crusher_data.progress,
-                                },
+                                machine_comp,
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: BlockType::CrusherBlock.color(),
@@ -578,17 +576,11 @@ pub fn handle_load_event(
                 current_quest.rewards_claimed = data.quests.rewards_claimed;
 
                 // Restore GlobalInventory (from legacy quests.delivered for backward compatibility)
-                let mut restored_items = std::collections::HashMap::new();
+                // Note: GlobalInventory is cleared first, then items are added
                 for (bt, count) in &data.quests.delivered {
                     let block_type: BlockType = bt.clone().into();
-                    *restored_items.entry(block_type).or_insert(0) += count;
+                    global_inventory.add_item(block_type, *count);
                 }
-                // Also restore from global_inventory.items if present
-                for (bt, count) in &data.global_inventory.items {
-                    let block_type: BlockType = bt.clone().into();
-                    *restored_items.entry(block_type).or_insert(0) += count;
-                }
-                global_inventory.set_items(restored_items);
 
                 // Apply game mode
                 creative_mode.enabled = data.mode.creative;
@@ -596,13 +588,9 @@ pub fn handle_load_event(
                 let msg = format!("Game loaded from '{}'", event.filename);
                 info!("{}", msg);
                 save_load_state.last_message = Some(msg);
-
-                // Force chunk reload by clearing chunks (they will regenerate with modified_blocks applied)
-                // Note: This is a simple approach; a more sophisticated one would only reload affected chunks
-                world_data.chunks.clear();
             }
             Err(e) => {
-                let msg = format!("Failed to load: {}", e);
+                let msg = format!("Failed to load '{}': {}", event.filename, e);
                 info!("{}", msg);
                 save_load_state.last_message = Some(msg);
             }

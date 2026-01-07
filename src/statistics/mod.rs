@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
 use crate::block_type::BlockType;
+use crate::events::game_events::{ItemDelivered, MachineCompleted, MachineStarted};
 
 /// 時系列データ
 #[derive(Debug, Clone, Default)]
@@ -123,11 +124,79 @@ pub struct BottleneckAnalysis {
     pub waiting_inputs: Vec<Entity>,
 }
 
+/// 納品統計リソース
+#[derive(Resource, Debug, Default)]
+pub struct DeliveryStats {
+    /// 納品数（累計）
+    pub total_delivered: HashMap<BlockType, u64>,
+}
+
+impl DeliveryStats {
+    /// 納品を記録
+    pub fn record_delivery(&mut self, item: BlockType, count: u32) {
+        *self.total_delivered.entry(item).or_insert(0) += count as u64;
+    }
+
+    /// 総納品数を取得
+    pub fn get_total_delivered(&self, item: BlockType) -> u64 {
+        self.total_delivered.get(&item).copied().unwrap_or(0)
+    }
+
+    /// 全アイテムの総納品数を取得
+    pub fn get_grand_total(&self) -> u64 {
+        self.total_delivered.values().sum()
+    }
+}
+
+/// 機械完了イベントを購読して生産統計を記録
+fn handle_machine_completed(
+    mut events: EventReader<MachineCompleted>,
+    mut stats: ResMut<ProductionStats>,
+    time: Res<Time>,
+) {
+    let timestamp = time.elapsed_secs_f64();
+    for event in events.read() {
+        for (item, count) in &event.outputs {
+            stats.record_production(*item, *count, timestamp);
+        }
+    }
+}
+
+/// 機械開始イベントを購読して消費統計を記録
+fn handle_machine_started(
+    mut events: EventReader<MachineStarted>,
+    mut stats: ResMut<ProductionStats>,
+    time: Res<Time>,
+) {
+    let timestamp = time.elapsed_secs_f64();
+    for event in events.read() {
+        for (item, count) in &event.inputs {
+            stats.record_consumption(*item, *count, timestamp);
+        }
+    }
+}
+
+/// 納品イベントを購読して納品統計を記録
+fn handle_item_delivered(mut events: EventReader<ItemDelivered>, mut stats: ResMut<DeliveryStats>) {
+    for event in events.read() {
+        stats.record_delivery(event.item, event.count);
+    }
+}
+
 pub struct StatisticsPlugin;
 
 impl Plugin for StatisticsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ProductionStats>();
+        app.init_resource::<ProductionStats>()
+            .init_resource::<DeliveryStats>()
+            .add_systems(
+                Update,
+                (
+                    handle_machine_completed,
+                    handle_machine_started,
+                    handle_item_delivered,
+                ),
+            );
     }
 }
 
@@ -172,5 +241,17 @@ mod tests {
     fn test_bottleneck_default() {
         let analysis = BottleneckAnalysis::default();
         assert!(analysis.slow_machines.is_empty());
+    }
+
+    #[test]
+    fn test_delivery_stats() {
+        let mut stats = DeliveryStats::default();
+        stats.record_delivery(BlockType::IronIngot, 10);
+        stats.record_delivery(BlockType::IronIngot, 5);
+        stats.record_delivery(BlockType::Stone, 3);
+
+        assert_eq!(stats.get_total_delivered(BlockType::IronIngot), 15);
+        assert_eq!(stats.get_total_delivered(BlockType::Stone), 3);
+        assert_eq!(stats.get_grand_total(), 18);
     }
 }

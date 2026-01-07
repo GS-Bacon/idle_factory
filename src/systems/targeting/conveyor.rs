@@ -3,11 +3,12 @@
 use bevy::prelude::*;
 use std::collections::HashSet;
 
+use crate::components::Machine;
 use crate::meshes::create_conveyor_mesh;
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, ConveyorVisual, Crusher, Direction,
-    Furnace, InputStateResourcesWithCursor, MachineModels,
+    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, ConveyorVisual, Direction,
+    InputStateResourcesWithCursor, MachineModels,
 };
 
 /// Handle R key to rotate conveyor/machine placement direction
@@ -60,8 +61,7 @@ pub fn update_conveyor_shapes(
     )>,
     mut meshes: ResMut<Assets<Mesh>>,
     machine_models: Res<MachineModels>,
-    furnace_query: Query<&Transform, (With<Furnace>, Without<Conveyor>)>,
-    crusher_query: Query<&Crusher>,
+    machine_query: Query<&Machine, Without<Conveyor>>,
 ) {
     // Collect all conveyor positions and directions first (read-only pass)
     let conveyor_data: Vec<(IVec3, Direction)> = conveyors
@@ -71,11 +71,20 @@ pub fn update_conveyor_shapes(
 
     // Collect positions that can accept items (conveyors, furnaces, crushers)
     let conveyor_positions: HashSet<IVec3> = conveyor_data.iter().map(|(p, _)| *p).collect();
-    let furnace_positions: HashSet<IVec3> = furnace_query
-        .iter()
-        .map(|t| crate::world_to_grid(t.translation))
-        .collect();
-    let crusher_positions: HashSet<IVec3> = crusher_query.iter().map(|c| c.position).collect();
+    let mut furnace_positions: HashSet<IVec3> = HashSet::new();
+    let mut crusher_positions: HashSet<IVec3> = HashSet::new();
+
+    for machine in machine_query.iter() {
+        match machine.spec.block_type {
+            BlockType::FurnaceBlock => {
+                furnace_positions.insert(machine.position);
+            }
+            BlockType::CrusherBlock => {
+                crusher_positions.insert(machine.position);
+            }
+            _ => {}
+        }
+    }
 
     for (entity, mut conveyor, mesh3d_opt, scene_root_opt, transform) in conveyors.iter_mut() {
         // Calculate shape using the new auto-connect logic (2026-01-01)

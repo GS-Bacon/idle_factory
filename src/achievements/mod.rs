@@ -1,6 +1,7 @@
 //! Achievement system
 
 use crate::block_type::BlockType;
+use crate::events::game_events::{BlockPlaced, ItemDelivered, MachineCompleted, MachineSpawned};
 use bevy::prelude::*;
 
 /// 実績の条件
@@ -81,12 +82,205 @@ pub struct AchievementUnlocked {
     pub name: String,
 }
 
+/// 実績追跡用カウンター
+#[derive(Resource, Debug, Default)]
+pub struct AchievementCounters {
+    /// 設置した機械数
+    pub machines_placed: u32,
+    /// 設置したブロック数
+    pub blocks_placed: u32,
+    /// 生産したアイテム数（種類別）
+    pub items_produced: std::collections::HashMap<BlockType, u32>,
+    /// 納品したアイテム数（種類別）
+    pub items_delivered: std::collections::HashMap<BlockType, u32>,
+    /// 総納品数
+    pub total_delivered: u32,
+}
+
+/// 基本実績の定義
+pub const ACHIEVEMENTS: &[Achievement] = &[
+    Achievement {
+        id: "first_machine",
+        name: "工場長のはじまり",
+        description: "最初の機械を設置する",
+        condition: AchievementCondition::PlaceMachines { count: 1 },
+        icon: None,
+        hidden: false,
+    },
+    Achievement {
+        id: "mass_production",
+        name: "量産体制",
+        description: "機械を10台設置する",
+        condition: AchievementCondition::PlaceMachines { count: 10 },
+        icon: None,
+        hidden: false,
+    },
+    Achievement {
+        id: "first_delivery",
+        name: "初出荷",
+        description: "アイテムを初めて納品する",
+        condition: AchievementCondition::FirstTime {
+            event: "item_delivered",
+        },
+        icon: None,
+        hidden: false,
+    },
+    Achievement {
+        id: "iron_producer",
+        name: "鉄鋼生産者",
+        description: "鉄インゴットを100個生産する",
+        condition: AchievementCondition::ProduceItem {
+            item: BlockType::IronIngot,
+            count: 100,
+        },
+        icon: None,
+        hidden: false,
+    },
+];
+
+/// 機械設置イベントを購読してカウンターを更新
+fn handle_machine_spawned(
+    mut events: EventReader<MachineSpawned>,
+    mut counters: ResMut<AchievementCounters>,
+) {
+    for _event in events.read() {
+        counters.machines_placed += 1;
+    }
+}
+
+/// ブロック設置イベントを購読してカウンターを更新
+fn handle_block_placed(
+    mut events: EventReader<BlockPlaced>,
+    mut counters: ResMut<AchievementCounters>,
+) {
+    for _event in events.read() {
+        counters.blocks_placed += 1;
+    }
+}
+
+/// 機械完了イベントを購読して生産カウンターを更新
+fn handle_machine_completed_for_achievements(
+    mut events: EventReader<MachineCompleted>,
+    mut counters: ResMut<AchievementCounters>,
+) {
+    for event in events.read() {
+        for (item, count) in &event.outputs {
+            *counters.items_produced.entry(*item).or_insert(0) += count;
+        }
+    }
+}
+
+/// 納品イベントを購読してカウンターを更新
+fn handle_item_delivered_for_achievements(
+    mut events: EventReader<ItemDelivered>,
+    mut counters: ResMut<AchievementCounters>,
+) {
+    for event in events.read() {
+        *counters.items_delivered.entry(event.item).or_insert(0) += event.count;
+        counters.total_delivered += event.count;
+    }
+}
+
+/// 実績の進捗をチェックして必要に応じてアンロック
+fn check_achievements(
+    counters: Res<AchievementCounters>,
+    mut achievements: ResMut<PlayerAchievements>,
+    mut unlock_events: EventWriter<AchievementUnlocked>,
+    time: Res<Time>,
+) {
+    // カウンターが変更されていない場合はスキップ
+    if !counters.is_changed() {
+        return;
+    }
+
+    let timestamp = time.elapsed_secs_f64();
+
+    for achievement in ACHIEVEMENTS {
+        // 既にアンロック済みならスキップ
+        if achievements.is_unlocked(achievement.id) {
+            continue;
+        }
+
+        let (current, _target, unlocked) = match &achievement.condition {
+            AchievementCondition::PlaceMachines { count } => {
+                let current = counters.machines_placed;
+                (current, *count, current >= *count)
+            }
+            AchievementCondition::ProduceItem { item, count } => {
+                let current = counters.items_produced.get(item).copied().unwrap_or(0);
+                (current, *count, current >= *count)
+            }
+            AchievementCondition::FirstTime { event } => {
+                let unlocked = match *event {
+                    "item_delivered" => counters.total_delivered > 0,
+                    _ => false,
+                };
+                (if unlocked { 1 } else { 0 }, 1, unlocked)
+            }
+            AchievementCondition::CollectItem { item, count } => {
+                let current = counters.items_delivered.get(item).copied().unwrap_or(0);
+                (current, *count, current >= *count)
+            }
+            _ => continue, // 他の条件は別途処理
+        };
+
+        // 進捗を更新
+        achievements.update_progress(achievement.id, current);
+
+        // アンロック判定
+        if unlocked {
+            achievements.unlock(achievement.id, timestamp);
+            unlock_events.send(AchievementUnlocked {
+                id: achievement.id.to_string(),
+                name: achievement.name.to_string(),
+            });
+        }
+    }
+}
+
+/// 実績の初期進捗を設定
+fn setup_achievement_progress(mut achievements: ResMut<PlayerAchievements>) {
+    for achievement in ACHIEVEMENTS {
+        let target = match &achievement.condition {
+            AchievementCondition::PlaceMachines { count } => *count,
+            AchievementCondition::ProduceItem { count, .. } => *count,
+            AchievementCondition::CollectItem { count, .. } => *count,
+            AchievementCondition::PlayTime { minutes } => *minutes,
+            AchievementCondition::FirstTime { .. } => 1,
+            AchievementCondition::CompleteQuest { .. } => 1,
+        };
+
+        achievements.progress.insert(
+            achievement.id.to_string(),
+            AchievementProgress {
+                current: 0,
+                target,
+                unlocked: false,
+                unlock_time: None,
+            },
+        );
+    }
+}
+
 pub struct AchievementsPlugin;
 
 impl Plugin for AchievementsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlayerAchievements>()
-            .add_event::<AchievementUnlocked>();
+            .init_resource::<AchievementCounters>()
+            .add_event::<AchievementUnlocked>()
+            .add_systems(Startup, setup_achievement_progress)
+            .add_systems(
+                Update,
+                (
+                    handle_machine_spawned,
+                    handle_block_placed,
+                    handle_machine_completed_for_achievements,
+                    handle_item_delivered_for_achievements,
+                    check_achievements,
+                )
+                    .chain(),
+            );
     }
 }
 
@@ -145,5 +339,34 @@ mod tests {
             count: 100,
         };
         assert!(matches!(cond, AchievementCondition::ProduceItem { .. }));
+    }
+
+    #[test]
+    fn test_achievement_counters() {
+        let mut counters = AchievementCounters::default();
+
+        counters.machines_placed = 5;
+        counters.blocks_placed = 10;
+        counters.items_produced.insert(BlockType::IronIngot, 50);
+        counters.items_delivered.insert(BlockType::IronOre, 20);
+        counters.total_delivered = 20;
+
+        assert_eq!(counters.machines_placed, 5);
+        assert_eq!(counters.blocks_placed, 10);
+        assert_eq!(
+            counters.items_produced.get(&BlockType::IronIngot),
+            Some(&50)
+        );
+        assert_eq!(counters.total_delivered, 20);
+    }
+
+    #[test]
+    fn test_achievements_list() {
+        // 基本実績が定義されていることを確認
+        assert!(ACHIEVEMENTS.len() >= 4);
+
+        // first_machine実績が存在することを確認
+        let first_machine = ACHIEVEMENTS.iter().find(|a| a.id == "first_machine");
+        assert!(first_machine.is_some());
     }
 }

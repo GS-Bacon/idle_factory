@@ -4,18 +4,24 @@
 //! using `MachineSpec` to determine behavior.
 
 use crate::components::Machine;
+use crate::events::game_events::{MachineCompleted, MachineStarted};
 use crate::game_spec::{find_recipe, MachineType, ProcessType};
 use crate::world::biome::{BiomeMap, BiomeType};
 use crate::{BlockType, Conveyor};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+/// Event result from tick_recipe: (started_inputs, completed_outputs)
+type RecipeEventResult = Option<(Option<Vec<(BlockType, u32)>>, Option<Vec<(BlockType, u32)>>)>;
+
 /// Generic machine tick system - processes all Machine components
 pub fn generic_machine_tick(
     time: Res<Time>,
     biome_map: Res<BiomeMap>,
-    mut machine_query: Query<&mut Machine>,
+    mut machine_query: Query<(Entity, &mut Machine)>,
     mut conveyor_query: Query<(Entity, &mut Conveyor)>,
+    mut started_events: EventWriter<MachineStarted>,
+    mut completed_events: EventWriter<MachineCompleted>,
 ) {
     let delta = time.delta_secs();
 
@@ -25,41 +31,65 @@ pub fn generic_machine_tick(
         .map(|(entity, conveyor)| (conveyor.position, entity))
         .collect();
 
-    for mut machine in machine_query.iter_mut() {
+    // Collect events to send after iteration
+    let mut started: Vec<(Entity, Vec<(BlockType, u32)>)> = Vec::new();
+    let mut completed: Vec<(Entity, Vec<(BlockType, u32)>)> = Vec::new();
+
+    for (entity, mut machine) in machine_query.iter_mut() {
         match machine.spec.process_type {
             ProcessType::AutoGenerate => {
-                tick_auto_generate(
+                let result = tick_auto_generate(
                     &mut machine,
                     delta,
                     &biome_map,
                     &conveyor_map,
                     &mut conveyor_query,
                 );
+                if let Some(output) = result {
+                    completed.push((entity, vec![(output, 1)]));
+                }
             }
             ProcessType::Recipe(machine_type) => {
-                tick_recipe(
+                let result = tick_recipe(
                     &mut machine,
                     delta,
                     machine_type,
                     &conveyor_map,
                     &mut conveyor_query,
                 );
+                if let Some((started_inputs, completed_outputs)) = result {
+                    if let Some(inputs) = started_inputs {
+                        started.push((entity, inputs));
+                    }
+                    if let Some(outputs) = completed_outputs {
+                        completed.push((entity, outputs));
+                    }
+                }
             }
             ProcessType::Transfer => {
                 // Conveyors are handled separately
             }
         }
     }
+
+    // Send events
+    for (entity, inputs) in started {
+        started_events.send(MachineStarted { entity, inputs });
+    }
+    for (entity, outputs) in completed {
+        completed_events.send(MachineCompleted { entity, outputs });
+    }
 }
 
 /// Tick for auto-generating machines (like Miner)
+/// Returns Some(output_type) when an item is produced
 fn tick_auto_generate(
     machine: &mut Machine,
     delta: f32,
     biome_map: &BiomeMap,
     conveyor_map: &HashMap<IVec3, Entity>,
     conveyor_query: &mut Query<(Entity, &mut Conveyor)>,
-) {
+) -> Option<BlockType> {
     let spec = machine.spec;
 
     // Check if output buffer has space
@@ -69,12 +99,13 @@ fn tick_auto_generate(
         .unwrap_or(false);
 
     if !can_output {
-        return;
+        return None;
     }
 
     // Progress mining
     machine.progress += delta / spec.process_time;
 
+    let mut produced = None;
     if machine.progress >= 1.0 {
         machine.progress = 0.0;
         machine.tick_count = machine.tick_count.wrapping_add(1);
@@ -88,46 +119,46 @@ fn tick_auto_generate(
             if output.item_type.is_none() || output.item_type == Some(mined_type) {
                 output.item_type = Some(mined_type);
                 output.count += 1;
+                produced = Some(mined_type);
             }
         }
     }
 
     // Try to output to conveyor
     try_output_to_conveyor(machine, conveyor_map, conveyor_query);
+    produced
 }
 
 /// Tick for recipe-based machines (Furnace, Crusher, Assembler)
+/// Returns Some((started_inputs, completed_outputs)) for event emission
+/// - started_inputs: Some when processing started (inputs consumed)
+/// - completed_outputs: Some when processing completed (outputs produced)
 fn tick_recipe(
     machine: &mut Machine,
     delta: f32,
     machine_type: MachineType,
     conveyor_map: &HashMap<IVec3, Entity>,
     conveyor_query: &mut Query<(Entity, &mut Conveyor)>,
-) {
+) -> RecipeEventResult {
     let spec = machine.spec;
 
     // Get input item
     let input_item = machine.slots.inputs.first().and_then(|s| s.item_type);
 
     // Find recipe
-    let Some(input) = input_item else {
-        return;
-    };
-
-    let Some(recipe) = find_recipe(machine_type, input) else {
-        return;
-    };
+    let input = input_item?;
+    let recipe = find_recipe(machine_type, input)?;
 
     // Check fuel requirement
     if spec.requires_fuel && machine.slots.fuel == 0 {
-        return;
+        return None;
     }
 
     // Check if we have enough input
     let input_slot = &machine.slots.inputs[0];
     let required_count = recipe.inputs.first().map(|i| i.count).unwrap_or(1);
     if input_slot.count < required_count {
-        return;
+        return None;
     }
 
     // Check if output has space
@@ -143,12 +174,23 @@ fn tick_recipe(
         .unwrap_or(false);
 
     if !can_output {
-        return;
+        return None;
     }
+
+    // Track if we just started processing
+    let was_idle = machine.progress == 0.0;
 
     // Progress processing
     machine.progress += delta / recipe.craft_time;
 
+    // Determine started event (only when transitioning from idle to processing)
+    let started_inputs = if was_idle && machine.progress > 0.0 && machine.progress < 1.0 {
+        Some(vec![(input, required_count)])
+    } else {
+        None
+    };
+
+    let mut completed_outputs = None;
     if machine.progress >= 1.0 {
         machine.progress = 0.0;
 
@@ -167,11 +209,19 @@ fn tick_recipe(
         // Produce output
         if let (Some(item), Some(output_slot)) = (output_item, machine.slots.outputs.first_mut()) {
             output_slot.add(item, output_count);
+            completed_outputs = Some(vec![(item, output_count)]);
         }
     }
 
     // Try to output to conveyor
     try_output_to_conveyor(machine, conveyor_map, conveyor_query);
+
+    // Return event info if anything happened
+    if started_inputs.is_some() || completed_outputs.is_some() {
+        Some((started_inputs, completed_outputs))
+    } else {
+        None
+    }
 }
 
 /// Try to output items to a connected conveyor (O(1) lookup)

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use crate::components::{Conveyor, Crusher, Furnace, Miner, PlayerCamera};
+use crate::components::{Conveyor, Machine, PlayerCamera};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::world::WorldData;
 
@@ -46,17 +46,19 @@ pub struct ItemStackDump {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachinesDump {
-    pub miners: Vec<MinerDump>,
+    /// All machines (unified via Machine component)
+    pub machines: Vec<MachineDump>,
     pub conveyors: Vec<ConveyorDump>,
-    pub furnaces: Vec<FurnaceDump>,
-    pub crushers: Vec<CrusherDump>,
 }
 
+/// Unified machine dump (replaces MinerDump/FurnaceDump/CrusherDump)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MinerDump {
+pub struct MachineDump {
+    pub machine_type: String,
     pub position: [i32; 3],
+    pub facing: String,
     pub progress: f32,
-    pub buffer_item: Option<String>,
+    pub slot_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,23 +67,6 @@ pub struct ConveyorDump {
     pub direction: String,
     pub shape: String,
     pub item_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FurnaceDump {
-    pub position: [i32; 3],
-    pub progress: f32,
-    pub fuel: u32,
-    pub has_input: bool,
-    pub has_output: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrusherDump {
-    pub position: [i32; 3],
-    pub progress: f32,
-    pub has_input: bool,
-    pub has_output: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,18 +143,18 @@ fn extract_inventory(world: &World) -> InventoryDump {
 }
 
 fn extract_machines(world: &mut World) -> MachinesDump {
-    let mut miners = Vec::new();
+    let mut machines = Vec::new();
     let mut conveyors = Vec::new();
-    let mut furnaces = Vec::new();
-    let mut crushers = Vec::new();
 
-    // Extract miners
-    let mut miner_query = world.query::<&Miner>();
-    for miner in miner_query.iter(world) {
-        miners.push(MinerDump {
-            position: [miner.position.x, miner.position.y, miner.position.z],
-            progress: miner.progress,
-            buffer_item: miner.buffer.as_ref().map(|(bt, _)| bt.name().to_string()),
+    // Extract unified machines (new Machine component)
+    let mut machine_query = world.query::<&Machine>();
+    for machine in machine_query.iter(world) {
+        machines.push(MachineDump {
+            machine_type: machine.spec.id.to_string(),
+            position: [machine.position.x, machine.position.y, machine.position.z],
+            facing: format!("{:?}", machine.facing),
+            progress: machine.progress,
+            slot_count: machine.slots.inputs.len() + machine.slots.outputs.len(),
         });
     }
 
@@ -188,34 +173,9 @@ fn extract_machines(world: &mut World) -> MachinesDump {
         });
     }
 
-    // Extract furnaces
-    let mut furnace_query = world.query::<&Furnace>();
-    for furnace in furnace_query.iter(world) {
-        furnaces.push(FurnaceDump {
-            position: [furnace.position.x, furnace.position.y, furnace.position.z],
-            progress: furnace.progress,
-            fuel: furnace.fuel,
-            has_input: furnace.input_type.is_some(),
-            has_output: furnace.output_type.is_some(),
-        });
-    }
-
-    // Extract crushers
-    let mut crusher_query = world.query::<&Crusher>();
-    for crusher in crusher_query.iter(world) {
-        crushers.push(CrusherDump {
-            position: [crusher.position.x, crusher.position.y, crusher.position.z],
-            progress: crusher.progress,
-            has_input: crusher.input_type.is_some(),
-            has_output: crusher.output_type.is_some(),
-        });
-    }
-
     MachinesDump {
-        miners,
+        machines,
         conveyors,
-        furnaces,
-        crushers,
     }
 }
 
@@ -274,11 +234,9 @@ impl GameStateDump {
     /// Quick summary for logging
     pub fn summary(&self) -> String {
         format!(
-            "State dump: {} miners, {} conveyors, {} furnaces, {} crushers, {} items in inventory, {} chunks",
-            self.machines.miners.len(),
+            "State dump: {} machines, {} conveyors, {} items in inventory, {} chunks",
+            self.machines.machines.len(),
             self.machines.conveyors.len(),
-            self.machines.furnaces.len(),
-            self.machines.crushers.len(),
             self.inventory.total_items,
             self.world_stats.chunk_count,
         )
@@ -309,14 +267,14 @@ mod tests {
                 total_items: 64,
             },
             machines: MachinesDump {
-                miners: vec![MinerDump {
+                machines: vec![MachineDump {
+                    machine_type: "miner".to_string(),
                     position: [5, 10, 5],
+                    facing: "North".to_string(),
                     progress: 0.5,
-                    buffer_item: Some("IronOre".to_string()),
+                    slot_count: 1,
                 }],
                 conveyors: vec![],
-                furnaces: vec![],
-                crushers: vec![],
             },
             world_stats: WorldStatsDump {
                 chunk_count: 9,
@@ -330,7 +288,7 @@ mod tests {
             serde_json::from_str(&json).expect("deserialization should succeed");
 
         assert_eq!(restored.timestamp, dump.timestamp);
-        assert_eq!(restored.machines.miners.len(), 1);
+        assert_eq!(restored.machines.machines.len(), 1);
         assert_eq!(restored.inventory.total_items, 64);
     }
 
@@ -348,10 +306,12 @@ mod tests {
                 total_items: 100,
             },
             machines: MachinesDump {
-                miners: vec![MinerDump {
+                machines: vec![MachineDump {
+                    machine_type: "miner".to_string(),
                     position: [0, 0, 0],
+                    facing: "North".to_string(),
                     progress: 0.0,
-                    buffer_item: None,
+                    slot_count: 1,
                 }],
                 conveyors: vec![ConveyorDump {
                     position: [0, 0, 0],
@@ -359,8 +319,6 @@ mod tests {
                     shape: "Straight".to_string(),
                     item_count: 0,
                 }],
-                furnaces: vec![],
-                crushers: vec![],
             },
             world_stats: WorldStatsDump {
                 chunk_count: 5,
@@ -370,7 +328,7 @@ mod tests {
         };
 
         let summary = dump.summary();
-        assert!(summary.contains("1 miners"));
+        assert!(summary.contains("1 machines"));
         assert!(summary.contains("1 conveyors"));
         assert!(summary.contains("100 items"));
         assert!(summary.contains("5 chunks"));

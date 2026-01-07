@@ -1,4 +1,52 @@
 //! Dynamic ID system with type safety via Phantom Type
+//!
+//! # Migration Guide: BlockType → ItemId
+//!
+//! This module provides the foundation for migrating from static `BlockType` enum
+//! to dynamic `ItemId`. During the migration period, both systems coexist.
+//!
+//! ## Key Concepts
+//!
+//! - `Id<Category>`: Type-safe dynamic ID (e.g., `ItemId`, `MachineId`)
+//! - `StringInterner`: Maps string IDs ("base:stone") to u32 for fast comparison
+//! - `GameRegistry`: Bevy Resource that manages all descriptors
+//!
+//! ## Migration Pattern
+//!
+//! ```rust,ignore
+//! use idle_factory::core::{ItemId, StringInterner};
+//! use idle_factory::BlockType;
+//!
+//! // 1. Create or get interner (usually from GameRegistry)
+//! let mut interner = StringInterner::new();
+//!
+//! // 2. Convert BlockType to ItemId
+//! let block_type = BlockType::IronOre;
+//! let item_id = ItemId::from_block_type(block_type, &mut interner);
+//!
+//! // 3. Convert back (for compatibility with existing code)
+//! let recovered: Option<BlockType> = item_id.to_block_type(&interner);
+//! assert_eq!(recovered, Some(BlockType::IronOre));
+//!
+//! // 4. Use string format for Mods
+//! let mod_item = ItemId::from_string("mymod:super_ingot", &mut interner);
+//! let name = mod_item.to_string_id(&interner);
+//! assert_eq!(name, Some("mymod:super_ingot"));
+//! ```
+//!
+//! ## Namespace Convention
+//!
+//! - Base game items: `"base:{snake_case_name}"` (e.g., "base:iron_ore")
+//! - Mod items: `"{mod_id}:{item_name}"` (e.g., "mymod:super_ingot")
+//!
+//! ## When to Use Each
+//!
+//! | Use Case | Type | Example |
+//! |----------|------|---------|
+//! | New code | `ItemId` | `fn process(item: ItemId)` |
+//! | Legacy compat | Conversion | `item_id.to_block_type()` |
+//! | Mod support | `ItemId` + string | `"mymod:custom_ore"` |
+//! | Save data | String ID | `"base:iron_ore"` (never save raw u32) |
 
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -45,6 +93,24 @@ impl<C> Id<C> {
     pub fn raw(&self) -> u32 {
         self.raw
     }
+
+    /// Create an ID from a string (interning it if necessary)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let item_id = ItemId::from_string("base:iron_ore", &mut interner);
+    /// ```
+    pub fn from_string(s: &str, interner: &mut StringInterner) -> Self {
+        let raw = interner.get_or_intern(s);
+        Self::new(raw)
+    }
+
+    /// Get the string representation of this ID
+    ///
+    /// Returns None if the ID was not properly interned (should not happen in normal usage).
+    pub fn to_string_id<'a>(&self, interner: &'a StringInterner) -> Option<&'a str> {
+        interner.resolve(self.raw)
+    }
 }
 
 impl<C> std::fmt::Debug for Id<C> {
@@ -64,6 +130,86 @@ pub type ItemId = Id<ItemCategory>;
 pub type MachineId = Id<MachineCategory>;
 pub type RecipeId = Id<RecipeCategory>;
 pub type FluidId = Id<FluidCategory>;
+
+// =============================================================================
+// BlockType <-> ItemId Conversion (Migration Helpers)
+// =============================================================================
+
+/// Base namespace for built-in items
+pub const BASE_NAMESPACE: &str = "base";
+
+impl ItemId {
+    /// Convert a BlockType to ItemId
+    ///
+    /// Uses the format "base:{snake_case_name}" for base game items.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// use idle_factory::{BlockType, ItemId, StringInterner};
+    ///
+    /// let mut interner = StringInterner::new();
+    /// let item_id = ItemId::from_block_type(BlockType::IronOre, &mut interner);
+    /// assert_eq!(item_id.to_string_id(&interner), Some("base:iron_ore"));
+    /// ```
+    pub fn from_block_type(
+        block_type: crate::block_type::BlockType,
+        interner: &mut StringInterner,
+    ) -> Self {
+        // BlockType's Display impl (from strum) gives snake_case
+        let string_id = format!("{}:{}", BASE_NAMESPACE, block_type);
+        Self::from_string(&string_id, interner)
+    }
+
+    /// Try to convert this ItemId back to a BlockType
+    ///
+    /// Returns None if:
+    /// - The ID is not in the "base:" namespace
+    /// - The name doesn't match any BlockType variant
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// use idle_factory::{BlockType, ItemId, StringInterner};
+    ///
+    /// let mut interner = StringInterner::new();
+    /// let item_id = ItemId::from_block_type(BlockType::Stone, &mut interner);
+    /// assert_eq!(item_id.to_block_type(&interner), Some(BlockType::Stone));
+    ///
+    /// // Mod items return None
+    /// let mod_item = ItemId::from_string("mymod:custom", &mut interner);
+    /// assert_eq!(mod_item.to_block_type(&interner), None);
+    /// ```
+    pub fn to_block_type(&self, interner: &StringInterner) -> Option<crate::block_type::BlockType> {
+        use std::str::FromStr;
+
+        let string_id = interner.resolve(self.raw)?;
+
+        // Check for "base:" prefix
+        let name = string_id.strip_prefix(&format!("{}:", BASE_NAMESPACE))?;
+
+        // Use strum's FromStr to parse the snake_case name
+        crate::block_type::BlockType::from_str(name).ok()
+    }
+
+    /// Check if this ItemId represents a base game item (not a mod item)
+    pub fn is_base_item(&self, interner: &StringInterner) -> bool {
+        interner
+            .resolve(self.raw)
+            .map(|s| s.starts_with(&format!("{}:", BASE_NAMESPACE)))
+            .unwrap_or(false)
+    }
+
+    /// Get the namespace of this ItemId (e.g., "base", "mymod")
+    pub fn namespace<'a>(&self, interner: &'a StringInterner) -> Option<&'a str> {
+        let string_id = interner.resolve(self.raw)?;
+        string_id.split(':').next()
+    }
+
+    /// Get the local name of this ItemId (without namespace)
+    pub fn local_name<'a>(&self, interner: &'a StringInterner) -> Option<&'a str> {
+        let string_id = interner.resolve(self.raw)?;
+        string_id.split(':').nth(1)
+    }
+}
 
 /// String Interner for dynamic string -> ID mapping
 #[derive(Default)]
@@ -160,5 +306,111 @@ mod tests {
 
         assert!(interner.get("test").is_some());
         assert!(interner.get("nonexistent").is_none());
+    }
+
+    // =========================================================================
+    // BlockType <-> ItemId Conversion Tests
+    // =========================================================================
+
+    #[test]
+    fn test_item_id_from_block_type() {
+        use crate::block_type::BlockType;
+
+        let mut interner = StringInterner::new();
+
+        // Test various block types
+        let stone_id = ItemId::from_block_type(BlockType::Stone, &mut interner);
+        let iron_ore_id = ItemId::from_block_type(BlockType::IronOre, &mut interner);
+        let miner_id = ItemId::from_block_type(BlockType::MinerBlock, &mut interner);
+
+        // Check string format
+        assert_eq!(stone_id.to_string_id(&interner), Some("base:stone"));
+        assert_eq!(iron_ore_id.to_string_id(&interner), Some("base:iron_ore"));
+        assert_eq!(miner_id.to_string_id(&interner), Some("base:miner_block"));
+    }
+
+    #[test]
+    fn test_item_id_to_block_type() {
+        use crate::block_type::BlockType;
+
+        let mut interner = StringInterner::new();
+
+        // Convert BlockType -> ItemId -> BlockType
+        let original = BlockType::IronOre;
+        let item_id = ItemId::from_block_type(original, &mut interner);
+        let recovered = item_id.to_block_type(&interner);
+
+        assert_eq!(recovered, Some(BlockType::IronOre));
+    }
+
+    #[test]
+    fn test_item_id_roundtrip_all_block_types() {
+        use crate::block_type::BlockType;
+        use strum::IntoEnumIterator;
+
+        let mut interner = StringInterner::new();
+
+        // All BlockType variants should roundtrip correctly
+        for block_type in BlockType::iter() {
+            let item_id = ItemId::from_block_type(block_type, &mut interner);
+            let recovered = item_id.to_block_type(&interner);
+            assert_eq!(
+                recovered,
+                Some(block_type),
+                "Roundtrip failed for {:?}",
+                block_type
+            );
+        }
+    }
+
+    #[test]
+    fn test_item_id_mod_item_not_block_type() {
+        let mut interner = StringInterner::new();
+
+        // Mod items should return None when converting to BlockType
+        let mod_item = ItemId::from_string("mymod:super_ingot", &mut interner);
+        assert_eq!(mod_item.to_block_type(&interner), None);
+    }
+
+    #[test]
+    fn test_item_id_is_base_item() {
+        use crate::block_type::BlockType;
+
+        let mut interner = StringInterner::new();
+
+        let base_item = ItemId::from_block_type(BlockType::Stone, &mut interner);
+        let mod_item = ItemId::from_string("mymod:custom", &mut interner);
+
+        assert!(base_item.is_base_item(&interner));
+        assert!(!mod_item.is_base_item(&interner));
+    }
+
+    #[test]
+    fn test_item_id_namespace_and_local_name() {
+        use crate::block_type::BlockType;
+
+        let mut interner = StringInterner::new();
+
+        let base_item = ItemId::from_block_type(BlockType::IronOre, &mut interner);
+        assert_eq!(base_item.namespace(&interner), Some("base"));
+        assert_eq!(base_item.local_name(&interner), Some("iron_ore"));
+
+        let mod_item = ItemId::from_string("mymod:super_ingot", &mut interner);
+        assert_eq!(mod_item.namespace(&interner), Some("mymod"));
+        assert_eq!(mod_item.local_name(&interner), Some("super_ingot"));
+    }
+
+    #[test]
+    fn test_item_id_same_block_type_same_id() {
+        use crate::block_type::BlockType;
+
+        let mut interner = StringInterner::new();
+
+        // Same BlockType should produce same ItemId
+        let id1 = ItemId::from_block_type(BlockType::Stone, &mut interner);
+        let id2 = ItemId::from_block_type(BlockType::Stone, &mut interner);
+
+        assert_eq!(id1, id2);
+        assert_eq!(id1.raw(), id2.raw());
     }
 }

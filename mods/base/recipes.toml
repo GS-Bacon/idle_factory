@@ -1,0 +1,155 @@
+# Base Game Recipes
+# All recipe definitions for the base game
+
+# =============================================================================
+# Furnace Recipes - Ore Smelting (2.0s)
+# =============================================================================
+
+[[recipe]]
+id = "smelt_iron"
+machine = "furnace"
+craft_time = 2.0
+
+[recipe.inputs]
+iron_ore = 1
+
+[recipe.outputs]
+iron_ingot = 1
+
+[recipe.fuel]
+coal = 1
+
+[[recipe]]
+id = "smelt_copper"
+machine = "furnace"
+craft_time = 2.0
+
+[recipe.inputs]
+copper_ore = 1
+
+[recipe.outputs]
+copper_ingot = 1
+
+[recipe.fuel]
+coal = 1
+
+# =============================================================================
+# Furnace Recipes - Dust Smelting (1.5s - faster than ore)
+# =============================================================================
+
+[[recipe]]
+id = "smelt_iron_dust"
+machine = "furnace"
+craft_time = 1.5
+
+[recipe.inputs]
+iron_dust = 1
+
+[recipe.outputs]
+iron_ingot = 1
+
+[recipe.fuel]
+coal = 1
+
+[[recipe]]
+id = "smelt_copper_dust"
+machine = "furnace"
+craft_time = 1.5
+
+[recipe.inputs]
+copper_dust = 1
+
+[recipe.outputs]
+copper_ingot = 1
+
+[recipe.fuel]
+coal = 1
+
+# =============================================================================
+# Crusher Recipes - Ore to Dust (doubles output)
+# =============================================================================
+
+[[recipe]]
+id = "crush_iron"
+machine = "crusher"
+craft_time = 1.5
+
+[recipe.inputs]
+iron_ore = 1
+
+[recipe.outputs]
+iron_dust = 2
+
+[[recipe]]
+id = "crush_copper"
+machine = "crusher"
+craft_time = 1.5
+
+[recipe.inputs]
+copper_ore = 1
+
+[recipe.outputs]
+copper_dust = 2
+
+# =============================================================================
+# Assembler Recipes - Machine Crafting
+# =============================================================================
+
+[[recipe]]
+id = "craft_conveyor"
+machine = "assembler"
+craft_time = 2.0
+
+[recipe.inputs]
+iron_ingot = 2
+
+[recipe.outputs]
+conveyor_block = 5
+
+[[recipe]]
+id = "craft_miner"
+machine = "assembler"
+craft_time = 5.0
+
+[recipe.inputs]
+iron_ingot = 5
+stone = 10
+
+[recipe.outputs]
+miner_block = 1
+
+[[recipe]]
+id = "craft_furnace"
+machine = "assembler"
+craft_time = 6.0
+
+[recipe.inputs]
+iron_ingot = 8
+stone = 20
+
+[recipe.outputs]
+furnace_block = 1
+
+[[recipe]]
+id = "craft_crusher"
+machine = "assembler"
+craft_time = 8.0
+
+[recipe.inputs]
+iron_ingot = 10
+copper_ingot = 5
+
+[recipe.outputs]
+crusher_block = 1
+
+[[recipe]]
+id = "craft_assembler"
+machine = "assembler"
+craft_time = 10.0
+
+[recipe.inputs]
+iron_ingot = 15
+copper_ingot = 10
+
+[recipe.outputs]
+assembler_block = 1

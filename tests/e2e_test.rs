@@ -5159,34 +5159,43 @@ fn test_machine_input_from_back() {
     assert_eq!(conveyor_output, machine_pos);
 }
 
-/// Test library Miner creates with default facing
+/// Test library Machine creates with correct initial state
 #[test]
-fn test_lib_miner_default_facing() {
-    use idle_factory::components::Direction;
-    let miner = idle_factory::Miner::default();
+fn test_lib_machine_miner_default() {
+    use bevy::prelude::IVec3;
+    use idle_factory::components::{Direction, Machine};
+    use idle_factory::game_spec::MINER;
+
+    let miner = Machine::new(&MINER, IVec3::ZERO, Direction::North);
     assert_eq!(miner.facing, Direction::North);
-    assert_eq!(miner.buffer, None);
+    assert!(miner.slots.outputs.first().unwrap().item_type.is_none());
     assert_eq!(miner.progress, 0.0);
 }
 
-/// Test library Furnace creates with default facing
+/// Test library Machine creates Furnace with correct initial state
 #[test]
-fn test_lib_furnace_default_facing() {
-    use idle_factory::components::Direction;
-    let furnace = idle_factory::Furnace::default();
+fn test_lib_machine_furnace_default() {
+    use bevy::prelude::IVec3;
+    use idle_factory::components::{Direction, Machine};
+    use idle_factory::game_spec::FURNACE;
+
+    let furnace = Machine::new(&FURNACE, IVec3::ZERO, Direction::North);
     assert_eq!(furnace.facing, Direction::North);
-    assert_eq!(furnace.fuel, 0);
-    assert_eq!(furnace.input_type, None);
+    assert_eq!(furnace.slots.fuel, 0);
+    assert!(furnace.slots.inputs.first().unwrap().item_type.is_none());
 }
 
-/// Test library Crusher creates with default facing
+/// Test library Machine creates Crusher with correct initial state
 #[test]
-fn test_lib_crusher_default_facing() {
-    use idle_factory::components::Direction;
-    let crusher = idle_factory::Crusher::default();
+fn test_lib_machine_crusher_default() {
+    use bevy::prelude::IVec3;
+    use idle_factory::components::{Direction, Machine};
+    use idle_factory::game_spec::CRUSHER;
+
+    let crusher = Machine::new(&CRUSHER, IVec3::ZERO, Direction::North);
     assert_eq!(crusher.facing, Direction::North);
-    assert_eq!(crusher.input_type, None);
-    assert_eq!(crusher.input_count, 0);
+    assert!(crusher.slots.inputs.first().unwrap().item_type.is_none());
+    assert_eq!(crusher.slots.inputs.first().unwrap().count, 0);
 }
 
 /// Test Direction opposite

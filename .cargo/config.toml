@@ -1,6 +1,7 @@
 # 80コア環境向け最適化
 [build]
 jobs = 80
+target-dir = "/mnt/build/cargo-target"
 # rustc-wrapper = "/home/bacon/.cargo/bin/sccache"  # 環境依存のため無効化
 
 # WASM configuration

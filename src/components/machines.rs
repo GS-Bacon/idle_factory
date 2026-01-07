@@ -445,130 +445,32 @@ impl Machine {
 }
 
 // =============================================================================
-// Legacy Machine Components (kept for compatibility during migration)
+// Legacy Machine Components - REMOVED
 // =============================================================================
+// Miner, Furnace, Crusher structs have been removed.
+// Use the generic Machine component instead.
+// See MachineSpec in game_spec/machines.rs for machine definitions.
 
-/// Miner component - automatically mines based on biome
-#[derive(Component)]
-pub struct Miner {
-    /// World position of this miner
-    pub position: IVec3,
-    /// Facing direction (output goes to facing direction)
-    pub facing: Direction,
-    /// Mining progress (0.0-1.0)
-    pub progress: f32,
-    /// Buffer of mined items (block type, count)
-    pub buffer: Option<(BlockType, u32)>,
-    /// Tick counter for randomizing mining output
-    pub tick_count: u32,
+// Helper functions moved to standalone functions for backward compatibility
+// These use the recipe system as Single Source of Truth
+
+/// Get smelt output for an ore type (uses recipe system)
+pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
+    find_recipe(MachineType::Furnace, ore)
+        .and_then(|recipe| recipe.outputs.first())
+        .map(|output| output.item)
 }
 
-impl Default for Miner {
-    fn default() -> Self {
-        Self {
-            position: IVec3::ZERO,
-            facing: Direction::North,
-            progress: 0.0,
-            buffer: None,
-            tick_count: 0,
-        }
-    }
+/// Check if this ore can be crushed (uses recipe system)
+pub fn can_crush(ore: BlockType) -> bool {
+    find_recipe(MachineType::Crusher, ore).is_some()
 }
 
-/// Furnace component for smelting
-#[derive(Component)]
-pub struct Furnace {
-    /// World position of this furnace
-    pub position: IVec3,
-    /// Facing direction (input from back, output to front)
-    pub facing: Direction,
-    /// Fuel slot (coal)
-    pub fuel: u32,
-    /// Input slot - stores ore type and count
-    pub input_type: Option<BlockType>,
-    pub input_count: u32,
-    /// Output slot - stores ingot type and count
-    pub output_type: Option<BlockType>,
-    pub output_count: u32,
-    /// Smelting progress (0.0-1.0)
-    pub progress: f32,
-}
-
-impl Default for Furnace {
-    fn default() -> Self {
-        Self {
-            position: IVec3::ZERO,
-            facing: Direction::North,
-            fuel: 0,
-            input_type: None,
-            input_count: 0,
-            output_type: None,
-            output_count: 0,
-            progress: 0.0,
-        }
-    }
-}
-
-impl Furnace {
-    /// Get smelt output for an ore type (uses recipe system as Single Source of Truth)
-    pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
-        find_recipe(MachineType::Furnace, ore)
-            .and_then(|recipe| recipe.outputs.first())
-            .map(|output| output.item)
-    }
-
-    /// Check if this ore type can be added to input
-    pub fn can_add_input(&self, ore: BlockType) -> bool {
-        const MAX_MACHINE_STACK: u32 = 64;
-        let type_ok = self.input_type.is_none() || self.input_type == Some(ore);
-        let count_ok = self.input_count < MAX_MACHINE_STACK;
-        type_ok && count_ok
-    }
-}
-
-/// Crusher component - doubles ore output
-#[derive(Component)]
-pub struct Crusher {
-    /// World position of this crusher
-    pub position: IVec3,
-    /// Facing direction (input from back, output to front)
-    pub facing: Direction,
-    /// Input ore type and count
-    pub input_type: Option<BlockType>,
-    pub input_count: u32,
-    /// Output ore type and count (doubled)
-    pub output_type: Option<BlockType>,
-    pub output_count: u32,
-    /// Processing progress (0.0-1.0)
-    pub progress: f32,
-}
-
-impl Default for Crusher {
-    fn default() -> Self {
-        Self {
-            position: IVec3::ZERO,
-            facing: Direction::North,
-            input_type: None,
-            input_count: 0,
-            output_type: None,
-            output_count: 0,
-            progress: 0.0,
-        }
-    }
-}
-
-impl Crusher {
-    /// Check if this ore can be crushed (uses recipe system as Single Source of Truth)
-    pub fn can_crush(ore: BlockType) -> bool {
-        find_recipe(MachineType::Crusher, ore).is_some()
-    }
-
-    /// Get crush output for an ore type (uses recipe system as Single Source of Truth)
-    pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
-        find_recipe(MachineType::Crusher, ore)
-            .and_then(|recipe| recipe.outputs.first())
-            .map(|output| (output.item, output.count))
-    }
+/// Get crush output for an ore type (uses recipe system)
+pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
+    find_recipe(MachineType::Crusher, ore)
+        .and_then(|recipe| recipe.outputs.first())
+        .map(|output| (output.item, output.count))
 }
 
 /// Resource to hold loaded 3D model handles for machines and conveyors

@@ -1,0 +1,115 @@
+# Base Game Machines
+# All machine definitions for the base game
+
+# =============================================================================
+# Miner - Auto-generates resources from terrain
+# =============================================================================
+
+[[machine]]
+id = "miner"
+name = "採掘機"
+name_en = "Miner"
+block_type = "MinerBlock"
+process_time = 1.5
+buffer_size = 64
+requires_fuel = false
+auto_generate = true
+process_type = "auto_generate"
+
+[machine.ports]
+outputs = [
+    { side = "front", slot_id = 0 }
+]
+
+[machine.ui_slots]
+output = { slot_id = 0, label = "出力" }
+
+# =============================================================================
+# Furnace - Smelts ore into ingots (requires fuel)
+# =============================================================================
+
+[[machine]]
+id = "furnace"
+name = "精錬炉"
+name_en = "Furnace"
+block_type = "FurnaceBlock"
+process_time = 2.0
+buffer_size = 64
+requires_fuel = true
+auto_generate = false
+process_type = "recipe"
+machine_type = "furnace"
+
+[machine.ports]
+inputs = [
+    { side = "back", slot_id = 0 },   # Ore input
+    { side = "left", slot_id = 1 },   # Fuel input (left)
+    { side = "right", slot_id = 1 }   # Fuel input (right)
+]
+outputs = [
+    { side = "front", slot_id = 0 }
+]
+
+[machine.ui_slots]
+input = { slot_id = 0, label = "鉱石" }
+fuel = { slot_id = 1, label = "燃料" }
+output = { slot_id = 0, label = "出力" }
+
+# =============================================================================
+# Crusher - Crushes ore into dust (doubles output)
+# =============================================================================
+
+[[machine]]
+id = "crusher"
+name = "粉砕機"
+name_en = "Crusher"
+block_type = "CrusherBlock"
+process_time = 1.5
+buffer_size = 64
+requires_fuel = false
+auto_generate = false
+process_type = "recipe"
+machine_type = "crusher"
+
+[machine.ports]
+inputs = [
+    { side = "back", slot_id = 0 }
+]
+outputs = [
+    { side = "front", slot_id = 0 }
+]
+
+[machine.ui_slots]
+input = { slot_id = 0, label = "入力" }
+output = { slot_id = 0, label = "出力" }
+
+# =============================================================================
+# Assembler - Crafts machines and components
+# =============================================================================
+
+[[machine]]
+id = "assembler"
+name = "組立機"
+name_en = "Assembler"
+block_type = "AssemblerBlock"
+process_time = 3.0
+buffer_size = 32
+requires_fuel = false
+auto_generate = false
+process_type = "recipe"
+machine_type = "assembler"
+
+[machine.ports]
+inputs = [
+    { side = "back", slot_id = 0 },   # Main input
+    { side = "left", slot_id = 1 },   # Sub input (left)
+    { side = "right", slot_id = 1 }   # Sub input (right)
+]
+outputs = [
+    { side = "front", slot_id = 0 }
+]
+
+[machine.ui_slots]
+input_main = { slot_id = 0, label = "主素材" }
+input_sub = { slot_id = 1, label = "副素材" }
+output = { slot_id = 0, label = "出力" }
