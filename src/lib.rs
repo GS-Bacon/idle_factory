@@ -10,6 +10,7 @@ pub mod blueprint;
 pub mod components;
 pub mod constants;
 pub mod core;
+pub mod craft;
 pub mod debug;
 pub mod events;
 pub mod game_data;
@@ -76,6 +77,12 @@ pub use storage::{StorageBlock, StorageNetwork, StoragePlugin, StorageSize};
 
 // Re-export blueprint types
 pub use blueprint::{Blueprint, BlueprintLibrary, BlueprintPlugin};
+
+// Re-export craft types
+pub use craft::{
+    CraftCompletedEvent, CraftPlugin, CraftingJob, CraftingRecipe, CraftingRegistry,
+    CraftingStation, PlayerCrafting, StartCraftEvent,
+};
 
 // Re-export plugins for testing
 pub use audio::{AudioPlugin, SoundCategory, SoundSettings};
