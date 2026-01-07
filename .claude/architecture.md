@@ -1,25 +1,25 @@
 # アーキテクチャ
 
-## コード規模
+## コード規模 (2026-01-07更新)
 
-総計: 約18,000行
+総計: 約19,000行 (リファクタリングで-3,500行削減)
 
 | モジュール | 行数 | 責務 |
 |------------|------|------|
-| systems/ | 6,800 | ゲームロジック（Update系） |
-| components/ | 1,600 | ECSコンポーネント定義 |
+| systems/ | 5,500 | ゲームロジック（Update系） |
+| components/ | 1,400 | ECSコンポーネント定義 |
 | save/ | 1,500 | セーブ/ロード |
-| ui/ | 1,400 | UI生成・操作 |
-| world/ | 1,050 | チャンク・地形生成 |
-| game_spec/ | 1,050 | 仕様定義（Single Source of Truth） |
-| machines/ | 1,050 | 機械システム |
+| ui/ | 800 | UI生成・操作（データ駆動化で削減） |
+| world/ | 1,200 | チャンク・地形生成（Greedy meshing含む） |
+| game_spec/ | 1,100 | 仕様定義（Single Source of Truth） |
+| machines/ | 600 | 機械システム（generic.rsに統合） |
 | setup/ | 1,000 | 起動時初期化（Startup） |
 | player/ | 600 | プレイヤー・インベントリ |
 | logistics/ | 560 | コンベア |
 | plugins/ | 440 | Bevyプラグイン |
 | debug/ | 380 | デバッグHUD・ステートダンプ |
 | core/ | 360 | 純粋ロジック（Bevy非依存） |
-| src/*.rs | 3,000 | main, meshes, utils, vox_loader |
+| src/*.rs | 2,500 | main, meshes, utils, vox_loader |
 
 ## ディレクトリ構造
 
@@ -35,9 +35,10 @@ src/
 │
 ├── components/          # ECSコンポーネント
 │   ├── mod.rs           # 共通型
-│   ├── machines.rs      # Direction, ConveyorShape等
-│   ├── ui.rs            # UI関連
-│   ├── input.rs         # InputState
+│   ├── machines.rs      # Direction, ConveyorShape, Machine等
+│   ├── ui.rs            # UI関連（InteractingMachine等）
+│   ├── ui_state.rs      # UIState, UIContext, UIAction
+│   ├── input.rs         # InputState（統合版）
 │   └── player.rs        # カーソル状態
 │
 ├── systems/             # Updateシステム
@@ -46,13 +47,13 @@ src/
 │   ├── command/           # コマンド入力
 │   ├── player.rs          # 移動・視点
 │   ├── inventory_ui.rs    # インベントリUI
+│   ├── ui_navigation.rs   # UIステート管理・入力ハンドリング
 │   ├── quest.rs           # クエスト進行
 │   └── ...
 │
-├── machines/            # 機械固有ロジック
-│   ├── miner.rs
-│   ├── furnace.rs
-│   └── crusher.rs
+├── machines/            # 機械システム（統合）
+│   ├── mod.rs           # エクスポート
+│   └── generic.rs       # 全機械の統一tick/UI/インタラクション
 │
 ├── logistics/           # 物流インフラ
 │   └── conveyor.rs
@@ -108,15 +109,17 @@ main.rs
 |------|------|
 | ECSコンポジション | コンポーネントの組み合わせで機能を構成 |
 | Single Source of Truth | 仕様は `game_spec/` に集約 |
+| **データ駆動設計** | 機械は `MachineSpec` で定義、UIは自動生成 |
 | 物流分離 | コンベアは `logistics/` で機械と分離 |
 | UI分離 | UI定義は `ui/`、システムは `systems/` |
+| **UIステート統合** | `UIState` + `UIAction` でUI操作を一元管理 |
 
 ## 分割ルール
 
 | 基準 | 目安 |
 |------|------|
 | 1ファイル | 500行以下推奨、800行超で検討、1000行超で分割 |
-| 機械種別 | miner.rs, furnace.rs, crusher.rs |
+| **機械統合** | `generic.rs` に全機械を統合（個別ファイル廃止） |
 | ライフサイクル | setup/（Startup）, systems/（Update） |
 
 ## テスト配置

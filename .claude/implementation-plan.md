@@ -1,12 +1,12 @@
-# 統合実装計画 (2026-01-04 更新)
+# 統合実装計画 (2026-01-07 更新)
 
 ## 現状サマリー
 
 | 項目 | 値 |
 |------|-----|
-| コード行数 | **22,500行** |
-| テスト | **323件** 通過 (lib:108, bin:37, e2e:148, fuzz:11, proptest:8, ssim:3, integration:8) |
-| unwrap() | **17箇所** (全てテストコード内) |
+| コード行数 | **~19,000行** (リファクタリングで-3,500行) |
+| テスト | **333件** 通過 (lib:126, bin:37, e2e:148, fuzz:11, ssim:3, integration:8) |
+| unwrap() | **~25箇所** (大部分がテストコード内) |
 | Clippy警告 | **0件** |
 | カバレッジ | **8.54%** (全体)、ロジック部分70%+ |
 
@@ -180,78 +180,53 @@ window.cursor_options.visible = false;
 
 **対策**: `parallel-run.sh finish` 時に同名コミットをチェック
 
-### UI状態管理再設計（2026-01-06 Claude+Gemini設計）
-
-**問題**: UI状態が6つの独立リソースに分散、ESC処理7箇所・E処理4箇所に分散
+### UI状態管理再設計 ✅ 完了（2026-01-06〜07）
 
 **採用案**: 案4「Event駆動型UIスタック」
 
-#### 現状の問題点
+#### 実装完了
 
-| 問題 | 詳細 |
-|------|------|
-| Single Source of Truth欠如 | `InventoryOpen`, `InteractingFurnace`, `InteractingCrusher`, `InteractingMiner`, `CommandInputState`, `CursorLockState` が独立 |
-| 入力処理の競合 | ESC 7箇所、E 4箇所に分散。「インベントリ閉じた瞬間にポーズが開く」等の競合 |
-| 排他制御の重複 | 各システムが手動で他UIの状態をチェック |
+| # | タスク | 状態 |
+|---|--------|------|
+| UI-1 | `UIState`, `UIContext`, `UIAction` 定義 | ✅ 完了 |
+| UI-2 | `ui_action_handler` 実装（Event処理） | ✅ 完了 |
+| UI-3 | `ui_escape_handler`, `ui_inventory_handler` 等（ESC/E/Tab集約） | ✅ 完了 |
+| UI-4 | `sync_legacy_ui_state` で後方互換性維持 | ✅ 完了 |
+| UI-5 | Legacy `InteractingFurnace/Crusher/Miner` 削除 | ✅ 完了 |
+| UI-6 | `InteractingMachine` 1リソースに統合 | ✅ 完了 |
 
-#### 新設計
+#### 実装詳細
 
 ```rust
-// UIの状態（階層化）
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UiState {
-    HUD,                          // 通常プレイ
-    Inventory,                    // インベントリ (E)
-    GlobalInventory,              // 倉庫 (Tab)
-    Command,                      // コマンド (T/Slash)
-    Machine(Entity),              // 機械UI（種類はEntityのComponentで判定）
-    Menu(MenuScreen),             // メニュー階層
-    Modal { title: String, ... }, // 確認ダイアログ等
+// components/ui_state.rs
+pub enum UIContext {
+    Gameplay,
+    Inventory,
+    GlobalInventory,
+    CommandInput,
+    PauseMenu,
+    Machine(Entity),
 }
 
-#[derive(Clone, PartialEq, Eq)]
-pub enum MenuScreen {
-    Main, Settings, Keybinds, Graphics, Audio,
+pub enum UIAction {
+    Push(UIContext),
+    Pop,
+    Clear,
+    Replace(UIContext),
+    Toggle(UIContext),
 }
 
-// スタック管理（ESCで戻る対応）
-#[derive(Resource, Default)]
-pub struct UiManager {
-    stack: Vec<UiState>,
-}
-
-// 操作はEvent経由（疎結合）
-#[derive(Event)]
-pub enum UiAction {
-    Open(UiState),  // 新しいUIを開く
-    Back,           // 戻る（ESC）
-    CloseAll,       // 全部閉じる
+pub struct UIState {
+    stack: Vec<UIContext>,
 }
 ```
 
-#### 実装ステップ
+#### 変更ファイル
 
-| # | タスク | 状態 | 工数 |
-|---|--------|------|------|
-| UI-1 | `UiState`, `UiManager`, `UiAction` 定義 | 未着手 | 小 |
-| UI-2 | `ui_navigation_system` 実装（Event処理） | 未着手 | 小 |
-| UI-3 | `ui_input_system` 実装（ESC/E/Tab集約） | 未着手 | 中 |
-| UI-4 | 既存システムから入力処理を削除、`UiManager`参照に変更 | 未着手 | 中 |
-| UI-5 | 旧リソース（`InventoryOpen`等）を削除 | 未着手 | 小 |
-| UI-6 | カーソル管理を`UiManager`に統合 | 未着手 | 小 |
-
-#### 設計のポイント
-
-- **機械UIは`Machine(Entity)`のみ**: 種類はEntityのComponentで判定（拡張性）
-- **メニュー階層は`MenuScreen`**: 設定→キーバインド等の階層遷移に対応
-- **スタック構造**: ESCで「前の画面に戻る」が自然に実装可能
-- **Event駆動**: ボタンクリックもキーボードも`UiAction`を発行するだけ
-
-#### 参考（Factorioパターン）
-
-- ESCキー: 最前面ウィンドウを閉じる、なければメインメニュー
-- 機械UI + インベントリが同時表示（同じモード内）
-- メニューはゲームをポーズ、インベントリはポーズしない
+- `components/ui_state.rs` - UIState, UIContext, UIAction 定義
+- `systems/ui_navigation.rs` - イベント処理、入力ハンドラ
+- `components/input.rs` - InputState簡素化 (MachineUI 1種に統一)
+- `components/ui.rs` - Legacy型削除、InteractingMachine統合
 
 ---
 
@@ -373,12 +348,12 @@ ESC → メインメニュー → 設定 → グラフィック/操作/音声タ
 
 ---
 
-### ボクセル基盤改善タスク（2026-01-06 追加）
+### ボクセル基盤改善タスク（2026-01-06〜07）
 
 | # | タスク | 状態 | 効果 | 工数 |
 |---|--------|------|------|------|
-| 10 | Greedy meshing実装 | 未着手 | 頂点数50%減、GPU負荷大幅改善 | 中 |
-| 11 | ChunkData HashMap削除 | 未着手 | メモリ50%減 | 小 |
+| 10 | Greedy meshing実装 | ✅ 完了 | 頂点数50%減、GPU負荷大幅改善 | 中 |
+| 11 | ChunkData HashMap削除 | ✅ 完了 | メモリ50%減 | 小 |
 | 12 | 差分メッシュ更新 | 未着手 | 隣接チャンク再生成のCPU負荷減 | 中 |
 | 13 | LOD実装 | 未着手 | 遠距離描画軽量化 | 大 |
 | 14 | パレット方式導入 | 未着手 | メモリ1/4〜1/8（将来対応） | 中 |
@@ -465,12 +440,12 @@ struct ChunkData {
 
 ### 現状 vs 理想
 
-| 追加するもの | 現状 | Descriptor化後 |
-|--------------|------|----------------|
-| 新ブロック | 5-6箇所修正、100行 | 1箇所、10行 |
-| 新アイテム | 3-4箇所修正、50行 | 1箇所、8行 |
-| 新機械 | 500-600行 | 20行 |
-| 新レシピ | 1箇所、5行 | ✅ 変わらず |
+| 追加するもの | 現状 | Descriptor化後 | 状態 |
+|--------------|------|----------------|------|
+| 新ブロック | 5-6箇所修正、100行 | 1箇所、10行 | 未着手 |
+| 新アイテム | 3-4箇所修正、50行 | 1箇所、8行 | 未着手 |
+| 新機械 | ~~500-600行~~ | **20行** | ✅ **完了** |
+| 新レシピ | 1箇所、5行 | ✅ 変わらず | 完了済 |
 
 ### C.1 BlockDescriptor
 
@@ -544,64 +519,46 @@ pub enum ItemCategory {
 | C.2-3 | インベントリUIをITEMS参照に | 小 |
 | C.2-4 | ツールチップ自動生成 | 小 |
 
-### C.3 MachineDescriptor + UIジェネレータ
+### C.3 MachineDescriptor + UIジェネレータ ✅ 完了（2026-01-07）
 
 ```rust
-// game_spec/machines.rs
-pub struct MachineDescriptor {
+// game_spec/machines.rs - MachineSpec定義
+pub struct MachineSpec {
     pub id: &'static str,
     pub name: &'static str,
     pub block_type: BlockType,
-
-    // スロット構成（これだけでUIが自動生成される）
-    pub input_slots: u8,
-    pub output_slots: u8,
-    pub fuel_slot: bool,
-
-    // 処理
+    pub process_type: ProcessType,
     pub process_time: f32,
-    pub recipes: &'static [Recipe],
-
-    // モデル
-    pub model: &'static str,
+    pub ui_slots: &'static [UiSlotDef],
+    pub io_ports: &'static [IoPort],
 }
 
-pub const MACHINES: &[MachineDescriptor] = &[
-    MachineDescriptor {
-        id: "miner",
-        name: "採掘機",
-        block_type: BlockType::Miner,
-        input_slots: 0,
-        output_slots: 1,
-        fuel_slot: false,
-        process_time: 1.5,
-        recipes: &[],  // 特殊処理
-        model: "machines/miner.glb",
-    },
-    MachineDescriptor {
-        id: "furnace",
-        name: "精錬炉",
-        block_type: BlockType::Furnace,
-        input_slots: 1,
-        output_slots: 1,
-        fuel_slot: true,
-        process_time: 2.0,
-        recipes: FURNACE_RECIPES,
-        model: "machines/furnace.glb",
-    },
-    // ...
-];
+pub const MINER: MachineSpec = MachineSpec { ... };
+pub const FURNACE: MachineSpec = MachineSpec { ... };
+pub const CRUSHER: MachineSpec = MachineSpec { ... };
 ```
 
-**実装タスク**:
+**実装完了タスク**:
 
-| # | タスク | 工数 |
+| # | タスク | 状態 |
 |---|--------|------|
-| C.3-1 | MachineDescriptor拡張（スロット情報追加） | 小 |
-| C.3-2 | spawn_machine_ui()ジェネレータ実装 | 中 |
-| C.3-3 | 既存機械UIをジェネレータ経由に移行 | 中 |
-| C.3-4 | 共通machine_tick_system実装 | 中 |
-| C.3-5 | 個別機械ファイル(miner.rs等)を簡略化 | 小 |
+| C.3-1 | MachineSpec定義（ui_slots, io_ports追加） | ✅ 完了 |
+| C.3-2 | `setup_generic_machine_ui()` 実装 | ✅ 完了 |
+| C.3-3 | 既存機械UIをジェネレータ経由に移行 | ✅ 完了 |
+| C.3-4 | `generic_machine_tick` 共通処理実装 | ✅ 完了 |
+| C.3-5 | Legacy機械ファイル削除 (miner.rs, furnace.rs, crusher.rs等) | ✅ 完了 |
+| C.3-6 | `InteractingMachine` 1リソース化 | ✅ 完了 |
+
+**削除されたファイル** (-629行):
+- `machines/miner.rs`, `furnace.rs`, `crusher.rs`
+- `machines/interaction.rs`, `output.rs`
+- Legacy UIコンポーネント定義
+
+**新しい機械追加方法**:
+1. `game_spec/machines.rs` に `MachineSpec` 追加 (~20行)
+2. `game_spec/recipes.rs` にレシピ追加 (~5行)
+3. `setup/ui/mod.rs` で `setup_generic_machine_ui(&NEWMACHINE)` 呼び出し追加
+4. 完了（UIもtickも自動生成）
 
 ### C.4 レジストリシステム
 
@@ -740,17 +697,21 @@ B.1 準備 ─→ B.2 物流分離 ─→ B.3 機械統合 ─→ B.4 UI統合 �
 
 ## 次のアクション
 
-**Phase A・B 完了** ✅
+**Phase A・B・C.3 完了** ✅
 
-現在の状態:
+現在の状態 (2026-01-07):
 - v0.2機能: 全て実装済み
 - アーキテクチャ: 整備完了
-- テスト: 280件通過
+- **Phase C.3 機械統合**: 完了 (-629行)
+- **UIステート管理**: 完了
+- **パフォーマンス最適化**: Greedy meshing + HashMap削除完了
+- テスト: 333件通過
 - Clippy警告: 0件
 
 次のステップ:
-1. **v0.2リリース準備** - リリースノート作成、タグ付け
-2. **v0.3検討** - 将来タスクから優先度を決定
+1. **C.1 BlockDescriptor** - ブロック追加の簡易化
+2. **C.2 ItemDescriptor** - アイテム追加の簡易化
+3. **C.4 レジストリ統合** - O(1)参照の完成
 
 ---
 
