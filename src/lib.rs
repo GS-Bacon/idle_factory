@@ -6,6 +6,7 @@ pub mod achievements;
 pub mod audio;
 pub mod block_type;
 pub mod blockbench;
+pub mod blueprint;
 pub mod components;
 pub mod constants;
 pub mod core;
@@ -25,6 +26,7 @@ pub mod save;
 pub mod settings;
 pub mod setup;
 pub mod statistics;
+pub mod storage;
 pub mod systems;
 pub mod ui;
 #[cfg(feature = "updater")]
@@ -68,6 +70,12 @@ pub use map::{MapData, MapMarker, MapPlugin, MarkerType, ToggleMap};
 
 // Re-export statistics types
 pub use statistics::{ProductionStats, StatisticsPlugin, TimeSeries};
+
+// Re-export storage types
+pub use storage::{StorageBlock, StorageNetwork, StoragePlugin, StorageSize};
+
+// Re-export blueprint types
+pub use blueprint::{Blueprint, BlueprintLibrary, BlueprintPlugin};
 
 // Re-export plugins for testing
 pub use audio::{AudioPlugin, SoundCategory, SoundSettings};
