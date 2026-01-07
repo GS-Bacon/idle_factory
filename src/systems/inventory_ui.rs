@@ -1,7 +1,7 @@
 //! Inventory UI systems
 
 use crate::components::*;
-use crate::player::Inventory;
+use crate::player::{LocalPlayer, PlayerInventory};
 use crate::setup::ui::{
     SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
 };
@@ -17,7 +17,7 @@ pub fn set_ui_open_state(_ui_open: bool) {
 }
 
 /// Return held item to inventory when closing
-fn return_held_item_to_inventory(inventory: &mut Inventory, held_item: &mut HeldItem) {
+fn return_held_item_to_inventory(inventory: &mut PlayerInventory, held_item: &mut HeldItem) {
     if let Some((block_type, count)) = held_item.0.take() {
         // Try to add to inventory
         let remaining = inventory.add_item(block_type, count);
@@ -35,7 +35,8 @@ fn return_held_item_to_inventory(inventory: &mut Inventory, held_item: &mut Held
 #[allow(clippy::type_complexity)]
 pub fn update_inventory_visibility(
     inventory_open: Res<InventoryOpen>,
-    mut inventory: ResMut<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    mut inventory_query: Query<&mut PlayerInventory>,
     mut held_item: ResMut<HeldItem>,
     creative_mode: Res<CreativeMode>,
     mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
@@ -66,7 +67,11 @@ pub fn update_inventory_visibility(
 
     // Return held item when closing
     if !inventory_open.0 {
-        return_held_item_to_inventory(&mut inventory, &mut held_item);
+        if let Some(ref local_player) = local_player {
+            if let Ok(mut inventory) = inventory_query.get_mut(local_player.0) {
+                return_held_item_to_inventory(&mut inventory, &mut held_item);
+            }
+        }
     }
 
     // Update UI visibility
@@ -180,7 +185,8 @@ pub fn creative_inventory_click(
 /// Handle inventory slot clicks (pick up / place items)
 pub fn inventory_slot_click(
     inventory_open: Res<InventoryOpen>,
-    mut inventory: ResMut<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    mut inventory_query: Query<&mut PlayerInventory>,
     mut held_item: ResMut<HeldItem>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut interaction_query: Query<
@@ -196,6 +202,13 @@ pub fn inventory_slot_click(
     if !inventory_open.0 {
         return;
     }
+
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(mut inventory) = inventory_query.get_mut(local_player.0) else {
+        return;
+    };
 
     let shift_held =
         key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
@@ -302,7 +315,7 @@ pub fn inventory_slot_click(
 }
 
 /// Helper function to perform shift-click move on a slot
-fn perform_shift_click_move(inventory: &mut Inventory, slot_idx: usize) -> bool {
+fn perform_shift_click_move(inventory: &mut PlayerInventory, slot_idx: usize) -> bool {
     if let Some((block_type, count)) = inventory.slots[slot_idx].take() {
         // Determine target area
         let target_range = if slot_idx < HOTBAR_SLOTS {
@@ -353,7 +366,8 @@ fn perform_shift_click_move(inventory: &mut Inventory, slot_idx: usize) -> bool 
 /// Continuous shift+click support for inventory
 pub fn inventory_continuous_shift_click(
     inventory_open: Res<InventoryOpen>,
-    mut inventory: ResMut<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    mut inventory_query: Query<&mut PlayerInventory>,
     key_input: Res<ButtonInput<KeyCode>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut action_timer: ResMut<ContinuousActionTimer>,
@@ -362,6 +376,13 @@ pub fn inventory_continuous_shift_click(
     if !inventory_open.0 {
         return;
     }
+
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(mut inventory) = inventory_query.get_mut(local_player.0) else {
+        return;
+    };
 
     let shift_held =
         key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
@@ -389,7 +410,8 @@ pub fn inventory_continuous_shift_click(
 /// Update inventory slot visuals to reflect current inventory state
 pub fn inventory_update_slots(
     inventory_open: Res<InventoryOpen>,
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventory_query: Query<&PlayerInventory>,
     item_sprites: Res<ItemSprites>,
     mut slot_query: Query<(
         &InventorySlotUI,
@@ -407,6 +429,13 @@ pub fn inventory_update_slots(
         }
         return;
     }
+
+    let Some(local_player) = local_player else {
+        return;
+    };
+    let Ok(inventory) = inventory_query.get(local_player.0) else {
+        return;
+    };
 
     // Update slot sprite images
     for (slot_image, mut image_node, mut visibility) in image_query.iter_mut() {
@@ -535,9 +564,11 @@ pub fn update_held_item_display(
 }
 
 /// Update inventory tooltip to show item name when hovering over slots
+#[allow(clippy::too_many_arguments)]
 pub fn update_inventory_tooltip(
     inventory_open: Res<InventoryOpen>,
-    inventory: Res<Inventory>,
+    local_player: Option<Res<LocalPlayer>>,
+    inventory_query: Query<&PlayerInventory>,
     windows: Query<&Window>,
     slot_query: Query<(&Interaction, &InventorySlotUI)>,
     creative_query: Query<(&Interaction, &CreativeItemButton)>,
@@ -554,14 +585,21 @@ pub fn update_inventory_tooltip(
         return;
     }
 
+    // Get inventory if available
+    let inventory = local_player
+        .as_ref()
+        .and_then(|lp| inventory_query.get(lp.0).ok());
+
     // Find hovered slot (inventory slots)
     let mut hovered_item: Option<(BlockType, Option<u32>)> = None;
-    for (interaction, slot_ui) in slot_query.iter() {
-        if *interaction == Interaction::Hovered {
-            let slot_idx = slot_ui.0;
-            if let Some((block_type, count)) = inventory.slots[slot_idx] {
-                hovered_item = Some((block_type, Some(count)));
-                break;
+    if let Some(inventory) = inventory {
+        for (interaction, slot_ui) in slot_query.iter() {
+            if *interaction == Interaction::Hovered {
+                let slot_idx = slot_ui.0;
+                if let Some((block_type, count)) = inventory.slots[slot_idx] {
+                    hovered_item = Some((block_type, Some(count)));
+                    break;
+                }
             }
         }
     }
