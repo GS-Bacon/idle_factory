@@ -33,6 +33,30 @@ pub struct BlockbenchModel {
     /// Embedded texture data (raw PNG/JPEG bytes)
     /// Use `create_texture()` to convert to a Bevy Image
     pub texture_data: Option<TextureData>,
+    /// Bone hierarchy from outliner
+    pub bones: Vec<Bone>,
+}
+
+/// Bone (skeletal hierarchy node) from Blockbench outliner
+#[derive(Debug, Clone)]
+pub struct Bone {
+    /// Bone name
+    pub name: String,
+    /// Parent bone name (None for root bones)
+    pub parent: Option<String>,
+    /// Pivot point / origin
+    pub origin: Vec3,
+    /// Child elements (nested bones or element UUIDs)
+    pub children: Vec<BoneChild>,
+}
+
+/// Child of a bone - either another bone or an element reference
+#[derive(Debug, Clone)]
+pub enum BoneChild {
+    /// Nested bone
+    Bone(Bone),
+    /// Element UUID reference
+    Element(String),
 }
 
 /// Embedded texture data from bbmodel
@@ -106,9 +130,8 @@ struct RawBbmodel {
     /// Textures array
     #[serde(default)]
     textures: Vec<RawTexture>,
-    /// Outliner (bone hierarchy) - unused for static models
+    /// Outliner (bone hierarchy)
     #[serde(default)]
-    #[allow(dead_code)]
     outliner: Vec<serde_json::Value>,
 }
 
@@ -262,10 +285,14 @@ impl AssetLoader for BlockbenchLoader {
         // Try to extract embedded texture data
         let texture_data = extract_texture_data(&raw.textures);
 
+        // Parse bone hierarchy from outliner
+        let bones = parse_outliner(&raw.outliner, None);
+
         tracing::info!(
-            "Loaded bbmodel: {} ({} elements, {}x{} resolution)",
+            "Loaded bbmodel: {} ({} elements, {} bones, {}x{} resolution)",
             name,
             raw.elements.len(),
+            bones.len(),
             resolution.x,
             resolution.y
         );
@@ -275,6 +302,7 @@ impl AssetLoader for BlockbenchLoader {
             resolution,
             mesh,
             texture_data,
+            bones,
         })
     }
 
@@ -303,6 +331,77 @@ impl fmt::Display for BlockbenchLoadError {
 }
 
 impl std::error::Error for BlockbenchLoadError {}
+
+/// Parse outliner array into bone hierarchy
+fn parse_outliner(outliner: &[serde_json::Value], parent_name: Option<&str>) -> Vec<Bone> {
+    let mut bones = Vec::new();
+
+    for item in outliner {
+        match item {
+            // String = element UUID reference (not a bone, skip at root level)
+            serde_json::Value::String(_) => {
+                // Element references at root level are orphaned elements
+                // They don't belong to any bone, so we skip them here
+            }
+            // Object = bone definition
+            serde_json::Value::Object(obj) => {
+                if let Some(bone) = parse_bone_object(obj, parent_name) {
+                    bones.push(bone);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    bones
+}
+
+/// Parse a single bone object from JSON
+fn parse_bone_object(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    parent_name: Option<&str>,
+) -> Option<Bone> {
+    // Get bone name (required)
+    let name = obj.get("name")?.as_str()?.to_string();
+
+    // Get origin (pivot point), default to [0, 0, 0]
+    let origin = if let Some(serde_json::Value::Array(arr)) = obj.get("origin") {
+        Vec3::new(
+            arr.first().and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+            arr.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+            arr.get(2).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+        )
+    } else {
+        Vec3::ZERO
+    };
+
+    // Parse children
+    let mut children = Vec::new();
+    if let Some(serde_json::Value::Array(child_arr)) = obj.get("children") {
+        for child in child_arr {
+            match child {
+                // String = element UUID
+                serde_json::Value::String(uuid) => {
+                    children.push(BoneChild::Element(uuid.clone()));
+                }
+                // Object = nested bone
+                serde_json::Value::Object(child_obj) => {
+                    if let Some(child_bone) = parse_bone_object(child_obj, Some(&name)) {
+                        children.push(BoneChild::Bone(child_bone));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Some(Bone {
+        name,
+        parent: parent_name.map(|s| s.to_string()),
+        origin,
+        children,
+    })
+}
 
 /// Generate Bevy Mesh from bbmodel elements
 fn generate_mesh(elements: &[RawElement], resolution: UVec2) -> Result<Mesh, BlockbenchLoadError> {
@@ -804,6 +903,7 @@ mod tests {
                 uv_width: Some(1),
                 uv_height: Some(1),
             }),
+            bones: vec![],
         };
 
         let image = model.create_texture();
@@ -825,6 +925,7 @@ mod tests {
                 RenderAssetUsages::default(),
             ),
             texture_data: None,
+            bones: vec![],
         };
 
         let image = model.create_texture();
@@ -845,9 +946,104 @@ mod tests {
                 uv_width: Some(1),
                 uv_height: Some(1),
             }),
+            bones: vec![],
         };
 
         let image = model.create_texture();
         assert!(image.is_none());
+    }
+
+    #[test]
+    fn test_parse_outliner_simple() {
+        // Simple outliner with one bone containing one element
+        let outliner_json = r#"[
+            {
+                "name": "root",
+                "origin": [0, 0, 0],
+                "children": ["element-uuid-1"]
+            }
+        ]"#;
+
+        let outliner: Vec<serde_json::Value> = serde_json::from_str(outliner_json).unwrap();
+        let bones = parse_outliner(&outliner, None);
+
+        assert_eq!(bones.len(), 1);
+        assert_eq!(bones[0].name, "root");
+        assert!(bones[0].parent.is_none());
+        assert_eq!(bones[0].origin, Vec3::ZERO);
+        assert_eq!(bones[0].children.len(), 1);
+
+        match &bones[0].children[0] {
+            BoneChild::Element(uuid) => assert_eq!(uuid, "element-uuid-1"),
+            BoneChild::Bone(_) => panic!("Expected Element, got Bone"),
+        }
+    }
+
+    #[test]
+    fn test_parse_outliner_nested() {
+        // Nested outliner with parent and child bones
+        let outliner_json = r#"[
+            {
+                "name": "root",
+                "origin": [0, 0, 0],
+                "children": [
+                    "element-uuid-1",
+                    {
+                        "name": "arm",
+                        "origin": [4, 8, 0],
+                        "children": ["element-uuid-2"]
+                    }
+                ]
+            }
+        ]"#;
+
+        let outliner: Vec<serde_json::Value> = serde_json::from_str(outliner_json).unwrap();
+        let bones = parse_outliner(&outliner, None);
+
+        assert_eq!(bones.len(), 1);
+        let root = &bones[0];
+        assert_eq!(root.name, "root");
+        assert!(root.parent.is_none());
+        assert_eq!(root.children.len(), 2);
+
+        // First child is an element
+        match &root.children[0] {
+            BoneChild::Element(uuid) => assert_eq!(uuid, "element-uuid-1"),
+            BoneChild::Bone(_) => panic!("Expected Element"),
+        }
+
+        // Second child is a nested bone
+        match &root.children[1] {
+            BoneChild::Bone(arm) => {
+                assert_eq!(arm.name, "arm");
+                assert_eq!(arm.parent, Some("root".to_string()));
+                assert_eq!(arm.origin, Vec3::new(4.0, 8.0, 0.0));
+                assert_eq!(arm.children.len(), 1);
+
+                match &arm.children[0] {
+                    BoneChild::Element(uuid) => assert_eq!(uuid, "element-uuid-2"),
+                    BoneChild::Bone(_) => panic!("Expected Element in arm"),
+                }
+            }
+            BoneChild::Element(_) => panic!("Expected Bone"),
+        }
+    }
+
+    #[test]
+    fn test_parse_outliner_empty() {
+        let outliner: Vec<serde_json::Value> = vec![];
+        let bones = parse_outliner(&outliner, None);
+        assert!(bones.is_empty());
+    }
+
+    #[test]
+    fn test_parse_outliner_root_element_only() {
+        // Outliner with only element UUIDs at root level (no bones)
+        let outliner_json = r#"["element-uuid-1", "element-uuid-2"]"#;
+        let outliner: Vec<serde_json::Value> = serde_json::from_str(outliner_json).unwrap();
+        let bones = parse_outliner(&outliner, None);
+
+        // Root-level elements are not bones, so bones should be empty
+        assert!(bones.is_empty());
     }
 }
