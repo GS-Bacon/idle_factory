@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
+use crate::events::game_events::{BlockBroken, EventSource};
 use crate::game_spec::breaking_spec;
 use crate::player::PlayerInventory;
 use crate::systems::TutorialEvent;
@@ -13,7 +14,7 @@ use crate::{
     InputStateResources, TargetBlock, BLOCK_SIZE, PLATFORM_SIZE, REACH_DISTANCE,
 };
 
-use super::{LocalPlayerInventory, MachineBreakQueries};
+use super::{BlockBreakEvents, LocalPlayerInventory, MachineBreakQueries};
 
 /// What type of thing we're trying to break
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -41,8 +42,10 @@ pub fn block_break(
     mut breaking_progress: ResMut<BreakingProgress>,
     time: Res<Time>,
     creative_mode: Res<CreativeMode>,
-    mut tutorial_events: EventWriter<TutorialEvent>,
+    mut events: BlockBreakEvents,
 ) {
+    // Get player entity before consuming inventory
+    let player_entity = player_inventory.entity();
     let Some(mut inventory) = player_inventory.get_mut() else {
         breaking_progress.reset();
         return;
@@ -158,18 +161,24 @@ pub fn block_break(
                     &mut inventory,
                 );
             }
-            BreakTarget::WorldBlock(pos, block_type) => {
+            BreakTarget::WorldBlock(pos, broken_block) => {
+                // Calculate event source
+                let source = player_entity
+                    .map(EventSource::Player)
+                    .unwrap_or(EventSource::System);
                 execute_block_break(
                     pos,
-                    block_type,
+                    broken_block,
                     &mut world_data,
                     &mut dirty_chunks,
                     &mut inventory,
+                    &mut events.block_broken,
+                    source,
                 );
             }
         }
         // Send tutorial event for block breaking
-        tutorial_events.send(TutorialEvent::BlockBroken);
+        events.tutorial.send(TutorialEvent::BlockBroken);
         breaking_progress.reset();
     }
 }
@@ -392,6 +401,8 @@ fn execute_block_break(
     world_data: &mut WorldData,
     dirty_chunks: &mut DirtyChunks,
     inventory: &mut PlayerInventory,
+    block_broken_events: &mut EventWriter<BlockBroken>,
+    source: EventSource,
 ) {
     // Remove the block
     world_data.remove_block(break_pos);
@@ -411,4 +422,11 @@ fn execute_block_break(
     let chunk_coord = WorldData::world_to_chunk(break_pos);
     let local_pos = WorldData::world_to_local(break_pos);
     dirty_chunks.mark_dirty(chunk_coord, local_pos);
+
+    // Send block broken event
+    block_broken_events.send(BlockBroken {
+        pos: break_pos,
+        block: block_type,
+        source,
+    });
 }

@@ -1,0 +1,118 @@
+//! Game event definitions
+
+use crate::block_type::BlockType;
+use bevy::prelude::*;
+
+/// イベント発生源
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventSource {
+    Player(Entity),
+    Machine(Entity),
+    System,
+}
+
+// ========== ブロック系 ==========
+
+/// ブロック配置完了イベント
+#[derive(Event, Debug)]
+pub struct BlockPlaced {
+    pub pos: IVec3,
+    pub block: BlockType,
+    pub source: EventSource,
+}
+
+/// ブロック破壊完了イベント
+#[derive(Event, Debug)]
+pub struct BlockBroken {
+    pub pos: IVec3,
+    pub block: BlockType,
+    pub source: EventSource,
+}
+
+// ========== 機械系 ==========
+
+/// 機械生成イベント
+#[derive(Event, Debug)]
+pub struct MachineSpawned {
+    pub entity: Entity,
+    pub machine_type: BlockType,
+    pub pos: IVec3,
+}
+
+/// 機械加工開始イベント
+#[derive(Event, Debug)]
+pub struct MachineStarted {
+    pub entity: Entity,
+    pub inputs: Vec<(BlockType, u32)>,
+}
+
+/// 機械加工完了イベント
+#[derive(Event, Debug)]
+pub struct MachineCompleted {
+    pub entity: Entity,
+    pub outputs: Vec<(BlockType, u32)>,
+}
+
+// ========== インベントリ系 ==========
+
+/// インベントリ変更イベント
+#[derive(Event, Debug)]
+pub struct InventoryChanged {
+    pub entity: Entity,
+    pub item: BlockType,
+    pub delta: i32, // 正=追加、負=消費
+}
+
+// ========== 物流系 ==========
+
+/// コンベア転送イベント
+#[derive(Event, Debug)]
+pub struct ConveyorTransfer {
+    pub from_pos: IVec3,
+    pub to_pos: IVec3,
+    pub item: BlockType,
+}
+
+/// アイテム納品イベント
+#[derive(Event, Debug)]
+pub struct ItemDelivered {
+    pub item: BlockType,
+    pub count: u32,
+}
+
+/// イベント登録プラグイン
+pub struct GameEventsExtPlugin;
+
+impl Plugin for GameEventsExtPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<BlockPlaced>()
+            .add_event::<BlockBroken>()
+            .add_event::<MachineSpawned>()
+            .add_event::<MachineStarted>()
+            .add_event::<MachineCompleted>()
+            .add_event::<InventoryChanged>()
+            .add_event::<ConveyorTransfer>()
+            .add_event::<ItemDelivered>();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_event_source() {
+        let source = EventSource::System;
+        assert_eq!(source, EventSource::System);
+    }
+
+    #[test]
+    fn test_block_placed_event() {
+        let event = BlockPlaced {
+            pos: IVec3::new(1, 2, 3),
+            block: BlockType::Stone,
+            source: EventSource::System,
+        };
+        assert_eq!(event.pos, IVec3::new(1, 2, 3));
+    }
+}

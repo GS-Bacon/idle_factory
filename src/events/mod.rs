@@ -1,10 +1,73 @@
-//! Game events for state changes
-//! These events will be used for multiplayer synchronization in the future
+//! Game event system with depth protection
+//!
+//! These events will be used for multiplayer synchronization in the future.
+//! The event system includes cycle prevention via depth tracking.
 
 #![allow(dead_code)] // These events are prepared for future multiplayer support
 
+pub mod game_events;
+pub mod guarded_writer;
+pub use game_events::*;
+pub use guarded_writer::*;
+
 use crate::block_type::BlockType;
 use bevy::prelude::*;
+use std::collections::HashSet;
+
+// ============================================================================
+// Event System Configuration
+// ============================================================================
+
+/// イベントシステム設定
+#[derive(Resource)]
+pub struct EventSystemConfig {
+    /// 最大連鎖深さ（循環防止）デフォルト: 16
+    pub max_depth: u8,
+    /// デバッグログ
+    pub log_enabled: bool,
+    /// 外部通知を除外するイベント（パフォーマンス用）
+    pub external_exclude: HashSet<&'static str>,
+}
+
+impl Default for EventSystemConfig {
+    fn default() -> Self {
+        Self {
+            max_depth: 16,
+            log_enabled: false,
+            external_exclude: HashSet::new(),
+        }
+    }
+}
+
+/// 現在の連鎖深さを追跡
+#[derive(Resource, Default)]
+pub struct EventDepth(pub u8);
+
+/// イベントエラー
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventError {
+    MaxDepthExceeded,
+}
+
+/// フレーム開始時にリセット
+pub fn reset_event_depth(mut depth: ResMut<EventDepth>) {
+    depth.0 = 0;
+}
+
+/// Plugin for event system base (depth tracking, config)
+pub struct EventsPlugin;
+
+impl Plugin for EventsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<EventSystemConfig>()
+            .init_resource::<EventDepth>()
+            .add_systems(First, reset_event_depth);
+    }
+}
+
+// ============================================================================
+// Game Events
+// ============================================================================
 
 /// Event for block placement
 #[derive(Event, Clone, Debug)]
@@ -67,11 +130,53 @@ pub struct GameEventsPlugin;
 
 impl Plugin for GameEventsPlugin {
     fn build(&self, app: &mut App) {
+        // Add base event system (depth tracking, config)
+        app.add_plugins(EventsPlugin);
+
+        // Add game events
         app.add_event::<BlockPlaceEvent>()
             .add_event::<BlockBreakEvent>()
             .add_event::<MachineInteractEvent>()
             .add_event::<ItemTransferEvent>()
             .add_event::<QuestProgressEvent>()
-            .add_event::<SpawnMachineEvent>();
+            .add_event::<SpawnMachineEvent>()
+            .add_plugins(GameEventsExtPlugin);
+    }
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_event_config_default() {
+        let config = EventSystemConfig::default();
+        assert_eq!(config.max_depth, 16);
+        assert!(!config.log_enabled);
+    }
+
+    #[test]
+    fn test_event_depth_default() {
+        let depth = EventDepth::default();
+        assert_eq!(depth.0, 0);
+    }
+
+    #[test]
+    fn test_event_error_eq() {
+        assert_eq!(EventError::MaxDepthExceeded, EventError::MaxDepthExceeded);
+    }
+
+    #[test]
+    fn test_external_exclude() {
+        let mut config = EventSystemConfig::default();
+        config.external_exclude.insert("ConveyorTransfer");
+        config.external_exclude.insert("PlayerMoved");
+        assert!(config.external_exclude.contains("ConveyorTransfer"));
+        assert!(config.external_exclude.contains("PlayerMoved"));
+        assert!(!config.external_exclude.contains("BlockPlaced"));
     }
 }

@@ -35,6 +35,11 @@ impl LocalPlayerInventory<'_, '_> {
         let local_player = self.local_player.as_ref()?;
         self.inventories.get(local_player.0).ok()
     }
+
+    /// Get the local player's entity
+    pub fn entity(&self) -> Option<Entity> {
+        self.local_player.as_ref().map(|lp| lp.0)
+    }
 }
 
 /// Bundled machine queries for block_break system (reduces parameter count)
@@ -61,4 +66,18 @@ pub struct MachinePlaceQueries<'w, 's> {
 pub struct ChunkAssets<'w> {
     pub meshes: ResMut<'w, Assets<Mesh>>,
     pub materials: ResMut<'w, Assets<StandardMaterial>>,
+}
+
+/// Bundled block break events (reduces parameter count)
+#[derive(SystemParam)]
+pub struct BlockBreakEvents<'w> {
+    pub tutorial: EventWriter<'w, crate::systems::TutorialEvent>,
+    pub block_broken: EventWriter<'w, crate::events::game_events::BlockBroken>,
+}
+
+/// Bundled block place events (reduces parameter count)
+#[derive(SystemParam)]
+pub struct BlockPlaceEvents<'w> {
+    pub tutorial: EventWriter<'w, crate::systems::TutorialEvent>,
+    pub block_placed: EventWriter<'w, crate::events::game_events::BlockPlaced>,
 }
