@@ -320,15 +320,15 @@ mod tests {
 
         // Furnace should accept ore or dust
         let input_slot = machine.slots.inputs.first_mut().unwrap();
-        assert!(input_slot.item_type.is_none());
+        assert!(input_slot.item_id.is_none());
         assert_eq!(input_slot.count, 0);
 
         // Can add ore when empty
-        input_slot.item_type = Some(BlockType::IronOre);
+        input_slot.item_id = Some(BlockType::IronOre.into());
         input_slot.count = 1;
 
         // Same type can be added
-        let same_type_ok = input_slot.item_type == Some(BlockType::IronOre);
+        let same_type_ok = input_slot.item_id == Some(BlockType::IronOre.into());
         assert!(same_type_ok);
     }
 
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(machine.progress, 0.0);
         // Output slot should be empty
         let output = machine.slots.outputs.first().unwrap();
-        assert!(output.item_type.is_none());
+        assert!(output.item_id.is_none());
         assert_eq!(output.count, 0);
     }
 

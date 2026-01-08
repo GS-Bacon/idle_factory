@@ -8,8 +8,8 @@
 
 | 項目 | 値 |
 |------|-----|
-| コード行数 | **~24,000行** |
-| テスト | **493件** 通過 |
+| コード行数 | **~25,000行** |
+| テスト | **616件** 通過 |
 | Clippy警告 | **0件** |
 | Phase | **D.0-D.14 基盤実装済み** |
 
@@ -21,7 +21,7 @@
 
 | # | タスク | 基盤 | 移行 | 残作業 |
 |---|--------|------|------|--------|
-| D.2 | **動的ID** | ✅ | ❌ 0% | BlockType → ItemId (940箇所) |
+| D.2 | **動的ID** | ✅ | 🔄 40% | ConveyorItem/MachineSlot完了、残り描画層 |
 | D.4 | **本体Mod化** | ✅ | ✅ 100% | 起動時ロード完了 |
 | D.1 | **イベント** | ✅ | ✅ 100% | 7箇所でEventReader使用 |
 | - | **セーブ形式** | ✅ | ✅ 100% | V2形式で保存、両形式読込対応 |
@@ -32,12 +32,14 @@
 
 ### D.2: 動的ID移行 - 🟡 段階的実施
 
-**ステータス**: ✅ 基盤完成 / 🔄 移行 10% (1,121箇所残り)
+**ステータス**: ✅ 基盤完成 / 🔄 移行 40% (1,007箇所残り)
 
 #### 完了条件
-- [ ] `grep -r 'BlockType' src` が 0件 (現在: 1,121)
+- [ ] `grep -r 'BlockType' src` が 0件 (現在: 1,007)
 - [ ] 全アイテムが `ItemId` で参照される
 - [x] セーブデータが文字列ID形式 (V2形式)
+- [x] **ConveyorItem** が `item_id: ItemId` を直接保持
+- [x] **MachineSlot** が `item_id: Option<ItemId>` を直接保持
 
 #### Phase 1: 基盤 ✅
 - [x] `Id<T>` Phantom Type 定義 (`src/core/id.rs`)
@@ -55,37 +57,39 @@
 - [x] 旧API (`item()`, `machine()`) を `#[deprecated]` マーク
 - [x] テスト7個追加
 
-#### Phase 3: 段階的移行計画（2026-01-07策定）
+#### Phase 3: 段階的移行計画（2026-01-08更新）
 
-**方針**: 全箇所一括移行は非現実的。P.0-P.3完了後、新機能実装時に段階的移行。
+**方針**: 全箇所一括移行は非現実的。コア構造体の移行完了後、新機能実装時に段階的移行。
 
 | 優先度 | ファイル群 | 箇所数 | 方針 | 状態 |
 |--------|----------|--------|------|------|
-| 🔴 最優先 | P.0-P.3対象 | ~50 | パニック防止で移行 | ❌ 未着手 |
+| 🔴 最優先 | P.0-P.3対象 | ~50 | パニック防止で移行 | ✅ 完了 |
+| ✅ 完了 | components/machines.rs | - | ConveyorItem/MachineSlot | ✅ 完了 |
+| ✅ 完了 | logistics/conveyor.rs | - | 物流コア | ✅ 完了 |
 | 🟡 高 | player/*.rs | 92 | インベントリItemId化 | ❌ 未着手 |
 | 🟡 中 | game_spec/*.rs | 174 | 仕様定義のItemId化 | ❌ 未着手 |
 | 🟢 低 | その他 | ~360 | 新機能時に順次 | ❌ 未着手 |
-| 🔵 最後 | block_type.rs | 102 | enum定義削除 | ❌ 最後 |
+| 🔵 残す | block_type.rs | 102 | 描画層で必要 | 維持 |
 
 #### ファイル別詳細（Top 15）
 
 | ファイル | 箇所数 | 優先度 | 備考 |
 |----------|--------|--------|------|
 | save/format.rs | 212 | ✅ 対応済 | V2形式で文字列ID |
-| block_type.rs | 102 | 最後 | enum定義自体 |
+| block_type.rs | 102 | 維持 | 描画層で必要（削除不可） |
 | game_spec/registry.rs | 67 | ✅ 対応済 | ItemId API追加済み |
 | game_spec/mod.rs | 57 | 中 | Descriptor定義 |
 | game_spec/recipes.rs | 50 | 中 | レシピ定義 |
 | core/id.rs | 50 | 残す | 変換ヘルパー |
 | player/global_inventory.rs | 47 | 高 | 全体インベントリ |
 | player/inventory.rs | 45 | 高 | ローカルインベントリ |
-| craft/mod.rs | 45 | P.2 | クラフトシステム |
+| craft/mod.rs | 45 | 中 | クラフトシステム |
 | components/mod.rs | 40 | 中 | コンポーネント |
 | statistics/mod.rs | 35 | 中 | 統計 |
-| world/mod.rs | 32 | 中 | ワールド |
+| world/mod.rs | 32 | 維持 | 描画層（ChunkData） |
 | main.rs | 31 | 中 | 初期化 |
-| components/machines.rs | 28 | P.1 | **最重要** |
-| logistics/conveyor.rs | 19 | P.1 | 物流コア |
+| components/machines.rs | - | ✅ 完了 | **ItemId直接保持** |
+| logistics/conveyor.rs | - | ✅ 完了 | **ItemId直接保持** |
 
 #### 移行パターン
 

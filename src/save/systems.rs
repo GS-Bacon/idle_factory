@@ -100,12 +100,12 @@ pub fn collect_save_data(
                     .slots
                     .outputs
                     .first()
-                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
                 machines.push(MachineSaveData::Miner(MinerSaveData {
                     position: machine.position.into(),
                     progress: machine.progress,
-                    buffer: buffer.map(|(bt, count)| ItemStack {
-                        item_type: bt.into(),
+                    buffer: buffer.map(|(id, count)| ItemStack {
+                        item_type: id.into(),
                         count,
                     }),
                 }));
@@ -115,21 +115,21 @@ pub fn collect_save_data(
                     .slots
                     .inputs
                     .first()
-                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
                 let output = machine
                     .slots
                     .outputs
                     .first()
-                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
                 machines.push(MachineSaveData::Furnace(FurnaceSaveData {
                     position: machine.position.into(),
                     fuel: machine.slots.fuel,
-                    input: input.map(|(bt, count)| ItemStack {
-                        item_type: bt.into(),
+                    input: input.map(|(id, count)| ItemStack {
+                        item_type: id.into(),
                         count,
                     }),
-                    output: output.map(|(bt, count)| ItemStack {
-                        item_type: bt.into(),
+                    output: output.map(|(id, count)| ItemStack {
+                        item_type: id.into(),
                         count,
                     }),
                     progress: machine.progress,
@@ -140,20 +140,20 @@ pub fn collect_save_data(
                     .slots
                     .inputs
                     .first()
-                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
                 let output = machine
                     .slots
                     .outputs
                     .first()
-                    .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
                 machines.push(MachineSaveData::Crusher(CrusherSaveData {
                     position: machine.position.into(),
-                    input: input.map(|(bt, count)| ItemStack {
-                        item_type: bt.into(),
+                    input: input.map(|(id, count)| ItemStack {
+                        item_type: id.into(),
                         count,
                     }),
-                    output: output.map(|(bt, count)| ItemStack {
-                        item_type: bt.into(),
+                    output: output.map(|(id, count)| ItemStack {
+                        item_type: id.into(),
                         count,
                     }),
                     progress: machine.progress,
@@ -182,7 +182,7 @@ pub fn collect_save_data(
             .items
             .iter()
             .map(|item| ConveyorItemSave {
-                item_type: item.block_type.into(),
+                item_type: item.item_id.into(),
                 progress: item.progress,
                 lateral_offset: item.lateral_offset,
             })
@@ -433,7 +433,8 @@ pub fn handle_load_event(
                             machine_comp.progress = miner_data.progress;
                             if let Some(buffer) = &miner_data.buffer {
                                 if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
-                                    output_slot.item_type = Some(buffer.item_type.clone().into());
+                                    let bt: BlockType = buffer.item_type.clone().into();
+                                    output_slot.item_id = Some(bt.into());
                                     output_slot.count = buffer.count;
                                 }
                             }
@@ -516,13 +517,15 @@ pub fn handle_load_event(
                             machine_comp.progress = furnace_data.progress;
                             if let Some(input) = &furnace_data.input {
                                 if let Some(input_slot) = machine_comp.slots.inputs.first_mut() {
-                                    input_slot.item_type = Some(input.item_type.clone().into());
+                                    let bt: BlockType = input.item_type.clone().into();
+                                    input_slot.item_id = Some(bt.into());
                                     input_slot.count = input.count;
                                 }
                             }
                             if let Some(output) = &furnace_data.output {
                                 if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
-                                    output_slot.item_type = Some(output.item_type.clone().into());
+                                    let bt: BlockType = output.item_type.clone().into();
+                                    output_slot.item_id = Some(bt.into());
                                     output_slot.count = output.count;
                                 }
                             }
@@ -550,13 +553,15 @@ pub fn handle_load_event(
                             machine_comp.progress = crusher_data.progress;
                             if let Some(input) = &crusher_data.input {
                                 if let Some(input_slot) = machine_comp.slots.inputs.first_mut() {
-                                    input_slot.item_type = Some(input.item_type.clone().into());
+                                    let bt: BlockType = input.item_type.clone().into();
+                                    input_slot.item_id = Some(bt.into());
                                     input_slot.count = input.count;
                                 }
                             }
                             if let Some(output) = &crusher_data.output {
                                 if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
-                                    output_slot.item_type = Some(output.item_type.clone().into());
+                                    let bt: BlockType = output.item_type.clone().into();
+                                    output_slot.item_id = Some(bt.into());
                                     output_slot.count = output.count;
                                 }
                             }

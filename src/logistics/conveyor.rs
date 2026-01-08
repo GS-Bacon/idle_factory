@@ -2,6 +2,7 @@
 
 use crate::components::{can_crush, Machine};
 use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
+use crate::core::id::ItemId;
 use crate::events::game_events::{ConveyorTransfer, ItemDelivered};
 use crate::player::GlobalInventory;
 use crate::{
@@ -123,7 +124,7 @@ pub fn conveyor_transfer(
                             source_entity: entity,
                             source_pos: conveyor.position,
                             item_index: idx,
-                            item_type: item.block_type,
+                            item_type: item.block_type_for_render(),
                             target: TransferTarget::Delivery,
                         });
                         // Update splitter index for next item
@@ -144,7 +145,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        item_type: item.block_type,
+                        item_type: item.block_type_for_render(),
                         target: TransferTarget::Conveyor(next_entity, next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -160,7 +161,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        item_type: item.block_type,
+                        item_type: item.block_type_for_render(),
                         target: TransferTarget::Furnace(next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -176,7 +177,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        item_type: item.block_type,
+                        item_type: item.block_type_for_render(),
                         target: TransferTarget::Crusher(next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -258,8 +259,8 @@ pub fn conveyor_transfer(
         .collect();
 
     // Collect conveyor adds for second pass (to avoid borrow conflicts)
-    // Tuple: (target_entity, block_type, join_progress, visual_entity, lateral_offset)
-    let mut conveyor_adds: Vec<(Entity, BlockType, f32, Option<Entity>, f32)> = Vec::new();
+    // Tuple: (target_entity, item_id, join_progress, visual_entity, lateral_offset)
+    let mut conveyor_adds: Vec<(Entity, ItemId, f32, Option<Entity>, f32)> = Vec::new();
 
     // Apply transfers
     for action in actions {
@@ -296,7 +297,7 @@ pub fn conveyor_transfer(
                     // Queue add to target conveyor with visual and lateral offset
                     conveyor_adds.push((
                         target_entity,
-                        item.block_type,
+                        item.item_id,
                         progress,
                         visual,
                         lateral_offset,
@@ -332,8 +333,13 @@ pub fn conveyor_transfer(
 
                     // Accept items based on port type
                     let input_count = machine.slots.inputs.first().map(|s| s.count).unwrap_or(0);
-                    let input_type = machine.slots.inputs.first().and_then(|s| s.item_type);
-                    let can_accept = match item.block_type {
+                    let input_type = machine
+                        .slots
+                        .inputs
+                        .first()
+                        .and_then(|s| s.block_type_for_render());
+                    let item_block_type = item.block_type_for_render();
+                    let can_accept = match item_block_type {
                         BlockType::Coal => {
                             // Fuel only from left or right ports
                             (at_left || at_right) && machine.slots.fuel < 64
@@ -344,20 +350,20 @@ pub fn conveyor_transfer(
                         | BlockType::CopperDust => {
                             // Ore/Dust only from back port
                             at_back
-                                && (input_type.is_none() || input_type == Some(item.block_type))
+                                && (input_type.is_none() || input_type == Some(item_block_type))
                                 && input_count < 64
                         }
                         _ => false,
                     };
                     if can_accept {
-                        match item.block_type {
+                        match item_block_type {
                             BlockType::Coal => machine.slots.fuel += 1,
                             BlockType::IronOre
                             | BlockType::CopperOre
                             | BlockType::IronDust
                             | BlockType::CopperDust => {
                                 if let Some(input_slot) = machine.slots.inputs.first_mut() {
-                                    input_slot.item_type = Some(item.block_type);
+                                    input_slot.item_id = Some(item_block_type.into());
                                     input_slot.count += 1;
                                 }
                             }
@@ -389,13 +395,18 @@ pub fn conveyor_transfer(
                     }
 
                     let input_count = machine.slots.inputs.first().map(|s| s.count).unwrap_or(0);
-                    let input_type = machine.slots.inputs.first().and_then(|s| s.item_type);
-                    let can_accept_item = can_crush(item.block_type)
-                        && (input_type.is_none() || input_type == Some(item.block_type))
+                    let input_type = machine
+                        .slots
+                        .inputs
+                        .first()
+                        .and_then(|s| s.block_type_for_render());
+                    let item_block_type = item.block_type_for_render();
+                    let can_accept_item = can_crush(item_block_type)
+                        && (input_type.is_none() || input_type == Some(item_block_type))
                         && input_count < 64;
                     if can_accept_item {
                         if let Some(input_slot) = machine.slots.inputs.first_mut() {
-                            input_slot.item_type = Some(item.block_type);
+                            input_slot.item_id = Some(item_block_type.into());
                             input_slot.count += 1;
                         }
                         accepted = true;
@@ -411,9 +422,9 @@ pub fn conveyor_transfer(
             }
             TransferTarget::Delivery => {
                 // Deliver the item to GlobalInventory
-                global_inventory.add_item_by_id(item.block_type.into(), 1);
-                let total = global_inventory.get_count_by_id(item.block_type.into());
-                info!(category = "QUEST", action = "deliver", item = ?item.block_type, total = total, "Item delivered to storage");
+                global_inventory.add_item_by_id(item.item_id, 1);
+                let total = global_inventory.get_count_by_id(item.item_id);
+                info!(category = "QUEST", action = "deliver", item = ?item.item_id, total = total, "Item delivered to storage");
                 if let Some(visual) = item.visual_entity {
                     commands.entity(visual).despawn();
                 }
@@ -425,9 +436,9 @@ pub fn conveyor_transfer(
     }
 
     // Second pass: add items to target conveyors at their calculated join progress
-    for (target_entity, block_type, progress, visual, lateral_offset) in conveyor_adds {
+    for (target_entity, item_id, progress, visual, lateral_offset) in conveyor_adds {
         if let Ok((_, mut target_conv)) = conveyor_query.get_mut(target_entity) {
-            target_conv.add_item_with_visual(block_type.into(), progress, visual, lateral_offset);
+            target_conv.add_item_with_visual(item_id, progress, visual, lateral_offset);
         }
     }
 
@@ -558,7 +569,8 @@ pub fn update_conveyor_item_visuals(
             match item.visual_entity {
                 None => {
                     // Try to spawn with GLB model, fall back to colored cube
-                    let entity = if let Some(scene_handle) = models.get_item_model(item.block_type)
+                    let item_block_type = item.block_type_for_render();
+                    let entity = if let Some(scene_handle) = models.get_item_model(item_block_type)
                     {
                         // Spawn GLB model
                         commands
@@ -576,7 +588,7 @@ pub fn update_conveyor_item_visuals(
                     } else {
                         // Fallback: spawn colored cube
                         let material = materials.add(StandardMaterial {
-                            base_color: item.block_type.color(),
+                            base_color: item_block_type.color(),
                             ..default()
                         });
                         commands

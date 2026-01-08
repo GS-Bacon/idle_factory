@@ -289,7 +289,7 @@ pub fn handle_debug_event(
                         info!(
                             "  Item {}: {} @ progress={:.2}, lateral={:.2}",
                             i,
-                            item.block_type.name(),
+                            item.block_type_for_render().name(),
                             item.progress,
                             item.lateral_offset
                         );
@@ -308,11 +308,10 @@ pub fn handle_debug_event(
                 for (entity, machine) in machine_query.iter() {
                     match machine.spec.block_type {
                         BlockType::MinerBlock => {
-                            let output = machine
-                                .slots
-                                .outputs
-                                .first()
-                                .and_then(|s| s.item_type.map(|bt| (bt, s.count)));
+                            let output =
+                                machine.slots.outputs.first().and_then(|s| {
+                                    s.block_type_for_render().map(|bt| (bt, s.count))
+                                });
                             info!(
                                 "Miner {:?}: pos={:?}, facing={:?}, progress={:.1}%, buffer={:?}",
                                 entity,
@@ -331,9 +330,9 @@ pub fn handle_debug_event(
                                 entity,
                                 machine.position,
                                 machine.facing,
-                                input.and_then(|s| s.item_type).map(|b| b.name()),
+                                input.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
                                 input.map(|s| s.count).unwrap_or(0),
-                                output.and_then(|s| s.item_type).map(|b| b.name()),
+                                output.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
                                 output.map(|s| s.count).unwrap_or(0),
                                 machine.slots.fuel,
                                 machine.progress * 100.0,
@@ -348,9 +347,9 @@ pub fn handle_debug_event(
                                 entity,
                                 machine.position,
                                 machine.facing,
-                                input.and_then(|s| s.item_type).map(|b| b.name()),
+                                input.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
                                 input.map(|s| s.count).unwrap_or(0),
-                                output.and_then(|s| s.item_type).map(|b| b.name()),
+                                output.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
                                 output.map(|s| s.count).unwrap_or(0),
                                 machine.progress * 100.0,
                             );
@@ -430,7 +429,7 @@ pub fn handle_assert_machine_event(
                                 || m.slots
                                     .outputs
                                     .first()
-                                    .map(|s| s.item_type.is_some())
+                                    .map(|s| s.item_id.is_some())
                                     .unwrap_or(false))
                     })
                     .collect();

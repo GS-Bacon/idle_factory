@@ -73,9 +73,11 @@ impl Direction {
 }
 
 /// Single item on a conveyor
+/// Stores ItemId directly to support Mod items without data loss
 #[derive(Clone)]
 pub struct ConveyorItem {
-    pub block_type: BlockType,
+    /// The item being transported (ItemId preserves mod items)
+    pub item_id: ItemId,
     /// Position on conveyor (0.0 = entry, 1.0 = exit)
     pub progress: f32,
     /// Previous progress for interpolation (set before each FixedUpdate tick)
@@ -90,12 +92,9 @@ pub struct ConveyorItem {
 
 impl ConveyorItem {
     /// Create a new conveyor item from ItemId
-    /// Note: Mod items fallback to Stone for rendering but preserve the ItemId
     pub fn new(item_id: ItemId, progress: f32) -> Self {
-        // Try to convert to BlockType, fallback to Stone for Mod items
-        let block_type = item_id.try_into().unwrap_or(BlockType::Stone);
         Self {
-            block_type,
+            item_id,
             progress,
             previous_progress: progress,
             visual_entity: None,
@@ -107,7 +106,7 @@ impl ConveyorItem {
     /// Create a new conveyor item from BlockType
     pub fn from_block_type(block_type: BlockType, progress: f32) -> Self {
         Self {
-            block_type,
+            item_id: block_type.into(),
             progress,
             previous_progress: progress,
             visual_entity: None,
@@ -117,19 +116,25 @@ impl ConveyorItem {
     }
 
     /// Get the item as ItemId (preferred API)
-    pub fn item_id(&self) -> ItemId {
-        self.block_type.into()
+    pub fn get_item_id(&self) -> ItemId {
+        self.item_id
     }
 
-    /// Get BlockType for rendering (always valid, never panics)
+    /// Get BlockType for rendering (mod items fallback to Stone)
     pub fn block_type_for_render(&self) -> BlockType {
-        self.block_type
+        self.item_id.try_into().unwrap_or(BlockType::Stone)
+    }
+
+    /// Legacy: Get block_type field (for backward compatibility during migration)
+    /// Returns the BlockType for rendering, fallback to Stone for mod items
+    #[deprecated(note = "Use item_id field directly or block_type_for_render() for visuals")]
+    pub fn block_type(&self) -> BlockType {
+        self.block_type_for_render()
     }
 
     /// Set the item type from ItemId
-    /// Note: Mod items fallback to Stone for rendering
     pub fn set_item_id(&mut self, item_id: ItemId) {
-        self.block_type = item_id.try_into().unwrap_or(BlockType::Stone);
+        self.item_id = item_id;
     }
 }
 
@@ -336,28 +341,30 @@ impl MachineBundle {
     }
 }
 
-/// Slot storage for a machine (type + count)
+/// Machine inventory slot storing ItemId directly to support Mod items
 #[derive(Clone, Debug, Default)]
 pub struct MachineSlot {
-    pub item_type: Option<BlockType>,
+    /// The item stored in this slot (ItemId preserves mod items)
+    pub item_id: Option<ItemId>,
     pub count: u32,
 }
 
 impl MachineSlot {
     pub const fn empty() -> Self {
         Self {
-            item_type: None,
+            item_id: None,
             count: 0,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.item_type.is_none() || self.count == 0
+        self.item_id.is_none() || self.count == 0
     }
 
-    pub fn add(&mut self, item: BlockType, amount: u32) -> u32 {
-        if self.item_type.is_none() || self.item_type == Some(item) {
-            self.item_type = Some(item);
+    /// Add items using ItemId (primary API)
+    pub fn add_id(&mut self, item: ItemId, amount: u32) -> u32 {
+        if self.item_id.is_none() || self.item_id == Some(item) {
+            self.item_id = Some(item);
             self.count += amount;
             amount
         } else {
@@ -365,48 +372,50 @@ impl MachineSlot {
         }
     }
 
+    /// Add items using BlockType (legacy API - converts to ItemId internally)
+    pub fn add(&mut self, item: BlockType, amount: u32) -> u32 {
+        self.add_id(item.into(), amount)
+    }
+
     pub fn take(&mut self, amount: u32) -> u32 {
         let taken = amount.min(self.count);
         self.count -= taken;
         if self.count == 0 {
-            self.item_type = None;
+            self.item_id = None;
         }
         taken
     }
 
     pub fn clear(&mut self) {
-        self.item_type = None;
+        self.item_id = None;
         self.count = 0;
     }
 
-    /// Get item type as ItemId (preferred API)
-    pub fn item_id(&self) -> Option<ItemId> {
-        self.item_type.map(|bt| bt.into())
+    /// Get item as ItemId
+    pub fn get_item_id(&self) -> Option<ItemId> {
+        self.item_id
     }
 
-    /// Get BlockType for rendering (returns None for Mod items that don't have BlockType)
+    /// Get BlockType for rendering (returns None for Mod items that don't map to BlockType)
     pub fn block_type_for_render(&self) -> Option<BlockType> {
-        self.item_type
+        self.item_id.and_then(|id| id.try_into().ok())
     }
 
-    /// Add items using ItemId (preferred API)
-    /// Note: Mod items fallback to Stone for storage
-    pub fn add_id(&mut self, item: ItemId, amount: u32) -> u32 {
-        let block_type: BlockType = item.try_into().unwrap_or(BlockType::Stone);
-        self.add(block_type, amount)
+    /// Legacy accessor for item_type - returns BlockType if convertible
+    /// Note: Mod items return None even if slot is not empty
+    #[deprecated(note = "Use item_id field directly or block_type_for_render() for visuals")]
+    pub fn item_type(&self) -> Option<BlockType> {
+        self.block_type_for_render()
     }
 
     /// Set item type from ItemId
-    /// Note: Mod items fallback to Stone for storage
     pub fn set_item_id(&mut self, item: ItemId) {
-        self.item_type = Some(item.try_into().unwrap_or(BlockType::Stone));
+        self.item_id = Some(item);
     }
 
     /// Check if slot contains a specific ItemId
     pub fn contains_id(&self, item: ItemId) -> bool {
-        self.item_type
-            .map(|bt| bt == item.try_into().unwrap_or(BlockType::Stone))
-            .unwrap_or(false)
+        self.item_id == Some(item)
     }
 }
 
@@ -844,7 +853,7 @@ mod tests {
     fn test_conveyor_item_with_base_item_no_panic() {
         // Base item should work normally
         let item = ConveyorItem::new(items::iron_ore(), 0.5);
-        assert_eq!(item.item_id(), items::iron_ore());
+        assert_eq!(item.item_id, items::iron_ore());
         assert_eq!(item.block_type_for_render(), BlockType::IronOre);
     }
 
@@ -863,7 +872,7 @@ mod tests {
         let mut slot = MachineSlot::empty();
         slot.add_id(items::iron_ore(), 10);
 
-        assert_eq!(slot.item_id(), Some(items::iron_ore()));
+        assert_eq!(slot.item_id, Some(items::iron_ore()));
         assert_eq!(slot.block_type_for_render(), Some(BlockType::IronOre));
         assert_eq!(slot.count, 10);
     }

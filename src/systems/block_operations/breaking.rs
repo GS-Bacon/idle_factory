@@ -292,7 +292,7 @@ fn execute_machine_break(
                             commands.entity(visual_entity).despawn();
                         }
                     }
-                    inventory.add_item_by_id(item.block_type.into(), 1);
+                    inventory.add_item_by_id(item.item_id, 1);
                 }
                 info!(
                     category = "MACHINE",
@@ -315,17 +315,17 @@ fn execute_machine_break(
                 }
                 // Return input items
                 for input_slot in &machine.slots.inputs {
-                    if let Some(item_type) = input_slot.item_type {
+                    if let Some(item_id) = input_slot.item_id {
                         if input_slot.count > 0 {
-                            inventory.add_item_by_id(item_type.into(), input_slot.count);
+                            inventory.add_item_by_id(item_id, input_slot.count);
                         }
                     }
                 }
                 // Return output items
                 for output_slot in &machine.slots.outputs {
-                    if let Some(item_type) = output_slot.item_type {
+                    if let Some(item_id) = output_slot.item_id {
                         if output_slot.count > 0 {
-                            inventory.add_item_by_id(item_type.into(), output_slot.count);
+                            inventory.add_item_by_id(item_id, output_slot.count);
                         }
                     }
                 }

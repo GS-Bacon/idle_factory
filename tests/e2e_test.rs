@@ -5168,7 +5168,7 @@ fn test_lib_machine_miner_default() {
 
     let miner = Machine::new(&MINER, IVec3::ZERO, Direction::North);
     assert_eq!(miner.facing, Direction::North);
-    assert!(miner.slots.outputs.first().unwrap().item_type.is_none());
+    assert!(miner.slots.outputs.first().unwrap().item_id.is_none());
     assert_eq!(miner.progress, 0.0);
 }
 
@@ -5182,7 +5182,7 @@ fn test_lib_machine_furnace_default() {
     let furnace = Machine::new(&FURNACE, IVec3::ZERO, Direction::North);
     assert_eq!(furnace.facing, Direction::North);
     assert_eq!(furnace.slots.fuel, 0);
-    assert!(furnace.slots.inputs.first().unwrap().item_type.is_none());
+    assert!(furnace.slots.inputs.first().unwrap().item_id.is_none());
 }
 
 /// Test library Machine creates Crusher with correct initial state
@@ -5194,7 +5194,7 @@ fn test_lib_machine_crusher_default() {
 
     let crusher = Machine::new(&CRUSHER, IVec3::ZERO, Direction::North);
     assert_eq!(crusher.facing, Direction::North);
-    assert!(crusher.slots.inputs.first().unwrap().item_type.is_none());
+    assert!(crusher.slots.inputs.first().unwrap().item_id.is_none());
     assert_eq!(crusher.slots.inputs.first().unwrap().count, 0);
 }
 

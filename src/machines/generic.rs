@@ -117,8 +117,9 @@ fn tick_auto_generate(
 
         // Add to output buffer
         if let Some(output) = machine.slots.outputs.first_mut() {
-            if output.item_type.is_none() || output.item_type == Some(mined_type) {
-                output.item_type = Some(mined_type);
+            let mined_id: ItemId = mined_type.into();
+            if output.item_id.is_none() || output.item_id == Some(mined_id) {
+                output.item_id = Some(mined_id);
                 output.count += 1;
                 produced = Some(mined_type);
             }
@@ -144,11 +145,11 @@ fn tick_recipe(
     let spec = machine.spec;
 
     // Get input item
-    let input_item = machine.slots.inputs.first().and_then(|s| s.item_type);
+    let input_item_id = machine.slots.inputs.first().and_then(|s| s.item_id);
 
     // Find recipe
-    let input = input_item?;
-    let recipe = find_recipe_by_id(machine_type, input.into())?;
+    let input_id = input_item_id?;
+    let recipe = find_recipe_by_id(machine_type, input_id)?;
 
     // Check fuel requirement
     if spec.requires_fuel && machine.slots.fuel == 0 {
@@ -164,13 +165,14 @@ fn tick_recipe(
 
     // Check if output has space
     let output_item = recipe.outputs.first().map(|o| o.item);
+    let output_item_id: Option<ItemId> = output_item.map(|bt| bt.into());
     let output_count = recipe.outputs.first().map(|o| o.count).unwrap_or(1);
 
     let output_slot = machine.slots.outputs.first();
     let can_output = output_slot
         .map(|s| {
             s.count + output_count <= spec.buffer_size
-                && (s.item_type.is_none() || s.item_type == output_item)
+                && (s.item_id.is_none() || s.item_id == output_item_id)
         })
         .unwrap_or(false);
 
@@ -184,9 +186,12 @@ fn tick_recipe(
     // Progress processing
     machine.progress += delta / recipe.craft_time;
 
+    // Get input BlockType for event (convert back from ItemId)
+    let input_bt: BlockType = input_id.try_into().unwrap_or(BlockType::Stone);
+
     // Determine started event (only when transitioning from idle to processing)
     let started_inputs = if was_idle && machine.progress > 0.0 && machine.progress < 1.0 {
-        Some(vec![(input, required_count)])
+        Some(vec![(input_bt, required_count)])
     } else {
         None
     };
@@ -259,15 +264,13 @@ fn try_output_to_conveyor(
         return;
     }
 
-    let Some(item_type) = output_slot.item_type else {
+    let Some(item_id) = output_slot.item_id else {
         return;
     };
 
     // Transfer one item
     output_slot.take(1);
-    conveyor
-        .items
-        .push(ConveyorItem::from_block_type(item_type, 0.0));
+    conveyor.items.push(ConveyorItem::new(item_id, 0.0));
 }
 
 /// Get mining output based on biome
@@ -455,7 +458,10 @@ fn format_slot(slot: &crate::components::MachineSlot) -> String {
     if slot.is_empty() {
         String::new()
     } else {
-        let short_name = slot.item_type.map(|t| t.short_name()).unwrap_or("");
+        let short_name = slot
+            .block_type_for_render()
+            .map(|t| t.short_name())
+            .unwrap_or("");
         if slot.count > 1 {
             format!("{}{}", short_name, slot.count)
         } else {
@@ -528,15 +534,15 @@ pub fn generic_machine_ui_input(
                 if slot_btn.is_input {
                     // Try to put selected item into input slot
                     if let Some(selected_id) = inventory.selected_item_id() {
-                        if let Ok(selected) = BlockType::try_from(selected_id) {
+                        if BlockType::try_from(selected_id).is_ok() {
                             if let Some(input_slot) =
                                 machine.slots.inputs.get_mut(slot_btn.slot_id as usize)
                             {
-                                if (input_slot.item_type.is_none()
-                                    || input_slot.item_type == Some(selected))
+                                if (input_slot.item_id.is_none()
+                                    || input_slot.item_id == Some(selected_id))
                                     && inventory.consume_item_by_id(selected_id, 1)
                                 {
-                                    input_slot.add(selected, 1);
+                                    input_slot.add_id(selected_id, 1);
                                 }
                             }
                         }
@@ -554,10 +560,9 @@ pub fn generic_machine_ui_input(
                     if let Some(output_slot) =
                         machine.slots.outputs.get_mut(slot_btn.slot_id as usize)
                     {
-                        if let Some(item_type) = output_slot.item_type {
+                        if let Some(item_id) = output_slot.item_id {
                             let taken = output_slot.take(1);
                             if taken > 0 {
-                                let item_id: ItemId = item_type.into();
                                 inventory.add_item_by_id(item_id, taken);
                             }
                         }
@@ -589,7 +594,7 @@ mod tests {
         // Add items
         slot.add(BlockType::IronOre, 5);
         assert_eq!(slot.count, 5);
-        assert_eq!(slot.item_type, Some(BlockType::IronOre));
+        assert_eq!(slot.block_type_for_render(), Some(BlockType::IronOre));
 
         // Can't add different type
         let added = slot.add(BlockType::CopperOre, 3);

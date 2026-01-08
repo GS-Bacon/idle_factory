@@ -386,16 +386,14 @@ pub fn export_e2e_state(
             _ => "Unknown",
         };
 
-        let input = machine
-            .slots
-            .inputs
-            .first()
-            .and_then(|s| s.item_type.map(|bt| (format!("{:?}", bt), s.count)));
-        let output = machine
-            .slots
-            .outputs
-            .first()
-            .and_then(|s| s.item_type.map(|bt| (format!("{:?}", bt), s.count)));
+        let input = machine.slots.inputs.first().and_then(|s| {
+            s.block_type_for_render()
+                .map(|bt| (format!("{:?}", bt), s.count))
+        });
+        let output = machine.slots.outputs.first().and_then(|s| {
+            s.block_type_for_render()
+                .map(|bt| (format!("{:?}", bt), s.count))
+        });
         let fuel = if machine.spec.requires_fuel {
             Some(machine.slots.fuel)
         } else {
