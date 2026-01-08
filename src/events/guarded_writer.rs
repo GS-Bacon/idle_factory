@@ -9,17 +9,21 @@ use super::{EventDepth, EventError, EventSystemConfig};
 ///
 /// 通常のEventWriterの代わりにこれを使うことで、
 /// イベント連鎖の無限ループを防止できる。
+///
+/// EventDepthはAtomicU8を使用しているため、同一システム内で
+/// 複数のGuardedEventWriterを使用可能（Resで取得）。
 #[derive(SystemParam)]
 pub struct GuardedEventWriter<'w, E: Event> {
     writer: EventWriter<'w, E>,
-    depth: ResMut<'w, EventDepth>,
+    depth: Res<'w, EventDepth>,
     config: Res<'w, EventSystemConfig>,
 }
 
 impl<E: Event> GuardedEventWriter<'_, E> {
     /// 深さチェック付きイベント送信
     pub fn send(&mut self, event: E) -> Result<(), EventError> {
-        if self.depth.0 >= self.config.max_depth {
+        let current = self.depth.get();
+        if current >= self.config.max_depth {
             error!(
                 "Event depth exceeded (max: {}): {:?}",
                 self.config.max_depth,
@@ -27,11 +31,11 @@ impl<E: Event> GuardedEventWriter<'_, E> {
             );
             return Err(EventError::MaxDepthExceeded);
         }
-        self.depth.0 += 1;
+        let new_depth = self.depth.increment();
         if self.config.log_enabled {
             debug!(
                 "Event sent (depth {}): {:?}",
-                self.depth.0,
+                new_depth,
                 std::any::type_name::<E>()
             );
         }
@@ -54,7 +58,7 @@ impl<E: Event> GuardedEventWriter<'_, E> {
 
     /// 現在の深さを取得
     pub fn current_depth(&self) -> u8 {
-        self.depth.0
+        self.depth.get()
     }
 }
 

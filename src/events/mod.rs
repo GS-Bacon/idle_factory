@@ -13,6 +13,7 @@ pub use guarded_writer::*;
 use crate::core::ItemId;
 use bevy::prelude::*;
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 // ============================================================================
 // Event System Configuration
@@ -39,9 +40,28 @@ impl Default for EventSystemConfig {
     }
 }
 
-/// 現在の連鎖深さを追跡
+/// 現在の連鎖深さを追跡（AtomicU8で内部可変性を実現）
+///
+/// これにより、同一システム内で複数のGuardedEventWriterを使用可能。
 #[derive(Resource, Default)]
-pub struct EventDepth(pub u8);
+pub struct EventDepth(pub AtomicU8);
+
+impl EventDepth {
+    /// 現在の深さを取得
+    pub fn get(&self) -> u8 {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    /// 深さをインクリメント
+    pub fn increment(&self) -> u8 {
+        self.0.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    /// 深さをリセット
+    pub fn reset(&self) {
+        self.0.store(0, Ordering::Relaxed);
+    }
+}
 
 /// イベントエラー
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,8 +70,8 @@ pub enum EventError {
 }
 
 /// フレーム開始時にリセット
-pub fn reset_event_depth(mut depth: ResMut<EventDepth>) {
-    depth.0 = 0;
+pub fn reset_event_depth(depth: Res<EventDepth>) {
+    depth.reset();
 }
 
 /// Plugin for event system base (depth tracking, config)
@@ -162,7 +182,7 @@ mod tests {
     #[test]
     fn test_event_depth_default() {
         let depth = EventDepth::default();
-        assert_eq!(depth.0, 0);
+        assert_eq!(depth.get(), 0);
     }
 
     #[test]

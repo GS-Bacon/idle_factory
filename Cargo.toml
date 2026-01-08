@@ -1,6 +1,6 @@
 [package]
 name = "idle_factory"
-version = "0.3.136"
+version = "0.3.138"
 edition = "2021"
 
 [features]
@@ -44,7 +44,7 @@ zip = { version = "2.1", default-features = false, features = ["deflate"] }
 
 # WebSocket server for Mod API (non-WASM only)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros", "time"] }
 tokio-tungstenite = "0.21"
 futures-util = "0.3"
 

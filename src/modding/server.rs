@@ -117,34 +117,58 @@ pub fn start_websocket_server(
             let next_conn_id = Arc::new(std::sync::atomic::AtomicU64::new(0));
 
             // Spawn task to handle outgoing messages from Bevy
+            // Note: crossbeam recv() is blocking, so we use try_recv() with async sleep
             let connections_clone = connections.clone();
             tokio::spawn(async move {
-                while let Ok(msg) = client_rx.recv() {
-                    let conns = connections_clone.read().await;
-                    match msg {
-                        ClientMessage::Response { conn_id, response } => {
-                            if let Some(sender) = conns.get(&conn_id) {
-                                let json = serde_json::to_string(&response)
-                                    .unwrap_or_else(|_| "{}".to_string());
-                                let _ = sender.send(json);
+                loop {
+                    // Non-blocking poll for messages from Bevy
+                    match client_rx.try_recv() {
+                        Ok(msg) => {
+                            let conns = connections_clone.read().await;
+                            match msg {
+                                ClientMessage::Response { conn_id, response } => {
+                                    if let Some(sender) = conns.get(&conn_id) {
+                                        let json = serde_json::to_string(&response)
+                                            .unwrap_or_else(|_| "{}".to_string());
+                                        tracing::info!(
+                                            "Sending WS response to conn {}: {}",
+                                            conn_id,
+                                            &json[..json.len().min(100)]
+                                        );
+                                        let _ = sender.send(json);
+                                    } else {
+                                        tracing::warn!(
+                                            "No connection found for conn_id {}",
+                                            conn_id
+                                        );
+                                    }
+                                }
+                                ClientMessage::Notify {
+                                    conn_id,
+                                    notification,
+                                } => {
+                                    if let Some(sender) = conns.get(&conn_id) {
+                                        let json = serde_json::to_string(&notification)
+                                            .unwrap_or_else(|_| "{}".to_string());
+                                        let _ = sender.send(json);
+                                    }
+                                }
+                                ClientMessage::Broadcast { notification } => {
+                                    let json = serde_json::to_string(&notification)
+                                        .unwrap_or_else(|_| "{}".to_string());
+                                    for sender in conns.values() {
+                                        let _ = sender.send(json.clone());
+                                    }
+                                }
                             }
                         }
-                        ClientMessage::Notify {
-                            conn_id,
-                            notification,
-                        } => {
-                            if let Some(sender) = conns.get(&conn_id) {
-                                let json = serde_json::to_string(&notification)
-                                    .unwrap_or_else(|_| "{}".to_string());
-                                let _ = sender.send(json);
-                            }
+                        Err(crossbeam_channel::TryRecvError::Empty) => {
+                            // No messages, yield and try again
+                            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
                         }
-                        ClientMessage::Broadcast { notification } => {
-                            let json = serde_json::to_string(&notification)
-                                .unwrap_or_else(|_| "{}".to_string());
-                            for sender in conns.values() {
-                                let _ = sender.send(json.clone());
-                            }
+                        Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                            // Channel closed, exit loop
+                            break;
                         }
                     }
                 }
@@ -196,16 +220,18 @@ pub fn start_websocket_server(
                             msg = ws_receiver.next() => {
                                 match msg {
                                     Some(Ok(Message::Text(text))) => {
+                                        tracing::info!("WS received text from {}: {}", conn_id, &text[..text.len().min(100)]);
                                         // Parse JSON-RPC request
                                         match serde_json::from_str::<JsonRpcRequest>(&text) {
                                             Ok(request) => {
+                                                tracing::info!("Parsed request: method={}", request.method);
                                                 let _ = server_tx_clone.send(ServerMessage::Request {
                                                     conn_id,
                                                     request,
                                                 });
                                             }
                                             Err(e) => {
-                                                tracing::warn!("Invalid JSON-RPC from {}: {}", conn_id, e);
+                                                tracing::warn!("Invalid JSON-RPC from {}: {} (text: {})", conn_id, e, &text[..text.len().min(50)]);
                                                 // Send parse error response
                                                 let error_response = JsonRpcResponse::error(
                                                     None,
@@ -347,7 +373,7 @@ fn process_server_messages(
                 tracing::info!("Mod disconnected: {}", conn_id);
             }
             ServerMessage::Request { conn_id, request } => {
-                tracing::debug!(
+                tracing::info!(
                     "Received request from {}: method={}",
                     conn_id,
                     request.method
@@ -359,9 +385,14 @@ fn process_server_messages(
                     game_state: game_state.clone(),
                 };
                 let response = route_request(&request, &ctx);
-                let _ = server
+                tracing::info!("Sending response for conn {}: {:?}", conn_id, response.id);
+                match server
                     .tx
-                    .send(ClientMessage::Response { conn_id, response });
+                    .send(ClientMessage::Response { conn_id, response })
+                {
+                    Ok(_) => tracing::info!("Response queued for conn {}", conn_id),
+                    Err(e) => tracing::error!("Failed to queue response: {}", e),
+                }
             }
         }
     }
