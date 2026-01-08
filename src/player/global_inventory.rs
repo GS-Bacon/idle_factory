@@ -9,13 +9,10 @@
 //! - `LocalPlatform` resource tracks the platform entity
 //! - `LocalPlatformInventory` SystemParam provides convenient access
 //!
-//! ## Migration Status
+//! ## Storage
 //!
-//! This module uses ItemId internally.
-//! - ItemId-based APIs are primary (e.g., `add_item_by_id`, `get_count_by_id`)
-//! - BlockType-based APIs are deprecated and maintained for backward compatibility
+//! This module uses ItemId internally for all item identification.
 
-use crate::block_type::BlockType;
 use crate::core::ItemId;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -136,85 +133,6 @@ impl PlatformInventory {
     pub fn set_items_by_id(&mut self, items: HashMap<ItemId, u32>) {
         self.items = items;
     }
-
-    // =========================================================================
-    // BlockType-based API (Deprecated - for backward compatibility)
-    // =========================================================================
-
-    /// Create with initial items
-    #[deprecated(since = "0.4.0", note = "Use with_items_by_id instead")]
-    pub fn with_items(items: &[(BlockType, u32)]) -> Self {
-        let items_by_id: Vec<_> = items
-            .iter()
-            .map(|(bt, count)| (ItemId::from(*bt), *count))
-            .collect();
-        Self::with_items_by_id(&items_by_id)
-    }
-
-    /// Add items to the inventory
-    #[deprecated(since = "0.4.0", note = "Use add_item_by_id instead")]
-    pub fn add_item(&mut self, block_type: BlockType, count: u32) {
-        self.add_item_by_id(ItemId::from(block_type), count);
-    }
-
-    /// Remove items from inventory. Returns true if successful, false if not enough.
-    #[deprecated(since = "0.4.0", note = "Use remove_item_by_id instead")]
-    pub fn remove_item(&mut self, block_type: BlockType, count: u32) -> bool {
-        self.remove_item_by_id(ItemId::from(block_type), count)
-    }
-
-    /// Get count of a specific item
-    #[deprecated(since = "0.4.0", note = "Use get_count_by_id instead")]
-    pub fn get_count(&self, block_type: BlockType) -> u32 {
-        self.get_count_by_id(ItemId::from(block_type))
-    }
-
-    /// Check if inventory has at least the specified amount
-    #[deprecated(since = "0.4.0", note = "Use has_item_by_id instead")]
-    pub fn has_item(&self, block_type: BlockType, count: u32) -> bool {
-        self.has_item_by_id(ItemId::from(block_type), count)
-    }
-
-    /// Try to consume multiple items atomically. Returns true if all items were consumed.
-    #[deprecated(since = "0.4.0", note = "Use try_consume_by_id instead")]
-    pub fn try_consume(&mut self, items: &[(BlockType, u32)]) -> bool {
-        let items_by_id: Vec<_> = items
-            .iter()
-            .map(|(bt, count)| (ItemId::from(*bt), *count))
-            .collect();
-        self.try_consume_by_id(&items_by_id)
-    }
-
-    /// Get all items as a vec for UI display (sorted by BlockType)
-    #[deprecated(since = "0.4.0", note = "Use get_all_items_by_id instead")]
-    pub fn get_all_items(&self) -> Vec<(BlockType, u32)> {
-        let mut items: Vec<_> = self
-            .items
-            .iter()
-            .filter(|(_, &count)| count > 0)
-            .filter_map(|(&id, &count)| BlockType::try_from(id).ok().map(|bt| (bt, count)))
-            .collect();
-        items.sort_by_key(|(bt, _)| *bt as u32);
-        items
-    }
-
-    /// Get items HashMap for serialization (BlockType-based, deprecated)
-    #[deprecated(since = "0.4.0", note = "Use items_by_id instead")]
-    pub fn items(&self) -> HashMap<BlockType, u32> {
-        self.items
-            .iter()
-            .filter_map(|(&id, &count)| BlockType::try_from(id).ok().map(|bt| (bt, count)))
-            .collect()
-    }
-
-    /// Set items from deserialization (BlockType-based, deprecated)
-    #[deprecated(since = "0.4.0", note = "Use set_items_by_id instead")]
-    pub fn set_items(&mut self, items: HashMap<BlockType, u32>) {
-        self.items = items
-            .into_iter()
-            .map(|(bt, count)| (ItemId::from(bt), count))
-            .collect();
-    }
 }
 
 // =============================================================================
@@ -312,82 +230,6 @@ impl LocalPlatformInventory<'_, '_> {
 mod tests {
     use super::*;
     use crate::core::items;
-
-    // =========================================================================
-    // Legacy BlockType Tests (with #[allow(deprecated)])
-    // =========================================================================
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_add_item() {
-        let mut inv = PlatformInventory::new();
-        inv.add_item(BlockType::IronOre, 10);
-        assert_eq!(inv.get_count(BlockType::IronOre), 10);
-
-        inv.add_item(BlockType::IronOre, 5);
-        assert_eq!(inv.get_count(BlockType::IronOre), 15);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_remove_item() {
-        let mut inv = PlatformInventory::new();
-        inv.add_item(BlockType::IronOre, 10);
-
-        assert!(inv.remove_item(BlockType::IronOre, 5));
-        assert_eq!(inv.get_count(BlockType::IronOre), 5);
-
-        assert!(!inv.remove_item(BlockType::IronOre, 10));
-        assert_eq!(inv.get_count(BlockType::IronOre), 5);
-
-        assert!(inv.remove_item(BlockType::IronOre, 5));
-        assert_eq!(inv.get_count(BlockType::IronOre), 0);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_try_consume() {
-        let mut inv = PlatformInventory::new();
-        inv.add_item(BlockType::IronOre, 10);
-        inv.add_item(BlockType::Coal, 5);
-
-        // Fail: not enough coal
-        assert!(!inv.try_consume(&[(BlockType::IronOre, 5), (BlockType::Coal, 10)]));
-        assert_eq!(inv.get_count(BlockType::IronOre), 10);
-        assert_eq!(inv.get_count(BlockType::Coal), 5);
-
-        // Success
-        assert!(inv.try_consume(&[(BlockType::IronOre, 5), (BlockType::Coal, 3)]));
-        assert_eq!(inv.get_count(BlockType::IronOre), 5);
-        assert_eq!(inv.get_count(BlockType::Coal), 2);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_with_items() {
-        let inv = PlatformInventory::with_items(&[
-            (BlockType::MinerBlock, 2),
-            (BlockType::ConveyorBlock, 30),
-        ]);
-        assert_eq!(inv.get_count(BlockType::MinerBlock), 2);
-        assert_eq!(inv.get_count(BlockType::ConveyorBlock), 30);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_get_all_items() {
-        let mut inv = PlatformInventory::new();
-        inv.add_item(BlockType::IronOre, 10);
-        inv.add_item(BlockType::Coal, 5);
-        inv.add_item(BlockType::Stone, 0); // Should not appear
-
-        let items = inv.get_all_items();
-        assert_eq!(items.len(), 2);
-    }
-
-    // =========================================================================
-    // New ItemId Tests
-    // =========================================================================
 
     #[test]
     fn test_add_item_by_id() {

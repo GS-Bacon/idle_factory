@@ -4346,15 +4346,17 @@ fn test_game_events_plugin_registers_events() {
 /// Test PlayerInventory component in Bevy App context
 #[test]
 fn test_inventory_component_in_app() {
+    use idle_factory::core::items;
+
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
 
     // Spawn player entity with inventory
     let player_entity = app
         .world_mut()
-        .spawn(PlayerInventory::with_initial_items(&[
-            (BlockType::Stone, 64),
-            (BlockType::IronOre, 32),
+        .spawn(PlayerInventory::with_initial_items_by_id(&[
+            (items::stone(), 64),
+            (items::iron_ore(), 32),
         ]))
         .id();
 
@@ -4364,17 +4366,19 @@ fn test_inventory_component_in_app() {
     let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
 
     // Check first slot has stone
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot_item_id(0), Some(items::stone()));
     assert_eq!(inventory.get_slot_count(0), 64);
 
     // Check second slot has iron ore
-    assert_eq!(inventory.get_slot(1), Some(BlockType::IronOre));
+    assert_eq!(inventory.get_slot_item_id(1), Some(items::iron_ore()));
     assert_eq!(inventory.get_slot_count(1), 32);
 }
 
 /// Test inventory add_item stacking behavior
 #[test]
 fn test_inventory_stacking_in_app() {
+    use idle_factory::core::items;
+
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
 
@@ -4389,9 +4393,9 @@ fn test_inventory_stacking_in_app() {
             .world_mut()
             .get_mut::<PlayerInventory>(player_entity)
             .unwrap();
-        inventory.add_item(BlockType::Coal, 100);
-        inventory.add_item(BlockType::Coal, 100);
-        inventory.add_item(BlockType::Coal, 100);
+        inventory.add_item_by_id(items::coal(), 100);
+        inventory.add_item_by_id(items::coal(), 100);
+        inventory.add_item_by_id(items::coal(), 100);
     }
 
     app.update();
@@ -4400,15 +4404,7 @@ fn test_inventory_stacking_in_app() {
     let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
 
     // Coal should be stacked (999 max per slot)
-    let total_coal: u32 = (0..idle_factory::constants::NUM_SLOTS)
-        .filter_map(|i| {
-            if inventory.get_slot(i) == Some(BlockType::Coal) {
-                Some(inventory.get_slot_count(i))
-            } else {
-                None
-            }
-        })
-        .sum();
+    let total_coal = inventory.get_total_count_by_id(items::coal());
 
     assert_eq!(total_coal, 300, "Should have 300 coal total");
 }
@@ -4465,13 +4461,15 @@ fn test_custom_system_event_handling() {
 /// Test inventory selected slot changes
 #[test]
 fn test_inventory_slot_selection() {
+    use idle_factory::core::items;
+
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
 
     let mut inv = PlayerInventory::default();
-    inv.add_item(BlockType::Grass, 10);
-    inv.add_item(BlockType::Coal, 20);
-    inv.add_item(BlockType::Stone, 30);
+    inv.add_item_by_id(items::grass(), 10);
+    inv.add_item_by_id(items::coal(), 20);
+    inv.add_item_by_id(items::stone(), 30);
 
     let player_entity = app.world_mut().spawn(inv).id();
     app.update();
@@ -4480,7 +4478,7 @@ fn test_inventory_slot_selection() {
     {
         let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
         assert_eq!(inventory.selected_slot, 0);
-        assert_eq!(inventory.selected_block(), Some(BlockType::Grass));
+        assert_eq!(inventory.selected_item_id(), Some(items::grass()));
     }
 
     // Change selection to slot 2
@@ -4497,7 +4495,7 @@ fn test_inventory_slot_selection() {
     {
         let inventory = app.world().get::<PlayerInventory>(player_entity).unwrap();
         assert_eq!(inventory.selected_slot, 2);
-        assert_eq!(inventory.selected_block(), Some(BlockType::Stone));
+        assert_eq!(inventory.selected_item_id(), Some(items::stone()));
     }
 }
 
@@ -4944,73 +4942,74 @@ fn test_load_global_inventory_large_counts() {
 
 /// Test PlatformInventory atomic try_consume behavior
 #[test]
-#[allow(deprecated)]
 fn test_platform_inventory_try_consume_atomic() {
+    use idle_factory::core::items;
     use idle_factory::player::PlatformInventory;
 
     let mut inv = PlatformInventory::new();
-    inv.add_item(BlockType::IronIngot, 10);
-    inv.add_item(BlockType::Coal, 5);
+    inv.add_item_by_id(items::iron_ingot(), 10);
+    inv.add_item_by_id(items::coal(), 5);
 
     // Should fail atomically - neither item consumed
-    let result = inv.try_consume(&[(BlockType::IronIngot, 5), (BlockType::Coal, 10)]);
+    let result = inv.try_consume_by_id(&[(items::iron_ingot(), 5), (items::coal(), 10)]);
     assert!(!result);
-    assert_eq!(inv.get_count(BlockType::IronIngot), 10);
-    assert_eq!(inv.get_count(BlockType::Coal), 5);
+    assert_eq!(inv.get_count_by_id(items::iron_ingot()), 10);
+    assert_eq!(inv.get_count_by_id(items::coal()), 5);
 
     // Should succeed
-    let result = inv.try_consume(&[(BlockType::IronIngot, 5), (BlockType::Coal, 3)]);
+    let result = inv.try_consume_by_id(&[(items::iron_ingot(), 5), (items::coal(), 3)]);
     assert!(result);
-    assert_eq!(inv.get_count(BlockType::IronIngot), 5);
-    assert_eq!(inv.get_count(BlockType::Coal), 2);
+    assert_eq!(inv.get_count_by_id(items::iron_ingot()), 5);
+    assert_eq!(inv.get_count_by_id(items::coal()), 2);
 }
 
 /// Test PlatformInventory with zero count items are not shown
 #[test]
-#[allow(deprecated)]
 fn test_platform_inventory_zero_count_hidden() {
+    use idle_factory::core::items;
     use idle_factory::player::PlatformInventory;
 
     let mut inv = PlatformInventory::new();
-    inv.add_item(BlockType::Stone, 10);
-    inv.add_item(BlockType::Coal, 0); // Should not appear
+    inv.add_item_by_id(items::stone(), 10);
+    // Adding 0 count item - should not appear
+    inv.add_item_by_id(items::coal(), 0);
 
-    let items = inv.get_all_items();
-    assert_eq!(items.len(), 1);
-    assert!(items.iter().any(|(bt, _)| *bt == BlockType::Stone));
-    assert!(!items.iter().any(|(bt, _)| *bt == BlockType::Coal));
+    let all_items = inv.get_all_items_by_id();
+    assert_eq!(all_items.len(), 1);
+    assert!(all_items.iter().any(|(id, _)| *id == items::stone()));
+    assert!(!all_items.iter().any(|(id, _)| *id == items::coal()));
 }
 
 /// Test PlatformInventory remove item cleans up zero entries
 #[test]
-#[allow(deprecated)]
 fn test_platform_inventory_remove_cleans_zero() {
+    use idle_factory::core::items;
     use idle_factory::player::PlatformInventory;
 
     let mut inv = PlatformInventory::new();
-    inv.add_item(BlockType::Stone, 10);
+    inv.add_item_by_id(items::stone(), 10);
 
     // Remove all
-    assert!(inv.remove_item(BlockType::Stone, 10));
-    assert_eq!(inv.get_count(BlockType::Stone), 0);
+    assert!(inv.remove_item_by_id(items::stone(), 10));
+    assert_eq!(inv.get_count_by_id(items::stone()), 0);
     assert!(inv.is_empty());
 }
 
 /// Test PlatformInventory with_items constructor
 #[test]
-#[allow(deprecated)]
 fn test_platform_inventory_with_items() {
+    use idle_factory::core::items;
     use idle_factory::player::PlatformInventory;
 
-    let inv = PlatformInventory::with_items(&[
-        (BlockType::MinerBlock, 5),
-        (BlockType::ConveyorBlock, 50),
-        (BlockType::FurnaceBlock, 10),
+    let inv = PlatformInventory::with_items_by_id(&[
+        (items::miner_block(), 5),
+        (items::conveyor_block(), 50),
+        (items::furnace_block(), 10),
     ]);
 
-    assert_eq!(inv.get_count(BlockType::MinerBlock), 5);
-    assert_eq!(inv.get_count(BlockType::ConveyorBlock), 50);
-    assert_eq!(inv.get_count(BlockType::FurnaceBlock), 10);
+    assert_eq!(inv.get_count_by_id(items::miner_block()), 5);
+    assert_eq!(inv.get_count_by_id(items::conveyor_block()), 50);
+    assert_eq!(inv.get_count_by_id(items::furnace_block()), 10);
     assert_eq!(inv.item_type_count(), 3);
 }
 
