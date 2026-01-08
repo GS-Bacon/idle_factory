@@ -261,7 +261,7 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 | 個別機械ファイル (`furnace.rs`等) | `machines/generic.rs` |
 | `InteractingFurnace/Crusher/Miner` | `InteractingMachine(Option<Entity>)` |
 | ハードコード機械ロジック | `MachineSpec` + データ駆動 |
-| `BlockType` 直接参照 | `Id<Item>` (将来) |
+| ~~`BlockType` 直接参照~~ | ✅ `ItemId` に完全移行済み |
 
 ### 整理対象
 
@@ -369,9 +369,9 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 
 | 項目 | 値 |
 |------|-----|
-| バージョン | **0.3.103** |
-| コード行数 | **36,413行** |
-| テスト | **397件** 通過 |
+| バージョン | **0.3.135** |
+| コード行数 | **28,429行** |
+| テスト | **593件** 通過 |
 | Clippy警告 | **0件** |
 
 ## タスク
@@ -390,23 +390,18 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 | レガシー機械削除 | 旧struct 0件 |
 | パニック防止 (P.0-P.4) | フォールバック実装済み |
 | 固定Tick (20Hz) | FixedUpdate使用 |
-
-### 残りの移行
-
-| タスク | 状態 |
-|--------|------|
-| BlockType→ItemId移行 | 🔄 約420箇所残り（段階的に実施） |
-| GameRegistry TOML統合 | ❌ 未着手 |
+| **BlockType→ItemId移行** | ✅ **0箇所（完全削除）** |
 
 ### 次のステップ（ユーザー判断）
 
 | 機能 | 内容 |
 |------|------|
+| WASM Mod基盤 | M2: Core Mod基盤 |
 | 電力システム | 発電機→電線→機械 |
 | 液体・気体 | パイプ、タンク |
 | 信号制御 | 論理回路 |
 
 **決定済み設計** (`.claude/architecture-future.md` 参照):
-- 動的ID: `Id<Category>` Phantom Type
+- 動的ID: `ItemId` (完全移行済み)
 - Mod API: WebSocket + TOML
 - マルチ対応: Component化済み
