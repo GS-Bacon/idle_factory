@@ -349,9 +349,14 @@ pub fn export_e2e_state(
         let required_items: Vec<String> = q
             .required_items
             .iter()
-            .map(|(item, amount)| {
-                let in_storage = platform_inventory.get_count((*item).into());
-                format!("{}:{}/{}", item.name(), in_storage, amount)
+            .map(|(item_id, amount)| {
+                let in_storage = platform_inventory.get_count(*item_id);
+                format!(
+                    "{}:{}/{}",
+                    item_id.name().unwrap_or("unknown"),
+                    in_storage,
+                    amount
+                )
             })
             .collect();
         E2EQuestState {

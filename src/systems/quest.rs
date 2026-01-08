@@ -3,18 +3,19 @@
 use crate::components::*;
 use crate::core::ItemId;
 use crate::player::{LocalPlatform, LocalPlatformInventory, PlatformInventory};
-use crate::{game_spec, BlockType, BLOCK_SIZE, PLATFORM_SIZE};
+use crate::{game_spec, BLOCK_SIZE, PLATFORM_SIZE};
 use bevy::prelude::*;
 
 /// Quest definition structure (runtime representation)
+/// Uses ItemId for all item references.
 pub struct QuestDef {
     #[allow(dead_code)]
     pub id: &'static str,
     pub description: &'static str,
-    pub required_items: Vec<(BlockType, u32)>,
-    pub rewards: Vec<(BlockType, u32)>,
+    pub required_items: Vec<(ItemId, u32)>,
+    pub rewards: Vec<(ItemId, u32)>,
     #[allow(dead_code)]
-    pub unlocks: Vec<BlockType>,
+    pub unlocks: Vec<ItemId>,
 }
 
 /// Cached quest data to avoid allocations every frame
@@ -33,15 +34,24 @@ impl Default for QuestCache {
 }
 
 /// Build main quests from game_spec (internal, called once)
+/// Converts game_spec definitions to runtime QuestDef with ItemId.
 fn build_main_quests() -> Vec<QuestDef> {
     game_spec::MAIN_QUESTS
         .iter()
         .map(|spec| QuestDef {
             id: spec.id,
             description: spec.description,
-            required_items: spec.required_items.to_vec(),
-            rewards: spec.rewards.to_vec(),
-            unlocks: spec.unlocks.to_vec(),
+            required_items: spec
+                .required_items
+                .iter()
+                .map(|(bt, n)| (ItemId::from(*bt), *n))
+                .collect(),
+            rewards: spec
+                .rewards
+                .iter()
+                .map(|(bt, n)| (ItemId::from(*bt), *n))
+                .collect(),
+            unlocks: spec.unlocks.iter().map(|bt| ItemId::from(*bt)).collect(),
         })
         .collect()
 }
@@ -49,16 +59,7 @@ fn build_main_quests() -> Vec<QuestDef> {
 /// Get main quests from game_spec (Single Source of Truth)
 /// Note: Prefer using QuestCache resource for hot paths
 pub fn get_main_quests() -> Vec<QuestDef> {
-    game_spec::MAIN_QUESTS
-        .iter()
-        .map(|spec| QuestDef {
-            id: spec.id,
-            description: spec.description,
-            required_items: spec.required_items.to_vec(),
-            rewards: spec.rewards.to_vec(),
-            unlocks: spec.unlocks.to_vec(),
-        })
-        .collect()
+    build_main_quests()
 }
 
 // NOTE: get_sub_quests removed (dead code)
@@ -104,8 +105,8 @@ pub fn quest_claim_rewards(
     };
 
     // Add rewards to PlatformInventory (machines and items)
-    for (block_type, amount) in &quest.rewards {
-        platform_inventory.add_item(ItemId::from(*block_type), *amount);
+    for (item_id, amount) in &quest.rewards {
+        platform_inventory.add_item(*item_id, *amount);
     }
 
     current_quest.rewards_claimed = true;
@@ -126,7 +127,7 @@ fn can_deliver_from_platform_inventory(
     quest
         .required_items
         .iter()
-        .all(|(item, required)| platform_inventory.get_count(ItemId::from(*item)) >= *required)
+        .all(|(item_id, required)| platform_inventory.get_count(*item_id) >= *required)
 }
 
 /// Update quest UI (supports multiple required items with progress bars)
@@ -173,7 +174,7 @@ pub fn update_quest_ui(
         let rewards: Vec<String> = quest
             .rewards
             .iter()
-            .map(|(bt, amt)| format!("  {} ×{}", bt.name(), amt))
+            .map(|(item_id, amt)| format!("  {} ×{}", item_id.name().unwrap_or("unknown"), amt))
             .collect();
         **text = format!(
             "✓ クエスト完了！\n\n報酬:\n{}\n\n[Q] 報酬を受け取る",
@@ -191,8 +192,8 @@ pub fn update_quest_ui(
         **text = quest.description.to_string();
 
         // Update progress bars for each required item (based on PlatformInventory)
-        for (i, (item, required)) in quest.required_items.iter().enumerate() {
-            let in_storage = platform_inventory.get_count(ItemId::from(*item));
+        for (i, (item_id, required)) in quest.required_items.iter().enumerate() {
+            let in_storage = platform_inventory.get_count(*item_id);
             let progress_pct = if *required > 0 {
                 (in_storage as f32 / *required as f32 * 100.0).min(100.0)
             } else {
@@ -217,7 +218,7 @@ pub fn update_quest_ui(
                     **txt = format!(
                         "{} {} ({}/{})",
                         status_icon,
-                        item.name(),
+                        item_id.name().unwrap_or("unknown"),
                         in_storage.min(*required),
                         required,
                     );
@@ -286,8 +287,8 @@ pub fn quest_deliver_button(
                 }
 
                 // Consume items from PlatformInventory
-                for (item, required) in &quest.required_items {
-                    platform_inventory.remove_item(ItemId::from(*item), *required);
+                for (item_id, required) in &quest.required_items {
+                    platform_inventory.remove_item(*item_id, *required);
                 }
 
                 // Mark quest as complete
@@ -447,44 +448,42 @@ pub fn load_machine_models(
     models.loaded = false;
 
     // Load item sprites for UI
+    use crate::core::items;
     item_sprites.insert_id(
-        ItemId::from(BlockType::IronOre),
+        items::iron_ore(),
         asset_server.load("textures/items/iron_ore.png"),
     );
     item_sprites.insert_id(
-        ItemId::from(BlockType::CopperOre),
+        items::copper_ore(),
         asset_server.load("textures/items/copper_ore.png"),
     );
+    item_sprites.insert_id(items::coal(), asset_server.load("textures/items/coal.png"));
     item_sprites.insert_id(
-        ItemId::from(BlockType::Coal),
-        asset_server.load("textures/items/coal.png"),
-    );
-    item_sprites.insert_id(
-        ItemId::from(BlockType::Stone),
+        items::stone(),
         asset_server.load("textures/items/stone.png"),
     );
     item_sprites.insert_id(
-        ItemId::from(BlockType::IronIngot),
+        items::iron_ingot(),
         asset_server.load("textures/items/iron_ingot.png"),
     );
     item_sprites.insert_id(
-        ItemId::from(BlockType::CopperIngot),
+        items::copper_ingot(),
         asset_server.load("textures/items/copper_ingot.png"),
     );
     item_sprites.insert_id(
-        ItemId::from(BlockType::MinerBlock),
+        items::miner_block(),
         asset_server.load("textures/items/miner.png"),
     );
     item_sprites.insert_id(
-        ItemId::from(BlockType::ConveyorBlock),
+        items::conveyor_block(),
         asset_server.load("textures/items/conveyor.png"),
     );
     item_sprites.insert_id(
-        ItemId::from(BlockType::FurnaceBlock),
+        items::furnace_block(),
         asset_server.load("textures/items/furnace.png"),
     );
     item_sprites.insert_id(
-        ItemId::from(BlockType::CrusherBlock),
+        items::crusher_block(),
         asset_server.load("textures/items/crusher.png"),
     );
 }

@@ -70,23 +70,27 @@ pub mod ui_spec {
 
 /// Block Breaking Spec
 pub mod breaking_spec {
-    use super::BlockType;
+    use crate::block_type::BlockType;
+    use crate::core::{items, ItemId};
 
     /// Multiplier when breaking with bare hands (slower)
     pub const BARE_HAND_MULTIPLIER: f32 = 2.0;
     /// Multiplier when breaking with stone pickaxe (normal speed)
     pub const STONE_PICKAXE_MULTIPLIER: f32 = 1.0;
 
-    /// Get base break time from ItemDescriptor.hardness
-    /// This is now data-driven - each block type has its own hardness value
-    pub fn get_base_break_time(block_type: BlockType) -> f32 {
-        block_type.hardness()
+    /// Get base break time from ItemDescriptor.hardness (via ItemId)
+    /// This is now data-driven - each item has its own hardness value
+    pub fn get_base_break_time(item_id: ItemId) -> f32 {
+        // Convert to BlockType to access hardness (temporary until full migration)
+        BlockType::try_from(item_id)
+            .map(|bt| bt.hardness())
+            .unwrap_or(1.0) // Default hardness for unknown items
     }
 
     /// Get tool multiplier (affects break time)
-    pub fn get_tool_multiplier(tool: Option<BlockType>) -> f32 {
+    pub fn get_tool_multiplier(tool: Option<ItemId>) -> f32 {
         match tool {
-            Some(BlockType::StonePickaxe) => STONE_PICKAXE_MULTIPLIER,
+            Some(t) if t == items::stone_pickaxe() => STONE_PICKAXE_MULTIPLIER,
             _ => BARE_HAND_MULTIPLIER,
         }
     }

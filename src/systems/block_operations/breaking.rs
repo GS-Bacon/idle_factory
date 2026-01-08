@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
+use crate::core::ItemId;
 use crate::events::game_events::{BlockBroken, EventSource};
 use crate::game_spec::breaking_spec;
 use crate::player::PlayerInventory;
@@ -108,12 +109,10 @@ pub fn block_break(
         BreakTarget::WorldBlock(_, bt) => bt,
     };
 
-    // Get selected tool
-    let selected_tool = inventory
-        .selected_item_id()
-        .and_then(|id| BlockType::try_from(id).ok());
+    // Get selected tool (now uses ItemId directly)
+    let selected_tool = inventory.selected_item_id();
     let tool_multiplier = breaking_spec::get_tool_multiplier(selected_tool);
-    let base_time = breaking_spec::get_base_break_time(block_type);
+    let base_time = breaking_spec::get_base_break_time(ItemId::from(block_type));
     let total_time = base_time * tool_multiplier;
 
     // Check if target changed
