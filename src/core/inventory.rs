@@ -4,7 +4,6 @@
 //! Uses ItemId for type-safe item identification.
 
 use super::ItemId;
-use crate::BlockType;
 
 /// Maximum stack size for items
 pub const MAX_STACK: u32 = 999;
@@ -23,11 +22,6 @@ impl ItemStack {
             item,
             count: count.min(MAX_STACK),
         }
-    }
-
-    /// Create from BlockType (convenience for legacy code)
-    pub fn from_block_type(block_type: BlockType, count: u32) -> Self {
-        Self::new(block_type.into(), count)
     }
 
     /// Check if this stack can merge with another
@@ -114,26 +108,6 @@ pub fn count_in_slots(slots: &[Option<ItemStack>], item: ItemId) -> u32 {
         .sum()
 }
 
-// Legacy compatibility functions using BlockType
-pub mod legacy {
-    use super::*;
-
-    /// Try to add an item to a slot array (BlockType version)
-    pub fn try_add_to_slots(slots: &mut [Option<ItemStack>], item: BlockType, count: u32) -> u32 {
-        super::try_add_to_slots(slots, item.into(), count)
-    }
-
-    /// Remove items from slots (BlockType version)
-    pub fn remove_from_slots(slots: &mut [Option<ItemStack>], item: BlockType, count: u32) -> u32 {
-        super::remove_from_slots(slots, item.into(), count)
-    }
-
-    /// Count total items of a type in slots (BlockType version)
-    pub fn count_in_slots(slots: &[Option<ItemStack>], item: BlockType) -> u32 {
-        super::count_in_slots(slots, item.into())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,12 +163,5 @@ mod tests {
         assert_eq!(count_in_slots(&slots, items::iron_ore()), 125);
         assert_eq!(count_in_slots(&slots, items::copper_ore()), 50);
         assert_eq!(count_in_slots(&slots, items::coal()), 0);
-    }
-
-    #[test]
-    fn test_from_block_type() {
-        let stack = ItemStack::from_block_type(BlockType::IronOre, 10);
-        assert_eq!(stack.item, items::iron_ore());
-        assert_eq!(stack.count, 10);
     }
 }

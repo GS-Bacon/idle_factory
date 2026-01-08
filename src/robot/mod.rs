@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-use crate::block_type::BlockType;
 use crate::components::Direction;
+use crate::core::ItemId;
 use crate::utils::GridPos;
 
 /// ロボットの種類
@@ -59,7 +59,7 @@ pub enum RobotCommand {
     /// 移動
     MoveTo(GridPos),
     /// ブロック配置
-    PlaceBlock(GridPos, BlockType),
+    PlaceBlock(GridPos, ItemId),
     /// ブロック破壊
     BreakBlock(GridPos),
     /// アイテム収集
@@ -244,7 +244,7 @@ impl RobotCommandQueue {
 #[derive(Component, Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RobotInventory {
     /// 保持アイテム
-    pub items: Vec<(BlockType, u32)>,
+    pub items: Vec<(ItemId, u32)>,
     /// 最大容量
     pub capacity: u32,
 }
@@ -269,21 +269,21 @@ impl RobotInventory {
     }
 
     /// アイテムを追加
-    pub fn add(&mut self, block_type: BlockType, count: u32) -> u32 {
+    pub fn add(&mut self, item_id: ItemId, count: u32) -> u32 {
         let can_add = count.min(self.free());
         if can_add > 0 {
-            if let Some((_, existing)) = self.items.iter_mut().find(|(bt, _)| *bt == block_type) {
+            if let Some((_, existing)) = self.items.iter_mut().find(|(id, _)| *id == item_id) {
                 *existing += can_add;
             } else {
-                self.items.push((block_type, can_add));
+                self.items.push((item_id, can_add));
             }
         }
         can_add
     }
 
     /// アイテムを取り出す
-    pub fn remove(&mut self, block_type: BlockType, count: u32) -> u32 {
-        if let Some(idx) = self.items.iter().position(|(bt, _)| *bt == block_type) {
+    pub fn remove(&mut self, item_id: ItemId, count: u32) -> u32 {
+        if let Some(idx) = self.items.iter().position(|(id, _)| *id == item_id) {
             let (_, existing) = &mut self.items[idx];
             let can_remove = count.min(*existing);
             *existing -= can_remove;
@@ -397,6 +397,7 @@ fn update_robots(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
     fn test_robot_type_properties() {
@@ -481,14 +482,14 @@ mod tests {
     fn test_robot_inventory() {
         let mut inv = RobotInventory::new(100);
 
-        assert_eq!(inv.add(BlockType::Stone, 50), 50);
+        assert_eq!(inv.add(items::stone(), 50), 50);
         assert_eq!(inv.used(), 50);
         assert_eq!(inv.free(), 50);
 
-        assert_eq!(inv.add(BlockType::Coal, 60), 50); // 50だけ入る
+        assert_eq!(inv.add(items::coal(), 60), 50); // 50だけ入る
         assert_eq!(inv.free(), 0);
 
-        assert_eq!(inv.remove(BlockType::Stone, 30), 30);
+        assert_eq!(inv.remove(items::stone(), 30), 30);
         assert_eq!(inv.free(), 30);
     }
 
@@ -496,8 +497,8 @@ mod tests {
     fn test_robot_inventory_remove_all() {
         let mut inv = RobotInventory::new(100);
 
-        inv.add(BlockType::Stone, 50);
-        assert_eq!(inv.remove(BlockType::Stone, 50), 50);
+        inv.add(items::stone(), 50);
+        assert_eq!(inv.remove(items::stone(), 50), 50);
         assert!(inv.is_empty());
     }
 
