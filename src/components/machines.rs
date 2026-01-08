@@ -103,18 +103,6 @@ impl ConveyorItem {
         }
     }
 
-    /// Create a new conveyor item from BlockType
-    pub fn from_block_type(block_type: BlockType, progress: f32) -> Self {
-        Self {
-            item_id: block_type.into(),
-            progress,
-            previous_progress: progress,
-            visual_entity: None,
-            lateral_offset: 0.0,
-            previous_lateral_offset: 0.0,
-        }
-    }
-
     /// Get the item as ItemId (preferred API)
     pub fn get_item_id(&self) -> ItemId {
         self.item_id
@@ -199,11 +187,6 @@ impl Conveyor {
     /// Add an item at the specified progress position (no visual, no lateral offset)
     pub fn add_item(&mut self, item_id: ItemId, at_progress: f32) {
         self.add_item_with_visual(item_id, at_progress, None, 0.0);
-    }
-
-    /// Add an item at the specified progress position from BlockType (legacy API)
-    pub fn add_item_block_type(&mut self, block_type: BlockType, at_progress: f32) {
-        self.add_item_with_visual(block_type.into(), at_progress, None, 0.0);
     }
 
     /// Check if conveyor can accept item at entry (progress = 0.0)
@@ -385,7 +368,8 @@ impl MachineSlot {
         }
     }
 
-    /// Add items using BlockType (legacy API - converts to ItemId internally)
+    /// Add items using BlockType (legacy API - use add_id instead)
+    #[deprecated(since = "0.3.0", note = "Use add_id() with ItemId instead")]
     pub fn add(&mut self, item: BlockType, amount: u32) -> u32 {
         self.add_id(item.into(), amount)
     }

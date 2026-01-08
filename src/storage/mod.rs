@@ -183,11 +183,13 @@ mod tests {
 
     #[test]
     fn test_storage_capacity_tracking() {
+        use crate::core::items;
+
         let mut storage = StorageBlock::new(100, 10);
 
         // Add some items to slots
-        storage.slots[0].add(BlockType::IronOre, 10);
-        storage.slots[1].add(BlockType::Coal, 20);
+        storage.slots[0].add_id(items::iron_ore(), 10);
+        storage.slots[1].add_id(items::coal(), 20);
 
         assert_eq!(storage.used_capacity(), 30);
         assert_eq!(storage.free_capacity(), 70);

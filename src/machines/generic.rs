@@ -587,21 +587,23 @@ mod tests {
 
     #[test]
     fn test_machine_slot_operations() {
+        use crate::core::items;
+
         let mut slot = MachineSlot::empty();
         assert!(slot.is_empty());
 
         // Add items
-        slot.add(BlockType::IronOre, 5);
+        slot.add_id(items::iron_ore(), 5);
         assert_eq!(slot.count, 5);
         assert_eq!(slot.block_type_for_render(), Some(BlockType::IronOre));
 
         // Can't add different type
-        let added = slot.add(BlockType::CopperOre, 3);
+        let added = slot.add_id(items::copper_ore(), 3);
         assert_eq!(added, 0);
         assert_eq!(slot.count, 5);
 
         // Can add same type
-        slot.add(BlockType::IronOre, 3);
+        slot.add_id(items::iron_ore(), 3);
         assert_eq!(slot.count, 8);
 
         // Take items
