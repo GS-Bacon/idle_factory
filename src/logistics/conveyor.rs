@@ -64,7 +64,7 @@ pub fn conveyor_transfer(
         source_entity: Entity,
         source_pos: IVec3, // Position of source conveyor (for join progress calculation)
         item_index: usize,
-        item_type: BlockType, // For event emission
+        item_id: ItemId, // For event emission
         target: TransferTarget,
     }
     enum TransferTarget {
@@ -77,8 +77,8 @@ pub fn conveyor_transfer(
     let mut actions: Vec<TransferAction> = Vec::new();
 
     // Collect events to send
-    let mut conveyor_transfer_items: Vec<(IVec3, IVec3, BlockType)> = Vec::new();
-    let mut delivered_items: Vec<(BlockType, u32)> = Vec::new();
+    let mut conveyor_transfer_items: Vec<(IVec3, IVec3, ItemId)> = Vec::new();
+    let mut delivered_items: Vec<(ItemId, u32)> = Vec::new();
 
     // Track splitter output indices for round-robin (entity -> next output index)
     let mut splitter_indices: HashMap<Entity, usize> = HashMap::new();
@@ -125,7 +125,7 @@ pub fn conveyor_transfer(
                             source_entity: entity,
                             source_pos: conveyor.position,
                             item_index: idx,
-                            item_type: item.block_type_for_render(),
+                            item_id: item.item_id,
                             target: TransferTarget::Delivery,
                         });
                         // Update splitter index for next item
@@ -146,7 +146,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        item_type: item.block_type_for_render(),
+                        item_id: item.item_id,
                         target: TransferTarget::Conveyor(next_entity, next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -162,7 +162,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        item_type: item.block_type_for_render(),
+                        item_id: item.item_id,
                         target: TransferTarget::Furnace(next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -178,7 +178,7 @@ pub fn conveyor_transfer(
                         source_entity: entity,
                         source_pos: conveyor.position,
                         item_index: idx,
-                        item_type: item.block_type_for_render(),
+                        item_id: item.item_id,
                         target: TransferTarget::Crusher(next_pos),
                     });
                     if conveyor.shape == ConveyorShape::Splitter {
@@ -306,7 +306,7 @@ pub fn conveyor_transfer(
                     // Mark target for last_input_source update
                     targets_to_update.insert(target_entity);
                     // Collect event for ConveyorTransfer
-                    conveyor_transfer_items.push((action.source_pos, target_pos, action.item_type));
+                    conveyor_transfer_items.push((action.source_pos, target_pos, action.item_id));
                 }
             }
             TransferTarget::Furnace(furnace_pos) => {
@@ -415,7 +415,7 @@ pub fn conveyor_transfer(
                 }
                 source_conv.items.remove(action.item_index);
                 // Collect event for ItemDelivered
-                delivered_items.push((action.item_type, 1));
+                delivered_items.push((action.item_id, 1));
             }
         }
     }

@@ -1,6 +1,7 @@
 //! Achievement system
 
 use crate::block_type::BlockType;
+use crate::core::ItemId;
 use crate::events::game_events::{BlockPlaced, ItemDelivered, MachineCompleted, MachineSpawned};
 use crate::events::GuardedEventWriter;
 use bevy::prelude::*;
@@ -91,9 +92,9 @@ pub struct AchievementCounters {
     /// 設置したブロック数
     pub blocks_placed: u32,
     /// 生産したアイテム数（種類別）
-    pub items_produced: std::collections::HashMap<BlockType, u32>,
+    pub items_produced: std::collections::HashMap<ItemId, u32>,
     /// 納品したアイテム数（種類別）
-    pub items_delivered: std::collections::HashMap<BlockType, u32>,
+    pub items_delivered: std::collections::HashMap<ItemId, u32>,
     /// 総納品数
     pub total_delivered: u32,
 }
@@ -165,8 +166,8 @@ fn handle_machine_completed_for_achievements(
     mut counters: ResMut<AchievementCounters>,
 ) {
     for event in events.read() {
-        for (item, count) in &event.outputs {
-            *counters.items_produced.entry(*item).or_insert(0) += count;
+        for (item_id, count) in &event.outputs {
+            *counters.items_produced.entry(*item_id).or_insert(0) += count;
         }
     }
 }
@@ -208,7 +209,8 @@ fn check_achievements(
                 (current, *count, current >= *count)
             }
             AchievementCondition::ProduceItem { item, count } => {
-                let current = counters.items_produced.get(item).copied().unwrap_or(0);
+                let item_id: ItemId = (*item).into();
+                let current = counters.items_produced.get(&item_id).copied().unwrap_or(0);
                 (current, *count, current >= *count)
             }
             AchievementCondition::FirstTime { event } => {
@@ -219,7 +221,8 @@ fn check_achievements(
                 (if unlocked { 1 } else { 0 }, 1, unlocked)
             }
             AchievementCondition::CollectItem { item, count } => {
-                let current = counters.items_delivered.get(item).copied().unwrap_or(0);
+                let item_id: ItemId = (*item).into();
+                let current = counters.items_delivered.get(&item_id).copied().unwrap_or(0);
                 (current, *count, current >= *count)
             }
             _ => continue, // 他の条件は別途処理
@@ -288,6 +291,7 @@ impl Plugin for AchievementsPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
     fn test_achievement_progress_default() {
@@ -348,16 +352,13 @@ mod tests {
 
         counters.machines_placed = 5;
         counters.blocks_placed = 10;
-        counters.items_produced.insert(BlockType::IronIngot, 50);
-        counters.items_delivered.insert(BlockType::IronOre, 20);
+        counters.items_produced.insert(items::iron_ingot(), 50);
+        counters.items_delivered.insert(items::iron_ore(), 20);
         counters.total_delivered = 20;
 
         assert_eq!(counters.machines_placed, 5);
         assert_eq!(counters.blocks_placed, 10);
-        assert_eq!(
-            counters.items_produced.get(&BlockType::IronIngot),
-            Some(&50)
-        );
+        assert_eq!(counters.items_produced.get(&items::iron_ingot()), Some(&50));
         assert_eq!(counters.total_delivered, 20);
     }
 

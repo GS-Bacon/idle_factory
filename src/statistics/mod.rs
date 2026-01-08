@@ -252,7 +252,6 @@ impl DeliveryStats {
 }
 
 /// 機械完了イベントを購読して生産統計を記録
-#[allow(deprecated)] // Uses legacy BlockType API from events
 fn handle_machine_completed(
     mut events: EventReader<MachineCompleted>,
     mut stats: ResMut<ProductionStats>,
@@ -260,14 +259,13 @@ fn handle_machine_completed(
 ) {
     let timestamp = time.elapsed_secs_f64();
     for event in events.read() {
-        for (item, count) in &event.outputs {
-            stats.record_production(*item, *count, timestamp);
+        for (item_id, count) in &event.outputs {
+            stats.record_production_by_id(*item_id, *count, timestamp);
         }
     }
 }
 
 /// 機械開始イベントを購読して消費統計を記録
-#[allow(deprecated)] // Uses legacy BlockType API from events
 fn handle_machine_started(
     mut events: EventReader<MachineStarted>,
     mut stats: ResMut<ProductionStats>,
@@ -275,17 +273,16 @@ fn handle_machine_started(
 ) {
     let timestamp = time.elapsed_secs_f64();
     for event in events.read() {
-        for (item, count) in &event.inputs {
-            stats.record_consumption(*item, *count, timestamp);
+        for (item_id, count) in &event.inputs {
+            stats.record_consumption_by_id(*item_id, *count, timestamp);
         }
     }
 }
 
 /// 納品イベントを購読して納品統計を記録
-#[allow(deprecated)] // Uses legacy BlockType API from events
 fn handle_item_delivered(mut events: EventReader<ItemDelivered>, mut stats: ResMut<DeliveryStats>) {
     for event in events.read() {
-        stats.record_delivery(event.item, event.count);
+        stats.record_delivery_by_id(event.item, event.count);
     }
 }
 

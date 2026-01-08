@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 /// Event result from tick_recipe: (started_inputs, completed_outputs)
-type RecipeEventResult = Option<(Option<Vec<(BlockType, u32)>>, Option<Vec<(BlockType, u32)>>)>;
+type RecipeEventResult = Option<(Option<Vec<(ItemId, u32)>>, Option<Vec<(ItemId, u32)>>)>;
 
 /// Generic machine tick system - processes all Machine components
 pub fn generic_machine_tick(
@@ -34,8 +34,8 @@ pub fn generic_machine_tick(
         .collect();
 
     // Collect events to send after iteration
-    let mut started: Vec<(Entity, Vec<(BlockType, u32)>)> = Vec::new();
-    let mut completed: Vec<(Entity, Vec<(BlockType, u32)>)> = Vec::new();
+    let mut started: Vec<(Entity, Vec<(ItemId, u32)>)> = Vec::new();
+    let mut completed: Vec<(Entity, Vec<(ItemId, u32)>)> = Vec::new();
 
     for (entity, mut machine) in machine_query.iter_mut() {
         match machine.spec.process_type {
@@ -47,8 +47,8 @@ pub fn generic_machine_tick(
                     &conveyor_map,
                     &mut conveyor_query,
                 );
-                if let Some(output) = result {
-                    completed.push((entity, vec![(output, 1)]));
+                if let Some(output_id) = result {
+                    completed.push((entity, vec![(output_id, 1)]));
                 }
             }
             ProcessType::Recipe(machine_type) => {
@@ -84,14 +84,14 @@ pub fn generic_machine_tick(
 }
 
 /// Tick for auto-generating machines (like Miner)
-/// Returns Some(output_type) when an item is produced
+/// Returns Some(output_item_id) when an item is produced
 fn tick_auto_generate(
     machine: &mut Machine,
     delta: f32,
     biome_map: &BiomeMap,
     conveyor_map: &HashMap<IVec3, Entity>,
     conveyor_query: &mut Query<(Entity, &mut Conveyor)>,
-) -> Option<BlockType> {
+) -> Option<ItemId> {
     let spec = machine.spec;
 
     // Check if output buffer has space
@@ -122,7 +122,7 @@ fn tick_auto_generate(
             if output.item_id.is_none() || output.item_id == Some(mined_id) {
                 output.item_id = Some(mined_id);
                 output.count += 1;
-                produced = Some(mined_type);
+                produced = Some(mined_id);
             }
         }
     }
@@ -165,8 +165,7 @@ fn tick_recipe(
     }
 
     // Check if output has space
-    let output_item = recipe.outputs.first().map(|o| o.item);
-    let output_item_id: Option<ItemId> = output_item.map(|bt| bt.into());
+    let output_item_id: Option<ItemId> = recipe.outputs.first().map(|o| o.item.into());
     let output_count = recipe.outputs.first().map(|o| o.count).unwrap_or(1);
 
     let output_slot = machine.slots.outputs.first();
@@ -187,12 +186,9 @@ fn tick_recipe(
     // Progress processing
     machine.progress += delta / recipe.craft_time;
 
-    // Get input BlockType for event (convert back from ItemId)
-    let input_bt: BlockType = input_id.try_into().unwrap_or(BlockType::Stone);
-
     // Determine started event (only when transitioning from idle to processing)
     let started_inputs = if was_idle && machine.progress > 0.0 && machine.progress < 1.0 {
-        Some(vec![(input_bt, required_count)])
+        Some(vec![(input_id, required_count)])
     } else {
         None
     };
@@ -214,9 +210,11 @@ fn tick_recipe(
         }
 
         // Produce output
-        if let (Some(item), Some(output_slot)) = (output_item, machine.slots.outputs.first_mut()) {
-            output_slot.add(item, output_count);
-            completed_outputs = Some(vec![(item, output_count)]);
+        if let (Some(item_id), Some(output_slot)) =
+            (output_item_id, machine.slots.outputs.first_mut())
+        {
+            output_slot.add_id(item_id, output_count);
+            completed_outputs = Some(vec![(item_id, output_count)]);
         }
     }
 

@@ -44,14 +44,14 @@ pub struct MachineSpawned {
 #[derive(Event, Debug)]
 pub struct MachineStarted {
     pub entity: Entity,
-    pub inputs: Vec<(BlockType, u32)>,
+    pub inputs: Vec<(ItemId, u32)>,
 }
 
 /// 機械加工完了イベント
 #[derive(Event, Debug)]
 pub struct MachineCompleted {
     pub entity: Entity,
-    pub outputs: Vec<(BlockType, u32)>,
+    pub outputs: Vec<(ItemId, u32)>,
 }
 
 // ========== インベントリ系 ==========
@@ -71,13 +71,13 @@ pub struct InventoryChanged {
 pub struct ConveyorTransfer {
     pub from_pos: IVec3,
     pub to_pos: IVec3,
-    pub item: BlockType,
+    pub item: ItemId,
 }
 
 /// アイテム納品イベント
 #[derive(Event, Debug)]
 pub struct ItemDelivered {
-    pub item: BlockType,
+    pub item: ItemId,
     pub count: u32,
 }
 
