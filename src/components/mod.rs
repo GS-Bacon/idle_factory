@@ -5,12 +5,14 @@
 
 mod input;
 mod machines;
+mod network;
 mod player;
 mod ui;
 mod ui_state;
 
 pub use input::*;
 pub use machines::*;
+pub use network::*;
 pub use player::*;
 pub use ui::*;
 pub use ui_state::*;

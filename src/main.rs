@@ -60,6 +60,7 @@ mod tests {
     use bevy::prelude::*;
     use idle_factory::components::*;
     use idle_factory::constants::{CONVEYOR_MAX_ITEMS, HOTBAR_SLOTS, NUM_SLOTS};
+    use idle_factory::core::items;
     use idle_factory::game_spec::{find_recipe, MachineType};
     use idle_factory::player::PlayerInventory;
     use idle_factory::systems::quest::get_main_quests;
@@ -161,8 +162,8 @@ mod tests {
     #[test]
     fn test_inventory_add() {
         let mut inventory = PlayerInventory::default();
-        inventory.add_item(BlockType::Stone, 1);
-        assert_eq!(inventory.get_total_count(BlockType::Stone), 1);
+        inventory.add_item_by_id(items::stone(), 1);
+        assert_eq!(inventory.get_total_count_by_id(items::stone()), 1);
     }
 
     #[test]
@@ -202,10 +203,10 @@ mod tests {
     #[test]
     fn test_inventory_consumption() {
         let mut inventory = PlayerInventory::default();
-        inventory.add_item(BlockType::Stone, 10);
+        inventory.add_item_by_id(items::stone(), 10);
         inventory.selected_slot = 0;
         assert_eq!(inventory.get_slot_count(0), 10);
-        inventory.consume_item(BlockType::Stone, 1);
+        inventory.consume_item_by_id(items::stone(), 1);
         assert_eq!(inventory.get_slot_count(0), 9);
     }
 

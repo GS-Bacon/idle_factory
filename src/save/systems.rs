@@ -1,16 +1,17 @@
 //! Save/Load system implementations
 
 use super::format as save;
-use crate::components::*;
 use crate::components::{LoadGameEvent, SaveGameEvent};
+use crate::components::{MachineBundle, *};
+use crate::core::ItemId;
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
-use crate::player::{LocalPlayer, PlayerInventory};
+use crate::player::{LocalPlatformInventory, LocalPlayer, PlatformInventory, PlayerInventory};
 use crate::world::WorldData;
 use crate::{BlockType, Direction, BLOCK_SIZE};
 use bevy::prelude::*;
 use tracing::info;
 
-/// Collect all game state into SaveData
+/// Collect all game state into SaveDataV2 (string ID format)
 #[allow(clippy::too_many_arguments)]
 pub fn collect_save_data(
     player_query: &Query<&Transform, With<Player>>,
@@ -22,8 +23,8 @@ pub fn collect_save_data(
     _delivery_query: &Query<&DeliveryPlatform>,
     current_quest: &CurrentQuest,
     creative_mode: &CreativeMode,
-    global_inventory: &crate::player::GlobalInventory,
-) -> save::SaveData {
+    platform_inventory: &PlatformInventory,
+) -> save::SaveDataV2 {
     use save::*;
 
     // Get current timestamp
@@ -65,31 +66,41 @@ pub fn collect_save_data(
         }
     };
 
-    // Collect inventory data
-    let inventory_data = InventorySaveData {
+    // Helper to convert ItemId to string ID
+    fn item_id_to_string(id: ItemId) -> String {
+        id.name().unwrap_or("base:unknown").to_string()
+    }
+
+    // Collect inventory data (V2 format with string IDs)
+    let inventory_data = InventorySaveDataV2 {
         selected_slot: inventory.selected_slot,
         slots: inventory
             .slots
             .iter()
             .map(|slot| {
-                slot.map(|(bt, count)| ItemStack {
-                    item_type: bt.into(),
+                slot.map(|(item_id, count)| ItemStackV2 {
+                    item_id: item_id_to_string(item_id),
                     count,
                 })
             })
             .collect(),
     };
 
-    // Collect world modifications
-    let modified_blocks: std::collections::HashMap<String, Option<BlockTypeSave>> = world_data
+    // Collect world modifications (V2 format with string IDs)
+    let modified_blocks: std::collections::HashMap<String, Option<String>> = world_data
         .modified_blocks
         .iter()
-        .map(|(pos, block)| (WorldSaveData::pos_to_key(*pos), block.map(|b| b.into())))
+        .map(|(pos, block)| {
+            (
+                WorldSaveDataV2::pos_to_key(*pos),
+                block.map(|b| b.to_save_string_id()),
+            )
+        })
         .collect();
 
-    let world_save = WorldSaveData { modified_blocks };
+    let world_save = WorldSaveDataV2 { modified_blocks };
 
-    // Collect machines
+    // Collect machines (V2 format)
     let mut machines = Vec::new();
 
     // All machines (Miner, Furnace, Crusher) using Machine component
@@ -101,11 +112,11 @@ pub fn collect_save_data(
                     .outputs
                     .first()
                     .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                machines.push(MachineSaveData::Miner(MinerSaveData {
+                machines.push(MachineSaveDataV2::Miner(MinerSaveDataV2 {
                     position: machine.position.into(),
                     progress: machine.progress,
-                    buffer: buffer.map(|(id, count)| ItemStack {
-                        item_type: id.into(),
+                    buffer: buffer.map(|(id, count)| ItemStackV2 {
+                        item_id: item_id_to_string(id),
                         count,
                     }),
                 }));
@@ -121,15 +132,15 @@ pub fn collect_save_data(
                     .outputs
                     .first()
                     .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                machines.push(MachineSaveData::Furnace(FurnaceSaveData {
+                machines.push(MachineSaveDataV2::Furnace(FurnaceSaveDataV2 {
                     position: machine.position.into(),
                     fuel: machine.slots.fuel,
-                    input: input.map(|(id, count)| ItemStack {
-                        item_type: id.into(),
+                    input: input.map(|(id, count)| ItemStackV2 {
+                        item_id: item_id_to_string(id),
                         count,
                     }),
-                    output: output.map(|(id, count)| ItemStack {
-                        item_type: id.into(),
+                    output: output.map(|(id, count)| ItemStackV2 {
+                        item_id: item_id_to_string(id),
                         count,
                     }),
                     progress: machine.progress,
@@ -146,14 +157,14 @@ pub fn collect_save_data(
                     .outputs
                     .first()
                     .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                machines.push(MachineSaveData::Crusher(CrusherSaveData {
+                machines.push(MachineSaveDataV2::Crusher(CrusherSaveDataV2 {
                     position: machine.position.into(),
-                    input: input.map(|(id, count)| ItemStack {
-                        item_type: id.into(),
+                    input: input.map(|(id, count)| ItemStackV2 {
+                        item_id: item_id_to_string(id),
                         count,
                     }),
-                    output: output.map(|(id, count)| ItemStack {
-                        item_type: id.into(),
+                    output: output.map(|(id, count)| ItemStackV2 {
+                        item_id: item_id_to_string(id),
                         count,
                     }),
                     progress: machine.progress,
@@ -163,7 +174,7 @@ pub fn collect_save_data(
         }
     }
 
-    // Conveyors
+    // Conveyors (V2 format)
     for conveyor in conveyor_query.iter() {
         let direction = match conveyor.direction {
             Direction::North => DirectionSave::North,
@@ -178,17 +189,17 @@ pub fn collect_save_data(
             ConveyorShape::TJunction => ConveyorShapeSave::TJunction,
             ConveyorShape::Splitter => ConveyorShapeSave::Splitter,
         };
-        let items: Vec<ConveyorItemSave> = conveyor
+        let items: Vec<ConveyorItemSaveV2> = conveyor
             .items
             .iter()
-            .map(|item| ConveyorItemSave {
-                item_type: item.item_id.into(),
+            .map(|item| ConveyorItemSaveV2 {
+                item_id: item_id_to_string(item.item_id),
                 progress: item.progress,
                 lateral_offset: item.lateral_offset,
             })
             .collect();
 
-        machines.push(MachineSaveData::Conveyor(ConveyorSaveData {
+        machines.push(MachineSaveDataV2::Conveyor(ConveyorSaveDataV2 {
             position: conveyor.position.into(),
             direction,
             shape,
@@ -198,14 +209,12 @@ pub fn collect_save_data(
         }));
     }
 
-    // Collect quest data (delivered items are now stored in GlobalInventory, saved via global_inventory field)
-    let delivered: std::collections::HashMap<BlockTypeSave, u32> = std::collections::HashMap::new();
-
-    let quest_data = QuestSaveData {
+    // Collect quest data (V2 format with string IDs)
+    let quest_data = QuestSaveDataV2 {
         current_index: current_quest.index,
         completed: current_quest.completed,
         rewards_claimed: current_quest.rewards_claimed,
-        delivered,
+        delivered: std::collections::HashMap::new(),
     };
 
     // Game mode
@@ -213,17 +222,17 @@ pub fn collect_save_data(
         creative: creative_mode.enabled,
     };
 
-    // Save GlobalInventory items
-    let global_inventory_data = GlobalInventorySaveData {
-        items: global_inventory
+    // Save PlatformInventory items (V2 format with string IDs)
+    let global_inventory_data = GlobalInventorySaveDataV2 {
+        items: platform_inventory
             .items_by_id()
             .iter()
-            .map(|(id, count)| ((*id).into(), *count))
+            .map(|(id, count)| (item_id_to_string(*id), *count))
             .collect(),
     };
 
-    SaveData {
-        version: save::SAVE_VERSION.to_string(),
+    SaveDataV2 {
+        version: save::SAVE_VERSION_V2.to_string(),
         timestamp,
         player: player_data,
         inventory: inventory_data,
@@ -286,7 +295,7 @@ pub fn handle_save_event(
     delivery_query: Query<&DeliveryPlatform>,
     current_quest: Res<CurrentQuest>,
     creative_mode: Res<CreativeMode>,
-    global_inventory: Res<crate::player::GlobalInventory>,
+    platform_inventory: LocalPlatformInventory,
     mut save_load_state: ResMut<SaveLoadState>,
 ) {
     // Get local player's inventory
@@ -294,6 +303,12 @@ pub fn handle_save_event(
         return;
     };
     let Ok(inventory) = inventory_query.get(local_player.0) else {
+        return;
+    };
+
+    // Get platform inventory
+    let Some(platform_inv) = platform_inventory.get() else {
+        info!("[SAVE] No platform inventory found");
         return;
     };
 
@@ -308,10 +323,10 @@ pub fn handle_save_event(
             &delivery_query,
             &current_quest,
             &creative_mode,
-            &global_inventory,
+            platform_inv,
         );
 
-        match save::save_game(&save_data, &event.filename) {
+        match save::native::save_game_v2(&save_data, &event.filename) {
             Ok(()) => {
                 let msg = format!("Game saved to '{}'", event.filename);
                 info!("{}", msg);
@@ -326,9 +341,12 @@ pub fn handle_save_event(
     }
 }
 
-/// Handle load game events
-/// Note: This function uses create_conveyor_mesh from main.rs which needs to be made public
-/// or moved to a shared module. For now, we'll keep this in main.rs until full refactor.
+/// Helper to parse string ID to ItemId
+fn string_id_to_item_id(s: &str) -> Option<ItemId> {
+    crate::core::items::by_name(s)
+}
+
+/// Handle load game events (V2 format with string IDs)
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_load_event(
     mut events: EventReader<LoadGameEvent>,
@@ -343,7 +361,7 @@ pub fn handle_load_event(
     mut world_data: ResMut<WorldData>,
     mut current_quest: ResMut<CurrentQuest>,
     mut creative_mode: ResMut<CreativeMode>,
-    mut global_inventory: ResMut<crate::player::GlobalInventory>,
+    mut platform_inventory: LocalPlatformInventory,
     // All machine entities to despawn (combined query)
     machine_entities: Query<Entity, Or<(With<Machine>, With<Conveyor>)>>,
 ) {
@@ -370,7 +388,7 @@ pub fn handle_load_event(
     };
 
     for event in events.read() {
-        match save::load_game(&event.filename) {
+        match save::native::load_game_v2(&event.filename) {
             Ok(data) => {
                 // Apply player position
                 if let Ok(mut transform) = player_query.get_single_mut() {
@@ -383,31 +401,36 @@ pub fn handle_load_event(
                     camera.yaw = data.player.rotation.yaw;
                 }
 
-                // Apply inventory
+                // Apply inventory (V2 format with string IDs)
                 inventory.selected_slot = data.inventory.selected_slot;
                 for (i, slot) in data.inventory.slots.iter().enumerate() {
                     if i < inventory.slots.len() {
-                        inventory.slots[i] =
-                            slot.as_ref().map(|s| (s.item_type.clone().into(), s.count));
+                        inventory.slots[i] = slot
+                            .as_ref()
+                            .and_then(|s| string_id_to_item_id(&s.item_id).map(|id| (id, s.count)));
                     }
                 }
 
-                // Migrate old global_inventory items into regular inventory (v0.2 -> unified)
+                // Migrate global_inventory items into platform inventory
                 if !data.global_inventory.items.is_empty() {
-                    info!("[SAVE] Migrating old global_inventory items to unified inventory");
-                    for (bt_save, count) in &data.global_inventory.items {
-                        let bt: BlockType = bt_save.clone().into();
-                        inventory.add_item_by_id(bt.into(), *count);
+                    info!("[SAVE] Loading global_inventory items to platform inventory");
+                    for (item_id_str, count) in &data.global_inventory.items {
+                        if let Some(item_id) = string_id_to_item_id(item_id_str) {
+                            platform_inventory.add_item(item_id, *count);
+                        } else {
+                            info!("[SAVE] Unknown item ID: {}, skipping", item_id_str);
+                        }
                     }
                 }
 
-                // Apply world modifications
+                // Apply world modifications (V2 format with string IDs)
                 world_data.modified_blocks.clear();
                 for (key, block_opt) in &data.world.modified_blocks {
-                    if let Some(pos) = save::WorldSaveData::key_to_pos(key) {
-                        world_data
-                            .modified_blocks
-                            .insert(pos, block_opt.as_ref().map(|b| b.clone().into()));
+                    if let Some(pos) = save::WorldSaveDataV2::key_to_pos(key) {
+                        let block = block_opt
+                            .as_ref()
+                            .and_then(|id| BlockType::from_save_string_id(id));
+                        world_data.modified_blocks.insert(pos, block);
                     }
                 }
 
@@ -416,39 +439,36 @@ pub fn handle_load_event(
                     commands.entity(entity).despawn_recursive();
                 }
 
-                // Spawn machines from save data
+                // Spawn machines from save data (V2 format)
                 for machine in &data.machines {
                     match machine {
-                        save::MachineSaveData::Miner(miner_data) => {
+                        save::MachineSaveDataV2::Miner(miner_data) => {
                             let pos: IVec3 = miner_data.position.into();
-                            let world_pos = Vec3::new(
-                                pos.x as f32 + 0.5,
-                                pos.y as f32 + 0.5,
-                                pos.z as f32 + 0.5,
-                            );
 
                             let cube_mesh =
                                 meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                            let mut machine_comp = Machine::new(&MINER, pos, Direction::North);
-                            machine_comp.progress = miner_data.progress;
+                            let mut bundle =
+                                MachineBundle::new_centered(&MINER, pos, Direction::North);
+                            bundle.machine.progress = miner_data.progress;
                             if let Some(buffer) = &miner_data.buffer {
-                                if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
-                                    let bt: BlockType = buffer.item_type.clone().into();
-                                    output_slot.item_id = Some(bt.into());
-                                    output_slot.count = buffer.count;
+                                if let Some(output_slot) = bundle.machine.slots.outputs.first_mut()
+                                {
+                                    if let Some(item_id) = string_id_to_item_id(&buffer.item_id) {
+                                        output_slot.item_id = Some(item_id);
+                                        output_slot.count = buffer.count;
+                                    }
                                 }
                             }
                             commands.spawn((
-                                machine_comp,
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: BlockType::MinerBlock.color(),
                                     ..default()
                                 })),
-                                Transform::from_translation(world_pos),
+                                bundle,
                             ));
                         }
-                        save::MachineSaveData::Conveyor(conveyor_data) => {
+                        save::MachineSaveDataV2::Conveyor(conveyor_data) => {
                             let pos: IVec3 = conveyor_data.position.into();
                             let direction = direction_from_save(conveyor_data.direction);
                             let shape = conveyor_shape_from_save(conveyor_data.shape);
@@ -461,18 +481,17 @@ pub fn handle_load_event(
                             let items: Vec<ConveyorItem> = conveyor_data
                                 .items
                                 .iter()
-                                .map(|item| {
-                                    let mut ci = ConveyorItem::from_block_type(
-                                        item.item_type.clone().into(),
-                                        item.progress,
-                                    );
-                                    ci.lateral_offset = item.lateral_offset;
-                                    ci.previous_lateral_offset = item.lateral_offset;
-                                    ci
+                                .filter_map(|item| {
+                                    string_id_to_item_id(&item.item_id).map(|item_id| {
+                                        let mut ci = ConveyorItem::new(item_id, item.progress);
+                                        ci.lateral_offset = item.lateral_offset;
+                                        ci.previous_lateral_offset = item.lateral_offset;
+                                        ci
+                                    })
                                 })
                                 .collect();
 
-                            // Use simple cuboid mesh for now (create_conveyor_mesh would need to be moved)
+                            // Use simple cuboid mesh for now
                             let mesh = meshes.add(Cuboid::new(
                                 BLOCK_SIZE * 0.9,
                                 BLOCK_SIZE * 0.2,
@@ -502,93 +521,85 @@ pub fn handle_load_event(
                                 ViewVisibility::default(),
                             ));
                         }
-                        save::MachineSaveData::Furnace(furnace_data) => {
+                        save::MachineSaveDataV2::Furnace(furnace_data) => {
                             let pos: IVec3 = furnace_data.position.into();
-                            let world_pos = Vec3::new(
-                                pos.x as f32 + 0.5,
-                                pos.y as f32 + 0.5,
-                                pos.z as f32 + 0.5,
-                            );
 
                             let cube_mesh =
                                 meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                            let mut machine_comp = Machine::new(&FURNACE, pos, Direction::North);
-                            machine_comp.slots.fuel = furnace_data.fuel;
-                            machine_comp.progress = furnace_data.progress;
+                            let mut bundle =
+                                MachineBundle::new_centered(&FURNACE, pos, Direction::North);
+                            bundle.machine.slots.fuel = furnace_data.fuel;
+                            bundle.machine.progress = furnace_data.progress;
                             if let Some(input) = &furnace_data.input {
-                                if let Some(input_slot) = machine_comp.slots.inputs.first_mut() {
-                                    let bt: BlockType = input.item_type.clone().into();
-                                    input_slot.item_id = Some(bt.into());
-                                    input_slot.count = input.count;
+                                if let Some(input_slot) = bundle.machine.slots.inputs.first_mut() {
+                                    if let Some(item_id) = string_id_to_item_id(&input.item_id) {
+                                        input_slot.item_id = Some(item_id);
+                                        input_slot.count = input.count;
+                                    }
                                 }
                             }
                             if let Some(output) = &furnace_data.output {
-                                if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
-                                    let bt: BlockType = output.item_type.clone().into();
-                                    output_slot.item_id = Some(bt.into());
-                                    output_slot.count = output.count;
+                                if let Some(output_slot) = bundle.machine.slots.outputs.first_mut()
+                                {
+                                    if let Some(item_id) = string_id_to_item_id(&output.item_id) {
+                                        output_slot.item_id = Some(item_id);
+                                        output_slot.count = output.count;
+                                    }
                                 }
                             }
                             commands.spawn((
-                                machine_comp,
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: BlockType::FurnaceBlock.color(),
                                     ..default()
                                 })),
-                                Transform::from_translation(world_pos),
+                                bundle,
                             ));
                         }
-                        save::MachineSaveData::Crusher(crusher_data) => {
+                        save::MachineSaveDataV2::Crusher(crusher_data) => {
                             let pos: IVec3 = crusher_data.position.into();
-                            let world_pos = Vec3::new(
-                                pos.x as f32 + 0.5,
-                                pos.y as f32 + 0.5,
-                                pos.z as f32 + 0.5,
-                            );
 
                             let cube_mesh =
                                 meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                            let mut machine_comp = Machine::new(&CRUSHER, pos, Direction::North);
-                            machine_comp.progress = crusher_data.progress;
+                            let mut bundle =
+                                MachineBundle::new_centered(&CRUSHER, pos, Direction::North);
+                            bundle.machine.progress = crusher_data.progress;
                             if let Some(input) = &crusher_data.input {
-                                if let Some(input_slot) = machine_comp.slots.inputs.first_mut() {
-                                    let bt: BlockType = input.item_type.clone().into();
-                                    input_slot.item_id = Some(bt.into());
-                                    input_slot.count = input.count;
+                                if let Some(input_slot) = bundle.machine.slots.inputs.first_mut() {
+                                    if let Some(item_id) = string_id_to_item_id(&input.item_id) {
+                                        input_slot.item_id = Some(item_id);
+                                        input_slot.count = input.count;
+                                    }
                                 }
                             }
                             if let Some(output) = &crusher_data.output {
-                                if let Some(output_slot) = machine_comp.slots.outputs.first_mut() {
-                                    let bt: BlockType = output.item_type.clone().into();
-                                    output_slot.item_id = Some(bt.into());
-                                    output_slot.count = output.count;
+                                if let Some(output_slot) = bundle.machine.slots.outputs.first_mut()
+                                {
+                                    if let Some(item_id) = string_id_to_item_id(&output.item_id) {
+                                        output_slot.item_id = Some(item_id);
+                                        output_slot.count = output.count;
+                                    }
                                 }
                             }
                             commands.spawn((
-                                machine_comp,
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
                                     base_color: BlockType::CrusherBlock.color(),
                                     ..default()
                                 })),
-                                Transform::from_translation(world_pos),
+                                bundle,
                             ));
                         }
                     }
                 }
 
-                // Apply quest progress
+                // Apply quest progress (V2 format)
                 current_quest.index = data.quests.current_index;
                 current_quest.completed = data.quests.completed;
                 current_quest.rewards_claimed = data.quests.rewards_claimed;
 
-                // Restore GlobalInventory (from legacy quests.delivered for backward compatibility)
-                // Note: GlobalInventory is cleared first, then items are added
-                for (bt, count) in &data.quests.delivered {
-                    let block_type: BlockType = bt.clone().into();
-                    global_inventory.add_item_by_id(block_type.into(), *count);
-                }
+                // Note: quests.delivered is now empty in V2 format
+                // PlatformInventory is loaded from global_inventory above
 
                 // Apply game mode
                 creative_mode.enabled = data.mode.creative;

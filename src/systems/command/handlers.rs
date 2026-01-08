@@ -5,7 +5,7 @@
 //! - SpawnMachine for E2E testing
 //! - DebugConveyor for debugging
 
-use crate::components::*;
+use crate::components::{MachineBundle, *};
 use crate::events::SpawnMachineEvent;
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::world::WorldData;
@@ -98,11 +98,6 @@ pub fn handle_spawn_machine_event(
 ) {
     for event in events.read() {
         let pos = event.position;
-        let world_pos = Vec3::new(
-            pos.x as f32 * BLOCK_SIZE + 0.5,
-            pos.y as f32 * BLOCK_SIZE + 0.5,
-            pos.z as f32 * BLOCK_SIZE + 0.5,
-        );
 
         match event.machine_type {
             BlockType::ConveyorBlock => {
@@ -171,17 +166,10 @@ pub fn handle_spawn_machine_event(
                 info!("Spawned conveyor at {:?} facing {:?}", pos, direction);
             }
             BlockType::MinerBlock => {
-                let transform = Transform::from_translation(world_pos);
-
                 if let Some(model) = machine_models.miner.clone() {
                     commands.spawn((
                         SceneRoot(model),
-                        transform,
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Machine::new(&MINER, pos, Direction::North),
+                        MachineBundle::new(&MINER, pos, Direction::North),
                     ));
                 } else {
                     let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -192,24 +180,16 @@ pub fn handle_spawn_machine_event(
                     commands.spawn((
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
-                        transform,
-                        Machine::new(&MINER, pos, Direction::North),
+                        MachineBundle::new_centered(&MINER, pos, Direction::North),
                     ));
                 }
                 info!("Spawned miner at {:?}", pos);
             }
             BlockType::FurnaceBlock => {
-                let transform = Transform::from_translation(world_pos);
-
                 if let Some(model) = machine_models.furnace.clone() {
                     commands.spawn((
                         SceneRoot(model),
-                        transform,
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Machine::new(&FURNACE, pos, Direction::North),
+                        MachineBundle::new(&FURNACE, pos, Direction::North),
                     ));
                 } else {
                     let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -220,24 +200,16 @@ pub fn handle_spawn_machine_event(
                     commands.spawn((
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
-                        transform,
-                        Machine::new(&FURNACE, pos, Direction::North),
+                        MachineBundle::new_centered(&FURNACE, pos, Direction::North),
                     ));
                 }
                 info!("Spawned furnace at {:?}", pos);
             }
             BlockType::CrusherBlock => {
-                let transform = Transform::from_translation(world_pos);
-
                 if let Some(model) = machine_models.crusher.clone() {
                     commands.spawn((
                         SceneRoot(model),
-                        transform,
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Machine::new(&CRUSHER, pos, Direction::North),
+                        MachineBundle::new(&CRUSHER, pos, Direction::North),
                     ));
                 } else {
                     let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -248,8 +220,7 @@ pub fn handle_spawn_machine_event(
                     commands.spawn((
                         Mesh3d(mesh),
                         MeshMaterial3d(material),
-                        transform,
-                        Machine::new(&CRUSHER, pos, Direction::North),
+                        MachineBundle::new_centered(&CRUSHER, pos, Direction::North),
                     ));
                 }
                 info!("Spawned crusher at {:?}", pos);

@@ -11,11 +11,9 @@ use crate::blueprint::BlueprintPlugin;
 use crate::components::*;
 use crate::craft::CraftPlugin;
 use crate::events::GameEventsPlugin;
-use crate::game_spec;
 use crate::game_spec::RegistryPlugin;
 use crate::map::MapPlugin;
 use crate::modding::ModdingPlugin;
-use crate::player::GlobalInventory;
 use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 use crate::robot::RobotPlugin;
 use crate::settings::SettingsPlugin;
@@ -85,27 +83,29 @@ impl Plugin for GamePlugin {
         app.init_resource::<crate::modding::handlers::EventSubscriptions>();
 
         // Initialize resources
-        app.insert_resource(GlobalInventory::with_items_by_id(
-            &game_spec::initial_equipment_by_id(),
-        ))
-        .init_resource::<WorldData>()
-        .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
-        .init_resource::<CursorLockState>()
-        .init_resource::<CurrentQuest>()
-        .init_resource::<crate::systems::quest::QuestCache>()
-        // NOTE: ActiveSubQuests removed (dead code) - reimplement with sub-quest UI
-        .init_resource::<GameFont>()
-        .init_resource::<ChunkMeshTasks>()
-        .init_resource::<DirtyChunks>()
-        .init_resource::<CreativeMode>()
-        .init_resource::<ContinuousActionTimer>()
-        .init_resource::<GlobalInventoryOpen>()
-        .init_resource::<GlobalInventoryPage>()
-        .init_resource::<GlobalInventoryCategory>()
-        .init_resource::<GlobalInventorySearch>()
-        .init_resource::<BreakingProgress>()
-        // Sky blue background color (simple skybox)
-        .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)));
+        // NOTE: GlobalInventory Resource removed - PlatformInventory is now a Component
+        // on the DeliveryPlatform entity, initialized in setup_delivery_platform
+        app.init_resource::<WorldData>()
+            .insert_resource(BiomeMap::new(12345)) // Fixed seed for deterministic biomes
+            .init_resource::<CursorLockState>()
+            // Network resources (M.7: multiplayer preparation)
+            .init_resource::<EntityMap>()
+            .init_resource::<NetworkIdGenerator>()
+            .init_resource::<CurrentQuest>()
+            .init_resource::<crate::systems::quest::QuestCache>()
+            // NOTE: ActiveSubQuests removed (dead code) - reimplement with sub-quest UI
+            .init_resource::<GameFont>()
+            .init_resource::<ChunkMeshTasks>()
+            .init_resource::<DirtyChunks>()
+            .init_resource::<CreativeMode>()
+            .init_resource::<ContinuousActionTimer>()
+            .init_resource::<GlobalInventoryOpen>()
+            .init_resource::<GlobalInventoryPage>()
+            .init_resource::<GlobalInventoryCategory>()
+            .init_resource::<GlobalInventorySearch>()
+            .init_resource::<BreakingProgress>()
+            // Sky blue background color (simple skybox)
+            .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)));
 
         // Register events
         app.add_event::<TeleportEvent>()

@@ -1,6 +1,7 @@
 //! Game event definitions
 
 use crate::block_type::BlockType;
+use crate::core::ItemId;
 use bevy::prelude::*;
 
 /// イベント発生源
@@ -56,10 +57,10 @@ pub struct MachineCompleted {
 // ========== インベントリ系 ==========
 
 /// インベントリ変更イベント
-#[derive(Event, Debug)]
+#[derive(Event, Debug, Clone)]
 pub struct InventoryChanged {
     pub entity: Entity,
-    pub item: BlockType,
+    pub item_id: ItemId,
     pub delta: i32, // 正=追加、負=消費
 }
 

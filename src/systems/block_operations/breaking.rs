@@ -350,7 +350,7 @@ fn execute_block_break(
     world_data: &mut WorldData,
     dirty_chunks: &mut DirtyChunks,
     inventory: &mut PlayerInventory,
-    block_broken_events: &mut EventWriter<BlockBroken>,
+    block_broken_events: &mut crate::events::GuardedEventWriter<BlockBroken>,
     source: EventSource,
 ) {
     // Remove the block
@@ -373,7 +373,7 @@ fn execute_block_break(
     dirty_chunks.mark_dirty(chunk_coord, local_pos);
 
     // Send block broken event
-    block_broken_events.send(BlockBroken {
+    let _ = block_broken_events.send(BlockBroken {
         pos: break_pos,
         block: block_type,
         source,

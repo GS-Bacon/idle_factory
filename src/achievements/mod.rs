@@ -2,6 +2,7 @@
 
 use crate::block_type::BlockType;
 use crate::events::game_events::{BlockPlaced, ItemDelivered, MachineCompleted, MachineSpawned};
+use crate::events::GuardedEventWriter;
 use bevy::prelude::*;
 
 /// 実績の条件
@@ -185,7 +186,7 @@ fn handle_item_delivered_for_achievements(
 fn check_achievements(
     counters: Res<AchievementCounters>,
     mut achievements: ResMut<PlayerAchievements>,
-    mut unlock_events: EventWriter<AchievementUnlocked>,
+    mut unlock_events: GuardedEventWriter<AchievementUnlocked>,
     time: Res<Time>,
 ) {
     // カウンターが変更されていない場合はスキップ
@@ -230,7 +231,7 @@ fn check_achievements(
         // アンロック判定
         if unlocked {
             achievements.unlock(achievement.id, timestamp);
-            unlock_events.send(AchievementUnlocked {
+            let _ = unlock_events.send(AchievementUnlocked {
                 id: achievement.id.to_string(),
                 name: achievement.name.to_string(),
             });

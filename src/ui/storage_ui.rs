@@ -15,7 +15,7 @@ use crate::components::{
 };
 use crate::constants::ui_colors;
 use crate::core::ItemId;
-use crate::player::GlobalInventory;
+use crate::player::LocalPlatformInventory;
 use crate::systems::cursor;
 use crate::BlockType;
 
@@ -62,7 +62,7 @@ pub fn update_global_inventory_visibility(
 /// Handle page navigation button clicks
 pub fn global_inventory_page_nav(
     mut page: ResMut<GlobalInventoryPage>,
-    global_inventory: Res<GlobalInventory>,
+    platform_inventory: LocalPlatformInventory,
     mut button_query: Query<
         (
             &Interaction,
@@ -72,7 +72,7 @@ pub fn global_inventory_page_nav(
         Changed<Interaction>,
     >,
 ) {
-    let items = global_inventory.get_all_items_by_id();
+    let items = platform_inventory.get_all_items();
     let total_pages = items.len().max(1).div_ceil(SLOTS_PER_PAGE);
 
     for (interaction, page_button, mut bg_color) in button_query.iter_mut() {
@@ -101,7 +101,7 @@ pub fn global_inventory_page_nav(
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_global_inventory_ui(
     global_inv_open: Res<GlobalInventoryOpen>,
-    global_inventory: Res<GlobalInventory>,
+    platform_inventory: LocalPlatformInventory,
     page: Res<GlobalInventoryPage>,
     category: Res<GlobalInventoryCategory>,
     search: Res<GlobalInventorySearch>,
@@ -130,8 +130,8 @@ pub fn update_global_inventory_ui(
 
     // Filter items by category and search
     let search_lower = search.0.to_lowercase();
-    let items: Vec<(ItemId, u32)> = global_inventory
-        .get_all_items_by_id()
+    let items: Vec<(ItemId, u32)> = platform_inventory
+        .get_all_items()
         .into_iter()
         .filter(|(item_id, _)| {
             // Convert to BlockType for category matching (returns false for mod items)

@@ -8,7 +8,7 @@ use crate::components::{
     TutorialProgressBarFill, TutorialProgressText, TutorialShown, TutorialStepText, TUTORIAL_STEPS,
 };
 use crate::core::ItemId;
-use crate::player::GlobalInventory;
+use crate::player::LocalPlatformInventory;
 
 /// Event for tutorial action notifications
 #[derive(Event)]
@@ -250,9 +250,9 @@ pub fn update_tutorial_ui(
     }
 }
 
-/// Check if global inventory has new items for production tracking
+/// Check if platform inventory has new items for production tracking
 pub fn track_production(
-    global_inventory: Res<GlobalInventory>,
+    platform_inventory: LocalPlatformInventory,
     mut last_counts: Local<std::collections::HashMap<ItemId, u32>>,
     mut events: EventWriter<TutorialEvent>,
     progress: Res<TutorialProgress>,
@@ -262,7 +262,7 @@ pub fn track_production(
     }
 
     // Check for new items
-    for (item_id, count) in global_inventory.get_all_items_by_id() {
+    for (item_id, count) in platform_inventory.get_all_items() {
         let last = last_counts.get(&item_id).copied().unwrap_or(0);
         if count > last {
             // Convert ItemId to BlockType for tutorial event

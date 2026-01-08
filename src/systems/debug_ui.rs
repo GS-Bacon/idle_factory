@@ -294,7 +294,7 @@ pub fn export_e2e_state(
     cursor_state: Res<CursorLockState>,
     target_block: Res<TargetBlock>,
     current_quest: Res<CurrentQuest>,
-    global_inventory: Res<crate::player::GlobalInventory>,
+    platform_inventory: crate::player::LocalPlatformInventory,
     conveyor_query: Query<&Conveyor>,
     machine_query: Query<&crate::components::Machine>,
     stuck_detector: Res<super::invariants::StuckDetector>,
@@ -350,7 +350,7 @@ pub fn export_e2e_state(
             .required_items
             .iter()
             .map(|(item, amount)| {
-                let in_storage = global_inventory.get_count_by_id((*item).into());
+                let in_storage = platform_inventory.get_count((*item).into());
                 format!("{}:{}/{}", item.name(), in_storage, amount)
             })
             .collect();

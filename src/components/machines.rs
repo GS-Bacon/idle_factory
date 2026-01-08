@@ -327,8 +327,28 @@ pub struct MachineBundle {
 }
 
 impl MachineBundle {
-    /// Create a new MachineBundle from spec
+    /// Create a new MachineBundle from spec.
+    /// Uses bottom-center position (Y=0) for VOX model compatibility.
     pub fn new(spec: &'static MachineSpec, position: IVec3, facing: Direction) -> Self {
+        // VOX models have origin at bottom center, so use Y=0 offset
+        let world_pos = Vec3::new(
+            position.x as f32 + 0.5,
+            position.y as f32, // Bottom of block (Y=0 offset)
+            position.z as f32 + 0.5,
+        );
+        Self {
+            machine: Machine::new(spec, position, facing),
+            transform: Transform::from_translation(world_pos).with_rotation(facing.to_rotation()),
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::Inherited,
+            inherited_visibility: InheritedVisibility::default(),
+            view_visibility: ViewVisibility::default(),
+        }
+    }
+
+    /// Create a new MachineBundle with block-center position (Y=0.5).
+    /// Use this for fallback cube meshes that have center origin.
+    pub fn new_centered(spec: &'static MachineSpec, position: IVec3, facing: Direction) -> Self {
         let world_pos = crate::utils::grid_to_world_center(position);
         Self {
             machine: Machine::new(spec, position, facing),

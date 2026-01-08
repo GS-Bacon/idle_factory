@@ -2,7 +2,7 @@
 
 use crate::components::*;
 use crate::core::ItemId;
-use crate::player::GlobalInventory;
+use crate::player::{LocalPlatform, LocalPlatformInventory, PlatformInventory};
 use crate::{game_spec, BlockType, BLOCK_SIZE, PLATFORM_SIZE};
 use bevy::prelude::*;
 
@@ -82,7 +82,7 @@ pub fn quest_progress_check(mut current_quest: ResMut<CurrentQuest>, quest_cache
 pub fn quest_claim_rewards(
     key_input: Res<ButtonInput<KeyCode>>,
     mut current_quest: ResMut<CurrentQuest>,
-    mut global_inventory: ResMut<GlobalInventory>,
+    mut platform_inventory: LocalPlatformInventory,
     command_state: Res<CommandInputState>,
     quest_cache: Res<QuestCache>,
 ) {
@@ -103,9 +103,9 @@ pub fn quest_claim_rewards(
         return;
     };
 
-    // Add rewards to GlobalInventory (machines and items)
+    // Add rewards to PlatformInventory (machines and items)
     for (block_type, amount) in &quest.rewards {
-        global_inventory.add_item_by_id(ItemId::from(*block_type), *amount);
+        platform_inventory.add_item(ItemId::from(*block_type), *amount);
     }
 
     current_quest.rewards_claimed = true;
@@ -118,19 +118,22 @@ pub fn quest_claim_rewards(
     }
 }
 
-/// Check if GlobalInventory has enough items to deliver for the current quest
-fn can_deliver_from_global_inventory(global_inventory: &GlobalInventory, quest: &QuestDef) -> bool {
+/// Check if PlatformInventory has enough items to deliver for the current quest
+fn can_deliver_from_platform_inventory(
+    platform_inventory: &LocalPlatformInventory,
+    quest: &QuestDef,
+) -> bool {
     quest
         .required_items
         .iter()
-        .all(|(item, required)| global_inventory.get_count_by_id(ItemId::from(*item)) >= *required)
+        .all(|(item, required)| platform_inventory.get_count(ItemId::from(*item)) >= *required)
 }
 
 /// Update quest UI (supports multiple required items with progress bars)
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_quest_ui(
     current_quest: Res<CurrentQuest>,
-    global_inventory: Res<GlobalInventory>,
+    platform_inventory: LocalPlatformInventory,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
     mut button_query: Query<
         (&mut Visibility, &mut BackgroundColor),
@@ -187,9 +190,9 @@ pub fn update_quest_ui(
         // Show quest description
         **text = quest.description.to_string();
 
-        // Update progress bars for each required item (based on GlobalInventory)
+        // Update progress bars for each required item (based on PlatformInventory)
         for (i, (item, required)) in quest.required_items.iter().enumerate() {
-            let in_storage = global_inventory.get_count_by_id(ItemId::from(*item));
+            let in_storage = platform_inventory.get_count(ItemId::from(*item));
             let progress_pct = if *required > 0 {
                 (in_storage as f32 / *required as f32 * 100.0).min(100.0)
             } else {
@@ -242,8 +245,8 @@ pub fn update_quest_ui(
             }
         }
 
-        // Show deliver button if can deliver from GlobalInventory
-        let can_deliver = can_deliver_from_global_inventory(&global_inventory, quest);
+        // Show deliver button if can deliver from PlatformInventory
+        let can_deliver = can_deliver_from_platform_inventory(&platform_inventory, quest);
         for (mut vis, mut bg) in button_query.iter_mut() {
             if can_deliver {
                 *vis = Visibility::Visible;
@@ -255,11 +258,11 @@ pub fn update_quest_ui(
     }
 }
 
-/// Handle deliver button click - consume from GlobalInventory to complete quest
+/// Handle deliver button click - consume from PlatformInventory to complete quest
 #[allow(clippy::type_complexity)]
 pub fn quest_deliver_button(
     mut current_quest: ResMut<CurrentQuest>,
-    mut global_inventory: ResMut<GlobalInventory>,
+    mut platform_inventory: LocalPlatformInventory,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor, &mut BorderColor),
         (Changed<Interaction>, With<QuestDeliverButton>),
@@ -278,13 +281,13 @@ pub fn quest_deliver_button(
         match *interaction {
             Interaction::Pressed => {
                 // Check if we can deliver all items
-                if !can_deliver_from_global_inventory(&global_inventory, quest) {
+                if !can_deliver_from_platform_inventory(&platform_inventory, quest) {
                     continue;
                 }
 
-                // Consume items from GlobalInventory
+                // Consume items from PlatformInventory
                 for (item, required) in &quest.required_items {
-                    global_inventory.remove_item_by_id(ItemId::from(*item), *required);
+                    platform_inventory.remove_item(ItemId::from(*item), *required);
                 }
 
                 // Mark quest as complete
@@ -324,17 +327,23 @@ pub fn setup_delivery_platform(
         ..default()
     });
 
-    // Spawn platform entity
-    commands.spawn((
-        Mesh3d(platform_mesh),
-        MeshMaterial3d(platform_material),
-        Transform::from_translation(Vec3::new(
-            platform_origin.x as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
-            platform_origin.y as f32 * BLOCK_SIZE + 0.1,
-            platform_origin.z as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
-        )),
-        DeliveryPlatform::new(platform_origin),
-    ));
+    // Spawn platform entity with PlatformInventory component (includes initial equipment)
+    let platform_entity = commands
+        .spawn((
+            Mesh3d(platform_mesh),
+            MeshMaterial3d(platform_material),
+            Transform::from_translation(Vec3::new(
+                platform_origin.x as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
+                platform_origin.y as f32 * BLOCK_SIZE + 0.1,
+                platform_origin.z as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
+            )),
+            DeliveryPlatform::new(platform_origin),
+            PlatformInventory::with_items_by_id(&game_spec::initial_equipment_by_id()),
+        ))
+        .id();
+
+    // Register LocalPlatform resource for easy access
+    commands.insert_resource(LocalPlatform(platform_entity));
 
     // Spawn delivery port markers (visual indicators at edges, excluding corners)
     let port_mesh = meshes.add(Cuboid::new(

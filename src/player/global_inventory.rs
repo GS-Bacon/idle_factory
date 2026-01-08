@@ -1,11 +1,17 @@
-//! Global Inventory System
+//! Platform Inventory System
 //!
 //! A warehouse-style inventory that stores items by type, not by slot.
-//! Used for machines, materials, and crafted items.
+//! Used for the delivery platform to store machines, materials, and crafted items.
+//!
+//! ## Architecture
+//!
+//! - `PlatformInventory` is a Component attached to the DeliveryPlatform entity
+//! - `LocalPlatform` resource tracks the platform entity
+//! - `LocalPlatformInventory` SystemParam provides convenient access
 //!
 //! ## Migration Status
 //!
-//! This module now uses ItemId internally.
+//! This module uses ItemId internally.
 //! - ItemId-based APIs are primary (e.g., `add_item_by_id`, `get_count_by_id`)
 //! - BlockType-based APIs are deprecated and maintained for backward compatibility
 
@@ -14,18 +20,23 @@ use crate::core::ItemId;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-/// Global inventory - stores items by type (not slot-based)
+/// Platform inventory - stores items by type (not slot-based)
 /// This is the main storage for all placeable machines and materials.
+/// Attached to the DeliveryPlatform entity.
 ///
 /// Uses ItemId internally to support both base game and mod items.
-#[derive(Resource, Default, Debug, Clone)]
-pub struct GlobalInventory {
+#[derive(Component, Default, Debug, Clone)]
+pub struct PlatformInventory {
     /// Items stored: ItemId -> count
     items: HashMap<ItemId, u32>,
 }
 
-impl GlobalInventory {
-    /// Create a new empty global inventory
+/// Resource to track the delivery platform entity
+#[derive(Resource)]
+pub struct LocalPlatform(pub Entity);
+
+impl PlatformInventory {
+    /// Create a new empty platform inventory
     pub fn new() -> Self {
         Self {
             items: HashMap::new(),
@@ -206,6 +217,97 @@ impl GlobalInventory {
     }
 }
 
+// =============================================================================
+// LocalPlatformInventory SystemParam
+// =============================================================================
+
+use bevy::ecs::system::SystemParam;
+
+/// Bundled platform inventory access (reduces parameter count)
+///
+/// Usage:
+/// ```ignore
+/// fn my_system(mut platform_inv: LocalPlatformInventory) {
+///     if let Some(mut inv) = platform_inv.get_mut() {
+///         inv.add_item_by_id(items::iron_ore(), 10);
+///     }
+/// }
+/// ```
+#[derive(SystemParam)]
+pub struct LocalPlatformInventory<'w, 's> {
+    local_platform: Option<Res<'w, LocalPlatform>>,
+    inventories: Query<'w, 's, &'static mut PlatformInventory>,
+}
+
+impl LocalPlatformInventory<'_, '_> {
+    /// Get mutable access to the platform's inventory
+    pub fn get_mut(&mut self) -> Option<Mut<'_, PlatformInventory>> {
+        let local_platform = self.local_platform.as_ref()?;
+        self.inventories.get_mut(local_platform.0).ok()
+    }
+
+    /// Get read-only access to the platform's inventory
+    pub fn get(&self) -> Option<&PlatformInventory> {
+        let local_platform = self.local_platform.as_ref()?;
+        self.inventories.get(local_platform.0).ok()
+    }
+
+    /// Get the platform entity
+    pub fn entity(&self) -> Option<Entity> {
+        self.local_platform.as_ref().map(|lp| lp.0)
+    }
+
+    /// Add item to platform inventory
+    ///
+    /// Returns the amount that couldn't be added (always 0 for unlimited storage).
+    pub fn add_item(&mut self, item_id: ItemId, amount: u32) -> u32 {
+        if let Some(mut inventory) = self.get_mut() {
+            inventory.add_item_by_id(item_id, amount);
+            0
+        } else {
+            amount // No platform, can't add
+        }
+    }
+
+    /// Remove item from platform inventory
+    ///
+    /// Returns true if successful, false if not enough items.
+    pub fn remove_item(&mut self, item_id: ItemId, amount: u32) -> bool {
+        if let Some(mut inventory) = self.get_mut() {
+            inventory.remove_item_by_id(item_id, amount)
+        } else {
+            false
+        }
+    }
+
+    /// Check if platform has enough items
+    pub fn has_item(&self, item_id: ItemId, amount: u32) -> bool {
+        if let Some(inventory) = self.get() {
+            inventory.has_item_by_id(item_id, amount)
+        } else {
+            false
+        }
+    }
+
+    /// Get count of specific item
+    pub fn get_count(&self, item_id: ItemId) -> u32 {
+        if let Some(inventory) = self.get() {
+            inventory.get_count_by_id(item_id)
+        } else {
+            0
+        }
+    }
+
+    /// Get all items
+    pub fn get_all_items(&self) -> Vec<(ItemId, u32)> {
+        if let Some(inventory) = self.get() {
+            inventory.get_all_items_by_id()
+        } else {
+            Vec::new()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -218,7 +320,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_add_item() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item(BlockType::IronOre, 10);
         assert_eq!(inv.get_count(BlockType::IronOre), 10);
 
@@ -229,7 +331,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_remove_item() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item(BlockType::IronOre, 10);
 
         assert!(inv.remove_item(BlockType::IronOre, 5));
@@ -245,7 +347,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_try_consume() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item(BlockType::IronOre, 10);
         inv.add_item(BlockType::Coal, 5);
 
@@ -263,7 +365,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_with_items() {
-        let inv = GlobalInventory::with_items(&[
+        let inv = PlatformInventory::with_items(&[
             (BlockType::MinerBlock, 2),
             (BlockType::ConveyorBlock, 30),
         ]);
@@ -274,7 +376,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_get_all_items() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item(BlockType::IronOre, 10);
         inv.add_item(BlockType::Coal, 5);
         inv.add_item(BlockType::Stone, 0); // Should not appear
@@ -289,7 +391,7 @@ mod tests {
 
     #[test]
     fn test_add_item_by_id() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item_by_id(items::iron_ore(), 10);
         assert_eq!(inv.get_count_by_id(items::iron_ore()), 10);
 
@@ -299,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_remove_item_by_id() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item_by_id(items::iron_ore(), 10);
 
         assert!(inv.remove_item_by_id(items::iron_ore(), 5));
@@ -314,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_has_item_by_id() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item_by_id(items::iron_ore(), 10);
 
         assert!(inv.has_item_by_id(items::iron_ore(), 5));
@@ -325,7 +427,7 @@ mod tests {
 
     #[test]
     fn test_try_consume_by_id() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item_by_id(items::iron_ore(), 10);
         inv.add_item_by_id(items::coal(), 5);
 
@@ -342,7 +444,7 @@ mod tests {
 
     #[test]
     fn test_with_items_by_id() {
-        let inv = GlobalInventory::with_items_by_id(&[
+        let inv = PlatformInventory::with_items_by_id(&[
             (items::miner_block(), 2),
             (items::conveyor_block(), 30),
         ]);
@@ -352,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_get_all_items_by_id() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item_by_id(items::iron_ore(), 10);
         inv.add_item_by_id(items::coal(), 5);
 
@@ -364,7 +466,7 @@ mod tests {
 
     #[test]
     fn test_all_item_ids() {
-        let mut inv = GlobalInventory::new();
+        let mut inv = PlatformInventory::new();
         inv.add_item_by_id(items::iron_ore(), 10);
         inv.add_item_by_id(items::coal(), 5);
 

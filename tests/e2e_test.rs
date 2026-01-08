@@ -4939,15 +4939,16 @@ fn test_load_global_inventory_large_counts() {
 }
 
 // ============================================================================
-// GlobalInventory Advanced Tests
+// PlatformInventory Advanced Tests
 // ============================================================================
 
-/// Test GlobalInventory atomic try_consume behavior
+/// Test PlatformInventory atomic try_consume behavior
 #[test]
-fn test_global_inventory_try_consume_atomic() {
-    use idle_factory::player::GlobalInventory;
+#[allow(deprecated)]
+fn test_platform_inventory_try_consume_atomic() {
+    use idle_factory::player::PlatformInventory;
 
-    let mut inv = GlobalInventory::new();
+    let mut inv = PlatformInventory::new();
     inv.add_item(BlockType::IronIngot, 10);
     inv.add_item(BlockType::Coal, 5);
 
@@ -4964,12 +4965,13 @@ fn test_global_inventory_try_consume_atomic() {
     assert_eq!(inv.get_count(BlockType::Coal), 2);
 }
 
-/// Test GlobalInventory with zero count items are not shown
+/// Test PlatformInventory with zero count items are not shown
 #[test]
-fn test_global_inventory_zero_count_hidden() {
-    use idle_factory::player::GlobalInventory;
+#[allow(deprecated)]
+fn test_platform_inventory_zero_count_hidden() {
+    use idle_factory::player::PlatformInventory;
 
-    let mut inv = GlobalInventory::new();
+    let mut inv = PlatformInventory::new();
     inv.add_item(BlockType::Stone, 10);
     inv.add_item(BlockType::Coal, 0); // Should not appear
 
@@ -4979,12 +4981,13 @@ fn test_global_inventory_zero_count_hidden() {
     assert!(!items.iter().any(|(bt, _)| *bt == BlockType::Coal));
 }
 
-/// Test GlobalInventory remove item cleans up zero entries
+/// Test PlatformInventory remove item cleans up zero entries
 #[test]
-fn test_global_inventory_remove_cleans_zero() {
-    use idle_factory::player::GlobalInventory;
+#[allow(deprecated)]
+fn test_platform_inventory_remove_cleans_zero() {
+    use idle_factory::player::PlatformInventory;
 
-    let mut inv = GlobalInventory::new();
+    let mut inv = PlatformInventory::new();
     inv.add_item(BlockType::Stone, 10);
 
     // Remove all
@@ -4993,12 +4996,13 @@ fn test_global_inventory_remove_cleans_zero() {
     assert!(inv.is_empty());
 }
 
-/// Test GlobalInventory with_items constructor
+/// Test PlatformInventory with_items constructor
 #[test]
-fn test_global_inventory_with_items() {
-    use idle_factory::player::GlobalInventory;
+#[allow(deprecated)]
+fn test_platform_inventory_with_items() {
+    use idle_factory::player::PlatformInventory;
 
-    let inv = GlobalInventory::with_items(&[
+    let inv = PlatformInventory::with_items(&[
         (BlockType::MinerBlock, 5),
         (BlockType::ConveyorBlock, 50),
         (BlockType::FurnaceBlock, 10),

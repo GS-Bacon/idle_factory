@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
-use crate::components::Machine;
+use crate::components::MachineBundle;
 use crate::core::ItemId;
 use crate::events::game_events::{BlockPlaced, EventSource, MachineSpawned};
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
@@ -249,30 +249,14 @@ pub fn block_place(
                 );
 
                 let entity = if let Some(model) = machine_models.miner.clone() {
-                    // VOX model has origin at bottom center, so Y offset is 0
-                    let model_transform = Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    ));
                     commands
                         .spawn((
                             SceneRoot(model),
-                            model_transform.with_rotation(player_facing.to_rotation()),
-                            GlobalTransform::default(),
-                            Visibility::default(),
-                            InheritedVisibility::default(),
-                            ViewVisibility::default(),
-                            Machine::new(&MINER, place_pos, player_facing),
+                            MachineBundle::new(&MINER, place_pos, player_facing),
                         ))
                         .id()
                 } else {
-                    // Fallback cube mesh has center origin, so Y offset is +0.5
-                    let cube_transform = Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    ));
+                    // Fallback cube mesh has center origin, so use new_centered
                     let cube_mesh = chunk_assets
                         .meshes
                         .add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -284,13 +268,12 @@ pub fn block_place(
                         .spawn((
                             Mesh3d(cube_mesh),
                             MeshMaterial3d(material),
-                            cube_transform.with_rotation(player_facing.to_rotation()),
-                            Machine::new(&MINER, place_pos, player_facing),
+                            MachineBundle::new_centered(&MINER, place_pos, player_facing),
                         ))
                         .id()
                 };
                 // Send MachineSpawned event
-                events.machine_spawned.send(MachineSpawned {
+                let _ = events.machine_spawned.send(MachineSpawned {
                     entity,
                     machine_type: BlockType::MinerBlock,
                     pos: place_pos,
@@ -417,7 +400,7 @@ pub fn block_place(
                             .id()
                     };
                 // Send MachineSpawned event
-                events.machine_spawned.send(MachineSpawned {
+                let _ = events.machine_spawned.send(MachineSpawned {
                     entity,
                     machine_type: BlockType::ConveyorBlock,
                     pos: place_pos,
@@ -438,30 +421,14 @@ pub fn block_place(
                 );
 
                 let entity = if let Some(model) = machine_models.crusher.clone() {
-                    // VOX model has origin at bottom center, so Y offset is 0
-                    let model_transform = Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    ));
                     commands
                         .spawn((
                             SceneRoot(model),
-                            model_transform.with_rotation(player_facing.to_rotation()),
-                            GlobalTransform::default(),
-                            Visibility::default(),
-                            InheritedVisibility::default(),
-                            ViewVisibility::default(),
-                            Machine::new(&CRUSHER, place_pos, player_facing),
+                            MachineBundle::new(&CRUSHER, place_pos, player_facing),
                         ))
                         .id()
                 } else {
-                    // Fallback cube mesh has center origin, so Y offset is +0.5
-                    let cube_transform = Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    ));
+                    // Fallback cube mesh has center origin, so use new_centered
                     let cube_mesh = chunk_assets
                         .meshes
                         .add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -473,13 +440,12 @@ pub fn block_place(
                         .spawn((
                             Mesh3d(cube_mesh),
                             MeshMaterial3d(material),
-                            cube_transform.with_rotation(player_facing.to_rotation()),
-                            Machine::new(&CRUSHER, place_pos, player_facing),
+                            MachineBundle::new_centered(&CRUSHER, place_pos, player_facing),
                         ))
                         .id()
                 };
                 // Send MachineSpawned event
-                events.machine_spawned.send(MachineSpawned {
+                let _ = events.machine_spawned.send(MachineSpawned {
                     entity,
                     machine_type: BlockType::CrusherBlock,
                     pos: place_pos,
@@ -499,30 +465,14 @@ pub fn block_place(
                 );
 
                 let entity = if let Some(model) = machine_models.furnace.clone() {
-                    // VOX model has origin at bottom center, so Y offset is 0
-                    let model_transform = Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    ));
                     commands
                         .spawn((
                             SceneRoot(model),
-                            model_transform.with_rotation(player_facing.to_rotation()),
-                            GlobalTransform::default(),
-                            Visibility::default(),
-                            InheritedVisibility::default(),
-                            ViewVisibility::default(),
-                            Machine::new(&FURNACE, place_pos, player_facing),
+                            MachineBundle::new(&FURNACE, place_pos, player_facing),
                         ))
                         .id()
                 } else {
-                    // Fallback cube mesh has center origin, so Y offset is +0.5
-                    let cube_transform = Transform::from_translation(Vec3::new(
-                        place_pos.x as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.y as f32 * BLOCK_SIZE + 0.5,
-                        place_pos.z as f32 * BLOCK_SIZE + 0.5,
-                    ));
+                    // Fallback cube mesh has center origin, so use new_centered
                     let cube_mesh = chunk_assets
                         .meshes
                         .add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
@@ -534,13 +484,12 @@ pub fn block_place(
                         .spawn((
                             Mesh3d(cube_mesh),
                             MeshMaterial3d(material),
-                            cube_transform.with_rotation(player_facing.to_rotation()),
-                            Machine::new(&FURNACE, place_pos, player_facing),
+                            MachineBundle::new_centered(&FURNACE, place_pos, player_facing),
                         ))
                         .id()
                 };
                 // Send MachineSpawned event
-                events.machine_spawned.send(MachineSpawned {
+                let _ = events.machine_spawned.send(MachineSpawned {
                     entity,
                     machine_type: BlockType::FurnaceBlock,
                     pos: place_pos,
@@ -562,7 +511,7 @@ pub fn block_place(
                 let source = player_entity
                     .map(EventSource::Player)
                     .unwrap_or(EventSource::System);
-                events.block_placed.send(BlockPlaced {
+                let _ = events.block_placed.send(BlockPlaced {
                     pos: place_pos,
                     block: selected_type,
                     source,

@@ -18,15 +18,276 @@
 ## 未完了の移行作業（優先度順）
 
 > **注意**: 以下は「基盤は作ったが移行していない」タスク
+> **確認コマンド**: `./scripts/migration-status.sh`
+
+### 一括移行タスク（破綻防止のため優先）
+
+| # | タスク | 現状 | 残作業 | 見積もり |
+|---|--------|------|--------|----------|
+| M.1 | **BlockType → ItemId** | 🔄 26% (354/1,361) | 1,007箇所 | 4-6時間 |
+| M.2 | **PlayerInventory Component化** | ❌ Resource | 17ファイル | 2-3時間 |
+| M.3 | **GlobalInventory 廃止/統合** | ❌ Resource | 16ファイル | 2-3時間 |
+| M.4 | **Machine::new → MachineBundle** | ❌ 0% | 23箇所 | 1-2時間 |
+| M.5 | **セーブ形式 enum→文字列** | 🔄 2% | 190箇所 | 1-2時間 |
+| M.6 | **本体コンテンツMod化** | 🔄 30% | TOML読込未使用 | 2-3時間 |
+| M.7 | **NetworkId / EntityMap** | ❌ 0% | マルチ準備 | 2-3時間 |
+| M.8 | **イベント送信網羅** | 🔄 30% | BlockBroken等未送信 | 1-2時間 |
+| M.9 | **GuardedEventWriter使用** | ❌ 定義のみ | 循環防止未使用 | 1時間 |
+
+### 完了済み
 
 | # | タスク | 基盤 | 移行 | 残作業 |
 |---|--------|------|------|--------|
-| D.2 | **動的ID** | ✅ | 🔄 40% | ConveyorItem/MachineSlot完了、残り描画層 |
 | D.4 | **本体Mod化** | ✅ | ✅ 100% | 起動時ロード完了 |
 | D.1 | **イベント** | ✅ | ✅ 100% | 7箇所でEventReader使用 |
-| - | **セーブ形式** | ✅ | ✅ 100% | V2形式で保存、両形式読込対応 |
-| - | **レガシー削除** | ✅ | ✅ | 完了 |
+| - | **InteractingMachine統合** | ✅ | ✅ | 旧Interacting* 削除済み |
+| - | **レガシー機械削除** | ✅ | ✅ | 完了 |
 | D.6-14 | **各機能プラグイン** | ✅ | ✅ | 完了 |
+
+---
+
+## M.1-M.9: 一括移行タスク詳細
+
+### 推奨実行順序
+
+```
+Wave 1 (並列開始):
+  M.1 (BlockType→ItemId)
+  M.4 (MachineBundle)
+  M.6 (本体Mod化)
+  M.8 (イベント送信)
+  M.9 (GuardedEventWriter)
+
+Wave 2 (Wave 1完了後):
+  M.2 (PlayerInventory Component化)
+  M.7 (NetworkId)
+
+Wave 3 (M.2完了後):
+  M.3 (GlobalInventory廃止)
+
+Wave 4 (M.1完了後):
+  M.5 (セーブ形式)
+```
+
+**見積もり合計**: 17-24時間（並列実行で8-10時間）
+
+### M.1: BlockType → ItemId 移行
+
+**ステータス**: 🔄 移行中 26% (354/1,361箇所)
+
+**完了条件**:
+- [ ] `grep -r 'BlockType' src | grep -v block_type.rs | wc -l` < 100
+- [ ] 全ての物流・インベントリ系がItemIdを使用
+- [x] ConveyorItem が ItemId 直接保持
+- [x] MachineSlot が ItemId 直接保持
+
+**残存理由が正当な箇所**:
+- `block_type.rs` (102箇所) - 描画層で必須
+- `world/mod.rs` (32箇所) - ChunkDataのブロック描画
+
+**移行対象ファイル（Top 10）**:
+
+| ファイル | 箇所数 | 優先度 |
+|----------|--------|--------|
+| save/format.rs | 212 | 高（M.5と同時） |
+| player/global_inventory.rs | 47 | 高 |
+| player/inventory.rs | 45 | 高 |
+| game_spec/mod.rs | 57 | 中 |
+| game_spec/recipes.rs | 50 | 中 |
+| craft/mod.rs | 45 | 中 |
+| components/mod.rs | 40 | 中 |
+| statistics/mod.rs | 35 | 低 |
+| main.rs | 31 | 低（テスト） |
+
+---
+
+### M.2: PlayerInventory Component化
+
+**ステータス**: ❌ 未移行
+
+**現状**: `PlayerInventory` が `Resource` として存在（17ファイルで使用）
+
+**目標**: `Inventory` を `Component` にし、`LocalPlayer` Entity に付与
+
+**完了条件**:
+- [ ] `grep -r 'Res<PlayerInventory>' src` が 0件
+- [ ] `grep -r 'ResMut<PlayerInventory>' src` が 0件
+- [ ] `LocalPlayer` Entity が `Inventory` Component を持つ
+- [ ] マルチプレイ対応可能な設計
+
+**影響ファイル**:
+- src/player/inventory.rs - 定義変更
+- src/player/mod.rs - 公開API変更
+- src/systems/inventory_ui.rs - Query化
+- src/systems/hotbar.rs - Query化
+- src/machines/generic.rs - Query化
+- src/save/systems.rs - Entity経由で保存
+- その他11ファイル
+
+**移行パターン**:
+```rust
+// Before
+fn system(inventory: ResMut<PlayerInventory>) { ... }
+
+// After
+fn system(
+    local_player: Res<LocalPlayer>,
+    mut inventories: Query<&mut Inventory>,
+) {
+    if let Ok(mut inv) = inventories.get_mut(local_player.0) { ... }
+}
+```
+
+---
+
+### M.3: GlobalInventory 廃止/統合
+
+**ステータス**: ❌ 未移行
+
+**現状**: `GlobalInventory` が `Resource` として存在（16ファイルで使用）
+
+**目標**: プラットフォーム（倉庫）の `Inventory` Component に統合
+
+**完了条件**:
+- [ ] `grep -r 'GlobalInventory' src` が 0件
+- [ ] プラットフォームEntity が `Inventory` Component を持つ
+- [ ] コンベア納品がプラットフォームのInventoryに追加
+
+**依存**: M.2（Inventory Component化）が先
+
+---
+
+### M.4: Machine::new → MachineBundle 移行
+
+**ステータス**: ❌ 未使用（定義のみ）
+
+**現状**: `MachineBundle` が定義されているが、23箇所で `Machine::new` を直接使用
+
+**目標**: 全ての機械spawn を `MachineBundle` 経由に統一
+
+**完了条件**:
+- [ ] `grep -r 'Machine::new' src` が 0件（テスト除く）
+- [ ] 全機械が `MachineBundle::spawn()` で生成
+
+**影響ファイル**:
+- src/systems/block_operations/placement.rs (6箇所)
+- src/systems/command/handlers.rs (6箇所)
+- src/save/systems.rs (3箇所)
+- src/machines/generic.rs (3箇所・テスト)
+- src/main.rs (5箇所・テスト)
+
+---
+
+### M.5: セーブ形式 enum→文字列ID 完全移行
+
+**ステータス**: 🔄 2% (V2保存対応済み、読込時変換残り)
+
+**現状**:
+- 保存: V2形式（文字列ID）✅
+- 読込: V1/V2両対応、内部で`BlockTypeSave` enum経由
+
+**目標**: 内部でも文字列IDを直接使用
+
+**完了条件**:
+- [ ] `BlockTypeSave` enum 削除
+- [ ] 全セーブデータが `ItemId` (文字列) で処理
+
+**依存**: M.1（BlockType→ItemId）がほぼ完了してから
+
+---
+
+### M.6: 本体コンテンツMod化
+
+**ステータス**: 🔄 30% (TOML定義済み、GameRegistry未統合)
+
+**現状**:
+- `mods/base/items.toml` - 16アイテム定義済み ✅
+- `mods/base/machines.toml` - 12機械定義済み ✅
+- `mods/base/recipes.toml` - 37レシピ定義済み ✅
+- `LoadedModData` - 起動時ロード ✅
+- **問題**: `GameRegistry` は `ITEM_DESCRIPTORS` (Rust定数) を使用、TOML未使用
+
+**目標**: GameRegistry が TOML から読み込んだデータを使用
+
+**完了条件**:
+- [ ] `ITEM_DESCRIPTORS` 定数を削除 or 空に
+- [ ] `GameRegistry::new()` が `LoadedModData` から構築
+- [ ] 新アイテム追加が TOML のみで完結
+
+**影響ファイル**:
+- src/game_spec/registry.rs - `ITEM_DESCRIPTORS` 削除、TOML統合
+- src/modding/mod.rs - GameRegistry構築ロジック追加
+
+**依存**: M.1（BlockType→ItemId）と並行可能
+
+---
+
+### M.7: NetworkId / EntityMap
+
+**ステータス**: ❌ 未実装
+
+**現状**: `LocalPlayer(Entity)` で直接Entity参照。マルチプレイ時にサーバー/クライアント間でEntity値が異なる問題。
+
+**目標**: 全てのネットワーク越しEntity参照を `NetworkId` 経由に
+
+**完了条件**:
+- [ ] `NetworkId` Component 定義
+- [ ] `EntityMap` Resource 定義
+- [ ] 機械/プレイヤーの spawn 時に NetworkId 付与
+- [ ] ネットワークメッセージで NetworkId 使用
+
+**影響ファイル**:
+- src/components/mod.rs - NetworkId 定義
+- src/resources/mod.rs - EntityMap 定義
+- src/systems/block_operations/placement.rs - 機械spawn時
+- src/save/systems.rs - セーブ/ロード時
+
+**依存**: M.2（PlayerInventory Component化）と並行可能
+
+---
+
+### M.8: イベント送信網羅
+
+**ステータス**: 🔄 30% (一部イベントのみ送信)
+
+**現状**:
+- ✅ 送信済み: `BlockPlaced`, `MachineStarted`, `MachineCompleted`, `ConveyorTransfer`, `ItemDelivered`
+- ❌ 未送信: `BlockBroken`, `MachineSpawned`, `InventoryChanged`, `PlayerSpawned`, 他多数
+
+**目標**: architecture-future.md のイベントカタログを全て実装
+
+**完了条件**:
+- [ ] `BlockBroken` - ブロック破壊時に送信
+- [ ] `MachineSpawned` - 機械設置時に送信
+- [ ] `MachineRemoved` - 機械撤去時に送信
+- [ ] `InventoryChanged` - インベントリ変更時に送信
+- [ ] `PlayerSpawned` - プレイヤー参加時に送信
+
+**影響ファイル**:
+- src/systems/block_operations/breaking.rs - BlockBroken
+- src/systems/block_operations/placement.rs - MachineSpawned
+- src/player/inventory.rs - InventoryChanged
+
+---
+
+### M.9: GuardedEventWriter 使用
+
+**ステータス**: ❌ 定義のみ（使用0箇所）
+
+**現状**: `GuardedEventWriter` が定義されているが、全てのイベント送信が通常の `EventWriter` を使用
+
+**目標**: イベント循環防止のため、全イベント送信を `GuardedEventWriter` 経由に
+
+**完了条件**:
+- [ ] `EventWriter<T>` → `GuardedEventWriter<T>` に置換
+- [ ] 循環検出テスト追加
+
+**影響ファイル**:
+- src/machines/generic.rs
+- src/logistics/conveyor.rs
+- src/systems/block_operations/placement.rs
+- src/achievements/mod.rs
+- 他イベント送信箇所
 
 ---
 
@@ -167,46 +428,100 @@ let machine = registry.machine_by_id(items::furnace_block());
 
 ### D.1: イベントシステム
 
-**ステータス**: ✅ 基盤実装済み / ✅ 購読 100%
+**ステータス**: ✅ 基盤実装済み / ⚠️ リファクタリング予定
 
-#### 完了条件
-- [x] 主要イベントが実際に送信される
-- [x] EventReaderで処理される
-- [ ] Mod APIがイベントを購読可能（将来）
+> **詳細設計**: `.claude/design-event-system.md` 参照
 
-#### Phase 1: 基盤 ✅
-- [x] `EventSystemConfig`, `EventDepth` (`src/events/mod.rs`)
-- [x] `GuardedEventWriter` 循環防止
-- [x] イベント型8個定義 (`src/events/game_events.rs`)
-  - BlockPlaced, BlockBroken
-  - MachineSpawned, MachineStarted, MachineCompleted
-  - InventoryChanged, ConveyorTransfer, ItemDelivered
-- [x] その他イベント18個（Mod, Command, Craft等）
-- [x] `GameEventsExtPlugin` でadd_event登録
+#### 現状の問題点
 
-#### Phase 2: イベント送信 ✅ (8/8 - InventoryChangedのみ未実装)
+| 問題 | 影響 | 深刻度 |
+|------|------|--------|
+| イベント定義が2箇所（mod.rs, game_events.rs） | AI が片方だけ読んで実装する | 高 |
+| Mod API EventType が手動同期 | 新イベント追加時に漏れる | 高 |
+| GuardedEventWriter が未使用 | 循環防止が機能していない | 中 |
+| MachineCompleted がMod APIで未ブリッジ | Modが購読できない | 中 |
+
+#### 新設計（実装予定）
+
+```
+src/events/
+├── mod.rs              # 再エクスポート + EventsPlugin
+├── core.rs             # 【新規】全コアイベント定義（Single Source of Truth）
+├── types.rs            # EventSource, CoreEventKind 等の共通型
+├── mod_event.rs        # 【新規】Mod独自イベント（動的）
+├── subscriptions.rs    # 購読管理
+├── bridge.rs           # 【新規】Mod API自動ブリッジ
+└── guarded_writer.rs   # GuardedEventWriter（既存）
+```
+
+#### コアイベント一覧（19種）
+
+| カテゴリ | イベント | 用途 |
+|----------|----------|------|
+| **ブロック** | BlockPlacing, BlockPlaced, BlockBreaking, BlockBroken | ブロック操作 |
+| **機械** | MachineSpawned, MachineStarted, MachineCompleted, MachineFuelConsumed, MachineRemoved | 機械状態 |
+| **プレイヤー** | PlayerSpawned, PlayerMoved, InventoryChanged | プレイヤー操作 |
+| **物流** | ConveyorTransfer, ItemPickedUp, ItemDropped, ItemDelivered | アイテム移動 |
+| **クエスト** | QuestStarted, QuestProgressed, QuestCompleted | クエスト進行 |
+
+#### AI安全性の担保
+
+1. **Single Source of Truth**: `core.rs` に全コアイベント定義
+2. **自動ブリッジ**: `bridge_core_event!` マクロで Mod API 自動対応
+3. **網羅性テスト**: `core_event_kind_count_matches` でイベント追加漏れ検出
+4. **コメントによるガイド**: AI向けの手順を明記
+
+#### 新イベント追加時の作業
+
+| 変更前（4ファイル） | 変更後（1ファイル + マクロ2箇所） |
+|---------------------|----------------------------------|
+| events/mod.rs | core.rs に構造体追加 |
+| events/game_events.rs | CoreEventKind enum に追加 |
+| modding/handlers/events.rs | register_core_events! に追加 |
+| modding/event_bridge.rs | register_all_bridges() に追加 |
+
+#### Modイベント
+
+```rust
+// Mod独自のイベント（動的、型なし）
+pub struct ModEvent {
+    pub event_id: String,  // "my_mod:custom_explosion"
+    pub data: serde_json::Value,
+    pub source: EventSource,
+}
+```
+
+**Modは**:
+- コアイベントを購読可能
+- 独自イベントを発火可能
+- 他Modのイベントも購読可能
+
+#### 移行計画
+
+| Phase | 内容 | 状態 |
+|-------|------|------|
+| Phase 1 | core.rs 作成、旧イベント統合 | ❌ 未着手 |
+| Phase 2 | 既存コードを新イベント名に更新 | ❌ 未着手 |
+| Phase 3 | 互換レイヤー削除、テスト追加 | ❌ 未着手 |
+
+#### 既存の送信/購読状況
+
+**イベント送信**:
 | イベント | 送信箇所 | 状態 |
 |----------|----------|------|
 | BlockPlaced | placement.rs | ✅ |
-| BlockBroken | breaking.rs:374 | ✅ |
+| BlockBroken | breaking.rs | ✅ |
 | MachineSpawned | placement.rs | ✅ |
 | MachineStarted | generic.rs | ✅ |
 | MachineCompleted | generic.rs | ✅ |
-| InventoryChanged | - | ❌ 未実装（複雑） |
 | ConveyorTransfer | conveyor.rs | ✅ |
 | ItemDelivered | conveyor.rs | ✅ |
+| InventoryChanged | - | ❌ 未実装 |
 
-#### Phase 3: イベント購読 ✅
-- [x] 統計システムがイベントを購読 (`statistics/mod.rs`)
-  - `MachineCompleted` → 生産統計
-  - `MachineStarted` → 消費統計
-  - `ItemDelivered` → 納品統計
-- [x] 実績システムがイベントを購読 (`achievements/mod.rs`)
-  - `MachineSpawned` → 機械設置カウント
-  - `BlockPlaced` → ブロック設置カウント
-  - `MachineCompleted` → 生産カウント
-  - `ItemDelivered` → 納品カウント
-- [ ] Mod APIがイベントを外部通知（将来）
+**イベント購読**:
+- [x] 統計システム (`statistics/mod.rs`)
+- [x] 実績システム (`achievements/mod.rs`)
+- [ ] Mod API外部通知（設計済み、未実装）
 
 ---
 

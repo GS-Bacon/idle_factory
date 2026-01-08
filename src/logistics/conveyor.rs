@@ -4,7 +4,8 @@ use crate::components::{can_crush, Machine};
 use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
 use crate::core::id::ItemId;
 use crate::events::game_events::{ConveyorTransfer, ItemDelivered};
-use crate::player::GlobalInventory;
+use crate::events::GuardedEventWriter;
+use crate::player::LocalPlatformInventory;
 use crate::{
     BlockType, Conveyor, ConveyorItemVisual, ConveyorShape, DeliveryPlatform, Direction,
     MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
@@ -22,9 +23,9 @@ pub fn conveyor_transfer(
     mut conveyor_query: Query<(Entity, &mut Conveyor)>,
     mut machine_query: Query<&mut Machine>,
     platform_query: Query<(&Transform, &DeliveryPlatform)>,
-    mut global_inventory: ResMut<GlobalInventory>,
-    mut transfer_events: EventWriter<ConveyorTransfer>,
-    mut delivery_events: EventWriter<ItemDelivered>,
+    mut platform_inventory: LocalPlatformInventory,
+    mut transfer_events: GuardedEventWriter<ConveyorTransfer>,
+    mut delivery_events: GuardedEventWriter<ItemDelivered>,
 ) {
     // Build lookup maps
     let conveyor_positions: HashMap<IVec3, Entity> = conveyor_query
@@ -421,9 +422,9 @@ pub fn conveyor_transfer(
                 }
             }
             TransferTarget::Delivery => {
-                // Deliver the item to GlobalInventory
-                global_inventory.add_item_by_id(item.item_id, 1);
-                let total = global_inventory.get_count_by_id(item.item_id);
+                // Deliver the item to PlatformInventory
+                platform_inventory.add_item(item.item_id, 1);
+                let total = platform_inventory.get_count(item.item_id);
                 info!(category = "QUEST", action = "deliver", item = ?item.item_id, total = total, "Item delivered to storage");
                 if let Some(visual) = item.visual_entity {
                     commands.entity(visual).despawn();
@@ -451,14 +452,14 @@ pub fn conveyor_transfer(
 
     // Send collected events
     for (from_pos, to_pos, item) in conveyor_transfer_items {
-        transfer_events.send(ConveyorTransfer {
+        let _ = transfer_events.send(ConveyorTransfer {
             from_pos,
             to_pos,
             item,
         });
     }
     for (item, count) in delivered_items {
-        delivery_events.send(ItemDelivered { item, count });
+        let _ = delivery_events.send(ItemDelivered { item, count });
     }
 
     // Persist splitter output indices
