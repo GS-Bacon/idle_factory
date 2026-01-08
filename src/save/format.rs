@@ -622,8 +622,17 @@ impl TryFrom<InventorySaveDataV2> for InventorySaveData {
         for opt in v2.slots {
             match opt {
                 Some(stack) => {
-                    let legacy: ItemStack = stack.try_into()?;
-                    slots.push(Some(legacy));
+                    // Unknown items are filtered out with warning instead of failing
+                    match stack.clone().try_into() {
+                        Ok(legacy) => slots.push(Some(legacy)),
+                        Err(_) => {
+                            tracing::warn!(
+                                "Unknown item '{}' in inventory, removing from save",
+                                stack.item_id
+                            );
+                            slots.push(None);
+                        }
+                    }
                 }
                 None => slots.push(None),
             }
@@ -641,9 +650,19 @@ impl TryFrom<GlobalInventorySaveDataV2> for GlobalInventorySaveData {
     fn try_from(v2: GlobalInventorySaveDataV2) -> Result<Self, Self::Error> {
         let mut items = HashMap::new();
         for (id, count) in v2.items {
-            let bt = BlockTypeSave::from_string_id(&id)
-                .ok_or_else(|| format!("Unknown item ID in global inventory: {}", id))?;
-            items.insert(bt, count);
+            // Unknown items are skipped with warning instead of failing
+            match BlockTypeSave::from_string_id(&id) {
+                Some(bt) => {
+                    items.insert(bt, count);
+                }
+                None => {
+                    tracing::warn!(
+                        "Unknown item '{}' ({} items) in global inventory, removing from save",
+                        id,
+                        count
+                    );
+                }
+            }
         }
         Ok(Self { items })
     }
@@ -656,10 +675,20 @@ impl TryFrom<WorldSaveDataV2> for WorldSaveData {
         let mut modified_blocks = HashMap::new();
         for (pos, opt_id) in v2.modified_blocks {
             let block = match opt_id {
-                Some(id) => Some(
-                    BlockTypeSave::from_string_id(&id)
-                        .ok_or_else(|| format!("Unknown block ID: {}", id))?,
-                ),
+                Some(id) => {
+                    // Unknown blocks are treated as removed (None) with warning
+                    match BlockTypeSave::from_string_id(&id) {
+                        Some(bt) => Some(bt),
+                        None => {
+                            tracing::warn!(
+                                "Unknown block '{}' at {}, treating as removed",
+                                id,
+                                pos
+                            );
+                            None
+                        }
+                    }
+                }
                 None => None,
             };
             modified_blocks.insert(pos, block);
@@ -685,10 +714,17 @@ impl TryFrom<MinerSaveDataV2> for MinerSaveData {
     type Error = String;
 
     fn try_from(v2: MinerSaveDataV2) -> Result<Self, Self::Error> {
+        // Unknown buffer item is cleared with warning
+        let buffer = v2.buffer.and_then(|s| {
+            s.clone().try_into().ok().or_else(|| {
+                tracing::warn!("Unknown item '{}' in miner buffer, clearing", s.item_id);
+                None
+            })
+        });
         Ok(Self {
             position: v2.position,
             progress: v2.progress,
-            buffer: v2.buffer.map(|s| s.try_into()).transpose()?,
+            buffer,
         })
     }
 }
@@ -697,12 +733,22 @@ impl TryFrom<ConveyorSaveDataV2> for ConveyorSaveData {
     type Error = String;
 
     fn try_from(v2: ConveyorSaveDataV2) -> Result<Self, Self::Error> {
-        let items: Result<Vec<_>, _> = v2.items.into_iter().map(TryInto::try_into).collect();
+        // Unknown items are filtered out with warning
+        let items: Vec<_> = v2
+            .items
+            .into_iter()
+            .filter_map(|item| {
+                item.clone().try_into().ok().or_else(|| {
+                    tracing::warn!("Unknown item '{}' on conveyor, removing", item.item_id);
+                    None
+                })
+            })
+            .collect();
         Ok(Self {
             position: v2.position,
             direction: v2.direction,
             shape: v2.shape,
-            items: items?,
+            items,
             last_output_index: v2.last_output_index,
             last_input_source: v2.last_input_source,
         })
@@ -713,11 +759,24 @@ impl TryFrom<FurnaceSaveDataV2> for FurnaceSaveData {
     type Error = String;
 
     fn try_from(v2: FurnaceSaveDataV2) -> Result<Self, Self::Error> {
+        // Unknown items are cleared with warning
+        let input = v2.input.and_then(|s| {
+            s.clone().try_into().ok().or_else(|| {
+                tracing::warn!("Unknown item '{}' in furnace input, clearing", s.item_id);
+                None
+            })
+        });
+        let output = v2.output.and_then(|s| {
+            s.clone().try_into().ok().or_else(|| {
+                tracing::warn!("Unknown item '{}' in furnace output, clearing", s.item_id);
+                None
+            })
+        });
         Ok(Self {
             position: v2.position,
             fuel: v2.fuel,
-            input: v2.input.map(|s| s.try_into()).transpose()?,
-            output: v2.output.map(|s| s.try_into()).transpose()?,
+            input,
+            output,
             progress: v2.progress,
         })
     }
@@ -727,10 +786,23 @@ impl TryFrom<CrusherSaveDataV2> for CrusherSaveData {
     type Error = String;
 
     fn try_from(v2: CrusherSaveDataV2) -> Result<Self, Self::Error> {
+        // Unknown items are cleared with warning
+        let input = v2.input.and_then(|s| {
+            s.clone().try_into().ok().or_else(|| {
+                tracing::warn!("Unknown item '{}' in crusher input, clearing", s.item_id);
+                None
+            })
+        });
+        let output = v2.output.and_then(|s| {
+            s.clone().try_into().ok().or_else(|| {
+                tracing::warn!("Unknown item '{}' in crusher output, clearing", s.item_id);
+                None
+            })
+        });
         Ok(Self {
             position: v2.position,
-            input: v2.input.map(|s| s.try_into()).transpose()?,
-            output: v2.output.map(|s| s.try_into()).transpose()?,
+            input,
+            output,
             progress: v2.progress,
         })
     }
