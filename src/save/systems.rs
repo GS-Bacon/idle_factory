@@ -216,9 +216,9 @@ pub fn collect_save_data(
     // Save GlobalInventory items
     let global_inventory_data = GlobalInventorySaveData {
         items: global_inventory
-            .items()
+            .items_by_id()
             .iter()
-            .map(|(bt, count)| ((*bt).into(), *count))
+            .map(|(id, count)| ((*id).into(), *count))
             .collect(),
     };
 
