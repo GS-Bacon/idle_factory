@@ -9,16 +9,16 @@ use std::collections::HashMap;
 // Use real library types
 use idle_factory::constants::{CHUNK_SIZE, HOTBAR_SLOTS};
 use idle_factory::core::items;
-use idle_factory::{BlockType, ItemId};
+use idle_factory::ItemId;
 
 #[derive(Resource, Default)]
 struct Inventory {
-    items: HashMap<BlockType, u32>,
+    items: HashMap<ItemId, u32>,
 }
 
 #[derive(Resource)]
 struct ChunkData {
-    blocks: HashMap<IVec3, BlockType>,
+    blocks: HashMap<IVec3, ItemId>,
 }
 
 impl Default for ChunkData {
@@ -27,12 +27,12 @@ impl Default for ChunkData {
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 for y in 0..8 {
-                    let block_type = if y == 7 {
-                        BlockType::Grass
+                    let item_id = if y == 7 {
+                        items::grass()
                     } else {
-                        BlockType::Stone
+                        items::stone()
                     };
-                    blocks.insert(IVec3::new(x, y, z), block_type);
+                    blocks.insert(IVec3::new(x, y, z), item_id);
                 }
             }
         }
@@ -52,12 +52,12 @@ fn test_world_generation() {
     let grass_count = chunk
         .blocks
         .values()
-        .filter(|&&b| b == BlockType::Grass)
+        .filter(|&&b| b == items::grass())
         .count();
     let stone_count = chunk
         .blocks
         .values()
-        .filter(|&&b| b == BlockType::Stone)
+        .filter(|&&b| b == items::stone())
         .count();
 
     assert_eq!(grass_count, 16 * 16); // Top layer is all grass
@@ -79,7 +79,7 @@ fn test_block_mining_adds_to_inventory() {
     assert!(!chunk.blocks.contains_key(&block_pos));
 
     // Verify inventory was updated
-    assert_eq!(inventory.items.get(&BlockType::Grass), Some(&1));
+    assert_eq!(inventory.items.get(&items::grass()), Some(&1));
 }
 
 #[test]
@@ -103,8 +103,8 @@ fn test_multiple_blocks_mining() {
         }
     }
 
-    assert_eq!(inventory.items.get(&BlockType::Grass), Some(&3));
-    assert_eq!(inventory.items.get(&BlockType::Stone), Some(&2));
+    assert_eq!(inventory.items.get(&items::grass()), Some(&3));
+    assert_eq!(inventory.items.get(&items::stone()), Some(&2));
 }
 
 #[test]
@@ -219,30 +219,30 @@ fn test_hotbar_selection_1_to_9() {
 /// Inventory with hotbar items
 #[derive(Resource)]
 struct HotbarInventory {
-    /// 9 hotbar slots: (BlockType, count)
-    slots: Vec<Option<(BlockType, u32)>>,
+    /// 9 hotbar slots: (ItemId, count)
+    slots: Vec<Option<(ItemId, u32)>>,
 }
 
 impl Default for HotbarInventory {
     fn default() -> Self {
         Self {
             slots: vec![
-                Some((BlockType::Stone, 64)), // Slot 0
-                Some((BlockType::Grass, 32)), // Slot 1
-                None,                         // Slot 2 - empty
-                None,                         // Slot 3 - empty
-                None,                         // Slot 4 - empty
-                None,                         // Slot 5 - empty
-                None,                         // Slot 6 - empty
-                None,                         // Slot 7 - empty
-                None,                         // Slot 8 - empty
+                Some((items::stone(), 64)), // Slot 0
+                Some((items::grass(), 32)), // Slot 1
+                None,                       // Slot 2 - empty
+                None,                       // Slot 3 - empty
+                None,                       // Slot 4 - empty
+                None,                       // Slot 5 - empty
+                None,                       // Slot 6 - empty
+                None,                       // Slot 7 - empty
+                None,                       // Slot 8 - empty
             ],
         }
     }
 }
 
 impl HotbarInventory {
-    fn place_block(&mut self, slot: usize) -> Option<BlockType> {
+    fn place_block(&mut self, slot: usize) -> Option<ItemId> {
         if slot >= 9 {
             return None;
         }
@@ -260,7 +260,7 @@ impl HotbarInventory {
         None
     }
 
-    fn get_slot(&self, slot: usize) -> Option<(BlockType, u32)> {
+    fn get_slot(&self, slot: usize) -> Option<(ItemId, u32)> {
         if slot >= 9 {
             return None;
         }
@@ -273,12 +273,12 @@ fn test_block_placement_consumes_inventory() {
     let mut inventory = HotbarInventory::default();
 
     // Initial state
-    assert_eq!(inventory.get_slot(0), Some((BlockType::Stone, 64)));
+    assert_eq!(inventory.get_slot(0), Some((items::stone(), 64)));
 
     // Place a block from slot 0
     let placed = inventory.place_block(0);
-    assert_eq!(placed, Some(BlockType::Stone));
-    assert_eq!(inventory.get_slot(0), Some((BlockType::Stone, 63)));
+    assert_eq!(placed, Some(items::stone()));
+    assert_eq!(inventory.get_slot(0), Some((items::stone(), 63)));
 
     // Place from empty slot returns None
     let placed = inventory.place_block(5);
@@ -289,7 +289,7 @@ fn test_block_placement_consumes_inventory() {
 fn test_block_placement_empties_slot() {
     let mut inventory = HotbarInventory {
         slots: vec![
-            Some((BlockType::Stone, 1)), // Only 1 block
+            Some((items::stone(), 1)), // Only 1 block
             None,
             None,
             None,
@@ -303,7 +303,7 @@ fn test_block_placement_empties_slot() {
 
     // Place the only block
     let placed = inventory.place_block(0);
-    assert_eq!(placed, Some(BlockType::Stone));
+    assert_eq!(placed, Some(items::stone()));
 
     // Slot should now be empty
     assert_eq!(inventory.get_slot(0), None);
@@ -406,7 +406,7 @@ fn test_block_break_no_freeze() {
     }
 
     // Verify inventory count
-    assert_eq!(inventory.items.get(&BlockType::Grass), Some(&10));
+    assert_eq!(inventory.items.get(&items::grass()), Some(&10));
 }
 
 // =====================================================
@@ -416,7 +416,7 @@ fn test_block_break_no_freeze() {
 /// Slot-based inventory matching the actual game implementation (simplified for tests)
 #[derive(Clone)]
 struct SlotInventory {
-    slots: [Option<(BlockType, u32)>; HOTBAR_SLOTS],
+    slots: [Option<(ItemId, u32)>; HOTBAR_SLOTS],
     selected_slot: usize,
 }
 
@@ -430,7 +430,7 @@ impl Default for SlotInventory {
 }
 
 impl SlotInventory {
-    fn get_slot(&self, slot: usize) -> Option<BlockType> {
+    fn get_slot(&self, slot: usize) -> Option<ItemId> {
         self.slots.get(slot).and_then(|s| s.map(|(bt, _)| bt))
     }
 
@@ -441,11 +441,11 @@ impl SlotInventory {
             .unwrap_or(0)
     }
 
-    fn selected_block(&self) -> Option<BlockType> {
+    fn selected_block(&self) -> Option<ItemId> {
         self.get_slot(self.selected_slot)
     }
 
-    fn add_item(&mut self, block_type: BlockType, amount: u32) -> bool {
+    fn add_item(&mut self, block_type: ItemId, amount: u32) -> bool {
         // First, try to find existing slot with same block type
         for (bt, count) in self.slots.iter_mut().flatten() {
             if *bt == block_type {
@@ -463,7 +463,7 @@ impl SlotInventory {
         false
     }
 
-    fn consume_selected(&mut self) -> Option<BlockType> {
+    fn consume_selected(&mut self) -> Option<ItemId> {
         if let Some(Some((block_type, count))) = self.slots.get_mut(self.selected_slot) {
             if *count > 0 {
                 let bt = *block_type;
@@ -477,7 +477,7 @@ impl SlotInventory {
         None
     }
 
-    fn consume_item(&mut self, block_type: BlockType, amount: u32) -> bool {
+    fn consume_item(&mut self, block_type: ItemId, amount: u32) -> bool {
         for slot in self.slots.iter_mut() {
             if let Some((bt, count)) = slot {
                 if *bt == block_type && *count >= amount {
@@ -506,34 +506,34 @@ fn test_slot_inventory_add_stacks() {
     let mut inv = SlotInventory::default();
 
     // Add 10 stone to empty inventory
-    assert!(inv.add_item(BlockType::Stone, 10));
-    assert_eq!(inv.get_slot(0), Some(BlockType::Stone));
+    assert!(inv.add_item(items::stone(), 10));
+    assert_eq!(inv.get_slot(0), Some(items::stone()));
     assert_eq!(inv.get_slot_count(0), 10);
 
     // Add 5 more stone - should stack in same slot
-    assert!(inv.add_item(BlockType::Stone, 5));
+    assert!(inv.add_item(items::stone(), 5));
     assert_eq!(inv.get_slot_count(0), 15);
 
     // Add grass - should go to next slot
-    assert!(inv.add_item(BlockType::Grass, 20));
-    assert_eq!(inv.get_slot(1), Some(BlockType::Grass));
+    assert!(inv.add_item(items::grass(), 20));
+    assert_eq!(inv.get_slot(1), Some(items::grass()));
     assert_eq!(inv.get_slot_count(1), 20);
 }
 
 #[test]
 fn test_slot_inventory_consume_selected() {
     let mut inv = SlotInventory::default();
-    inv.add_item(BlockType::Stone, 3);
+    inv.add_item(items::stone(), 3);
     inv.selected_slot = 0;
 
     // Consume from selected slot
-    assert_eq!(inv.consume_selected(), Some(BlockType::Stone));
+    assert_eq!(inv.consume_selected(), Some(items::stone()));
     assert_eq!(inv.get_slot_count(0), 2);
 
-    assert_eq!(inv.consume_selected(), Some(BlockType::Stone));
+    assert_eq!(inv.consume_selected(), Some(items::stone()));
     assert_eq!(inv.get_slot_count(0), 1);
 
-    assert_eq!(inv.consume_selected(), Some(BlockType::Stone));
+    assert_eq!(inv.consume_selected(), Some(items::stone()));
     // Slot should now be empty
     assert_eq!(inv.get_slot(0), None);
     assert_eq!(inv.get_slot_count(0), 0);
@@ -545,7 +545,7 @@ fn test_slot_inventory_consume_selected() {
 #[test]
 fn test_slot_inventory_empty_slot_stays_selected() {
     let mut inv = SlotInventory::default();
-    inv.add_item(BlockType::Stone, 1);
+    inv.add_item(items::stone(), 1);
     inv.selected_slot = 0;
 
     // Consume the only item
@@ -557,27 +557,27 @@ fn test_slot_inventory_empty_slot_stays_selected() {
     assert!(!inv.has_selected());
 
     // Adding a different item goes to the next available empty slot (which is 0)
-    inv.add_item(BlockType::Grass, 5);
+    inv.add_item(items::grass(), 5);
     // Grass is now in slot 0 (first empty)
-    assert_eq!(inv.get_slot(0), Some(BlockType::Grass));
+    assert_eq!(inv.get_slot(0), Some(items::grass()));
 }
 
 #[test]
 fn test_slot_inventory_consume_specific_item() {
     let mut inv = SlotInventory::default();
-    inv.add_item(BlockType::Stone, 10);
-    inv.add_item(BlockType::Grass, 5);
+    inv.add_item(items::stone(), 10);
+    inv.add_item(items::grass(), 5);
 
     // Consume stone (regardless of selected slot)
-    assert!(inv.consume_item(BlockType::Stone, 3));
+    assert!(inv.consume_item(items::stone(), 3));
     assert_eq!(inv.get_slot_count(0), 7);
 
     // Consume grass
-    assert!(inv.consume_item(BlockType::Grass, 5));
+    assert!(inv.consume_item(items::grass(), 5));
     assert_eq!(inv.get_slot(1), None); // Slot emptied
 
     // Try to consume more grass than available - should fail
-    assert!(!inv.consume_item(BlockType::Grass, 1));
+    assert!(!inv.consume_item(items::grass(), 1));
 }
 
 #[test]
@@ -588,9 +588,9 @@ fn test_slot_inventory_full() {
     for i in 0..HOTBAR_SLOTS {
         // Alternate between block types but use separate add calls to fill slots
         let block = if i % 2 == 0 {
-            BlockType::Stone
+            items::stone()
         } else {
-            BlockType::Grass
+            items::grass()
         };
         // Force into separate slots by making each a new "stack"
         inv.slots[i] = Some((block, (i + 1) as u32));
@@ -607,7 +607,7 @@ fn test_slot_inventory_full() {
 #[test]
 fn test_slot_inventory_selection_with_empty_slots() {
     let mut inv = SlotInventory::default();
-    inv.add_item(BlockType::Stone, 10);
+    inv.add_item(items::stone(), 10);
     // Stone in slot 0, slots 1-8 empty
 
     // Select empty slot 5
@@ -620,7 +620,7 @@ fn test_slot_inventory_selection_with_empty_slots() {
 
     // Switch to slot 0
     inv.selected_slot = 0;
-    assert_eq!(inv.selected_block(), Some(BlockType::Stone));
+    assert_eq!(inv.selected_block(), Some(items::stone()));
     assert!(inv.has_selected());
 }
 
@@ -651,7 +651,7 @@ impl Direction {
 struct Miner {
     position: IVec3,
     progress: f32,
-    buffer: Option<(BlockType, u32)>,
+    buffer: Option<(ItemId, u32)>,
 }
 
 impl Default for Miner {
@@ -665,7 +665,7 @@ impl Default for Miner {
 }
 
 impl Miner {
-    fn tick(&mut self, delta_seconds: f32, ore_type: Option<BlockType>) -> bool {
+    fn tick(&mut self, delta_seconds: f32, ore_type: Option<ItemId>) -> bool {
         // Mining takes 5 seconds
         const MINING_TIME: f32 = 5.0;
 
@@ -690,7 +690,7 @@ impl Miner {
         }
     }
 
-    fn take_output(&mut self) -> Option<BlockType> {
+    fn take_output(&mut self) -> Option<ItemId> {
         if let Some((bt, ref mut count)) = self.buffer {
             if *count > 0 {
                 *count -= 1;
@@ -709,7 +709,7 @@ impl Miner {
 struct Conveyor {
     position: IVec3,
     direction: Direction,
-    item: Option<BlockType>,
+    item: Option<ItemId>,
     progress: f32,
 }
 
@@ -723,7 +723,7 @@ impl Conveyor {
         }
     }
 
-    fn accept_item(&mut self, item: BlockType) -> bool {
+    fn accept_item(&mut self, item: ItemId) -> bool {
         if self.item.is_none() {
             self.item = Some(item);
             self.progress = 0.0;
@@ -733,7 +733,7 @@ impl Conveyor {
         }
     }
 
-    fn tick(&mut self, delta_seconds: f32) -> Option<BlockType> {
+    fn tick(&mut self, delta_seconds: f32) -> Option<ItemId> {
         const TRANSFER_TIME: f32 = 0.5;
 
         if self.item.is_none() {
@@ -757,9 +757,9 @@ impl Conveyor {
 /// Furnace component for testing
 struct Furnace {
     fuel: u32,
-    input_type: Option<BlockType>,
+    input_type: Option<ItemId>,
     input_count: u32,
-    output_type: Option<BlockType>,
+    output_type: Option<ItemId>,
     output_count: u32,
     progress: f32,
 }
@@ -782,7 +782,7 @@ impl Furnace {
         self.fuel += count;
     }
 
-    fn add_input(&mut self, ore_type: BlockType) -> bool {
+    fn add_input(&mut self, ore_type: ItemId) -> bool {
         if self.input_type.is_none() || self.input_type == Some(ore_type) {
             self.input_type = Some(ore_type);
             self.input_count += 1;
@@ -809,7 +809,7 @@ impl Furnace {
                 self.input_type = None;
             }
             // Produce ingot
-            self.output_type = Some(BlockType::Stone); // Simplified: IronIngot
+            self.output_type = Some(items::stone()); // Simplified: IronIngot
             self.output_count += 1;
             true
         } else {
@@ -817,7 +817,7 @@ impl Furnace {
         }
     }
 
-    fn take_output(&mut self) -> Option<BlockType> {
+    fn take_output(&mut self) -> Option<ItemId> {
         if self.output_count > 0 {
             self.output_count -= 1;
             let result = self.output_type;
@@ -833,9 +833,9 @@ impl Furnace {
 
 /// Crusher component for testing (doubles ore output)
 struct Crusher {
-    input_type: Option<BlockType>,
+    input_type: Option<ItemId>,
     input_count: u32,
-    output_type: Option<BlockType>,
+    output_type: Option<ItemId>,
     output_count: u32,
     progress: f32,
 }
@@ -853,7 +853,7 @@ impl Default for Crusher {
 }
 
 impl Crusher {
-    fn add_input(&mut self, ore_type: BlockType) -> bool {
+    fn add_input(&mut self, ore_type: ItemId) -> bool {
         if self.input_type.is_none() || self.input_type == Some(ore_type) {
             self.input_type = Some(ore_type);
             self.input_count += 1;
@@ -887,7 +887,7 @@ impl Crusher {
         }
     }
 
-    fn take_output(&mut self) -> Option<BlockType> {
+    fn take_output(&mut self) -> Option<ItemId> {
         if self.output_count > 0 {
             self.output_count -= 1;
             let result = self.output_type;
@@ -910,7 +910,7 @@ fn test_miner_mining_cycle() {
     assert!(miner.buffer.is_none(), "Initial buffer should be empty");
 
     // Simulate mining iron ore
-    let ore_type = Some(BlockType::Stone); // Representing iron ore
+    let ore_type = Some(items::stone()); // Representing iron ore
 
     // Not enough time passed (2 seconds of 5 total)
     assert!(
@@ -931,7 +931,7 @@ fn test_miner_mining_cycle() {
     assert!(miner.tick(3.0, ore_type), "Mining should complete at 5s");
     assert_eq!(
         miner.buffer,
-        Some((BlockType::Stone, 1)),
+        Some((items::stone(), 1)),
         "Buffer should contain 1 Stone"
     );
     assert!(
@@ -942,7 +942,7 @@ fn test_miner_mining_cycle() {
     // Take output
     assert_eq!(
         miner.take_output(),
-        Some(BlockType::Stone),
+        Some(items::stone()),
         "Should output Stone"
     );
     assert!(miner.buffer.is_none(), "Buffer should be empty after take");
@@ -962,15 +962,15 @@ fn test_conveyor_item_transfer() {
     let mut conv = Conveyor::new(IVec3::new(5, 8, 5), Direction::East);
 
     // Accept item
-    assert!(conv.accept_item(BlockType::Stone));
-    assert_eq!(conv.item, Some(BlockType::Stone));
+    assert!(conv.accept_item(items::stone()));
+    assert_eq!(conv.item, Some(items::stone()));
 
     // Can't accept another while occupied
-    assert!(!conv.accept_item(BlockType::Grass));
+    assert!(!conv.accept_item(items::grass()));
 
     // Transfer takes 0.5 seconds
     assert!(conv.tick(0.3).is_none());
-    assert_eq!(conv.tick(0.3), Some(BlockType::Stone));
+    assert_eq!(conv.tick(0.3), Some(items::stone()));
     assert!(conv.item.is_none());
 }
 
@@ -978,7 +978,7 @@ fn test_conveyor_item_transfer() {
 fn test_conveyor_chain() {
     // Simulate: Miner -> Conv1 -> Conv2 -> (output)
     let mut miner = Miner::default();
-    miner.buffer = Some((BlockType::Stone, 1));
+    miner.buffer = Some((items::stone(), 1));
 
     let mut conv1 = Conveyor::new(IVec3::new(6, 8, 5), Direction::East);
     let mut conv2 = Conveyor::new(IVec3::new(7, 8, 5), Direction::East);
@@ -995,7 +995,7 @@ fn test_conveyor_chain() {
 
     // Conv2 outputs
     let output = conv2.tick(0.5);
-    assert_eq!(output, Some(BlockType::Stone));
+    assert_eq!(output, Some(items::stone()));
 }
 
 #[test]
@@ -1017,7 +1017,7 @@ fn test_furnace_smelting() {
     // Add fuel and input
     furnace.add_fuel(1);
     assert_eq!(furnace.fuel, 1, "Fuel should be 1 after adding");
-    furnace.add_input(BlockType::Stone); // Representing iron ore
+    furnace.add_input(items::stone()); // Representing iron ore
     assert!(furnace.input_type.is_some(), "Input should be set");
 
     // Smelting takes 3 seconds - partial progress
@@ -1038,7 +1038,7 @@ fn test_furnace_smelting() {
     assert_eq!(furnace.output_count, 1, "Should have 1 output item");
     assert_eq!(
         furnace.take_output(),
-        Some(BlockType::Stone),
+        Some(items::stone()),
         "Should output Stone"
     );
     assert_eq!(
@@ -1053,7 +1053,7 @@ fn test_furnace_smelting() {
 #[test]
 fn test_furnace_no_fuel() {
     let mut furnace = Furnace::default();
-    furnace.add_input(BlockType::Stone);
+    furnace.add_input(items::stone());
 
     // No smelting without fuel
     assert!(!furnace.tick(10.0));
@@ -1076,7 +1076,7 @@ fn test_crusher_doubles_output() {
     );
     assert_eq!(crusher.output_count, 0, "Initial output count should be 0");
 
-    crusher.add_input(BlockType::Stone);
+    crusher.add_input(items::stone());
     assert!(
         crusher.input_type.is_some(),
         "Input should be set after add"
@@ -1097,7 +1097,7 @@ fn test_crusher_doubles_output() {
     // Take first output
     assert_eq!(
         crusher.take_output(),
-        Some(BlockType::Stone),
+        Some(items::stone()),
         "First output should be Stone"
     );
     assert_eq!(crusher.output_count, 1, "Should have 1 output remaining");
@@ -1105,7 +1105,7 @@ fn test_crusher_doubles_output() {
     // Take second output
     assert_eq!(
         crusher.take_output(),
-        Some(BlockType::Stone),
+        Some(items::stone()),
         "Second output should be Stone"
     );
     assert_eq!(crusher.output_count, 0, "Should have 0 outputs remaining");
@@ -1269,9 +1269,9 @@ fn test_multiple_conveyors_cleanup() {
 
 #[derive(Clone)]
 struct QuestDef {
-    target_item: BlockType,
+    target_item: ItemId,
     required_count: u32,
-    reward_items: Vec<(BlockType, u32)>,
+    reward_items: Vec<(ItemId, u32)>,
 }
 
 struct CurrentQuest {
@@ -1314,7 +1314,7 @@ impl CurrentQuest {
 }
 
 struct DeliveryPlatform {
-    delivered: HashMap<BlockType, u32>,
+    delivered: HashMap<ItemId, u32>,
 }
 
 impl DeliveryPlatform {
@@ -1324,11 +1324,11 @@ impl DeliveryPlatform {
         }
     }
 
-    fn deliver(&mut self, item: BlockType) {
+    fn deliver(&mut self, item: ItemId) {
         *self.delivered.entry(item).or_insert(0) += 1;
     }
 
-    fn get_delivered(&self, item: BlockType) -> u32 {
+    fn get_delivered(&self, item: ItemId) -> u32 {
         *self.delivered.get(&item).unwrap_or(&0)
     }
 }
@@ -1336,9 +1336,9 @@ impl DeliveryPlatform {
 #[test]
 fn test_quest_progress() {
     let quest = QuestDef {
-        target_item: BlockType::Stone, // Representing IronIngot
+        target_item: items::stone(), // Representing IronIngot
         required_count: 3,
-        reward_items: vec![(BlockType::Grass, 10)],
+        reward_items: vec![(items::grass(), 10)],
     };
 
     let mut current = CurrentQuest::new(0);
@@ -1356,9 +1356,9 @@ fn test_quest_progress() {
 #[test]
 fn test_quest_rewards() {
     let quest = QuestDef {
-        target_item: BlockType::Stone,
+        target_item: items::stone(),
         required_count: 1,
-        reward_items: vec![(BlockType::Grass, 5), (BlockType::Stone, 3)],
+        reward_items: vec![(items::grass(), 5), (items::stone(), 3)],
     };
 
     let mut current = CurrentQuest::new(0);
@@ -1385,18 +1385,18 @@ fn test_delivery_platform() {
     let mut platform = DeliveryPlatform::new();
 
     // Deliver items
-    platform.deliver(BlockType::Stone);
-    platform.deliver(BlockType::Stone);
-    platform.deliver(BlockType::Grass);
+    platform.deliver(items::stone());
+    platform.deliver(items::stone());
+    platform.deliver(items::grass());
 
-    assert_eq!(platform.get_delivered(BlockType::Stone), 2);
-    assert_eq!(platform.get_delivered(BlockType::Grass), 1);
+    assert_eq!(platform.get_delivered(items::stone()), 2);
+    assert_eq!(platform.get_delivered(items::grass()), 1);
 }
 
 #[test]
 fn test_delivery_updates_quest() {
     let quest = QuestDef {
-        target_item: BlockType::Stone,
+        target_item: items::stone(),
         required_count: 5,
         reward_items: vec![],
     };
@@ -1406,11 +1406,11 @@ fn test_delivery_updates_quest() {
 
     // Deliver items and update quest
     for _ in 0..5 {
-        platform.deliver(BlockType::Stone);
+        platform.deliver(items::stone());
         current.add_progress(&quest, 1);
     }
 
-    assert_eq!(platform.get_delivered(BlockType::Stone), 5);
+    assert_eq!(platform.get_delivered(items::stone()), 5);
     assert!(current.completed);
 }
 
@@ -1441,7 +1441,7 @@ fn test_full_automation_line() {
     for _ in 0..200 {
         // 20 seconds of simulation
         // Miner mines
-        miner.tick(delta, Some(BlockType::Stone));
+        miner.tick(delta, Some(items::stone()));
 
         // Miner outputs to conv1
         if conv1.item.is_none() {
@@ -1487,7 +1487,7 @@ fn test_full_automation_line() {
     }
 
     // Should have some deliveries
-    let delivered = platform.get_delivered(BlockType::Stone);
+    let delivered = platform.get_delivered(items::stone());
     assert!(
         delivered > 0,
         "Automation line should produce deliveries, got {}",
@@ -1500,7 +1500,7 @@ fn test_full_automation_line() {
 // =====================================================
 
 struct TestWorldData {
-    chunks: HashMap<IVec2, HashMap<IVec3, BlockType>>,
+    chunks: HashMap<IVec2, HashMap<IVec3, ItemId>>,
 }
 
 impl TestWorldData {
@@ -1510,13 +1510,13 @@ impl TestWorldData {
         }
     }
 
-    fn set_block(&mut self, world_pos: IVec3, block_type: BlockType) {
+    fn set_block(&mut self, world_pos: IVec3, item_id: ItemId) {
         let chunk_coord = IVec2::new(
             world_pos.x.div_euclid(CHUNK_SIZE),
             world_pos.z.div_euclid(CHUNK_SIZE),
         );
         let chunk = self.chunks.entry(chunk_coord).or_insert_with(HashMap::new);
-        chunk.insert(world_pos, block_type);
+        chunk.insert(world_pos, item_id);
     }
 
     fn has_block(&self, world_pos: IVec3) -> bool {
@@ -1544,14 +1544,14 @@ fn test_chunk_boundary_faces() {
 
     // Place block at chunk boundary (x=15, edge of chunk 0)
     let boundary_block = IVec3::new(15, 5, 5);
-    world.set_block(boundary_block, BlockType::Stone);
+    world.set_block(boundary_block, items::stone());
 
     // East face (toward chunk 1) should be rendered
     assert!(world.should_render_face(boundary_block, IVec3::new(1, 0, 0)));
 
     // Now add block in adjacent chunk
     let adjacent_block = IVec3::new(16, 5, 5); // In chunk (1, 0)
-    world.set_block(adjacent_block, BlockType::Stone);
+    world.set_block(adjacent_block, items::stone());
 
     // East face should NOT be rendered now (neighbor exists)
     assert!(!world.should_render_face(boundary_block, IVec3::new(1, 0, 0)));
@@ -1565,7 +1565,7 @@ fn test_chunk_boundary_all_directions() {
 
     // Place block in center of chunk
     let center = IVec3::new(8, 5, 8);
-    world.set_block(center, BlockType::Stone);
+    world.set_block(center, items::stone());
 
     // All faces should render (no neighbors)
     let directions = [
@@ -1587,7 +1587,7 @@ fn test_chunk_boundary_all_directions() {
 
     // Add neighbors in all directions
     for dir in directions {
-        world.set_block(center + dir, BlockType::Stone);
+        world.set_block(center + dir, items::stone());
     }
 
     // No faces should render now
@@ -1606,13 +1606,13 @@ fn test_chunk_boundary_z_axis() {
 
     // Place block at z boundary
     let boundary_block = IVec3::new(5, 5, 15);
-    world.set_block(boundary_block, BlockType::Stone);
+    world.set_block(boundary_block, items::stone());
 
     // South face should render
     assert!(world.should_render_face(boundary_block, IVec3::new(0, 0, 1)));
 
     // Add neighbor in next chunk
-    world.set_block(IVec3::new(5, 5, 16), BlockType::Stone);
+    world.set_block(IVec3::new(5, 5, 16), items::stone());
 
     // South face should NOT render
     assert!(!world.should_render_face(boundary_block, IVec3::new(0, 0, 1)));
@@ -1626,14 +1626,14 @@ fn test_chunk_boundary_z_axis() {
 fn test_rapid_block_operations() {
     let mut world = TestWorldData::new();
     let mut inventory = SlotInventory::default();
-    inventory.add_item(BlockType::Stone, 100);
+    inventory.add_item(items::stone(), 100);
 
     // Simulate rapid place/break cycles
     for i in 0..50 {
         let pos = IVec3::new(i % 16, 8, i / 16);
 
         // Place block
-        world.set_block(pos, BlockType::Stone);
+        world.set_block(pos, items::stone());
         inventory.consume_selected();
 
         // Break block (simulated - would return to inventory in real game)
@@ -1659,7 +1659,7 @@ fn test_block_operations_at_chunk_boundaries() {
     ];
 
     for pos in boundary_positions {
-        world.set_block(pos, BlockType::Stone);
+        world.set_block(pos, items::stone());
         assert!(world.has_block(pos), "Block at {:?} should exist", pos);
     }
 }
@@ -1830,22 +1830,22 @@ fn test_inventory_stack_limit_999() {
 
     // Add items up to stack limit
     for _ in 0..999 {
-        inventory.add_item(TestBlockType::Stone);
+        inventory.add_item(TestItemId::Stone);
     }
 
-    assert_eq!(inventory.get_count(TestBlockType::Stone), 999);
+    assert_eq!(inventory.get_count(TestItemId::Stone), 999);
 
     // Adding more should overflow to next slot or fail
-    inventory.add_item(TestBlockType::Stone);
+    inventory.add_item(TestItemId::Stone);
 
     // Total should be 1000 (999 in first slot, 1 in overflow or same slot depending on impl)
     // For our test, we just verify it handles the overflow gracefully
-    assert!(inventory.get_count(TestBlockType::Stone) >= 999);
+    assert!(inventory.get_count(TestItemId::Stone) >= 999);
 }
 
 /// Helper struct for inventory stack test
 struct TestInventory {
-    slots: [(Option<TestBlockType>, u32); 9],
+    slots: [(Option<TestItemId>, u32); 9],
 }
 
 impl TestInventory {
@@ -1855,7 +1855,7 @@ impl TestInventory {
         }
     }
 
-    fn add_item(&mut self, item: TestBlockType) {
+    fn add_item(&mut self, item: TestItemId) {
         const MAX_STACK: u32 = 999;
 
         // Find existing stack or empty slot
@@ -1876,7 +1876,7 @@ impl TestInventory {
         }
     }
 
-    fn get_count(&self, item: TestBlockType) -> u32 {
+    fn get_count(&self, item: TestItemId) -> u32 {
         self.slots
             .iter()
             .filter(|(i, _)| *i == Some(item))
@@ -1886,7 +1886,7 @@ impl TestInventory {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum TestBlockType {
+enum TestItemId {
     Stone,
 }
 
@@ -2576,7 +2576,7 @@ fn test_modified_blocks_persist_across_chunk_reload() {
     // Test that player modifications (placed/destroyed blocks) persist across chunk unload/reload
     use std::collections::HashMap;
 
-    // Simulated modified_blocks storage (world_pos -> Option<BlockType>)
+    // Simulated modified_blocks storage (world_pos -> Option<ItemId>)
     // Some(block) = player placed, None = player destroyed
     let mut modified_blocks: HashMap<IVec3, Option<u32>> = HashMap::new();
 
@@ -2730,16 +2730,16 @@ fn test_multiple_ui_exclusive() {
 fn test_crusher_break_returns_items() {
     // When a crusher is broken, its input and output items should be returned to inventory
     struct CrusherState {
-        input_type: Option<BlockType>,
+        input_type: Option<ItemId>,
         input_count: u32,
-        output_type: Option<BlockType>,
+        output_type: Option<ItemId>,
         output_count: u32,
     }
 
     let crusher = CrusherState {
-        input_type: Some(BlockType::Stone), // Using Stone as ore substitute
+        input_type: Some(items::stone()), // Using Stone as ore substitute
         input_count: 5,
-        output_type: Some(BlockType::Stone),
+        output_type: Some(items::stone()),
         output_count: 10, // Crushed output (doubled)
     };
 
@@ -2758,7 +2758,7 @@ fn test_crusher_break_returns_items() {
     }
 
     // Verify items were returned (stacked in slot 0)
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot(0), Some(items::stone()));
     assert_eq!(
         inventory.get_slot_count(0),
         15,
@@ -2771,17 +2771,17 @@ fn test_furnace_break_returns_items() {
     // When a furnace is broken, its fuel, input ore, and output ingots should be returned
     struct FurnaceState {
         fuel: u32,
-        input_type: Option<BlockType>,
+        input_type: Option<ItemId>,
         input_count: u32,
-        output_type: Option<BlockType>,
+        output_type: Option<ItemId>,
         output_count: u32,
     }
 
     let furnace = FurnaceState {
         fuel: 3,
-        input_type: Some(BlockType::Stone), // Using Stone as ore substitute
+        input_type: Some(items::stone()), // Using Stone as ore substitute
         input_count: 5,
-        output_type: Some(BlockType::Grass), // Using Grass as ingot substitute
+        output_type: Some(items::grass()), // Using Grass as ingot substitute
         output_count: 2,
     };
 
@@ -2790,7 +2790,7 @@ fn test_furnace_break_returns_items() {
     // Simulate breaking the furnace - return contents to inventory
     if furnace.fuel > 0 {
         // Use Grass for coal substitute (slot 0)
-        inventory.add_item(BlockType::Grass, furnace.fuel);
+        inventory.add_item(items::grass(), furnace.fuel);
     }
     if let Some(input_type) = furnace.input_type {
         if furnace.input_count > 0 {
@@ -2805,14 +2805,14 @@ fn test_furnace_break_returns_items() {
 
     // Verify items were returned
     // Grass (fuel substitute + output): 3 + 2 = 5 in slot 0
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot(0), Some(items::grass()));
     assert_eq!(
         inventory.get_slot_count(0),
         5,
         "Fuel and output should be returned"
     );
     // Stone (input ore) in slot 1
-    assert_eq!(inventory.get_slot(1), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot(1), Some(items::stone()));
     assert_eq!(
         inventory.get_slot_count(1),
         5,
@@ -2833,8 +2833,8 @@ fn test_command_give_item() {
 
     // Parse item name (simplified)
     let block_type = match item_name {
-        "stone" => Some(BlockType::Stone),
-        "grass" => Some(BlockType::Grass),
+        "stone" => Some(items::stone()),
+        "grass" => Some(items::grass()),
         _ => None,
     };
 
@@ -2842,7 +2842,7 @@ fn test_command_give_item() {
         inventory.add_item(bt, count);
     }
 
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot(0), Some(items::stone()));
     assert_eq!(inventory.get_slot_count(0), 10);
 }
 
@@ -2852,7 +2852,7 @@ fn test_command_give_default_count() {
     let mut inventory = SlotInventory::default();
     let default_count = 64u32;
 
-    inventory.add_item(BlockType::Stone, default_count);
+    inventory.add_item(items::stone(), default_count);
 
     assert_eq!(inventory.get_slot_count(0), 64);
 }
@@ -2862,8 +2862,8 @@ fn test_command_clear_inventory() {
     let mut inventory = SlotInventory::default();
 
     // Add some items
-    inventory.add_item(BlockType::Stone, 10);
-    inventory.add_item(BlockType::Grass, 5);
+    inventory.add_item(items::stone(), 10);
+    inventory.add_item(items::grass(), 5);
 
     assert!(inventory.get_slot(0).is_some());
     assert!(inventory.get_slot(1).is_some());
@@ -2882,14 +2882,14 @@ fn test_command_creative_mode_fills_inventory() {
     let mut inventory = SlotInventory::default();
 
     // Simulate entering creative mode - fills first 9 slots with 64 items each
-    let all_items = [BlockType::Stone, BlockType::Grass];
+    let all_items = [items::stone(), items::grass()];
     for (i, block_type) in all_items.iter().take(9).enumerate() {
         inventory.slots[i] = Some((*block_type, 64));
     }
 
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot(0), Some(items::stone()));
     assert_eq!(inventory.get_slot_count(0), 64);
-    assert_eq!(inventory.get_slot(1), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot(1), Some(items::grass()));
     assert_eq!(inventory.get_slot_count(1), 64);
 }
 
@@ -2899,9 +2899,9 @@ fn test_command_unknown_item_no_crash() {
     let mut inventory = SlotInventory::default();
 
     let item_name = "unknownitem";
-    let block_type: Option<BlockType> = match item_name {
-        "stone" => Some(BlockType::Stone),
-        "grass" => Some(BlockType::Grass),
+    let block_type: Option<ItemId> = match item_name {
+        "stone" => Some(items::stone()),
+        "grass" => Some(items::grass()),
         _ => None,
     };
 
@@ -2918,7 +2918,7 @@ fn test_command_unknown_item_no_crash() {
 fn test_miner_buffer_overflow_protection() {
     // Miner buffer should not exceed max capacity
     struct MinerBuffer {
-        buffer: Option<(BlockType, u32)>,
+        buffer: Option<(ItemId, u32)>,
         max_buffer: u32,
     }
 
@@ -2934,7 +2934,7 @@ fn test_miner_buffer_overflow_protection() {
                 *count += 1;
             }
             None => {
-                miner.buffer = Some((BlockType::Stone, 1));
+                miner.buffer = Some((items::stone(), 1));
             }
             _ => {} // Buffer full, don't add
         }
@@ -2947,15 +2947,15 @@ fn test_miner_buffer_overflow_protection() {
 #[test]
 fn test_delivery_platform_accepts_any_item() {
     // Delivery platform should accept any item type
-    let mut delivered: std::collections::HashMap<BlockType, u32> = std::collections::HashMap::new();
+    let mut delivered: std::collections::HashMap<ItemId, u32> = std::collections::HashMap::new();
 
     // Deliver different item types
-    *delivered.entry(BlockType::Stone).or_insert(0) += 1;
-    *delivered.entry(BlockType::Grass).or_insert(0) += 1;
-    *delivered.entry(BlockType::Stone).or_insert(0) += 1;
+    *delivered.entry(items::stone()).or_insert(0) += 1;
+    *delivered.entry(items::grass()).or_insert(0) += 1;
+    *delivered.entry(items::stone()).or_insert(0) += 1;
 
-    assert_eq!(delivered.get(&BlockType::Stone), Some(&2));
-    assert_eq!(delivered.get(&BlockType::Grass), Some(&1));
+    assert_eq!(delivered.get(&items::stone()), Some(&2));
+    assert_eq!(delivered.get(&items::grass()), Some(&1));
 }
 
 // ============================================================
@@ -2967,18 +2967,18 @@ fn test_machine_placement_no_block_registration() {
     // They should NOT be registered in the world block data
     // Registering them causes the terrain underneath to disappear
 
-    let mut world_blocks: std::collections::HashMap<IVec3, BlockType> =
+    let mut world_blocks: std::collections::HashMap<IVec3, ItemId> =
         std::collections::HashMap::new();
 
     // Initial terrain
-    world_blocks.insert(IVec3::new(0, 0, 0), BlockType::Stone);
-    world_blocks.insert(IVec3::new(0, 1, 0), BlockType::Grass);
+    world_blocks.insert(IVec3::new(0, 0, 0), items::stone());
+    world_blocks.insert(IVec3::new(0, 1, 0), items::grass());
 
     // Simulate placing a miner at (0, 2, 0)
     // CORRECT: Don't register in world_blocks - just spawn entity
     let miner_pos = IVec3::new(0, 2, 0);
     // machines.spawn(Miner { position: miner_pos, ... });
-    // DO NOT: world_blocks.insert(miner_pos, BlockType::MinerBlock);
+    // DO NOT: world_blocks.insert(miner_pos, items::miner_block());
 
     // Verify terrain is still intact
     assert!(
@@ -3006,14 +3006,14 @@ fn test_chunk_boundary_mesh_needs_neighbors() {
     const CHUNK_SIZE: i32 = 16;
 
     // Simulate two adjacent chunks
-    let mut chunk_a: std::collections::HashMap<IVec3, BlockType> = std::collections::HashMap::new();
-    let mut chunk_b: std::collections::HashMap<IVec3, BlockType> = std::collections::HashMap::new();
+    let mut chunk_a: std::collections::HashMap<IVec3, ItemId> = std::collections::HashMap::new();
+    let mut chunk_b: std::collections::HashMap<IVec3, ItemId> = std::collections::HashMap::new();
 
     // Chunk A has a block at its +X edge
-    chunk_a.insert(IVec3::new(CHUNK_SIZE - 1, 0, 0), BlockType::Stone);
+    chunk_a.insert(IVec3::new(CHUNK_SIZE - 1, 0, 0), items::stone());
 
     // Chunk B has a block at its -X edge (adjacent to chunk A's block)
-    chunk_b.insert(IVec3::new(0, 0, 0), BlockType::Stone);
+    chunk_b.insert(IVec3::new(0, 0, 0), items::stone());
 
     // When generating mesh for chunk A's edge block:
     // - Without neighbor info: would render +X face (wrong - it's occluded)
@@ -3022,8 +3022,8 @@ fn test_chunk_boundary_mesh_needs_neighbors() {
     fn should_render_face(
         pos: IVec3,
         face_dir: IVec3,
-        own_chunk: &std::collections::HashMap<IVec3, BlockType>,
-        neighbor_chunk: Option<&std::collections::HashMap<IVec3, BlockType>>,
+        own_chunk: &std::collections::HashMap<IVec3, ItemId>,
+        neighbor_chunk: Option<&std::collections::HashMap<IVec3, ItemId>>,
     ) -> bool {
         let neighbor_pos = pos + face_dir;
 
@@ -3389,14 +3389,14 @@ fn test_modified_blocks_save_load() {
     use std::collections::HashMap;
 
     // Simulate modified blocks (what players placed/removed)
-    let mut modified_blocks: HashMap<IVec3, Option<BlockType>> = HashMap::new();
+    let mut modified_blocks: HashMap<IVec3, Option<ItemId>> = HashMap::new();
 
     // Player placed a stone block
-    modified_blocks.insert(IVec3::new(10, 8, 20), Some(BlockType::Stone));
+    modified_blocks.insert(IVec3::new(10, 8, 20), Some(items::stone()));
     // Player removed a block (air)
     modified_blocks.insert(IVec3::new(12, 8, 20), None);
     // Player placed a miner
-    modified_blocks.insert(IVec3::new(5, 8, 5), Some(BlockType::MinerBlock));
+    modified_blocks.insert(IVec3::new(5, 8, 5), Some(items::miner_block()));
 
     // Convert to saveable format
     fn pos_to_key(pos: IVec3) -> String {
@@ -3407,7 +3407,7 @@ fn test_modified_blocks_save_load() {
         .iter()
         .map(|(pos, block)| {
             let key = pos_to_key(*pos);
-            let value = block.map(|b| format!("{:?}", b));
+            let value = block.and_then(|b| b.name().map(|s| s.to_string()));
             (key, value)
         })
         .collect();
@@ -3418,12 +3418,15 @@ fn test_modified_blocks_save_load() {
     assert!(save_data.contains_key("12,8,20"));
     assert!(save_data.contains_key("5,8,5"));
 
-    // Check values
-    assert_eq!(save_data.get("10,8,20"), Some(&Some("Stone".to_string())));
+    // Check values (ItemId.name() returns "base:stone", "base:miner_block", etc.)
+    assert_eq!(
+        save_data.get("10,8,20"),
+        Some(&Some("base:stone".to_string()))
+    );
     assert_eq!(save_data.get("12,8,20"), Some(&None));
     assert_eq!(
         save_data.get("5,8,5"),
-        Some(&Some("MinerBlock".to_string()))
+        Some(&Some("base:miner_block".to_string()))
     );
 }
 
@@ -3694,8 +3697,8 @@ fn test_load_command_parsing() {
 
 /// Check if inventory contains at least the specified amount of an item
 fn assert_inventory_contains(
-    inventory: &HashMap<BlockType, u32>,
-    block_type: BlockType,
+    inventory: &HashMap<ItemId, u32>,
+    block_type: ItemId,
     min_count: u32,
 ) -> bool {
     inventory.get(&block_type).copied().unwrap_or(0) >= min_count
@@ -3719,17 +3722,13 @@ fn assert_quest_progress(delivered: u32, expected: u32) -> bool {
 #[test]
 fn test_assert_inventory_contains() {
     let mut inventory = HashMap::new();
-    inventory.insert(BlockType::IronOre, 5);
-    inventory.insert(BlockType::Coal, 10);
+    inventory.insert(items::iron_ore(), 5);
+    inventory.insert(items::coal(), 10);
 
-    assert!(assert_inventory_contains(&inventory, BlockType::IronOre, 3));
-    assert!(assert_inventory_contains(&inventory, BlockType::IronOre, 5));
-    assert!(!assert_inventory_contains(
-        &inventory,
-        BlockType::IronOre,
-        6
-    ));
-    assert!(!assert_inventory_contains(&inventory, BlockType::Stone, 1));
+    assert!(assert_inventory_contains(&inventory, items::iron_ore(), 3));
+    assert!(assert_inventory_contains(&inventory, items::iron_ore(), 5));
+    assert!(!assert_inventory_contains(&inventory, items::iron_ore(), 6));
+    assert!(!assert_inventory_contains(&inventory, items::stone(), 1));
 }
 
 #[test]
@@ -3953,12 +3952,12 @@ fn test_corner_right_all_directions() {
 struct MockMiner {
     position: IVec3,
     progress: f32,
-    buffer: Option<(BlockType, u32)>,
-    ore_type: BlockType,
+    buffer: Option<(ItemId, u32)>,
+    ore_type: ItemId,
 }
 
 impl MockMiner {
-    fn new(position: IVec3, ore_type: BlockType) -> Self {
+    fn new(position: IVec3, ore_type: ItemId) -> Self {
         Self {
             position,
             progress: 0.0,
@@ -3977,7 +3976,7 @@ impl MockMiner {
         }
     }
 
-    fn take_output(&mut self) -> Option<BlockType> {
+    fn take_output(&mut self) -> Option<ItemId> {
         if let Some((item, count)) = &mut self.buffer {
             if *count > 0 {
                 *count -= 1;
@@ -3996,8 +3995,8 @@ impl MockMiner {
 struct MockFurnace {
     #[allow(dead_code)]
     position: IVec3,
-    input: Option<(BlockType, u32)>,
-    output: Option<(BlockType, u32)>,
+    input: Option<(ItemId, u32)>,
+    output: Option<(ItemId, u32)>,
     fuel: u32,
     progress: f32,
 }
@@ -4013,7 +4012,7 @@ impl MockFurnace {
         }
     }
 
-    fn add_input(&mut self, item: BlockType) -> bool {
+    fn add_input(&mut self, item: ItemId) -> bool {
         if let Some((existing, count)) = &mut self.input {
             if *existing == item {
                 *count += 1;
@@ -4051,10 +4050,12 @@ impl MockFurnace {
             self.fuel -= 1;
 
             // Produce output
-            let output_type = match input_type {
-                BlockType::IronOre => BlockType::IronIngot,
-                BlockType::CopperOre => BlockType::CopperIngot,
-                _ => return false,
+            let output_type = if *input_type == items::iron_ore() {
+                items::iron_ingot()
+            } else if *input_type == items::copper_ore() {
+                items::copper_ingot()
+            } else {
+                return false;
             };
 
             if let Some((_, count)) = &mut self.output {
@@ -4071,7 +4072,7 @@ impl MockFurnace {
         false
     }
 
-    fn take_output(&mut self) -> Option<BlockType> {
+    fn take_output(&mut self) -> Option<ItemId> {
         if let Some((item, count)) = &mut self.output {
             if *count > 0 {
                 *count -= 1;
@@ -4090,9 +4091,9 @@ impl MockFurnace {
 fn test_full_production_chain() {
     // Simulate: Miner (IronOre) -> Conveyor -> Furnace -> IronIngot
 
-    let mut miner = MockMiner::new(IVec3::new(0, 8, 0), BlockType::IronOre);
+    let mut miner = MockMiner::new(IVec3::new(0, 8, 0), items::iron_ore());
     let mut furnace = MockFurnace::new(IVec3::new(2, 8, 0));
-    let mut conveyor_buffer: Vec<BlockType> = Vec::new();
+    let mut conveyor_buffer: Vec<ItemId> = Vec::new();
 
     // Add fuel to furnace
     furnace.add_fuel(5);
@@ -4135,7 +4136,7 @@ fn test_full_production_chain() {
 
 #[test]
 fn test_miner_to_furnace_chain_with_limited_fuel() {
-    let mut miner = MockMiner::new(IVec3::new(0, 8, 0), BlockType::IronOre);
+    let mut miner = MockMiner::new(IVec3::new(0, 8, 0), items::iron_ore());
     let mut furnace = MockFurnace::new(IVec3::new(2, 8, 0));
 
     // Only 2 fuel
@@ -4162,7 +4163,7 @@ fn test_miner_to_furnace_chain_with_limited_fuel() {
 #[test]
 fn test_furnace_without_fuel() {
     let mut furnace = MockFurnace::new(IVec3::ZERO);
-    furnace.add_input(BlockType::IronOre);
+    furnace.add_input(items::iron_ore());
 
     // Tick without fuel
     for _ in 0..20 {
@@ -4176,7 +4177,7 @@ fn test_furnace_without_fuel() {
 
 #[test]
 fn test_miner_continuous_output() {
-    let mut miner = MockMiner::new(IVec3::ZERO, BlockType::CopperOre);
+    let mut miner = MockMiner::new(IVec3::ZERO, items::copper_ore());
     let mut collected = 0u32;
 
     // Run for 20 seconds
@@ -4587,17 +4588,17 @@ fn test_events_consumed_after_read() {
 fn test_held_item_pickup_and_drop() {
     // Simulate held item for drag-drop
     struct HeldItem {
-        block_type: Option<BlockType>,
+        block_type: Option<ItemId>,
         count: u32,
     }
 
     impl HeldItem {
-        fn pick_up(&mut self, block_type: BlockType, count: u32) {
+        fn pick_up(&mut self, block_type: ItemId, count: u32) {
             self.block_type = Some(block_type);
             self.count = count;
         }
 
-        fn drop_all(&mut self) -> Option<(BlockType, u32)> {
+        fn drop_all(&mut self) -> Option<(ItemId, u32)> {
             if let Some(bt) = self.block_type.take() {
                 let count = self.count;
                 self.count = 0;
@@ -4619,7 +4620,7 @@ fn test_held_item_pickup_and_drop() {
     let mut inventory = SlotInventory::default();
 
     // Add items to inventory
-    inventory.add_item(BlockType::Stone, 64);
+    inventory.add_item(items::stone(), 64);
 
     // Pick up items from slot
     if let Some(bt) = inventory.get_slot(0) {
@@ -4647,13 +4648,13 @@ fn test_inventory_slot_swap() {
     let mut inventory = SlotInventory::default();
 
     // Put different items in two slots
-    inventory.add_item(BlockType::Stone, 32);
-    inventory.add_item(BlockType::Grass, 16);
+    inventory.add_item(items::stone(), 32);
+    inventory.add_item(items::grass(), 16);
 
     // Verify initial state
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot(0), Some(items::stone()));
     assert_eq!(inventory.get_slot_count(0), 32);
-    assert_eq!(inventory.get_slot(1), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot(1), Some(items::grass()));
     assert_eq!(inventory.get_slot_count(1), 16);
 
     // Simulate swap by manually swapping slot data
@@ -4664,9 +4665,9 @@ fn test_inventory_slot_swap() {
     inventory.slots[1] = slot0;
 
     // Verify swap
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Grass));
+    assert_eq!(inventory.get_slot(0), Some(items::grass()));
     assert_eq!(inventory.get_slot_count(0), 16);
-    assert_eq!(inventory.get_slot(1), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot(1), Some(items::stone()));
     assert_eq!(inventory.get_slot_count(1), 32);
 }
 
@@ -4678,7 +4679,7 @@ fn test_trash_slot_deletes_items() {
     }
 
     impl TrashSlot {
-        fn trash(&mut self, _block_type: BlockType, count: u32) {
+        fn trash(&mut self, _block_type: ItemId, count: u32) {
             self.deleted_count += count;
         }
     }
@@ -4686,7 +4687,7 @@ fn test_trash_slot_deletes_items() {
     let mut trash = TrashSlot { deleted_count: 0 };
     let mut inventory = SlotInventory::default();
 
-    inventory.add_item(BlockType::Stone, 100);
+    inventory.add_item(items::stone(), 100);
 
     // Simulate dragging to trash
     if let Some(bt) = inventory.get_slot(0) {
@@ -4707,12 +4708,12 @@ fn test_creative_mode_item_spawn() {
 
     // In creative mode, clicking an item in catalog adds a stack
     if creative_mode {
-        let spawned_type = BlockType::Stone;
+        let spawned_type = items::stone();
         let spawned_count = 64;
         inventory.add_item(spawned_type, spawned_count);
     }
 
-    assert_eq!(inventory.get_slot(0), Some(BlockType::Stone));
+    assert_eq!(inventory.get_slot(0), Some(items::stone()));
     assert_eq!(inventory.get_slot_count(0), 64);
 }
 
@@ -4728,9 +4729,9 @@ fn test_load_massive_inventory_operations() {
     // Perform 10,000 add operations
     for i in 0..10000 {
         let block_type = if i % 2 == 0 {
-            BlockType::Stone
+            items::stone()
         } else {
-            BlockType::Grass
+            items::grass()
         };
         inventory.add_item(block_type, 1);
     }
@@ -4740,10 +4741,10 @@ fn test_load_massive_inventory_operations() {
     let mut grass_count = 0u32;
     for slot in &inventory.slots {
         if let Some((bt, count)) = slot {
-            match bt {
-                BlockType::Stone => stone_count += count,
-                BlockType::Grass => grass_count += count,
-                _ => {}
+            if *bt == items::stone() {
+                stone_count += count;
+            } else if *bt == items::grass() {
+                grass_count += count;
             }
         }
     }
@@ -4914,27 +4915,27 @@ fn test_load_conveyor_chain_throughput() {
 fn test_load_global_inventory_large_counts() {
     use std::collections::HashMap;
 
-    let mut global_inventory: HashMap<BlockType, u32> = HashMap::new();
+    let mut global_inventory: HashMap<ItemId, u32> = HashMap::new();
 
     // Add millions of items
     for _ in 0..1000 {
-        *global_inventory.entry(BlockType::Stone).or_insert(0) += 10000;
-        *global_inventory.entry(BlockType::Grass).or_insert(0) += 5000;
-        *global_inventory.entry(BlockType::Coal).or_insert(0) += 2500;
+        *global_inventory.entry(items::stone()).or_insert(0) += 10000;
+        *global_inventory.entry(items::grass()).or_insert(0) += 5000;
+        *global_inventory.entry(items::coal()).or_insert(0) += 2500;
     }
 
-    assert_eq!(global_inventory.get(&BlockType::Stone), Some(&10_000_000));
-    assert_eq!(global_inventory.get(&BlockType::Grass), Some(&5_000_000));
-    assert_eq!(global_inventory.get(&BlockType::Coal), Some(&2_500_000));
+    assert_eq!(global_inventory.get(&items::stone()), Some(&10_000_000));
+    assert_eq!(global_inventory.get(&items::grass()), Some(&5_000_000));
+    assert_eq!(global_inventory.get(&items::coal()), Some(&2_500_000));
 
     // Consume items
     for _ in 0..500 {
-        if let Some(count) = global_inventory.get_mut(&BlockType::Stone) {
+        if let Some(count) = global_inventory.get_mut(&items::stone()) {
             *count = count.saturating_sub(10000);
         }
     }
 
-    assert_eq!(global_inventory.get(&BlockType::Stone), Some(&5_000_000));
+    assert_eq!(global_inventory.get(&items::stone()), Some(&5_000_000));
 }
 
 // ============================================================================
@@ -5021,22 +5022,23 @@ fn test_platform_inventory_with_items() {
 /// Test BiomeType sample_resource with different random values
 #[test]
 fn test_biome_sample_resource() {
+    use idle_factory::core::items;
     use idle_factory::world::biome::BiomeType;
 
     // Iron biome: 70% iron, 22% stone, 8% coal
     let iron_biome = BiomeType::Iron;
 
     // random_value 0-69 should give iron
-    assert_eq!(iron_biome.sample_resource(0), Some(BlockType::IronOre));
-    assert_eq!(iron_biome.sample_resource(69), Some(BlockType::IronOre));
+    assert_eq!(iron_biome.sample_resource(0), Some(items::iron_ore()));
+    assert_eq!(iron_biome.sample_resource(69), Some(items::iron_ore()));
 
     // random_value 70-91 should give stone
-    assert_eq!(iron_biome.sample_resource(70), Some(BlockType::Stone));
-    assert_eq!(iron_biome.sample_resource(91), Some(BlockType::Stone));
+    assert_eq!(iron_biome.sample_resource(70), Some(items::stone()));
+    assert_eq!(iron_biome.sample_resource(91), Some(items::stone()));
 
     // random_value 92-99 should give coal
-    assert_eq!(iron_biome.sample_resource(92), Some(BlockType::Coal));
-    assert_eq!(iron_biome.sample_resource(99), Some(BlockType::Coal));
+    assert_eq!(iron_biome.sample_resource(92), Some(items::coal()));
+    assert_eq!(iron_biome.sample_resource(99), Some(items::coal()));
 }
 
 /// Test Unmailable biome returns no resources
@@ -5335,14 +5337,14 @@ fn test_performance_machine_ticks() {
     let mut crusher = Crusher::default();
 
     furnace.add_fuel(100);
-    furnace.add_input(BlockType::Stone);
-    crusher.add_input(BlockType::Stone);
+    furnace.add_input(items::stone());
+    crusher.add_input(items::stone());
 
     let start = Instant::now();
     let iterations = 1000;
 
     for _ in 0..iterations {
-        miner.tick(0.1, Some(BlockType::Stone));
+        miner.tick(0.1, Some(items::stone()));
         furnace.tick(0.1);
         crusher.tick(0.1);
     }
@@ -5371,7 +5373,7 @@ fn test_performance_conveyor_operations() {
     for _ in 0..operations {
         // Add items
         for _ in 0..5 {
-            let _ = conveyor.accept_item(BlockType::Stone);
+            let _ = conveyor.accept_item(items::stone());
         }
         // Tick to move items
         for _ in 0..10 {
@@ -5404,7 +5406,7 @@ fn test_performance_inventory_operations() {
         // Add items
         for slot in 0..9 {
             if slot < 2 {
-                inventory.slots[slot] = Some((BlockType::Stone, 64));
+                inventory.slots[slot] = Some((items::stone(), 64));
             }
         }
 

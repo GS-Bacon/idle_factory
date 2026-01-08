@@ -9,7 +9,7 @@ use crate::events::game_events::{MachineCompleted, MachineStarted};
 use crate::events::GuardedEventWriter;
 use crate::game_spec::{find_recipe, MachineType, ProcessType};
 use crate::world::biome::{BiomeMap, BiomeType};
-use crate::{BlockType, Conveyor};
+use crate::Conveyor;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -114,11 +114,10 @@ fn tick_auto_generate(
 
         // Determine what to mine based on biome
         let biome = biome_map.get_biome(machine.position);
-        let mined_type = get_biome_output(biome, machine.tick_count);
+        let mined_id = get_biome_output(biome, machine.tick_count);
 
         // Add to output buffer
         if let Some(output) = machine.slots.outputs.first_mut() {
-            let mined_id: ItemId = mined_type.into();
             if output.item_id.is_none() || output.item_id == Some(mined_id) {
                 output.item_id = Some(mined_id);
                 output.count += 1;
@@ -272,17 +271,17 @@ fn try_output_to_conveyor(
     conveyor.items.push(ConveyorItem::new(item_id, 0.0));
 }
 
-/// Get mining output based on biome
-fn get_biome_output(biome: BiomeType, tick: u32) -> BlockType {
+/// Get mining output based on biome (returns ItemId)
+fn get_biome_output(biome: BiomeType, tick: u32) -> ItemId {
     use crate::game_spec::biome_mining_spec::*;
 
-    let probabilities = match biome {
-        BiomeType::Iron => IRON_BIOME,
-        BiomeType::Copper => COPPER_BIOME,
-        BiomeType::Coal => COAL_BIOME,
-        BiomeType::Stone => STONE_BIOME,
-        BiomeType::Mixed => MIXED_BIOME,
-        BiomeType::Unmailable => STONE_BIOME,
+    let probabilities: &[(ItemId, u32)] = match biome {
+        BiomeType::Iron => &IRON_BIOME,
+        BiomeType::Copper => &COPPER_BIOME,
+        BiomeType::Coal => &COAL_BIOME,
+        BiomeType::Stone => &STONE_BIOME,
+        BiomeType::Mixed => &MIXED_BIOME,
+        BiomeType::Unmailable => &STONE_BIOME,
     };
 
     // Simple deterministic selection based on tick
@@ -290,14 +289,14 @@ fn get_biome_output(biome: BiomeType, tick: u32) -> BlockType {
     let roll = tick % total;
 
     let mut acc = 0;
-    for (block_type, prob) in probabilities {
+    for (item_id, prob) in probabilities {
         acc += prob;
         if roll < acc {
-            return *block_type;
+            return *item_id;
         }
     }
 
-    BlockType::Stone
+    items::stone()
 }
 
 // =============================================================================
@@ -457,10 +456,7 @@ fn format_slot(slot: &crate::components::MachineSlot) -> String {
     if slot.is_empty() {
         String::new()
     } else {
-        let short_name = slot
-            .block_type_for_render()
-            .map(|t| t.short_name())
-            .unwrap_or("");
+        let short_name = slot.get_item_id().map(|id| id.short_name()).unwrap_or("");
         if slot.count > 1 {
             format!("{}{}", short_name, slot.count)
         } else {
@@ -533,7 +529,8 @@ pub fn generic_machine_ui_input(
                 if slot_btn.is_input {
                     // Try to put selected item into input slot
                     if let Some(selected_id) = inventory.selected_item_id() {
-                        if BlockType::try_from(selected_id).is_ok() {
+                        // Valid item check - must have a name registered
+                        if selected_id.name().is_some() {
                             if let Some(input_slot) =
                                 machine.slots.inputs.get_mut(slot_btn.slot_id as usize)
                             {
@@ -595,7 +592,7 @@ mod tests {
         // Add items
         slot.add_id(items::iron_ore(), 5);
         assert_eq!(slot.count, 5);
-        assert_eq!(slot.block_type_for_render(), Some(BlockType::IronOre));
+        assert_eq!(slot.get_item_id(), Some(items::iron_ore()));
 
         // Can't add different type
         let added = slot.add_id(items::copper_ore(), 3);
@@ -665,7 +662,7 @@ mod tests {
         let iron_out = get_biome_output(BiomeType::Iron, 0);
         let copper_out = get_biome_output(BiomeType::Copper, 0);
         // At tick 0, both should give their primary ore
-        assert_eq!(iron_out, BlockType::IronOre);
-        assert_eq!(copper_out, BlockType::CopperOre);
+        assert_eq!(iron_out, items::iron_ore());
+        assert_eq!(copper_out, items::copper_ore());
     }
 }

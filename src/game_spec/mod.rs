@@ -9,17 +9,17 @@ pub mod registry;
 
 // Re-exports for convenience
 pub use machines::{
-    get_input_ports, get_machine_spec, get_machine_spec_by_id, get_output_ports, IoPort,
-    MachineSpec, MachineState, PortSide, ProcessType, UiSlotDef, UiSlotType, ALL_MACHINES,
-    ASSEMBLER, CRUSHER, FURNACE, MINER,
+    get_input_ports, get_machine_spec_by_id, get_output_ports, IoPort, MachineSpec, MachineState,
+    PortSide, ProcessType, UiSlotDef, UiSlotType, ALL_MACHINES, ASSEMBLER, CRUSHER, FURNACE, MINER,
 };
 pub use recipes::{
     all_recipes, find_recipe, find_recipe_by_id, get_recipes_for_machine, FuelRequirement,
     MachineType, Recipe, RecipeInput, RecipeOutput,
 };
-pub use registry::{item_descriptors, GameRegistry, ItemDescriptor, RegistryPlugin};
+pub use registry::{
+    get_item_descriptor, item_descriptors, GameRegistry, ItemDescriptor, RegistryPlugin,
+};
 
-use crate::block_type::BlockType;
 use crate::core::{items, ItemId};
 use std::sync::LazyLock;
 
@@ -70,8 +70,8 @@ pub mod ui_spec {
 
 /// Block Breaking Spec
 pub mod breaking_spec {
-    use crate::block_type::BlockType;
     use crate::core::{items, ItemId};
+    use crate::game_spec::get_item_descriptor;
 
     /// Multiplier when breaking with bare hands (slower)
     pub const BARE_HAND_MULTIPLIER: f32 = 2.0;
@@ -81,9 +81,8 @@ pub mod breaking_spec {
     /// Get base break time from ItemDescriptor.hardness (via ItemId)
     /// This is now data-driven - each item has its own hardness value
     pub fn get_base_break_time(item_id: ItemId) -> f32 {
-        // Convert to BlockType to access hardness (temporary until full migration)
-        BlockType::try_from(item_id)
-            .map(|bt| bt.hardness())
+        get_item_descriptor(item_id)
+            .map(|desc| desc.hardness)
             .unwrap_or(1.0) // Default hardness for unknown items
     }
 
@@ -96,43 +95,54 @@ pub mod breaking_spec {
     }
 }
 
-/// Biome Mining Spec
+/// Biome Mining Spec (ItemId-based)
 #[allow(dead_code)]
 pub mod biome_mining_spec {
-    use crate::BlockType;
+    use crate::core::{items, ItemId};
+    use std::sync::LazyLock;
 
-    pub type MiningProbability = (BlockType, u32);
+    pub type MiningProbability = (ItemId, u32);
 
-    pub const IRON_BIOME: &[MiningProbability] = &[
-        (BlockType::IronOre, 70),
-        (BlockType::Stone, 22),
-        (BlockType::Coal, 8),
-    ];
+    pub static IRON_BIOME: LazyLock<Vec<MiningProbability>> = LazyLock::new(|| {
+        vec![
+            (items::iron_ore(), 70),
+            (items::stone(), 22),
+            (items::coal(), 8),
+        ]
+    });
 
-    pub const COPPER_BIOME: &[MiningProbability] = &[
-        (BlockType::CopperOre, 70),
-        (BlockType::Stone, 22),
-        (BlockType::IronOre, 8),
-    ];
+    pub static COPPER_BIOME: LazyLock<Vec<MiningProbability>> = LazyLock::new(|| {
+        vec![
+            (items::copper_ore(), 70),
+            (items::stone(), 22),
+            (items::iron_ore(), 8),
+        ]
+    });
 
-    pub const COAL_BIOME: &[MiningProbability] = &[
-        (BlockType::Coal, 75),
-        (BlockType::Stone, 20),
-        (BlockType::IronOre, 5),
-    ];
+    pub static COAL_BIOME: LazyLock<Vec<MiningProbability>> = LazyLock::new(|| {
+        vec![
+            (items::coal(), 75),
+            (items::stone(), 20),
+            (items::iron_ore(), 5),
+        ]
+    });
 
-    pub const STONE_BIOME: &[MiningProbability] = &[
-        (BlockType::Stone, 85),
-        (BlockType::Coal, 10),
-        (BlockType::IronOre, 5),
-    ];
+    pub static STONE_BIOME: LazyLock<Vec<MiningProbability>> = LazyLock::new(|| {
+        vec![
+            (items::stone(), 85),
+            (items::coal(), 10),
+            (items::iron_ore(), 5),
+        ]
+    });
 
-    pub const MIXED_BIOME: &[MiningProbability] = &[
-        (BlockType::IronOre, 30),
-        (BlockType::CopperOre, 25),
-        (BlockType::Coal, 25),
-        (BlockType::Stone, 20),
-    ];
+    pub static MIXED_BIOME: LazyLock<Vec<MiningProbability>> = LazyLock::new(|| {
+        vec![
+            (items::iron_ore(), 30),
+            (items::copper_ore(), 25),
+            (items::coal(), 25),
+            (items::stone(), 20),
+        ]
+    });
 
     pub const SPAWN_GUARANTEE_RADIUS: u32 = 10;
     pub const GUARANTEED_SPAWN_BIOMES: &[&str] = &["iron", "coal", "copper"];
@@ -155,15 +165,17 @@ pub fn initial_equipment() -> Vec<(ItemId, u32)> {
 
 /// Creative mode equipment (for debug/testing)
 #[allow(dead_code)]
-pub const CREATIVE_MODE_EQUIPMENT: &[(BlockType, u32)] = &[
-    (BlockType::MinerBlock, 99),
-    (BlockType::ConveyorBlock, 999),
-    (BlockType::CrusherBlock, 99),
-    (BlockType::FurnaceBlock, 99),
-    (BlockType::IronOre, 999),
-    (BlockType::Coal, 999),
-    (BlockType::CopperOre, 999),
-];
+pub fn creative_mode_equipment() -> Vec<(ItemId, u32)> {
+    vec![
+        (items::miner_block(), 99),
+        (items::conveyor_block(), 999),
+        (items::crusher_block(), 99),
+        (items::furnace_block(), 99),
+        (items::iron_ore(), 999),
+        (items::coal(), 999),
+        (items::copper_ore(), 999),
+    ]
+}
 
 // =============================================================================
 // Quest System (ItemId-based with LazyLock)

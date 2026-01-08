@@ -1,16 +1,16 @@
 //! Achievement system
 
-use crate::block_type::BlockType;
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::events::game_events::{BlockPlaced, ItemDelivered, MachineCompleted, MachineSpawned};
 use crate::events::GuardedEventWriter;
 use bevy::prelude::*;
+use std::sync::LazyLock;
 
 /// 実績の条件
 #[derive(Debug, Clone, PartialEq)]
 pub enum AchievementCondition {
     /// 特定アイテムを一定数生産
-    ProduceItem { item: BlockType, count: u32 },
+    ProduceItem { item: ItemId, count: u32 },
     /// 機械を一定数設置
     PlaceMachines { count: u32 },
     /// 特定クエスト完了
@@ -18,7 +18,7 @@ pub enum AchievementCondition {
     /// プレイ時間（分）
     PlayTime { minutes: u32 },
     /// アイテム収集
-    CollectItem { item: BlockType, count: u32 },
+    CollectItem { item: ItemId, count: u32 },
     /// 初回イベント
     FirstTime { event: &'static str },
 }
@@ -100,45 +100,47 @@ pub struct AchievementCounters {
 }
 
 /// 基本実績の定義
-pub const ACHIEVEMENTS: &[Achievement] = &[
-    Achievement {
-        id: "first_machine",
-        name: "工場長のはじまり",
-        description: "最初の機械を設置する",
-        condition: AchievementCondition::PlaceMachines { count: 1 },
-        icon: None,
-        hidden: false,
-    },
-    Achievement {
-        id: "mass_production",
-        name: "量産体制",
-        description: "機械を10台設置する",
-        condition: AchievementCondition::PlaceMachines { count: 10 },
-        icon: None,
-        hidden: false,
-    },
-    Achievement {
-        id: "first_delivery",
-        name: "初出荷",
-        description: "アイテムを初めて納品する",
-        condition: AchievementCondition::FirstTime {
-            event: "item_delivered",
+pub static ACHIEVEMENTS: LazyLock<Vec<Achievement>> = LazyLock::new(|| {
+    vec![
+        Achievement {
+            id: "first_machine",
+            name: "工場長のはじまり",
+            description: "最初の機械を設置する",
+            condition: AchievementCondition::PlaceMachines { count: 1 },
+            icon: None,
+            hidden: false,
         },
-        icon: None,
-        hidden: false,
-    },
-    Achievement {
-        id: "iron_producer",
-        name: "鉄鋼生産者",
-        description: "鉄インゴットを100個生産する",
-        condition: AchievementCondition::ProduceItem {
-            item: BlockType::IronIngot,
-            count: 100,
+        Achievement {
+            id: "mass_production",
+            name: "量産体制",
+            description: "機械を10台設置する",
+            condition: AchievementCondition::PlaceMachines { count: 10 },
+            icon: None,
+            hidden: false,
         },
-        icon: None,
-        hidden: false,
-    },
-];
+        Achievement {
+            id: "first_delivery",
+            name: "初出荷",
+            description: "アイテムを初めて納品する",
+            condition: AchievementCondition::FirstTime {
+                event: "item_delivered",
+            },
+            icon: None,
+            hidden: false,
+        },
+        Achievement {
+            id: "iron_producer",
+            name: "鉄鋼生産者",
+            description: "鉄インゴットを100個生産する",
+            condition: AchievementCondition::ProduceItem {
+                item: items::iron_ingot(),
+                count: 100,
+            },
+            icon: None,
+            hidden: false,
+        },
+    ]
+});
 
 /// 機械設置イベントを購読してカウンターを更新
 fn handle_machine_spawned(
@@ -197,7 +199,7 @@ fn check_achievements(
 
     let timestamp = time.elapsed_secs_f64();
 
-    for achievement in ACHIEVEMENTS {
+    for achievement in ACHIEVEMENTS.iter() {
         // 既にアンロック済みならスキップ
         if achievements.is_unlocked(achievement.id) {
             continue;
@@ -206,24 +208,22 @@ fn check_achievements(
         let (current, _target, unlocked) = match &achievement.condition {
             AchievementCondition::PlaceMachines { count } => {
                 let current = counters.machines_placed;
-                (current, *count, current >= *count)
+                (current, count, current >= *count)
             }
             AchievementCondition::ProduceItem { item, count } => {
-                let item_id: ItemId = (*item).into();
-                let current = counters.items_produced.get(&item_id).copied().unwrap_or(0);
-                (current, *count, current >= *count)
+                let current = counters.items_produced.get(item).copied().unwrap_or(0);
+                (current, count, current >= *count)
             }
             AchievementCondition::FirstTime { event } => {
                 let unlocked = match *event {
                     "item_delivered" => counters.total_delivered > 0,
                     _ => false,
                 };
-                (if unlocked { 1 } else { 0 }, 1, unlocked)
+                (if unlocked { 1 } else { 0 }, &1u32, unlocked)
             }
             AchievementCondition::CollectItem { item, count } => {
-                let item_id: ItemId = (*item).into();
-                let current = counters.items_delivered.get(&item_id).copied().unwrap_or(0);
-                (current, *count, current >= *count)
+                let current = counters.items_delivered.get(item).copied().unwrap_or(0);
+                (current, count, current >= *count)
             }
             _ => continue, // 他の条件は別途処理
         };
@@ -244,7 +244,7 @@ fn check_achievements(
 
 /// 実績の初期進捗を設定
 fn setup_achievement_progress(mut achievements: ResMut<PlayerAchievements>) {
-    for achievement in ACHIEVEMENTS {
+    for achievement in ACHIEVEMENTS.iter() {
         let target = match &achievement.condition {
             AchievementCondition::PlaceMachines { count } => *count,
             AchievementCondition::ProduceItem { count, .. } => *count,
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn test_condition_variants() {
         let cond = AchievementCondition::ProduceItem {
-            item: BlockType::IronIngot,
+            item: items::iron_ingot(),
             count: 100,
         };
         assert!(matches!(cond, AchievementCondition::ProduceItem { .. }));

@@ -4,7 +4,6 @@
 
 pub mod achievements;
 pub mod audio;
-pub mod block_type;
 pub mod blockbench;
 pub mod blueprint;
 pub mod components;
@@ -40,7 +39,6 @@ pub mod vox_loader;
 pub mod world;
 
 // Re-export commonly used types at crate root
-pub use block_type::{BlockCategory, BlockType};
 pub use components::*;
 pub use constants::*;
 

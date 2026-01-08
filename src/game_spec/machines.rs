@@ -4,7 +4,6 @@
 //! UI is automatically generated from the spec.
 
 use crate::core::ItemId;
-use crate::BlockType;
 
 use super::recipes::MachineType;
 
@@ -99,8 +98,6 @@ pub struct MachineSpec {
     pub id: &'static str,
     /// Display name
     pub name: &'static str,
-    /// Corresponding BlockType
-    pub block_type: BlockType,
     /// I/O ports (for conveyor connections)
     pub ports: &'static [IoPort],
     /// Internal buffer size (per slot)
@@ -126,7 +123,6 @@ pub struct MachineSpec {
 pub const MINER: MachineSpec = MachineSpec {
     id: "miner",
     name: "採掘機",
-    block_type: BlockType::MinerBlock,
     ports: &[IoPort {
         side: PortSide::Front,
         is_input: false,
@@ -144,7 +140,6 @@ pub const MINER: MachineSpec = MachineSpec {
 pub const FURNACE: MachineSpec = MachineSpec {
     id: "furnace",
     name: "精錬炉",
-    block_type: BlockType::FurnaceBlock,
     ports: &[
         IoPort {
             side: PortSide::Back,
@@ -183,7 +178,6 @@ pub const FURNACE: MachineSpec = MachineSpec {
 pub const CRUSHER: MachineSpec = MachineSpec {
     id: "crusher",
     name: "粉砕機",
-    block_type: BlockType::CrusherBlock,
     ports: &[
         IoPort {
             side: PortSide::Back,
@@ -211,7 +205,6 @@ pub const CRUSHER: MachineSpec = MachineSpec {
 pub const ASSEMBLER: MachineSpec = MachineSpec {
     id: "assembler",
     name: "組立機",
-    block_type: BlockType::AssemblerBlock,
     ports: &[
         IoPort {
             side: PortSide::Back,
@@ -252,22 +245,23 @@ pub const ALL_MACHINES: &[&MachineSpec] = &[&MINER, &FURNACE, &CRUSHER, &ASSEMBL
 impl MachineSpec {
     /// Get ItemId for this machine
     pub fn item_id(&self) -> ItemId {
-        self.block_type.into()
+        // Use the id string to get ItemId (no BlockType conversion)
+        match self.id {
+            "miner" => crate::core::items::miner_block(),
+            "furnace" => crate::core::items::furnace_block(),
+            "crusher" => crate::core::items::crusher_block(),
+            "assembler" => crate::core::items::assembler_block(),
+            _ => crate::core::items::stone(), // Fallback
+        }
     }
-}
-
-/// Get machine spec from BlockType
-pub fn get_machine_spec(block_type: BlockType) -> Option<&'static MachineSpec> {
-    ALL_MACHINES
-        .iter()
-        .find(|m| m.block_type == block_type)
-        .copied()
 }
 
 /// Get machine spec from ItemId
 pub fn get_machine_spec_by_id(item_id: ItemId) -> Option<&'static MachineSpec> {
-    let block_type: BlockType = item_id.try_into().ok()?;
-    get_machine_spec(block_type)
+    ALL_MACHINES
+        .iter()
+        .find(|m| m.item_id() == item_id)
+        .copied()
 }
 
 /// Get input ports for a machine
@@ -361,6 +355,7 @@ pub mod state_visuals {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
     fn test_machine_spec() {
@@ -379,15 +374,15 @@ mod tests {
             );
         }
 
-        let miner = get_machine_spec(BlockType::MinerBlock);
+        let miner = get_machine_spec_by_id(items::miner_block());
         assert!(miner.is_some());
         assert_eq!(miner.unwrap().id, "miner");
 
-        let furnace = get_machine_spec(BlockType::FurnaceBlock);
+        let furnace = get_machine_spec_by_id(items::furnace_block());
         assert!(furnace.is_some());
         assert_eq!(furnace.unwrap().id, "furnace");
 
-        let stone = get_machine_spec(BlockType::Stone);
+        let stone = get_machine_spec_by_id(items::stone());
         assert!(stone.is_none());
     }
 

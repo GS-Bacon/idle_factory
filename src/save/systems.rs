@@ -7,7 +7,7 @@ use crate::core::{items, ItemId};
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::player::{LocalPlatformInventory, LocalPlayer, PlatformInventory, PlayerInventory};
 use crate::world::WorldData;
-use crate::{BlockType, Direction, BLOCK_SIZE};
+use crate::{Direction, BLOCK_SIZE};
 use bevy::prelude::*;
 use tracing::info;
 
@@ -105,72 +105,68 @@ pub fn collect_save_data(
 
     // All machines (Miner, Furnace, Crusher) using Machine component
     for machine in machine_query.iter() {
-        match machine.spec.block_type {
-            BlockType::MinerBlock => {
-                let buffer = machine
-                    .slots
-                    .outputs
-                    .first()
-                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                machines.push(MachineSaveDataV2::Miner(MinerSaveDataV2 {
-                    position: machine.position.into(),
-                    progress: machine.progress,
-                    buffer: buffer.map(|(id, count)| ItemStackV2 {
-                        item_id: item_id_to_string(id),
-                        count,
-                    }),
-                }));
-            }
-            BlockType::FurnaceBlock => {
-                let input = machine
-                    .slots
-                    .inputs
-                    .first()
-                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                let output = machine
-                    .slots
-                    .outputs
-                    .first()
-                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                machines.push(MachineSaveDataV2::Furnace(FurnaceSaveDataV2 {
-                    position: machine.position.into(),
-                    fuel: machine.slots.fuel,
-                    input: input.map(|(id, count)| ItemStackV2 {
-                        item_id: item_id_to_string(id),
-                        count,
-                    }),
-                    output: output.map(|(id, count)| ItemStackV2 {
-                        item_id: item_id_to_string(id),
-                        count,
-                    }),
-                    progress: machine.progress,
-                }));
-            }
-            BlockType::CrusherBlock => {
-                let input = machine
-                    .slots
-                    .inputs
-                    .first()
-                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                let output = machine
-                    .slots
-                    .outputs
-                    .first()
-                    .and_then(|s| s.item_id.map(|id| (id, s.count)));
-                machines.push(MachineSaveDataV2::Crusher(CrusherSaveDataV2 {
-                    position: machine.position.into(),
-                    input: input.map(|(id, count)| ItemStackV2 {
-                        item_id: item_id_to_string(id),
-                        count,
-                    }),
-                    output: output.map(|(id, count)| ItemStackV2 {
-                        item_id: item_id_to_string(id),
-                        count,
-                    }),
-                    progress: machine.progress,
-                }));
-            }
-            _ => {}
+        let machine_id = machine.spec.item_id();
+        if machine_id == items::miner_block() {
+            let buffer = machine
+                .slots
+                .outputs
+                .first()
+                .and_then(|s| s.item_id.map(|id| (id, s.count)));
+            machines.push(MachineSaveDataV2::Miner(MinerSaveDataV2 {
+                position: machine.position.into(),
+                progress: machine.progress,
+                buffer: buffer.map(|(id, count)| ItemStackV2 {
+                    item_id: item_id_to_string(id),
+                    count,
+                }),
+            }));
+        } else if machine_id == items::furnace_block() {
+            let input = machine
+                .slots
+                .inputs
+                .first()
+                .and_then(|s| s.item_id.map(|id| (id, s.count)));
+            let output = machine
+                .slots
+                .outputs
+                .first()
+                .and_then(|s| s.item_id.map(|id| (id, s.count)));
+            machines.push(MachineSaveDataV2::Furnace(FurnaceSaveDataV2 {
+                position: machine.position.into(),
+                fuel: machine.slots.fuel,
+                input: input.map(|(id, count)| ItemStackV2 {
+                    item_id: item_id_to_string(id),
+                    count,
+                }),
+                output: output.map(|(id, count)| ItemStackV2 {
+                    item_id: item_id_to_string(id),
+                    count,
+                }),
+                progress: machine.progress,
+            }));
+        } else if machine_id == items::crusher_block() {
+            let input = machine
+                .slots
+                .inputs
+                .first()
+                .and_then(|s| s.item_id.map(|id| (id, s.count)));
+            let output = machine
+                .slots
+                .outputs
+                .first()
+                .and_then(|s| s.item_id.map(|id| (id, s.count)));
+            machines.push(MachineSaveDataV2::Crusher(CrusherSaveDataV2 {
+                position: machine.position.into(),
+                input: input.map(|(id, count)| ItemStackV2 {
+                    item_id: item_id_to_string(id),
+                    count,
+                }),
+                output: output.map(|(id, count)| ItemStackV2 {
+                    item_id: item_id_to_string(id),
+                    count,
+                }),
+                progress: machine.progress,
+            }));
         }
     }
 
@@ -460,7 +456,7 @@ pub fn handle_load_event(
                             commands.spawn((
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
-                                    base_color: BlockType::MinerBlock.color(),
+                                    base_color: items::miner_block().color(),
                                     ..default()
                                 })),
                                 bundle,
@@ -508,7 +504,7 @@ pub fn handle_load_event(
                                 },
                                 Mesh3d(mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
-                                    base_color: BlockType::ConveyorBlock.color(),
+                                    base_color: items::conveyor_block().color(),
                                     ..default()
                                 })),
                                 Transform::from_translation(world_pos)
@@ -548,7 +544,7 @@ pub fn handle_load_event(
                             commands.spawn((
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
-                                    base_color: BlockType::FurnaceBlock.color(),
+                                    base_color: items::furnace_block().color(),
                                     ..default()
                                 })),
                                 bundle,
@@ -582,7 +578,7 @@ pub fn handle_load_event(
                             commands.spawn((
                                 Mesh3d(cube_mesh),
                                 MeshMaterial3d(materials.add(StandardMaterial {
-                                    base_color: BlockType::CrusherBlock.color(),
+                                    base_color: items::crusher_block().color(),
                                     ..default()
                                 })),
                                 bundle,

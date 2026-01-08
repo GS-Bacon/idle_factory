@@ -2,13 +2,13 @@
 //!
 //! These tests verify that critical invariants hold across random inputs.
 
-use idle_factory::BlockType;
+use idle_factory::core::{items, ItemId};
 use proptest::prelude::*;
 
 /// Test helper: Simple inventory for property testing
 #[derive(Clone, Debug, Default)]
 struct TestInventory {
-    slots: Vec<Option<(BlockType, u32)>>,
+    slots: Vec<Option<(ItemId, u32)>>,
 }
 
 impl TestInventory {
@@ -18,14 +18,14 @@ impl TestInventory {
         }
     }
 
-    fn add(&mut self, block_type: BlockType, count: u32) -> u32 {
+    fn add(&mut self, item_id: ItemId, count: u32) -> u32 {
         let mut remaining = count;
         for slot in &mut self.slots {
             if remaining == 0 {
                 break;
             }
             match slot {
-                Some((bt, c)) if *bt == block_type => {
+                Some((id, c)) if *id == item_id => {
                     let space = 64u32.saturating_sub(*c);
                     let to_add = remaining.min(space);
                     *c += to_add;
@@ -33,7 +33,7 @@ impl TestInventory {
                 }
                 None => {
                     let to_add = remaining.min(64);
-                    *slot = Some((block_type, to_add));
+                    *slot = Some((item_id, to_add));
                     remaining -= to_add;
                 }
                 _ => {}
@@ -42,14 +42,14 @@ impl TestInventory {
         count - remaining
     }
 
-    fn remove(&mut self, block_type: BlockType, count: u32) -> u32 {
+    fn remove(&mut self, item_id: ItemId, count: u32) -> u32 {
         let mut removed = 0u32;
         for slot in &mut self.slots {
             if removed >= count {
                 break;
             }
-            if let Some((bt, c)) = slot {
-                if *bt == block_type {
+            if let Some((id, c)) = slot {
+                if *id == item_id {
                     let to_remove = (count - removed).min(*c);
                     *c -= to_remove;
                     removed += to_remove;
@@ -62,11 +62,11 @@ impl TestInventory {
         removed
     }
 
-    fn count(&self, block_type: BlockType) -> u32 {
+    fn count(&self, item_id: ItemId) -> u32 {
         self.slots
             .iter()
-            .filter_map(|s| s.as_ref())
-            .filter(|(bt, _)| *bt == block_type)
+            .filter_map(|s: &Option<(ItemId, u32)>| s.as_ref())
+            .filter(|(id, _)| *id == item_id)
             .map(|(_, c)| c)
             .sum()
     }
@@ -74,7 +74,7 @@ impl TestInventory {
     fn total_count(&self) -> u32 {
         self.slots
             .iter()
-            .filter_map(|s| s.as_ref())
+            .filter_map(|s: &Option<(ItemId, u32)>| s.as_ref())
             .map(|(_, c)| c)
             .sum()
     }
@@ -88,12 +88,12 @@ proptest! {
         remove_count in 0u32..2000
     ) {
         let mut inv = TestInventory::new(36);
-        inv.add(BlockType::Stone, add_count);
-        inv.remove(BlockType::Stone, remove_count);
+        inv.add(items::stone(), add_count);
+        inv.remove(items::stone(), remove_count);
 
         // Count should never be negative (always >= 0)
-        prop_assert!(inv.count(BlockType::Stone) <= add_count,
-            "Count {} should be <= added {}", inv.count(BlockType::Stone), add_count);
+        prop_assert!(inv.count(items::stone()) <= add_count,
+            "Count {} should be <= added {}", inv.count(items::stone()), add_count);
     }
 
     /// Invariant: Item transfers preserve total count
@@ -106,15 +106,15 @@ proptest! {
         let mut inv_a = TestInventory::new(36);
         let mut inv_b = TestInventory::new(36);
 
-        inv_a.add(BlockType::Stone, initial_a);
-        inv_b.add(BlockType::Stone, initial_b);
+        inv_a.add(items::stone(), initial_a);
+        inv_b.add(items::stone(), initial_b);
 
         let before_total = inv_a.total_count() + inv_b.total_count();
 
         // Transfer from A to B
-        let transfer_amount = transfer.min(inv_a.count(BlockType::Stone));
-        let removed = inv_a.remove(BlockType::Stone, transfer_amount);
-        inv_b.add(BlockType::Stone, removed);
+        let transfer_amount = transfer.min(inv_a.count(items::stone()));
+        let removed = inv_a.remove(items::stone(), transfer_amount);
+        inv_b.add(items::stone(), removed);
 
         let after_total = inv_a.total_count() + inv_b.total_count();
 
@@ -128,7 +128,7 @@ proptest! {
         add_count in 1u32..1000
     ) {
         let mut inv = TestInventory::new(36);
-        inv.add(BlockType::Stone, add_count);
+        inv.add(items::stone(), add_count);
 
         for slot in &inv.slots {
             if let Some((_, count)) = slot {
@@ -144,12 +144,12 @@ proptest! {
         count in 1u32..100
     ) {
         let mut inv = TestInventory::new(36);
-        let initial = inv.count(BlockType::Stone);
+        let initial = inv.count(items::stone());
 
-        inv.add(BlockType::Stone, count);
-        inv.remove(BlockType::Stone, count);
+        inv.add(items::stone(), count);
+        inv.remove(items::stone(), count);
 
-        prop_assert_eq!(inv.count(BlockType::Stone), initial,
+        prop_assert_eq!(inv.count(items::stone()), initial,
             "After add({}) and remove({}), count should be {}", count, count, initial);
     }
 
@@ -193,27 +193,28 @@ proptest! {
         // If pos >= 1.0, item exits conveyor (valid state)
     }
 
-    /// Invariant: Block type has valid name
+    /// Invariant: ItemId has valid name
     #[test]
-    fn block_type_has_name(block_idx in 0usize..11) {
-        let block_types = [
-            BlockType::Stone,
-            BlockType::Grass,
-            BlockType::IronOre,
-            BlockType::Coal,
-            BlockType::IronIngot,
-            BlockType::MinerBlock,
-            BlockType::ConveyorBlock,
-            BlockType::CopperOre,
-            BlockType::CopperIngot,
-            BlockType::CrusherBlock,
-            BlockType::FurnaceBlock,
+    fn item_id_has_name(item_idx in 0usize..11) {
+        let item_ids = [
+            items::stone(),
+            items::grass(),
+            items::iron_ore(),
+            items::coal(),
+            items::iron_ingot(),
+            items::miner_block(),
+            items::conveyor_block(),
+            items::copper_ore(),
+            items::copper_ingot(),
+            items::crusher_block(),
+            items::furnace_block(),
         ];
 
-        let block = block_types[block_idx];
-        let name = block.name();
+        let item = item_ids[item_idx];
+        let name = item.name();
 
-        prop_assert!(!name.is_empty(), "Block type {:?} should have a non-empty name", block);
+        prop_assert!(name.is_some(), "ItemId {:?} should have a name", item);
+        prop_assert!(!name.unwrap().is_empty(), "ItemId {:?} should have a non-empty name", item);
     }
 }
 
@@ -226,12 +227,12 @@ mod deterministic_tests {
         // Run same operations multiple times, should get same result
         for _ in 0..5 {
             let mut inv = TestInventory::new(36);
-            inv.add(BlockType::Stone, 100);
-            inv.add(BlockType::IronOre, 50);
-            inv.remove(BlockType::Stone, 30);
+            inv.add(items::stone(), 100);
+            inv.add(items::iron_ore(), 50);
+            inv.remove(items::stone(), 30);
 
-            assert_eq!(inv.count(BlockType::Stone), 70);
-            assert_eq!(inv.count(BlockType::IronOre), 50);
+            assert_eq!(inv.count(items::stone()), 70);
+            assert_eq!(inv.count(items::iron_ore()), 50);
         }
     }
 }

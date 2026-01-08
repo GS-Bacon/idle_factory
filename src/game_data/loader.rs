@@ -107,7 +107,7 @@ mod tests {
         assert!(!furnace_recipes.is_empty(), "Furnace should have recipes");
 
         // Find iron smelting recipe
-        let iron_recipe = data.find_recipe("furnace", BlockType::IronOre);
+        let iron_recipe = data.find_recipe("furnace", crate::core::items::iron_ore());
         assert!(iron_recipe.is_some(), "Should find iron smelting recipe");
         assert_eq!(iron_recipe.unwrap().id, "smelt_iron");
     }
@@ -118,11 +118,11 @@ mod tests {
         assert!(result.is_ok());
 
         let data = result.unwrap();
-        let miner = data.get_machine(BlockType::MinerBlock);
+        let miner = data.get_machine(crate::core::items::miner_block());
         assert!(miner.is_some(), "Should find miner");
         assert_eq!(miner.unwrap().id, "miner");
 
-        let stone = data.get_machine(BlockType::Stone);
+        let stone = data.get_machine(crate::core::items::stone());
         assert!(stone.is_none(), "Stone is not a machine");
     }
 }

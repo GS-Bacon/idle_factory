@@ -8,7 +8,6 @@ pub mod biome;
 
 pub use biome::{mining_random, BiomeMap};
 
-use crate::block_type::BlockType;
 use crate::constants::*;
 use crate::core::{items, ItemId};
 use bevy::prelude::*;
@@ -351,12 +350,6 @@ impl ChunkData {
             return None;
         }
         self.blocks[Self::pos_to_index(x, y, z)]
-    }
-
-    /// Get block at local position as BlockType (for legacy compatibility)
-    #[inline(always)]
-    pub fn get_block_type(&self, x: i32, y: i32, z: i32) -> Option<BlockType> {
-        self.get_block(x, y, z).and_then(|id| id.try_into().ok())
     }
 
     /// Check if a block exists at local position
@@ -723,11 +716,6 @@ impl WorldData {
         let local_pos = Self::world_to_local(world_pos);
         let chunk = self.chunks.get(&chunk_coord)?;
         chunk.get_block(local_pos.x, local_pos.y, local_pos.z)
-    }
-
-    /// Get block at world position as BlockType (for legacy compatibility)
-    pub fn get_block_type(&self, world_pos: IVec3) -> Option<BlockType> {
-        self.get_block(world_pos).and_then(|id| id.try_into().ok())
     }
 
     /// Set block at world position

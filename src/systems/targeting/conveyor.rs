@@ -4,11 +4,11 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use crate::components::Machine;
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::meshes::create_conveyor_mesh;
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, ConveyorVisual, Direction,
+    Conveyor, ConveyorRotationOffset, ConveyorShape, ConveyorVisual, Direction,
     InputStateResourcesWithCursor, MachineModels,
 };
 
@@ -28,10 +28,9 @@ pub fn rotate_conveyor_placement(
         return;
     };
     let selected_item_id: Option<ItemId> = inventory.get_selected_item_id();
-    // Convert to BlockType to check if rotatable
-    let selected_block_type: Option<BlockType> = selected_item_id.and_then(|id| id.try_into().ok());
+    // Check if the selected item is rotatable (conveyor or machine)
     let is_rotatable =
-        selected_block_type.is_some_and(|bt| bt == BlockType::ConveyorBlock || bt.is_machine());
+        selected_item_id.is_some_and(|id| id == items::conveyor_block() || id.is_machine());
     if !is_rotatable {
         // Reset rotation when not placing rotatable block
         rotation.offset = 0;
@@ -79,14 +78,11 @@ pub fn update_conveyor_shapes(
     let mut crusher_positions: HashSet<IVec3> = HashSet::new();
 
     for machine in machine_query.iter() {
-        match machine.spec.block_type {
-            BlockType::FurnaceBlock => {
-                furnace_positions.insert(machine.position);
-            }
-            BlockType::CrusherBlock => {
-                crusher_positions.insert(machine.position);
-            }
-            _ => {}
+        let machine_id = machine.spec.item_id();
+        if machine_id == items::furnace_block() {
+            furnace_positions.insert(machine.position);
+        } else if machine_id == items::crusher_block() {
+            crusher_positions.insert(machine.position);
         }
     }
 

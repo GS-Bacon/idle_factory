@@ -19,8 +19,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use crate::block_type::BlockCategory;
-use crate::core::{items, ItemId, ValidItemId};
+use crate::core::{items, BlockCategory, ItemId, ValidItemId};
 
 use super::machines::MachineSpec;
 use super::recipes::Recipe;
@@ -296,6 +295,17 @@ static ITEM_DESCRIPTORS: LazyLock<Vec<(ItemId, ItemDescriptor)>> = LazyLock::new
 /// Get all item descriptors
 pub fn item_descriptors() -> &'static [(ItemId, ItemDescriptor)] {
     &ITEM_DESCRIPTORS
+}
+
+/// Get item descriptor by ItemId (static lookup, no GameRegistry needed)
+///
+/// This is useful for cases where you don't have access to the GameRegistry
+/// (e.g., in ItemId methods or pure functions).
+pub fn get_item_descriptor(item_id: ItemId) -> Option<&'static ItemDescriptor> {
+    ITEM_DESCRIPTORS
+        .iter()
+        .find(|(id, _)| *id == item_id)
+        .map(|(_, desc)| desc)
 }
 
 // =============================================================================

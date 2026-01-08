@@ -116,13 +116,8 @@ pub fn update_hotbar_item_name(
 
     // Show selected item name
     if let Some(item_id) = inventory.selected_item_id() {
-        // Get display name - try to convert to BlockType for name
-        let name = if let Ok(block_type) = crate::BlockType::try_from(item_id) {
-            block_type.name().to_string()
-        } else {
-            // Fallback to ItemId string name
-            item_id.name().unwrap_or("Unknown").to_string()
-        };
+        // Get display name using ItemId's display_name() method
+        let name = item_id.display_name().to_string();
         text.0 = name.clone();
         // Center the text by adjusting margin based on text length
         let char_width = 8.0; // Approximate character width

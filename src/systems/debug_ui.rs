@@ -1,8 +1,8 @@
 //! Debug HUD systems
 
 use crate::components::{BiomeHudText, PlayerPhysics, *};
+use crate::core::items;
 use crate::world::{BiomeMap, WorldData};
-use crate::BlockType;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::prelude::*;
 use serde::Serialize;
@@ -384,27 +384,31 @@ pub fn export_e2e_state(
     // Collect machine info with detailed state
     let mut machines: Vec<E2EMachineInfo> = Vec::new();
     for machine in machine_query.iter() {
-        let machine_type_str = match machine.spec.block_type {
-            BlockType::MinerBlock => "Miner",
-            BlockType::FurnaceBlock => "Furnace",
-            BlockType::CrusherBlock => "Crusher",
-            _ => "Unknown",
+        let machine_id = machine.spec.item_id();
+        let machine_type_str = if machine_id == items::miner_block() {
+            "Miner"
+        } else if machine_id == items::furnace_block() {
+            "Furnace"
+        } else if machine_id == items::crusher_block() {
+            "Crusher"
+        } else {
+            "Unknown"
         };
 
         let input = machine.slots.inputs.first().and_then(|s| {
-            s.block_type_for_render()
-                .map(|bt| (format!("{:?}", bt), s.count))
+            s.get_item_id()
+                .map(|id| (id.display_name().to_string(), s.count))
         });
         let output = machine.slots.outputs.first().and_then(|s| {
-            s.block_type_for_render()
-                .map(|bt| (format!("{:?}", bt), s.count))
+            s.get_item_id()
+                .map(|id| (id.display_name().to_string(), s.count))
         });
         let fuel = if machine.spec.requires_fuel {
             Some(machine.slots.fuel)
         } else {
             None
         };
-        let buffer = if machine.spec.block_type == BlockType::MinerBlock {
+        let buffer = if machine_id == items::miner_block() {
             output.clone()
         } else {
             None

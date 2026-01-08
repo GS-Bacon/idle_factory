@@ -3,11 +3,10 @@
 //! Loads game configuration from JSON files at runtime.
 //! This allows for easy modding and data-driven game design.
 
-use crate::BlockType;
+use crate::core::ItemId;
 use bevy::prelude::*;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::str::FromStr;
 
 mod loader;
 
@@ -138,7 +137,7 @@ pub struct GameData {
     pub recipes: Vec<RecipeData>,
     pub main_quests: Vec<QuestData>,
     pub sub_quests: Vec<QuestData>,
-    pub initial_equipment: Vec<(BlockType, u32)>,
+    pub initial_equipment: Vec<(ItemId, u32)>,
     pub machines: Vec<MachineData>,
     pub machine_constants: MachineConstants,
     /// Recipe lookup by machine type
@@ -186,28 +185,33 @@ impl GameData {
     }
 
     /// Find a recipe by input item and machine
-    pub fn find_recipe(&self, machine: &str, input: BlockType) -> Option<&RecipeData> {
-        let input_str = input.to_string();
+    pub fn find_recipe(&self, machine: &str, input: ItemId) -> Option<&RecipeData> {
+        // Extract short name from "base:iron_ore" -> "iron_ore"
+        let input_str = input
+            .name()
+            .and_then(|s| s.split(':').next_back())
+            .unwrap_or_default();
         self.get_recipes_for_machine(machine)
             .into_iter()
             .find(|r| r.inputs.iter().any(|i| i.item == input_str))
     }
 
-    /// Get machine data by block type
-    pub fn get_machine(&self, block_type: BlockType) -> Option<&MachineData> {
-        let block_str = block_type.to_string();
+    /// Get machine data by item id
+    pub fn get_machine(&self, item_id: ItemId) -> Option<&MachineData> {
+        // Extract short name from "base:miner_block" -> "miner_block"
+        let block_str = item_id
+            .name()
+            .and_then(|s| s.split(':').next_back())
+            .unwrap_or_default();
         self.machines.iter().find(|m| m.block_type == block_str)
     }
 
-    /// Convert item count data to BlockType pairs
-    pub fn parse_item_counts(items: &[ItemCountData]) -> Vec<(BlockType, u32)> {
+    /// Convert item count data to ItemId pairs
+    pub fn parse_item_counts(items: &[ItemCountData]) -> Vec<(ItemId, u32)> {
+        use crate::core::items;
         items
             .iter()
-            .filter_map(|item| {
-                BlockType::from_str(&item.item)
-                    .ok()
-                    .map(|bt| (bt, item.count))
-            })
+            .filter_map(|item| items::by_name(&item.item).map(|id| (id, item.count)))
             .collect()
     }
 }
@@ -271,7 +275,7 @@ mod tests {
 
         let parsed = GameData::parse_item_counts(&items);
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed[0], (BlockType::IronIngot, 10));
-        assert_eq!(parsed[1], (BlockType::Coal, 5));
+        assert_eq!(parsed[0], (crate::core::items::iron_ingot(), 10));
+        assert_eq!(parsed[1], (crate::core::items::coal(), 5));
     }
 }

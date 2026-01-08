@@ -10,7 +10,6 @@ pub mod guarded_writer;
 pub use game_events::*;
 pub use guarded_writer::*;
 
-use crate::block_type::BlockType;
 use crate::core::ItemId;
 use bevy::prelude::*;
 use std::collections::HashSet;
@@ -76,14 +75,6 @@ pub struct BlockPlaceEvent {
     pub position: IVec3,
     pub item_id: ItemId,
     pub player_id: u64,
-}
-
-impl BlockPlaceEvent {
-    /// Get block_type (deprecated, use item_id directly)
-    #[deprecated(since = "0.3.0", note = "Use item_id field directly")]
-    pub fn block_type(&self) -> Option<BlockType> {
-        self.item_id.try_into().ok()
-    }
 }
 
 /// Event for block destruction

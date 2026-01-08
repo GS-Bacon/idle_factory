@@ -5,8 +5,8 @@
 //!
 //! See game_spec::biome_mining_spec for probability tables.
 
+use crate::core::ItemId;
 use crate::game_spec::biome_mining_spec;
-use crate::BlockType;
 use bevy::prelude::*;
 
 /// Biome types that determine mining output
@@ -52,20 +52,20 @@ impl BiomeType {
         }
     }
 
-    /// Get the probability table for this biome
-    pub fn get_probability_table(&self) -> &'static [(BlockType, u32)] {
+    /// Get the probability table for this biome (ItemId version)
+    pub fn get_probability_table(&self) -> &[(ItemId, u32)] {
         match self {
-            BiomeType::Iron => biome_mining_spec::IRON_BIOME,
-            BiomeType::Copper => biome_mining_spec::COPPER_BIOME,
-            BiomeType::Coal => biome_mining_spec::COAL_BIOME,
-            BiomeType::Stone => biome_mining_spec::STONE_BIOME,
-            BiomeType::Mixed => biome_mining_spec::MIXED_BIOME,
+            BiomeType::Iron => &biome_mining_spec::IRON_BIOME,
+            BiomeType::Copper => &biome_mining_spec::COPPER_BIOME,
+            BiomeType::Coal => &biome_mining_spec::COAL_BIOME,
+            BiomeType::Stone => &biome_mining_spec::STONE_BIOME,
+            BiomeType::Mixed => &biome_mining_spec::MIXED_BIOME,
             BiomeType::Unmailable => &[], // No resources
         }
     }
 
     /// Sample a random resource from this biome's probability table
-    pub fn sample_resource(&self, random_value: u32) -> Option<BlockType> {
+    pub fn sample_resource(&self, random_value: u32) -> Option<ItemId> {
         let table = self.get_probability_table();
         if table.is_empty() {
             return None;
@@ -73,15 +73,15 @@ impl BiomeType {
 
         // random_value is 0-99
         let mut cumulative = 0u32;
-        for (block_type, probability) in table {
+        for (item_id, probability) in table {
             cumulative += probability;
             if random_value < cumulative {
-                return Some(*block_type);
+                return Some(*item_id);
             }
         }
 
         // Fallback to last item if rounding errors
-        table.last().map(|(bt, _)| *bt)
+        table.last().map(|(id, _)| *id)
     }
 }
 

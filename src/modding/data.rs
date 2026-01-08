@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::block_type::BlockType;
+use crate::core::ItemId;
 
 /// Modデータファイル形式
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -365,10 +365,9 @@ impl DataLoader {
     }
 }
 
-/// ブロックタイプ変換ヘルパー
-pub fn parse_block_type(id: &str) -> Option<BlockType> {
-    use std::str::FromStr;
-    BlockType::from_str(id).ok()
+/// アイテムID変換ヘルパー
+pub fn parse_item_id(id: &str) -> Option<ItemId> {
+    crate::core::items::by_name(id)
 }
 
 #[cfg(test)]

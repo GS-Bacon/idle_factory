@@ -132,7 +132,7 @@ fn generate_conveyor_guide_positions(
     // Show positions adjacent to miners (output side)
     for machine in machine_query.iter() {
         // Only suggest for miners
-        if machine.spec.block_type != crate::BlockType::MinerBlock {
+        if machine.spec.item_id() != crate::core::items::miner_block() {
             continue;
         }
         for dir in [IVec3::X, IVec3::NEG_X, IVec3::Z, IVec3::NEG_Z] {

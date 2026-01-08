@@ -6,12 +6,11 @@
 //! - DebugConveyor for debugging
 
 use crate::components::{MachineBundle, *};
+use crate::core::items;
 use crate::events::SpawnMachineEvent;
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::world::WorldData;
-use crate::{
-    BlockType, Conveyor, ConveyorShape, ConveyorVisual, Direction, MachineModels, BLOCK_SIZE,
-};
+use crate::{Conveyor, ConveyorShape, ConveyorVisual, Direction, MachineModels, BLOCK_SIZE};
 use bevy::prelude::*;
 use tracing::info;
 
@@ -98,139 +97,128 @@ pub fn handle_spawn_machine_event(
 ) {
     for event in events.read() {
         let pos = event.position;
+        let machine_id = event.machine_id;
 
-        // Convert ItemId to BlockType for matching (temporary until full migration)
-        let block_type: Option<BlockType> = event.machine_id.try_into().ok();
+        if machine_id == items::conveyor_block() {
+            // Direction from event or default to North
+            let direction = match event.direction.unwrap_or(0) {
+                0 => Direction::North,
+                1 => Direction::East,
+                2 => Direction::South,
+                3 => Direction::West,
+                _ => Direction::North,
+            };
 
-        match block_type {
-            Some(BlockType::ConveyorBlock) => {
-                // Direction from event or default to North
-                let direction = match event.direction.unwrap_or(0) {
-                    0 => Direction::North,
-                    1 => Direction::East,
-                    2 => Direction::South,
-                    3 => Direction::West,
-                    _ => Direction::North,
-                };
+            let conveyor_pos = Vec3::new(
+                pos.x as f32 * BLOCK_SIZE + 0.5,
+                pos.y as f32 * BLOCK_SIZE, // Conveyor sits on top of block
+                pos.z as f32 * BLOCK_SIZE + 0.5,
+            );
 
-                let conveyor_pos = Vec3::new(
-                    pos.x as f32 * BLOCK_SIZE + 0.5,
-                    pos.y as f32 * BLOCK_SIZE, // Conveyor sits on top of block
-                    pos.z as f32 * BLOCK_SIZE + 0.5,
-                );
-
-                if let Some(model_handle) =
-                    machine_models.get_conveyor_model(ConveyorShape::Straight)
-                {
-                    commands.spawn((
-                        SceneRoot(model_handle),
-                        Transform::from_translation(conveyor_pos)
-                            .with_rotation(direction.to_rotation()),
-                        GlobalTransform::default(),
-                        Visibility::default(),
-                        InheritedVisibility::default(),
-                        ViewVisibility::default(),
-                        Conveyor {
-                            position: pos,
-                            direction,
-                            output_direction: direction,
-                            items: Vec::new(),
-                            last_output_index: 0,
-                            last_input_source: 0,
-                            shape: ConveyorShape::Straight,
-                        },
-                        ConveyorVisual,
-                    ));
-                } else {
-                    // Fallback to procedural mesh
-                    let mesh =
-                        meshes.add(Cuboid::new(BLOCK_SIZE * 0.9, BLOCK_SIZE * 0.15, BLOCK_SIZE));
-                    let material = materials.add(StandardMaterial {
-                        base_color: BlockType::ConveyorBlock.color(),
-                        ..default()
-                    });
-                    commands.spawn((
-                        Mesh3d(mesh),
-                        MeshMaterial3d(material),
-                        Transform::from_translation(conveyor_pos)
-                            .with_rotation(direction.to_rotation()),
-                        Conveyor {
-                            position: pos,
-                            direction,
-                            output_direction: direction,
-                            items: Vec::new(),
-                            last_output_index: 0,
-                            last_input_source: 0,
-                            shape: ConveyorShape::Straight,
-                        },
-                        ConveyorVisual,
-                    ));
-                }
-                info!("Spawned conveyor at {:?} facing {:?}", pos, direction);
+            if let Some(model_handle) = machine_models.get_conveyor_model(ConveyorShape::Straight) {
+                commands.spawn((
+                    SceneRoot(model_handle),
+                    Transform::from_translation(conveyor_pos)
+                        .with_rotation(direction.to_rotation()),
+                    GlobalTransform::default(),
+                    Visibility::default(),
+                    InheritedVisibility::default(),
+                    ViewVisibility::default(),
+                    Conveyor {
+                        position: pos,
+                        direction,
+                        output_direction: direction,
+                        items: Vec::new(),
+                        last_output_index: 0,
+                        last_input_source: 0,
+                        shape: ConveyorShape::Straight,
+                    },
+                    ConveyorVisual,
+                ));
+            } else {
+                // Fallback to procedural mesh
+                let mesh = meshes.add(Cuboid::new(BLOCK_SIZE * 0.9, BLOCK_SIZE * 0.15, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: items::conveyor_block().color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(material),
+                    Transform::from_translation(conveyor_pos)
+                        .with_rotation(direction.to_rotation()),
+                    Conveyor {
+                        position: pos,
+                        direction,
+                        output_direction: direction,
+                        items: Vec::new(),
+                        last_output_index: 0,
+                        last_input_source: 0,
+                        shape: ConveyorShape::Straight,
+                    },
+                    ConveyorVisual,
+                ));
             }
-            Some(BlockType::MinerBlock) => {
-                if let Some(model) = machine_models.miner.clone() {
-                    commands.spawn((
-                        SceneRoot(model),
-                        MachineBundle::new(&MINER, pos, Direction::North),
-                    ));
-                } else {
-                    let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                    let material = materials.add(StandardMaterial {
-                        base_color: BlockType::MinerBlock.color(),
-                        ..default()
-                    });
-                    commands.spawn((
-                        Mesh3d(mesh),
-                        MeshMaterial3d(material),
-                        MachineBundle::new_centered(&MINER, pos, Direction::North),
-                    ));
-                }
-                info!("Spawned miner at {:?}", pos);
+            info!("Spawned conveyor at {:?} facing {:?}", pos, direction);
+        } else if machine_id == items::miner_block() {
+            if let Some(model) = machine_models.miner.clone() {
+                commands.spawn((
+                    SceneRoot(model),
+                    MachineBundle::new(&MINER, pos, Direction::North),
+                ));
+            } else {
+                let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: items::miner_block().color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(material),
+                    MachineBundle::new_centered(&MINER, pos, Direction::North),
+                ));
             }
-            Some(BlockType::FurnaceBlock) => {
-                if let Some(model) = machine_models.furnace.clone() {
-                    commands.spawn((
-                        SceneRoot(model),
-                        MachineBundle::new(&FURNACE, pos, Direction::North),
-                    ));
-                } else {
-                    let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                    let material = materials.add(StandardMaterial {
-                        base_color: BlockType::FurnaceBlock.color(),
-                        ..default()
-                    });
-                    commands.spawn((
-                        Mesh3d(mesh),
-                        MeshMaterial3d(material),
-                        MachineBundle::new_centered(&FURNACE, pos, Direction::North),
-                    ));
-                }
-                info!("Spawned furnace at {:?}", pos);
+            info!("Spawned miner at {:?}", pos);
+        } else if machine_id == items::furnace_block() {
+            if let Some(model) = machine_models.furnace.clone() {
+                commands.spawn((
+                    SceneRoot(model),
+                    MachineBundle::new(&FURNACE, pos, Direction::North),
+                ));
+            } else {
+                let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: items::furnace_block().color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(material),
+                    MachineBundle::new_centered(&FURNACE, pos, Direction::North),
+                ));
             }
-            Some(BlockType::CrusherBlock) => {
-                if let Some(model) = machine_models.crusher.clone() {
-                    commands.spawn((
-                        SceneRoot(model),
-                        MachineBundle::new(&CRUSHER, pos, Direction::North),
-                    ));
-                } else {
-                    let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
-                    let material = materials.add(StandardMaterial {
-                        base_color: BlockType::CrusherBlock.color(),
-                        ..default()
-                    });
-                    commands.spawn((
-                        Mesh3d(mesh),
-                        MeshMaterial3d(material),
-                        MachineBundle::new_centered(&CRUSHER, pos, Direction::North),
-                    ));
-                }
-                info!("Spawned crusher at {:?}", pos);
+            info!("Spawned furnace at {:?}", pos);
+        } else if machine_id == items::crusher_block() {
+            if let Some(model) = machine_models.crusher.clone() {
+                commands.spawn((
+                    SceneRoot(model),
+                    MachineBundle::new(&CRUSHER, pos, Direction::North),
+                ));
+            } else {
+                let mesh = meshes.add(Cuboid::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE));
+                let material = materials.add(StandardMaterial {
+                    base_color: items::crusher_block().color(),
+                    ..default()
+                });
+                commands.spawn((
+                    Mesh3d(mesh),
+                    MeshMaterial3d(material),
+                    MachineBundle::new_centered(&CRUSHER, pos, Direction::North),
+                ));
             }
-            _ => {
-                info!("Cannot spawn {:?} as machine", event.machine_id);
-            }
+            info!("Spawned crusher at {:?}", pos);
+        } else {
+            info!("Cannot spawn {:?} as machine", event.machine_id);
         }
     }
 }
@@ -263,7 +251,7 @@ pub fn handle_debug_event(
                         info!(
                             "  Item {}: {} @ progress={:.2}, lateral={:.2}",
                             i,
-                            item.block_type_for_render().name(),
+                            item.get_item_id().display_name(),
                             item.progress,
                             item.lateral_offset
                         );
@@ -280,56 +268,53 @@ pub fn handle_debug_event(
                 let mut crusher_count = 0;
 
                 for (entity, machine) in machine_query.iter() {
-                    match machine.spec.block_type {
-                        BlockType::MinerBlock => {
-                            let output =
-                                machine.slots.outputs.first().and_then(|s| {
-                                    s.block_type_for_render().map(|bt| (bt, s.count))
-                                });
-                            info!(
-                                "Miner {:?}: pos={:?}, facing={:?}, progress={:.1}%, buffer={:?}",
-                                entity,
-                                machine.position,
-                                machine.facing,
-                                machine.progress * 100.0,
-                                output.map(|(bt, count)| format!("{}x{}", bt.name(), count)),
-                            );
-                            miner_count += 1;
-                        }
-                        BlockType::FurnaceBlock => {
-                            let input = machine.slots.inputs.first();
-                            let output = machine.slots.outputs.first();
-                            info!(
-                                "Furnace {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, fuel={}, progress={:.1}%",
-                                entity,
-                                machine.position,
-                                machine.facing,
-                                input.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
-                                input.map(|s| s.count).unwrap_or(0),
-                                output.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
-                                output.map(|s| s.count).unwrap_or(0),
-                                machine.slots.fuel,
-                                machine.progress * 100.0,
-                            );
-                            furnace_count += 1;
-                        }
-                        BlockType::CrusherBlock => {
-                            let input = machine.slots.inputs.first();
-                            let output = machine.slots.outputs.first();
-                            info!(
-                                "Crusher {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, progress={:.1}%",
-                                entity,
-                                machine.position,
-                                machine.facing,
-                                input.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
-                                input.map(|s| s.count).unwrap_or(0),
-                                output.and_then(|s| s.block_type_for_render()).map(|b| b.name()),
-                                output.map(|s| s.count).unwrap_or(0),
-                                machine.progress * 100.0,
-                            );
-                            crusher_count += 1;
-                        }
-                        _ => {}
+                    let machine_item_id = machine.spec.item_id();
+                    if machine_item_id == items::miner_block() {
+                        let output = machine
+                            .slots
+                            .outputs
+                            .first()
+                            .and_then(|s| s.get_item_id().map(|id| (id, s.count)));
+                        info!(
+                            "Miner {:?}: pos={:?}, facing={:?}, progress={:.1}%, buffer={:?}",
+                            entity,
+                            machine.position,
+                            machine.facing,
+                            machine.progress * 100.0,
+                            output.map(|(id, count)| format!("{}x{}", id.display_name(), count)),
+                        );
+                        miner_count += 1;
+                    } else if machine_item_id == items::furnace_block() {
+                        let input = machine.slots.inputs.first();
+                        let output = machine.slots.outputs.first();
+                        info!(
+                            "Furnace {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, fuel={}, progress={:.1}%",
+                            entity,
+                            machine.position,
+                            machine.facing,
+                            input.and_then(|s| s.get_item_id()).map(|id| id.display_name()),
+                            input.map(|s| s.count).unwrap_or(0),
+                            output.and_then(|s| s.get_item_id()).map(|id| id.display_name()),
+                            output.map(|s| s.count).unwrap_or(0),
+                            machine.slots.fuel,
+                            machine.progress * 100.0,
+                        );
+                        furnace_count += 1;
+                    } else if machine_item_id == items::crusher_block() {
+                        let input = machine.slots.inputs.first();
+                        let output = machine.slots.outputs.first();
+                        info!(
+                            "Crusher {:?}: pos={:?}, facing={:?}, input={:?}x{}, output={:?}x{}, progress={:.1}%",
+                            entity,
+                            machine.position,
+                            machine.facing,
+                            input.and_then(|s| s.get_item_id()).map(|id| id.display_name()),
+                            input.map(|s| s.count).unwrap_or(0),
+                            output.and_then(|s| s.get_item_id()).map(|id| id.display_name()),
+                            output.map(|s| s.count).unwrap_or(0),
+                            machine.progress * 100.0,
+                        );
+                        crusher_count += 1;
                     }
                 }
 
@@ -353,11 +338,15 @@ pub fn handle_debug_event(
                     let input_connected = conveyor_positions.get(&input_pos);
                     let output_connected = conveyor_positions.get(&output_pos);
 
-                    let machine_name = match machine.spec.block_type {
-                        BlockType::MinerBlock => "Miner",
-                        BlockType::FurnaceBlock => "Furnace",
-                        BlockType::CrusherBlock => "Crusher",
-                        _ => "Unknown",
+                    let machine_item_id = machine.spec.item_id();
+                    let machine_name = if machine_item_id == items::miner_block() {
+                        "Miner"
+                    } else if machine_item_id == items::furnace_block() {
+                        "Furnace"
+                    } else if machine_item_id == items::crusher_block() {
+                        "Crusher"
+                    } else {
+                        "Unknown"
                     };
 
                     info!(
@@ -398,7 +387,7 @@ pub fn handle_assert_machine_event(
                 let working_miners: Vec<_> = machine_query
                     .iter()
                     .filter(|m| {
-                        m.spec.block_type == BlockType::MinerBlock
+                        m.spec.item_id() == items::miner_block()
                             && (m.progress > 0.0
                                 || m.slots
                                     .outputs
@@ -409,7 +398,7 @@ pub fn handle_assert_machine_event(
                     .collect();
                 let total_miners = machine_query
                     .iter()
-                    .filter(|m| m.spec.block_type == BlockType::MinerBlock)
+                    .filter(|m| m.spec.item_id() == items::miner_block())
                     .count();
                 if !working_miners.is_empty() {
                     info!("PASS: {} miner(s) working", working_miners.len());

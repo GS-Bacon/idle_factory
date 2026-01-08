@@ -3,7 +3,6 @@
 use crate::constants::*;
 use crate::core::ItemId;
 use crate::game_spec::{find_recipe, MachineType};
-use crate::BlockType;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
@@ -106,11 +105,6 @@ impl ConveyorItem {
     /// Get the item as ItemId (preferred API)
     pub fn get_item_id(&self) -> ItemId {
         self.item_id
-    }
-
-    /// Get BlockType for rendering (mod items fallback to Stone)
-    pub fn block_type_for_render(&self) -> BlockType {
-        self.item_id.try_into().unwrap_or(BlockType::Stone)
     }
 
     /// Set the item type from ItemId
@@ -368,12 +362,6 @@ impl MachineSlot {
         }
     }
 
-    /// Add items using BlockType (legacy API - use add_id instead)
-    #[deprecated(since = "0.3.0", note = "Use add_id() with ItemId instead")]
-    pub fn add(&mut self, item: BlockType, amount: u32) -> u32 {
-        self.add_id(item.into(), amount)
-    }
-
     pub fn take(&mut self, amount: u32) -> u32 {
         let taken = amount.min(self.count);
         self.count -= taken;
@@ -391,11 +379,6 @@ impl MachineSlot {
     /// Get item as ItemId
     pub fn get_item_id(&self) -> Option<ItemId> {
         self.item_id
-    }
-
-    /// Get BlockType for rendering (returns None for Mod items that don't map to BlockType)
-    pub fn block_type_for_render(&self) -> Option<BlockType> {
-        self.item_id.and_then(|id| id.try_into().ok())
     }
 
     /// Set item type from ItemId
@@ -598,16 +581,23 @@ impl MachineModels {
         }
     }
 
-    /// Get item model handle for a given BlockType
-    pub fn get_item_model(&self, block_type: crate::BlockType) -> Option<Handle<Scene>> {
-        match block_type {
-            crate::BlockType::IronOre => self.item_iron_ore.clone(),
-            crate::BlockType::CopperOre => self.item_copper_ore.clone(),
-            crate::BlockType::Coal => self.item_coal.clone(),
-            crate::BlockType::Stone => self.item_stone.clone(),
-            crate::BlockType::IronIngot => self.item_iron_ingot.clone(),
-            crate::BlockType::CopperIngot => self.item_copper_ingot.clone(),
-            _ => None, // Other block types don't have item models
+    /// Get item model handle for a given ItemId
+    pub fn get_item_model(&self, item_id: crate::core::ItemId) -> Option<Handle<Scene>> {
+        use crate::core::items;
+        if item_id == items::iron_ore() {
+            self.item_iron_ore.clone()
+        } else if item_id == items::copper_ore() {
+            self.item_copper_ore.clone()
+        } else if item_id == items::coal() {
+            self.item_coal.clone()
+        } else if item_id == items::stone() {
+            self.item_stone.clone()
+        } else if item_id == items::iron_ingot() {
+            self.item_iron_ingot.clone()
+        } else if item_id == items::copper_ingot() {
+            self.item_copper_ingot.clone()
+        } else {
+            None // Other item types don't have item models
         }
     }
 }
@@ -709,20 +699,14 @@ impl MachineInventory {
         }
     }
 
-    /// Get input item as BlockType for rendering (returns None for mod items)
-    pub fn input_block_type(&self, slot: usize) -> Option<BlockType> {
-        self.input_slots
-            .get(slot)?
-            .as_ref()
-            .and_then(|(id, _)| (*id).try_into().ok())
+    /// Get input item as ItemId
+    pub fn input_item_id(&self, slot: usize) -> Option<ItemId> {
+        self.input_slots.get(slot)?.as_ref().map(|(id, _)| *id)
     }
 
-    /// Get output item as BlockType for rendering (returns None for mod items)
-    pub fn output_block_type(&self, slot: usize) -> Option<BlockType> {
-        self.output_slots
-            .get(slot)?
-            .as_ref()
-            .and_then(|(id, _)| (*id).try_into().ok())
+    /// Get output item as ItemId
+    pub fn output_item_id(&self, slot: usize) -> Option<ItemId> {
+        self.output_slots.get(slot)?.as_ref().map(|(id, _)| *id)
     }
 }
 
@@ -857,18 +841,22 @@ mod tests {
     fn test_conveyor_item_with_base_item_no_panic() {
         // Base item should work normally
         let item = ConveyorItem::new(items::iron_ore(), 0.5);
-        assert_eq!(item.item_id, items::iron_ore());
-        assert_eq!(item.block_type_for_render(), BlockType::IronOre);
+        assert_eq!(item.get_item_id(), items::iron_ore());
     }
 
     #[test]
     fn test_conveyor_item_with_mod_item_no_panic() {
-        // Mod item should NOT panic - fallback to Stone for rendering
+        // Mod item should NOT panic
         let mod_item_id = create_mod_item_id();
         let item = ConveyorItem::new(mod_item_id, 0.5);
 
-        // block_type_for_render should fallback to Stone (not panic)
-        assert_eq!(item.block_type_for_render(), BlockType::Stone);
+        // get_item_id should return the mod item
+        assert_eq!(item.get_item_id(), mod_item_id);
+        // color() should return fallback gray
+        assert_eq!(
+            item.get_item_id().color(),
+            bevy::prelude::Color::srgb(0.5, 0.5, 0.5)
+        );
     }
 
     #[test]
@@ -876,8 +864,7 @@ mod tests {
         let mut slot = MachineSlot::empty();
         slot.add_id(items::iron_ore(), 10);
 
-        assert_eq!(slot.item_id, Some(items::iron_ore()));
-        assert_eq!(slot.block_type_for_render(), Some(BlockType::IronOre));
+        assert_eq!(slot.get_item_id(), Some(items::iron_ore()));
         assert_eq!(slot.count, 10);
     }
 
@@ -887,8 +874,8 @@ mod tests {
         let mut slot = MachineSlot::empty();
         slot.add_id(mod_item_id, 5);
 
-        // block_type_for_render should fallback to Stone (not panic)
-        assert_eq!(slot.block_type_for_render(), Some(BlockType::Stone));
+        // get_item_id should return the mod item
+        assert_eq!(slot.get_item_id(), Some(mod_item_id));
         assert_eq!(slot.count, 5);
     }
 
@@ -908,7 +895,7 @@ mod tests {
         // Adding Mod item should NOT panic
         conveyor.add_item(mod_item_id, 0.0);
         assert_eq!(conveyor.items.len(), 1);
-        // Should fallback to Stone for rendering
-        assert_eq!(conveyor.items[0].block_type_for_render(), BlockType::Stone);
+        // Should preserve the mod item ID
+        assert_eq!(conveyor.items[0].get_item_id(), mod_item_id);
     }
 }

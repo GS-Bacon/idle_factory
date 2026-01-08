@@ -3,12 +3,13 @@
 use crate::components::Machine;
 use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
 use crate::core::id::ItemId;
+use crate::core::items;
 use crate::events::game_events::{ConveyorTransfer, ItemDelivered};
 use crate::events::GuardedEventWriter;
 use crate::player::LocalPlatformInventory;
 use crate::{
-    BlockType, Conveyor, ConveyorItemVisual, ConveyorShape, DeliveryPlatform, Direction,
-    MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
+    Conveyor, ConveyorItemVisual, ConveyorShape, DeliveryPlatform, Direction, MachineModels,
+    BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
 };
 use bevy::prelude::*;
 use bevy::time::Fixed;
@@ -38,14 +39,11 @@ pub fn conveyor_transfer(
     let mut crusher_positions: HashMap<IVec3, Entity> = HashMap::new();
 
     for (entity, machine) in machine_query.iter().map(|m| (Entity::PLACEHOLDER, m)) {
-        match machine.spec.block_type {
-            BlockType::FurnaceBlock => {
-                furnace_positions.insert(machine.position, entity);
-            }
-            BlockType::CrusherBlock => {
-                crusher_positions.insert(machine.position, entity);
-            }
-            _ => {}
+        let machine_id = machine.spec.item_id();
+        if machine_id == items::furnace_block() {
+            furnace_positions.insert(machine.position, entity);
+        } else if machine_id == items::crusher_block() {
+            crusher_positions.insert(machine.position, entity);
         }
     }
 
@@ -312,7 +310,7 @@ pub fn conveyor_transfer(
             TransferTarget::Furnace(furnace_pos) => {
                 let mut accepted = false;
                 for mut machine in machine_query.iter_mut() {
-                    if machine.spec.block_type != BlockType::FurnaceBlock
+                    if machine.spec.item_id() != items::furnace_block()
                         || machine.position != furnace_pos
                     {
                         continue;
@@ -371,7 +369,7 @@ pub fn conveyor_transfer(
             TransferTarget::Crusher(crusher_pos) => {
                 let mut accepted = false;
                 for mut machine in machine_query.iter_mut() {
-                    if machine.spec.block_type != BlockType::CrusherBlock
+                    if machine.spec.item_id() != items::crusher_block()
                         || machine.position != crusher_pos
                     {
                         continue;
@@ -554,9 +552,8 @@ pub fn update_conveyor_item_visuals(
             match item.visual_entity {
                 None => {
                     // Try to spawn with GLB model, fall back to colored cube
-                    let item_block_type = item.block_type_for_render();
-                    let entity = if let Some(scene_handle) = models.get_item_model(item_block_type)
-                    {
+                    let item_id = item.get_item_id();
+                    let entity = if let Some(scene_handle) = models.get_item_model(item_id) {
                         // Spawn GLB model
                         commands
                             .spawn((
@@ -573,7 +570,7 @@ pub fn update_conveyor_item_visuals(
                     } else {
                         // Fallback: spawn colored cube
                         let material = materials.add(StandardMaterial {
-                            base_color: item_block_type.color(),
+                            base_color: item_id.color(),
                             ..default()
                         });
                         commands

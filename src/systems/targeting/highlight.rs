@@ -4,15 +4,15 @@ use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 
 use crate::components::Machine;
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::meshes::{
     create_conveyor_mesh, create_conveyor_wireframe_mesh, create_wireframe_cube_mesh,
 };
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::utils::{auto_conveyor_direction, yaw_to_direction};
 use crate::{
-    BlockType, Conveyor, ConveyorRotationOffset, ConveyorShape, Direction, PlaceHighlight,
-    PlayerCamera, TargetBlock, TargetHighlight, BLOCK_SIZE,
+    Conveyor, ConveyorRotationOffset, ConveyorShape, Direction, PlaceHighlight, PlayerCamera,
+    TargetBlock, TargetHighlight, BLOCK_SIZE,
 };
 
 /// Marker for conveyor preview arrow
@@ -244,13 +244,10 @@ pub fn update_target_highlight(
 
     // Check what item is selected
     let selected_item_id: Option<ItemId> = inventory.get_selected_item_id();
-    // Convert to BlockType for pattern matching
-    let selected_block_type: Option<BlockType> = selected_item_id.and_then(|id| id.try_into().ok());
-    let placing_conveyor = selected_block_type == Some(BlockType::ConveyorBlock);
-    let placing_machine = matches!(
-        selected_block_type,
-        Some(BlockType::MinerBlock | BlockType::FurnaceBlock | BlockType::CrusherBlock)
-    );
+    let placing_conveyor = selected_item_id == Some(items::conveyor_block());
+    let placing_machine = selected_item_id.is_some_and(|id| {
+        id == items::miner_block() || id == items::furnace_block() || id == items::crusher_block()
+    });
 
     // Get player's facing direction as fallback
     let player_facing = camera_query.get_single().ok().map(|cam_transform| {
