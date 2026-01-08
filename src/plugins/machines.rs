@@ -28,15 +28,14 @@ impl Plugin for MachineSystemsPlugin {
         // Machine interaction systems (Phase C: generic)
         app.add_systems(Update, (generic_machine_interact, generic_machine_ui_input));
 
-        // Machine processing systems (Phase C: generic only)
+        // Machine processing systems - fixed timestep for deterministic logic
+        // FixedUpdate runs at 20 ticks/second for consistent game simulation
+        app.add_systems(FixedUpdate, (generic_machine_tick, conveyor_transfer));
+
+        // Visual update systems - run every frame for smooth rendering
         app.add_systems(
             Update,
-            (
-                machine_visual_feedback,
-                conveyor_transfer,
-                update_conveyor_item_visuals,
-                generic_machine_tick,
-            ),
+            (machine_visual_feedback, update_conveyor_item_visuals),
         );
 
         // Machine UI update systems (Phase C: generic)

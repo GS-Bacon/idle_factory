@@ -80,6 +80,10 @@ impl Plugin for GamePlugin {
         #[cfg(not(target_arch = "wasm32"))]
         app.add_plugins(crate::modding::EventBridgePlugin);
 
+        // Initialize event subscriptions for Mod API (non-WASM only)
+        #[cfg(not(target_arch = "wasm32"))]
+        app.init_resource::<crate::modding::handlers::EventSubscriptions>();
+
         // Initialize resources
         app.insert_resource(GlobalInventory::with_items_by_id(
             &game_spec::initial_equipment_by_id(),

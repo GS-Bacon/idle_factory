@@ -5,6 +5,7 @@
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
+use bevy::time::Fixed;
 use bevy::window::PresentMode;
 use idle_factory::logging;
 use idle_factory::plugins::GamePlugin;
@@ -14,6 +15,9 @@ fn main() {
     let _log_guard = logging::init_logging();
 
     let mut app = App::new();
+
+    // Configure fixed timestep for deterministic game logic (20 ticks/second)
+    app.insert_resource(Time::<Fixed>::from_hz(20.0));
 
     // Configure DefaultPlugins
     app.add_plugins(

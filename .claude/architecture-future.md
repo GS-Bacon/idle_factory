@@ -76,16 +76,25 @@
 
 ---
 
-## 確定した設計判断（2026-01-07）
+## 確定した設計判断（2026-01-08 更新）
 
 以下の根本的な設計判断は**確定**。変更する場合は十分な理由が必要。
 
 | 判断 | 決定 | 理由 |
 |------|------|------|
 | **ID方式** | 動的ID + Phantom Type | 型安全 + Mod対応 |
-| **スクリプト** | 外部API（WebSocket） | Lua/WASM統合しない、外部Modに任せる |
+| **Mod構成** | ハイブリッド（WASM + WebSocket + TOML） | ロジック拡張 + 言語自由 + データ定義 |
+| **base** | 本体に内蔵（Engine + base 一体） | シンプル、開発速度優先 |
 | **マルチ** | 確定実装、今すぐComponent化 | 後からは困難 |
 | **イベント** | 全フック（設計付き） | マルチ・Mod・デバッグ全てに必要 |
+
+### Modレイヤー詳細
+
+| レイヤー | 実行方式 | 言語 | 用途 | 優先度 |
+|---------|---------|------|------|--------|
+| **Data Mod** | TOML読み込み | - | アイテム/機械/レシピ | ✅ 実装済み |
+| **Script Mod** | WebSocket | Python, Lua, JS | イベントフック | 基盤あり |
+| **Core Mod** | WASM（Wasmtime） | Rust, C++ | ロジック追加・置換 | 将来 |
 
 ---
 
@@ -358,21 +367,61 @@ fn system(
 // Step 4: PlayerInventory Resource 削除
 ```
 
-### Modding の原則
+### Modding の原則（2026-01-08 確定）
 
-**ゲーム本体にスクリプト言語（Lua等）は統合しない。**
+**ハイブリッド方式：WASM + WebSocket + TOML**
 
-| 層 | 手段 | できること |
-|----|------|-----------|
-| **Data Mod** | TOML/JSON | 新アイテム、機械、レシピ、数値バランス |
-| **Hook** | 外部API（WebSocket等） | イベントへの反応、条件分岐 |
-| **Override** | 外部API | システムの置換、フル制御 |
+```
+┌─────────────────────────────────────────────┐
+│  Engine + base (Rust)                       │
+│  ├─ 描画、ECS、アセット                      │
+│  ├─ バニラコンテンツ（本体に内蔵）            │
+│  ├─ WASM ローダー（Wasmtime）               │
+│  └─ WebSocket サーバー                      │
+├─────────────────────────────────────────────┤
+│  Core Mod (WASM)          ← 同一プロセス     │
+│  └─ ロジック追加・置換（高速）               │
+├─────────────────────────────────────────────┤
+│  Script Mod (WebSocket)   ← 別プロセス       │
+│  └─ イベントフック、設定変更（言語自由）      │
+├─────────────────────────────────────────────┤
+│  Data Mod (TOML)          ← ファイル読み込み │
+│  └─ アイテム/機械/レシピ定義                 │
+└─────────────────────────────────────────────┘
+```
 
-**理由**:
-1. ゲーム本体がシンプルに保てる
-2. mlua等のRust-Lua統合の複雑さを回避
-3. Mod作者の言語選択の自由度が高い（Lua, Python, JS等）
-4. セキュリティリスク（サンドボックス問題）が軽減
+| レイヤー | 実行方式 | 言語 | 用途 |
+|---------|---------|------|------|
+| **Core Mod** | WASM（同一プロセス） | Rust, C++ 等 | 新ロジック、システム置換 |
+| **Script Mod** | WebSocket（別プロセス） | Python, Lua, JS 等 | イベントフック、設定変更 |
+| **Data Mod** | TOML読み込み | - | アイテム/機械/レシピ定義 |
+
+**設計判断（2026-01-08）**:
+- base は本体に残す（Engine + base 一体）
+- Core Mod で新ロジック定義 → Data Mod で別ユーザーがアイテム追加可能
+- Script Mod で Python/Lua ユーザーにも門戸を開く
+
+**Modでできること**:
+| やりたいこと | 使うレイヤー |
+|-------------|-------------|
+| 新アイテム追加 | Data Mod |
+| 既存ロジックで新機械 | Data Mod |
+| 新しい機械ロジック | Core Mod |
+| イベントに反応 | Script Mod / Core Mod |
+| 設定値変更 | Script Mod |
+| システム置換 | Core Mod |
+
+**階層的Mod拡張の例**:
+```
+[Core Mod] electric_machines.wasm
+    │  → 「電力消費して加工」ロジックを定義
+    │
+    ├─[Data Mod] electric_machines/machines.toml
+    │      → 電気炉、電気粉砕機（Mod作者）
+    │
+    └─[Data Mod] my_addon/machines.toml
+           → 超電気炉（別ユーザー、上のロジックを使用）
+```
 
 ### 3. イベントシステム（全フック設計）
 
@@ -558,48 +607,63 @@ impl ModEventBridge {
 
 ---
 
-### 4. スクリプト方針（外部API、将来WASM）
+### 4. スクリプト方針（WASM + WebSocket ハイブリッド）
 
-**ゲーム本体にスクリプト言語（Lua等）は統合しない。**
-OpenComputersと同じパターン：**Modが必要なら自分で統合する。**
+**Core Mod（WASM）と Script Mod（WebSocket）の2層構成。**
 
 ```
-[ゲーム本体] ←Mod API→ [スクリプトMod]
-                              ↑
-                         Mod作者がLua/Python/WASMを組み込む
+[Engine + base]
+    ├─ WASM ローダー ←── [Core Mod] ロジック追加・置換
+    └─ WebSocket ←────── [Script Mod] イベントフック
 ```
 
-#### 段階的対応
+#### 実装フェーズ
 
-| Phase | 方式 | 内容 |
-|-------|------|------|
-| **Phase 1** | 外部API（WebSocket） | 今すぐ実装可能、シンプル |
-| **永久にしない** | Lua/WASM統合 | 複雑さに見合わない、外部Modに任せる |
+| Phase | 方式 | 内容 | 状態 |
+|-------|------|------|------|
+| **Phase 1** | Data Mod（TOML） | アイテム/機械/レシピ定義 | ✅ 実装済み |
+| **Phase 2** | WebSocket API | イベント通知、Script Mod | 基盤あり |
+| **Phase 3** | WASM ローダー | Core Mod、ロジック拡張 | 未着手 |
 
-#### レイテンシ許容設計（固定Tick）
+#### 固定 Tick システム（必須）
 
-**問題**: WebSocket往復は50-100ms。60FPSだと3-6フレーム遅延。
+**固定 Tick は WebSocket だけでなく、複数の理由で必須。**
 
-**解決策**: Minecraft同様の**固定Tick**（1秒=20tick=50ms/tick）を採用。
+| 用途 | なぜ必要 |
+|------|---------|
+| **マルチプレイ** | クライアント間の状態同期を一定間隔で |
+| **大規模工場** | 毎フレーム処理は重い（1000機械×60fps=6万回/秒） |
+| **決定論的再現** | デバッグ、リプレイ、バグ再現 |
+| **Script Mod** | WebSocket レイテンシ吸収 |
+| **省電力** | バックグラウンド時に Tick 頻度を下げる |
+
+**設計**: Minecraft同様の**固定Tick**（1秒=20tick=50ms/tick）を採用。
 
 ```rust
 // Bevy FixedUpdate を使用
 app.insert_resource(Time::<Fixed>::from_hz(20.0)); // 20 tick/秒
 
-// ゲームロジックはFixedUpdateで実行
+// ゲームロジックは FixedUpdate で実行（20回/秒）
 app.add_systems(FixedUpdate, (
-    machine_tick,
-    conveyor_tick,
+    generic_machine_tick,
+    conveyor_transfer,
     signal_tick,
-    mod_event_process,  // Mod APIからのコマンド処理
+    process_mod_commands,  // Script Mod からのコマンド
 ));
 
-// 描画はUpdateで（スムーズな補間）
+// 描画は Update で実行（60fps、補間で滑らかに）
 app.add_systems(Update, (
+    interpolate_conveyor_items,
     interpolate_positions,
     render_ui,
 ));
 ```
+
+**パフォーマンス比較**:
+| 方式 | 機械1000台の処理回数/秒 |
+|------|------------------------|
+| 毎フレーム（60fps） | 60,000 回 |
+| 固定Tick（20tick） | 20,000 回（3倍軽い） |
 
 **レイテンシ許容範囲**:
 | 操作 | 許容遅延 | WebSocket対応 |
@@ -610,6 +674,27 @@ app.add_systems(Update, (
 | 戦闘（将来） | 0-1 tick | ✅ ゲーム本体で処理、Modは結果を受け取るのみ |
 
 **結論**: 固定Tick採用により、**外部API方式で十分な精度を確保可能**。
+
+#### Script Mod の制限事項
+
+| 制限 | 内容 | 理由 |
+|------|------|------|
+| **非同期のみ** | ゲームをブロックしない | フリーズ防止 |
+| **読み取り優先** | 状態変更はリクエスト（ゲームが検証・適用） | 不正防止 |
+| **タイムアウト** | 100ms 応答なければ無視 | ハング防止 |
+| **レート制限** | 1秒あたり最大100リクエスト | DoS防止 |
+| **高頻度イベント除外** | ConveyorTransfer, PlayerMoved 等はデフォルトOFF | 帯域節約 |
+
+#### Core Mod vs Script Mod の使い分け
+
+| やりたいこと | 推奨 | 理由 |
+|-------------|------|------|
+| 毎 Tick 処理 | Core Mod | レイテンシなし |
+| たまにイベント反応 | Script Mod | 言語自由 |
+| 状態の直接変更 | Core Mod | 検証なしで高速 |
+| 状態の問い合わせ | どちらでも | - |
+| プロトタイピング | Script Mod | ホットリロード容易 |
+| 本番運用 | Core Mod | パフォーマンス |
 
 #### Mod API Server
 
@@ -1282,18 +1367,25 @@ pub fn load_bbmodel(path: &str) -> Result<BlockbenchModel, Error>;
 
 **目標: Factorioレベルの深いMod対応**
 
-**設計方針（2026-01-07 更新）**:
-- **ゲーム本体にスクリプト言語（Lua等）は統合しない**
-- ゲームはAPI（イベント + データ）を提供
-- Mod作者は外部プロセスから好きな言語で連携（Lua, Python, JS等）
+**設計方針（2026-01-08 確定）**:
+- **ハイブリッド方式**: WASM（ロジック）+ WebSocket（スクリプト）+ TOML（データ）
+- base は本体に内蔵（Engine + base 一体）
+- Core Mod で新ロジック定義 → Data Mod で別ユーザーが拡張可能
+
+**Modレイヤー構成**
+| レイヤー | 実行方式 | 言語 | 用途 |
+|---------|---------|------|------|
+| **Core Mod** | WASM（同一プロセス） | Rust, C++ | ロジック追加・置換 |
+| **Script Mod** | WebSocket（別プロセス） | Python, Lua, JS | イベントフック |
+| **Data Mod** | TOML読み込み | - | アイテム/機械/レシピ |
 
 **Modで変更可能にする範囲**
 | レイヤー | 内容 | 実現方法 |
 |----------|------|----------|
-| コンテンツ | ブロック、アイテム、機械、レシピ | データファイル（TOML/JSON） |
-| ロジック | 機械動作、物流ルール | 外部API（WebSocket/JSON-RPC） |
-| UI | カスタムUI、HUD | 外部API経由で描画指示 |
-| システム | イベントフック | Bevy Observer + 外部通知 |
+| コンテンツ | ブロック、アイテム、機械、レシピ | Data Mod（TOML） |
+| ロジック | 機械動作、物流ルール | Core Mod（WASM） |
+| イベント | フック、条件分岐 | Script Mod（WebSocket）/ Core Mod |
+| UI | カスタムUI、HUD | Core Mod |
 | レンダリング | シェーダー、エフェクト | カスタムシェーダー |
 | モデル | 機械・Mobの3Dモデル | Blockbench直接インポート |
 | サウンド | BGM、効果音 | OGG/WAVファイル |
@@ -1349,19 +1441,23 @@ outputs = [{ id = "mymod:super_ingot", count = 1 }]
 ```
 
 **必要な基盤**
-1. **Bevy Observer**: イベントフックポイント
-2. **動的レジストリ**: enum廃止、ID化
-3. **Mod API Server**: WebSocket/JSON-RPC
-4. **アセットローダー**: Mod用アセットパス対応
-5. **Blockbenchローダー**: .bbmodel パーサー
+1. **イベントシステム**: Bevy Observer + 外部通知 ✅ 基盤完了
+2. **動的レジストリ**: enum廃止、ID化 ✅ 基盤完了
+3. **Data Mod ローダー**: TOML読み込み ✅ 実装済み
+4. **WebSocket API**: Script Mod 用（基盤あり）
+5. **WASM ローダー**: Wasmtime 統合（将来）
+6. **アセットローダー**: Mod用アセットパス対応
+7. **Blockbenchローダー**: .bbmodel パーサー
 
 **実装順序**
 1. Phase C: 内部でDescriptor化 ✅完了
-2. Bevy Observerでイベントシステム
-3. 動的レジストリへの移行
-4. Mod API Server実装
-5. Blockbenchローダー実装
-6. Mod API仕様公開
+2. イベントシステム ✅完了
+3. 動的ID基盤 ✅完了（移行中）
+4. Data Mod ローダー ✅完了
+5. WebSocket API 起動・安定化
+6. **WASM ローダー（Wasmtime）** ← 新規
+7. Blockbenchローダー実装
+8. Mod API仕様公開
 
 ---
 

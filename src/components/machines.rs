@@ -78,10 +78,14 @@ pub struct ConveyorItem {
     pub block_type: BlockType,
     /// Position on conveyor (0.0 = entry, 1.0 = exit)
     pub progress: f32,
+    /// Previous progress for interpolation (set before each FixedUpdate tick)
+    pub previous_progress: f32,
     /// Visual entity for this item
     pub visual_entity: Option<Entity>,
     /// Lateral offset for side-merge animation (-0.5 to 0.5, 0 = centered)
     pub lateral_offset: f32,
+    /// Previous lateral offset for interpolation
+    pub previous_lateral_offset: f32,
 }
 
 impl ConveyorItem {
@@ -93,8 +97,10 @@ impl ConveyorItem {
         Self {
             block_type,
             progress,
+            previous_progress: progress,
             visual_entity: None,
             lateral_offset: 0.0,
+            previous_lateral_offset: 0.0,
         }
     }
 
@@ -103,8 +109,10 @@ impl ConveyorItem {
         Self {
             block_type,
             progress,
+            previous_progress: progress,
             visual_entity: None,
             lateral_offset: 0.0,
+            previous_lateral_offset: 0.0,
         }
     }
 

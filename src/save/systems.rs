@@ -460,11 +460,14 @@ pub fn handle_load_event(
                             let items: Vec<ConveyorItem> = conveyor_data
                                 .items
                                 .iter()
-                                .map(|item| ConveyorItem {
-                                    block_type: item.item_type.clone().into(),
-                                    progress: item.progress,
-                                    visual_entity: None, // Will be created by update_conveyor_item_visuals
-                                    lateral_offset: item.lateral_offset,
+                                .map(|item| {
+                                    let mut ci = ConveyorItem::from_block_type(
+                                        item.item_type.clone().into(),
+                                        item.progress,
+                                    );
+                                    ci.lateral_offset = item.lateral_offset;
+                                    ci.previous_lateral_offset = item.lateral_offset;
+                                    ci
                                 })
                                 .collect();
 

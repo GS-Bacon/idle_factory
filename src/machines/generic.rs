@@ -265,12 +265,9 @@ fn try_output_to_conveyor(
 
     // Transfer one item
     output_slot.take(1);
-    conveyor.items.push(ConveyorItem {
-        block_type: item_type,
-        progress: 0.0,
-        visual_entity: None,
-        lateral_offset: 0.0,
-    });
+    conveyor
+        .items
+        .push(ConveyorItem::from_block_type(item_type, 0.0));
 }
 
 /// Get mining output based on biome

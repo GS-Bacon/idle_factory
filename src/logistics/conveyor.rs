@@ -9,6 +9,7 @@ use crate::{
     MachineModels, BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_ITEM_SIZE,
 };
 use bevy::prelude::*;
+use bevy::time::Fixed;
 use std::collections::{HashMap, HashSet};
 use tracing::info;
 
@@ -462,6 +463,10 @@ pub fn conveyor_transfer(
     for (_, mut conveyor) in conveyor_query.iter_mut() {
         let item_count = conveyor.items.len();
         for i in 0..item_count {
+            // Store previous values for interpolation (before updating)
+            conveyor.items[i].previous_progress = conveyor.items[i].progress;
+            conveyor.items[i].previous_lateral_offset = conveyor.items[i].lateral_offset;
+
             // Decay lateral offset towards center
             if conveyor.items[i].lateral_offset.abs() > 0.01 {
                 let sign = conveyor.items[i].lateral_offset.signum();
@@ -494,11 +499,13 @@ pub fn conveyor_transfer(
 
 /// Update conveyor item visuals - spawn/despawn/move items on conveyors (multiple items)
 /// Uses 3D GLB models when available, falls back to colored cubes
+/// Uses interpolation for smooth rendering between FixedUpdate ticks
 pub fn update_conveyor_item_visuals(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     models: Res<MachineModels>,
+    fixed_time: Res<Time<Fixed>>,
     mut conveyor_query: Query<&mut Conveyor>,
     mut visual_query: Query<&mut Transform, With<ConveyorItemVisual>>,
 ) {
@@ -511,6 +518,9 @@ pub fn update_conveyor_item_visuals(
 
     // Item model scale (GLB models are 8x8x8 voxels = 0.5 blocks, scale down for conveyor)
     const ITEM_MODEL_SCALE: f32 = 0.5;
+
+    // Interpolation factor (0.0 = at previous tick, 1.0 = at current tick)
+    let alpha = fixed_time.overstep_fraction();
 
     for mut conveyor in conveyor_query.iter_mut() {
         // Position items on top of the belt (belt height + item size/2)
@@ -533,9 +543,15 @@ pub fn update_conveyor_item_visuals(
         };
 
         for item in conveyor.items.iter_mut() {
+            // Interpolate between previous and current values for smooth rendering
+            let interpolated_progress =
+                item.previous_progress + (item.progress - item.previous_progress) * alpha;
+            let interpolated_lateral = item.previous_lateral_offset
+                + (item.lateral_offset - item.previous_lateral_offset) * alpha;
+
             // Calculate position: progress 0.0 = entry (-0.5), 1.0 = exit (+0.5)
-            let forward_offset = (item.progress - 0.5) * BLOCK_SIZE;
-            let lateral_offset_world = item.lateral_offset * BLOCK_SIZE;
+            let forward_offset = (interpolated_progress - 0.5) * BLOCK_SIZE;
+            let lateral_offset_world = interpolated_lateral * BLOCK_SIZE;
             let item_pos =
                 base_pos + direction_vec * forward_offset + lateral_vec * lateral_offset_world;
 
