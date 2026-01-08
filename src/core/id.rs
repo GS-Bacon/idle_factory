@@ -173,10 +173,19 @@ pub type FluidId = Id<FluidCategory>;
 pub const BASE_NAMESPACE: &str = "base";
 
 impl ItemId {
+    /// Try to convert a BlockType to ItemId using the global interner
+    ///
+    /// Returns None if the BlockType is not registered in the items module.
+    /// This is the safe version that never panics.
+    pub fn try_from_block_type_static(block_type: crate::block_type::BlockType) -> Option<Self> {
+        let name = format!("{}", block_type); // snake_case from strum
+        items::by_name(&name)
+    }
+
     /// Convert a BlockType to ItemId using the global interner
     ///
     /// Uses the format "base:{snake_case_name}" for base game items.
-    /// This is the preferred method for conversion.
+    /// Falls back to stone() if the BlockType is not registered (with warning).
     ///
     /// # Example
     /// ```rust,ignore
@@ -186,9 +195,13 @@ impl ItemId {
     /// assert_eq!(item_id.name(), Some("base:iron_ore"));
     /// ```
     pub fn from_block_type_static(block_type: crate::block_type::BlockType) -> Self {
-        let name = format!("{}", block_type); // snake_case from strum
-        items::by_name(&name)
-            .unwrap_or_else(|| panic!("BlockType::{:?} not found in items module", block_type))
+        Self::try_from_block_type_static(block_type).unwrap_or_else(|| {
+            tracing::warn!(
+                "BlockType::{:?} not found in items module, using stone fallback",
+                block_type
+            );
+            items::stone()
+        })
     }
 
     /// Get the string ID using the global interner
@@ -388,62 +401,62 @@ pub mod items {
         get_interner()
     }
 
-    // Terrain
+    // Terrain - stone is the default fallback, must exist
     pub fn stone() -> ItemId {
-        by_name("stone").expect("stone not registered")
+        by_name("stone").expect("stone must be registered (default fallback)")
     }
     pub fn grass() -> ItemId {
-        by_name("grass").expect("grass not registered")
+        by_name("grass").unwrap_or_else(stone)
     }
 
     // Ores
     pub fn iron_ore() -> ItemId {
-        by_name("iron_ore").expect("iron_ore not registered")
+        by_name("iron_ore").unwrap_or_else(stone)
     }
     pub fn copper_ore() -> ItemId {
-        by_name("copper_ore").expect("copper_ore not registered")
+        by_name("copper_ore").unwrap_or_else(stone)
     }
     pub fn coal() -> ItemId {
-        by_name("coal").expect("coal not registered")
+        by_name("coal").unwrap_or_else(stone)
     }
 
     // Processed
     pub fn iron_ingot() -> ItemId {
-        by_name("iron_ingot").expect("iron_ingot not registered")
+        by_name("iron_ingot").unwrap_or_else(stone)
     }
     pub fn copper_ingot() -> ItemId {
-        by_name("copper_ingot").expect("copper_ingot not registered")
+        by_name("copper_ingot").unwrap_or_else(stone)
     }
     pub fn iron_dust() -> ItemId {
-        by_name("iron_dust").expect("iron_dust not registered")
+        by_name("iron_dust").unwrap_or_else(stone)
     }
     pub fn copper_dust() -> ItemId {
-        by_name("copper_dust").expect("copper_dust not registered")
+        by_name("copper_dust").unwrap_or_else(stone)
     }
 
     // Machines
     pub fn miner_block() -> ItemId {
-        by_name("miner_block").expect("miner_block not registered")
+        by_name("miner_block").unwrap_or_else(stone)
     }
     pub fn conveyor_block() -> ItemId {
-        by_name("conveyor_block").expect("conveyor_block not registered")
+        by_name("conveyor_block").unwrap_or_else(stone)
     }
     pub fn furnace_block() -> ItemId {
-        by_name("furnace_block").expect("furnace_block not registered")
+        by_name("furnace_block").unwrap_or_else(stone)
     }
     pub fn crusher_block() -> ItemId {
-        by_name("crusher_block").expect("crusher_block not registered")
+        by_name("crusher_block").unwrap_or_else(stone)
     }
     pub fn assembler_block() -> ItemId {
-        by_name("assembler_block").expect("assembler_block not registered")
+        by_name("assembler_block").unwrap_or_else(stone)
     }
     pub fn platform_block() -> ItemId {
-        by_name("platform_block").expect("platform_block not registered")
+        by_name("platform_block").unwrap_or_else(stone)
     }
 
     // Tools
     pub fn stone_pickaxe() -> ItemId {
-        by_name("stone_pickaxe").expect("stone_pickaxe not registered")
+        by_name("stone_pickaxe").unwrap_or_else(stone)
     }
 
     /// Get all base item IDs
