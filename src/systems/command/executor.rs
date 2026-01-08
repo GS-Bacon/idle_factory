@@ -309,7 +309,8 @@ pub fn execute_command(
                         let item_name = parts[3].to_lowercase();
                         let expected_count: u32 = parts[4].parse().unwrap_or(1);
 
-                        if let Some(expected_type) = parse_item_name(&item_name) {
+                        if let Some(expected_block) = parse_item_name(&item_name) {
+                            let expected_type = crate::core::ItemId::from(expected_block);
                             if slot_idx < inventory.slots.len() {
                                 if let Some((actual_type, actual_count)) = inventory.slots[slot_idx]
                                 {
@@ -319,16 +320,16 @@ pub fn execute_command(
                                         info!(
                                             "✓ PASS: slot {} = {} x{}",
                                             slot_idx,
-                                            actual_type.name(),
+                                            actual_type.name().unwrap_or("unknown"),
                                             actual_count
                                         );
                                     } else {
                                         tracing::error!(
                                             "✗ FAIL: slot {} = {} x{} (expected {} x{})",
                                             slot_idx,
-                                            actual_type.name(),
+                                            actual_type.name().unwrap_or("unknown"),
                                             actual_count,
-                                            expected_type.name(),
+                                            expected_type.name().unwrap_or("unknown"),
                                             expected_count
                                         );
                                     }

@@ -1,5 +1,6 @@
 //! UI-related components and resources
 
+use crate::core::ItemId;
 use crate::BlockType;
 use bevy::prelude::*;
 
@@ -31,7 +32,7 @@ pub struct TrashSlot;
 
 /// Currently held item for drag and drop
 #[derive(Resource, Default)]
-pub struct HeldItem(pub Option<(BlockType, u32)>);
+pub struct HeldItem(pub Option<(ItemId, u32)>);
 
 /// Marker for held item cursor display
 #[derive(Component)]
@@ -45,13 +46,13 @@ pub struct HeldItemText;
 #[derive(Component)]
 pub struct HeldItemImage;
 
-/// Creative inventory item button - stores the BlockType it represents
+/// Creative inventory item button - stores the ItemId it represents
 #[derive(Component)]
-pub struct CreativeItemButton(pub BlockType);
+pub struct CreativeItemButton(pub ItemId);
 
 /// Marker for creative catalog item sprite image
 #[derive(Component)]
-pub struct CreativeItemImage(pub BlockType);
+pub struct CreativeItemImage(pub ItemId);
 
 /// Marker for the creative catalog panel (right side of inventory UI)
 #[derive(Component)]

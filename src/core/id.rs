@@ -209,6 +209,19 @@ impl ItemId {
         self.to_string_id(items::interner())
     }
 
+    /// Get the color for this item (convenience method for UI)
+    ///
+    /// Returns the BlockType color if this is a base game item,
+    /// otherwise returns a default gray color for mod items.
+    pub fn color(&self) -> bevy::prelude::Color {
+        if let Ok(block_type) = crate::block_type::BlockType::try_from(*self) {
+            block_type.color()
+        } else {
+            // Default color for mod items
+            bevy::prelude::Color::srgb(0.5, 0.5, 0.5)
+        }
+    }
+
     /// Convert a BlockType to ItemId (legacy version with explicit interner)
     ///
     /// Uses the format "base:{snake_case_name}" for base game items.

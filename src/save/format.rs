@@ -196,6 +196,33 @@ impl From<BlockTypeSave> for BlockType {
 }
 
 // =============================================================================
+// ItemId <-> BlockTypeSave Conversion (for PlayerInventory migration)
+// =============================================================================
+
+use crate::core::ItemId;
+
+impl From<ItemId> for BlockTypeSave {
+    fn from(id: ItemId) -> Self {
+        // Try to get the string ID and parse it
+        if let Some(name) = id.name() {
+            if let Some(bt_save) = BlockTypeSave::from_string_id(name) {
+                return bt_save;
+            }
+        }
+        // Fallback to Stone for unknown items
+        tracing::warn!("Unknown ItemId {:?}, falling back to Stone", id);
+        BlockTypeSave::Stone
+    }
+}
+
+impl From<BlockTypeSave> for ItemId {
+    fn from(bt: BlockTypeSave) -> Self {
+        let block_type: BlockType = bt.into();
+        ItemId::from(block_type)
+    }
+}
+
+// =============================================================================
 // String ID Format (V2) - Preparation for future migration
 // =============================================================================
 

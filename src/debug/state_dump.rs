@@ -122,10 +122,10 @@ fn extract_inventory(world: &World) -> InventoryDump {
         if let Some(inventory) = world.get::<PlayerInventory>(local_player.0) {
             selected_slot = inventory.selected_slot;
             for slot in &inventory.slots {
-                if let Some((block_type, count)) = slot {
+                if let Some((item_id, count)) = slot {
                     total_items += count;
                     slots.push(Some(ItemStackDump {
-                        item: block_type.name().to_string(),
+                        item: item_id.name().unwrap_or("unknown").to_string(),
                         count: *count,
                     }));
                 } else {

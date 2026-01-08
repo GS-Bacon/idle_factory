@@ -7,7 +7,7 @@ use crate::setup::ui::{
     SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
 };
 use crate::systems::cursor;
-use crate::{BlockType, HOTBAR_SLOTS, MAX_STACK_SIZE, NUM_SLOTS};
+use crate::{HOTBAR_SLOTS, MAX_STACK_SIZE, NUM_SLOTS};
 use bevy::color::Srgba;
 use bevy::prelude::*;
 use tracing::{info, warn};
@@ -592,13 +592,13 @@ pub fn update_inventory_tooltip(
         .and_then(|lp| inventory_query.get(lp.0).ok());
 
     // Find hovered slot (inventory slots)
-    let mut hovered_item: Option<(BlockType, Option<u32>)> = None;
+    let mut hovered_item: Option<(crate::core::ItemId, Option<u32>)> = None;
     if let Some(inventory) = inventory {
         for (interaction, slot_ui) in slot_query.iter() {
             if *interaction == Interaction::Hovered {
                 let slot_idx = slot_ui.0;
-                if let Some((block_type, count)) = inventory.slots[slot_idx] {
-                    hovered_item = Some((block_type, Some(count)));
+                if let Some((item_id, count)) = inventory.slots[slot_idx] {
+                    hovered_item = Some((item_id, Some(count)));
                     break;
                 }
             }
@@ -615,7 +615,7 @@ pub fn update_inventory_tooltip(
         }
     }
 
-    if let Some((block_type, count_opt)) = hovered_item {
+    if let Some((item_id, count_opt)) = hovered_item {
         *visibility = Visibility::Inherited;
 
         // Position tooltip near the mouse cursor
@@ -630,11 +630,12 @@ pub fn update_inventory_tooltip(
         // Update tooltip text
         if let Some(&child) = children.first() {
             if let Ok(mut text) = text_query.get_mut(child) {
+                let name = item_id.name().unwrap_or("unknown");
                 if let Some(count) = count_opt {
-                    text.0 = format!("{} ({})", block_type.name(), count);
+                    text.0 = format!("{} ({})", name, count);
                 } else {
                     // Creative catalog item - just show name
-                    text.0 = block_type.name().to_string();
+                    text.0 = name.to_string();
                 }
             }
         }

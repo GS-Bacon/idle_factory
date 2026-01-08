@@ -88,7 +88,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                 for (block_type, _category) in row_items {
                                     row.spawn((
                                         Button,
-                                        CreativeItemButton(*block_type),
+                                        CreativeItemButton((*block_type).into()),
                                         Node {
                                             width: Val::Px(SLOT_SIZE),
                                             height: Val::Px(SLOT_SIZE),
@@ -105,7 +105,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                     .with_children(|btn| {
                                         // Sprite image
                                         btn.spawn((
-                                            CreativeItemImage(*block_type),
+                                            CreativeItemImage((*block_type).into()),
                                             ImageNode::default(),
                                             Visibility::Hidden,
                                             Node {
