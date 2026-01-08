@@ -1,6 +1,6 @@
 //! Conveyor systems: transfer, visuals
 
-use crate::components::{can_crush, Machine};
+use crate::components::Machine;
 use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
 use crate::core::id::ItemId;
 use crate::events::game_events::{ConveyorTransfer, ItemDelivered};
@@ -333,42 +333,29 @@ pub fn conveyor_transfer(
                     }
 
                     // Accept items based on port type
+                    use crate::core::items;
                     let input_count = machine.slots.inputs.first().map(|s| s.count).unwrap_or(0);
-                    let input_type = machine
-                        .slots
-                        .inputs
-                        .first()
-                        .and_then(|s| s.block_type_for_render());
-                    let item_block_type = item.block_type_for_render();
-                    let can_accept = match item_block_type {
-                        BlockType::Coal => {
-                            // Fuel only from left or right ports
-                            (at_left || at_right) && machine.slots.fuel < 64
-                        }
-                        BlockType::IronOre
-                        | BlockType::CopperOre
-                        | BlockType::IronDust
-                        | BlockType::CopperDust => {
-                            // Ore/Dust only from back port
-                            at_back
-                                && (input_type.is_none() || input_type == Some(item_block_type))
-                                && input_count < 64
-                        }
-                        _ => false,
+                    let input_item_id = machine.slots.inputs.first().and_then(|s| s.item_id);
+                    let item_id = item.item_id;
+                    let can_accept = if items::is_fuel(item_id) {
+                        // Fuel only from left or right ports
+                        (at_left || at_right) && machine.slots.fuel < 64
+                    } else if items::is_smeltable(item_id) {
+                        // Ore/Dust only from back port
+                        at_back
+                            && (input_item_id.is_none() || input_item_id == Some(item_id))
+                            && input_count < 64
+                    } else {
+                        false
                     };
                     if can_accept {
-                        match item_block_type {
-                            BlockType::Coal => machine.slots.fuel += 1,
-                            BlockType::IronOre
-                            | BlockType::CopperOre
-                            | BlockType::IronDust
-                            | BlockType::CopperDust => {
-                                if let Some(input_slot) = machine.slots.inputs.first_mut() {
-                                    input_slot.item_id = Some(item_block_type.into());
-                                    input_slot.count += 1;
-                                }
+                        if items::is_fuel(item_id) {
+                            machine.slots.fuel += 1;
+                        } else if items::is_smeltable(item_id) {
+                            if let Some(input_slot) = machine.slots.inputs.first_mut() {
+                                input_slot.item_id = Some(item_id);
+                                input_slot.count += 1;
                             }
-                            _ => {}
                         }
                         accepted = true;
                     }
@@ -395,19 +382,16 @@ pub fn conveyor_transfer(
                         break; // Not at input port, reject
                     }
 
+                    use crate::core::items;
                     let input_count = machine.slots.inputs.first().map(|s| s.count).unwrap_or(0);
-                    let input_type = machine
-                        .slots
-                        .inputs
-                        .first()
-                        .and_then(|s| s.block_type_for_render());
-                    let item_block_type = item.block_type_for_render();
-                    let can_accept_item = can_crush(item_block_type)
-                        && (input_type.is_none() || input_type == Some(item_block_type))
+                    let input_item_id = machine.slots.inputs.first().and_then(|s| s.item_id);
+                    let item_id = item.item_id;
+                    let can_accept_item = items::is_crushable(item_id)
+                        && (input_item_id.is_none() || input_item_id == Some(item_id))
                         && input_count < 64;
                     if can_accept_item {
                         if let Some(input_slot) = machine.slots.inputs.first_mut() {
-                            input_slot.item_id = Some(item_block_type.into());
+                            input_slot.item_id = Some(item_id);
                             input_slot.count += 1;
                         }
                         accepted = true;

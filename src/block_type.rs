@@ -251,6 +251,37 @@ impl BlockType {
             _ => None,
         }
     }
+
+    // =============================================================================
+    // Save String ID Format (V2)
+    // =============================================================================
+
+    /// Default namespace for base game items
+    pub const SAVE_NAMESPACE: &'static str = "base";
+
+    /// Convert to save string ID format ("base:stone", "base:iron_ore", etc.)
+    /// Uses strum Display which outputs snake_case
+    pub fn to_save_string_id(&self) -> String {
+        format!("{}:{}", Self::SAVE_NAMESPACE, self)
+    }
+
+    /// Parse from save string ID format ("base:stone", "base:iron_ore", etc.)
+    /// Supports aliases defined in strum (e.g., "miner" -> MinerBlock)
+    pub fn from_save_string_id(s: &str) -> Option<Self> {
+        let (namespace, id) = if let Some(colon_pos) = s.find(':') {
+            (&s[..colon_pos], &s[colon_pos + 1..])
+        } else {
+            // Fallback: treat as just ID with default namespace
+            (Self::SAVE_NAMESPACE, s)
+        };
+
+        // Only support base namespace for now
+        if namespace != Self::SAVE_NAMESPACE {
+            return None;
+        }
+
+        std::str::FromStr::from_str(id).ok()
+    }
 }
 
 #[cfg(test)]
@@ -476,5 +507,90 @@ mod tests {
         assert!(!BlockCategory::Terrain.is_material());
         assert!(!BlockCategory::Machine.is_material());
         assert!(!BlockCategory::Tool.is_material());
+    }
+
+    // === Save String ID Tests ===
+
+    #[test]
+    fn test_to_save_string_id() {
+        assert_eq!(BlockType::Stone.to_save_string_id(), "base:stone");
+        assert_eq!(BlockType::IronOre.to_save_string_id(), "base:iron_ore");
+        assert_eq!(
+            BlockType::MinerBlock.to_save_string_id(),
+            "base:miner_block"
+        );
+        assert_eq!(
+            BlockType::ConveyorBlock.to_save_string_id(),
+            "base:conveyor_block"
+        );
+        assert_eq!(
+            BlockType::StonePickaxe.to_save_string_id(),
+            "base:stone_pickaxe"
+        );
+    }
+
+    #[test]
+    fn test_from_save_string_id() {
+        // Test basic parsing
+        assert_eq!(
+            BlockType::from_save_string_id("base:stone"),
+            Some(BlockType::Stone)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:iron_ore"),
+            Some(BlockType::IronOre)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:miner_block"),
+            Some(BlockType::MinerBlock)
+        );
+
+        // Test aliases (from strum)
+        assert_eq!(
+            BlockType::from_save_string_id("base:miner"),
+            Some(BlockType::MinerBlock)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:conveyor"),
+            Some(BlockType::ConveyorBlock)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:furnace"),
+            Some(BlockType::FurnaceBlock)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:pickaxe"),
+            Some(BlockType::StonePickaxe)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("base:iron"),
+            Some(BlockType::IronOre)
+        );
+
+        // Test fallback (no namespace)
+        assert_eq!(
+            BlockType::from_save_string_id("stone"),
+            Some(BlockType::Stone)
+        );
+        assert_eq!(
+            BlockType::from_save_string_id("iron_ore"),
+            Some(BlockType::IronOre)
+        );
+
+        // Test invalid cases
+        assert_eq!(BlockType::from_save_string_id("unknown:stone"), None);
+        assert_eq!(BlockType::from_save_string_id("base:unknown_item"), None);
+        assert_eq!(BlockType::from_save_string_id("mod:custom_item"), None);
+    }
+
+    #[test]
+    fn test_save_string_id_roundtrip() {
+        // Test all BlockType variants can be converted to string and back
+        for bt in BlockType::iter() {
+            let string_id = bt.to_save_string_id();
+            let restored = BlockType::from_save_string_id(&string_id)
+                .unwrap_or_else(|| panic!("Failed to parse string ID: {}", string_id));
+            assert_eq!(bt, restored, "Roundtrip failed for {:?}", bt);
+        }
     }
 }

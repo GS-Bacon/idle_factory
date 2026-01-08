@@ -232,7 +232,7 @@ pub fn collect_save_data(
     };
 
     SaveDataV2 {
-        version: save::SAVE_VERSION_V2.to_string(),
+        version: save::SAVE_VERSION.to_string(),
         timestamp,
         player: player_data,
         inventory: inventory_data,

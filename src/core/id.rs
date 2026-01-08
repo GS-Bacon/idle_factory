@@ -553,6 +553,41 @@ pub mod items {
             .filter_map(|name| by_name(name))
             .collect()
     }
+
+    // === Category Checks ===
+
+    /// Check if an item is fuel (currently only coal)
+    pub fn is_fuel(item_id: ItemId) -> bool {
+        item_id == coal()
+    }
+
+    /// Check if an item can be smelted in a furnace
+    /// (ores and dusts that produce ingots)
+    pub fn is_smeltable(item_id: ItemId) -> bool {
+        item_id == iron_ore()
+            || item_id == copper_ore()
+            || item_id == iron_dust()
+            || item_id == copper_dust()
+    }
+
+    /// Check if an item can be crushed
+    /// (ores that produce dust)
+    pub fn is_crushable(item_id: ItemId) -> bool {
+        item_id == iron_ore() || item_id == copper_ore()
+    }
+
+    /// Check if an item is a raw ore
+    pub fn is_ore(item_id: ItemId) -> bool {
+        item_id == iron_ore() || item_id == copper_ore() || item_id == coal()
+    }
+
+    /// Check if an item is a processed material (ingot or dust)
+    pub fn is_processed(item_id: ItemId) -> bool {
+        item_id == iron_ingot()
+            || item_id == copper_ingot()
+            || item_id == iron_dust()
+            || item_id == copper_dust()
+    }
 }
 
 #[cfg(test)]

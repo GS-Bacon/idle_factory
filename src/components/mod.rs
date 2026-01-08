@@ -512,7 +512,7 @@ pub fn creative_items_ids() -> Vec<(ItemId, &'static str)> {
 pub struct SaveLoadState {
     /// Pending load data (applied on next frame to avoid borrow conflicts)
     #[allow(dead_code)]
-    pub pending_load: Option<crate::save::SaveData>,
+    pub pending_load: Option<crate::save::SaveDataV2>,
     /// Last save/load message for display
     #[allow(dead_code)]
     pub last_message: Option<String>,
@@ -521,42 +521,24 @@ pub struct SaveLoadState {
 /// Resource to hold item sprite textures for UI
 #[derive(Resource, Default)]
 pub struct ItemSprites {
-    /// Textures indexed by BlockType (use get_id/insert_id for ItemId access)
-    pub textures: HashMap<BlockType, Handle<Image>>,
+    /// Textures indexed by ItemId
+    pub textures: HashMap<ItemId, Handle<Image>>,
 }
 
 impl ItemSprites {
-    /// Get sprite handle for an ItemId (preferred API)
+    /// Get sprite handle for an ItemId
     pub fn get_id(&self, item_id: ItemId) -> Option<Handle<Image>> {
-        let block_type: BlockType = item_id.try_into().ok()?;
-        self.textures.get(&block_type).cloned()
-    }
-
-    /// Get sprite handle for a block type (deprecated)
-    #[deprecated(since = "0.4.0", note = "Use get_id() instead")]
-    pub fn get(&self, block_type: BlockType) -> Option<Handle<Image>> {
-        self.textures.get(&block_type).cloned()
+        self.textures.get(&item_id).cloned()
     }
 
     /// Insert a sprite for an ItemId
     pub fn insert_id(&mut self, item_id: ItemId, handle: Handle<Image>) {
-        if let Ok(block_type) = item_id.try_into() {
-            self.textures.insert(block_type, handle);
-        }
-    }
-
-    /// Insert a sprite for a BlockType (deprecated)
-    #[deprecated(since = "0.4.0", note = "Use insert_id() instead")]
-    pub fn insert(&mut self, block_type: BlockType, handle: Handle<Image>) {
-        self.textures.insert(block_type, handle);
+        self.textures.insert(item_id, handle);
     }
 
     /// Check if a sprite exists for an ItemId
     pub fn contains_id(&self, item_id: ItemId) -> bool {
-        let Ok(block_type) = item_id.try_into() else {
-            return false;
-        };
-        self.textures.contains_key(&block_type)
+        self.textures.contains_key(&item_id)
     }
 
     /// Check if any sprites are still loading
@@ -566,8 +548,8 @@ impl ItemSprites {
             .any(|h| matches!(assets.load_state(h.id()), bevy::asset::LoadState::Loading))
     }
 
-    /// Get iterator over all textures (for internal use)
-    pub fn iter(&self) -> impl Iterator<Item = (&BlockType, &Handle<Image>)> {
+    /// Get iterator over all textures
+    pub fn iter(&self) -> impl Iterator<Item = (&ItemId, &Handle<Image>)> {
         self.textures.iter()
     }
 }
