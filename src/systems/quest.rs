@@ -34,24 +34,16 @@ impl Default for QuestCache {
 }
 
 /// Build main quests from game_spec (internal, called once)
-/// Converts game_spec definitions to runtime QuestDef with ItemId.
+/// Uses ItemId-based Quest from game_spec directly.
 fn build_main_quests() -> Vec<QuestDef> {
-    game_spec::MAIN_QUESTS
+    game_spec::main_quests()
         .iter()
         .map(|spec| QuestDef {
             id: spec.id,
             description: spec.description,
-            required_items: spec
-                .required_items
-                .iter()
-                .map(|(bt, n)| (ItemId::from(*bt), *n))
-                .collect(),
-            rewards: spec
-                .rewards
-                .iter()
-                .map(|(bt, n)| (ItemId::from(*bt), *n))
-                .collect(),
-            unlocks: spec.unlocks.iter().map(|bt| ItemId::from(*bt)).collect(),
+            required_items: spec.required_items.clone(),
+            rewards: spec.rewards.clone(),
+            unlocks: spec.unlocks.clone(),
         })
         .collect()
 }

@@ -14,13 +14,14 @@ pub use machines::{
     ASSEMBLER, CRUSHER, FURNACE, MINER,
 };
 pub use recipes::{
-    find_recipe, get_recipes_for_machine, FuelRequirement, MachineType, RecipeInput, RecipeOutput,
-    RecipeSpec, ALL_RECIPES, FURNACE_RECIPES, RECIPE_SMELT_COPPER, RECIPE_SMELT_IRON,
+    all_recipes, find_recipe, find_recipe_by_id, get_recipes_for_machine, FuelRequirement,
+    MachineType, Recipe, RecipeInput, RecipeOutput,
 };
 pub use registry::{GameRegistry, ItemDescriptor, RegistryPlugin, ITEM_DESCRIPTORS};
 
 use crate::block_type::BlockType;
 use crate::core::{items, ItemId};
+use std::sync::LazyLock;
 
 // =============================================================================
 // v0.2 New System Specs
@@ -165,7 +166,7 @@ pub const CREATIVE_MODE_EQUIPMENT: &[(BlockType, u32)] = &[
 ];
 
 // =============================================================================
-// Quest System
+// Quest System (ItemId-based with LazyLock)
 // =============================================================================
 
 /// Quest type
@@ -175,105 +176,118 @@ pub enum QuestType {
     Sub,
 }
 
-/// Quest definition
-pub struct QuestSpec {
+/// Quest definition (ItemId-based)
+#[derive(Clone, Debug)]
+pub struct Quest {
     pub id: &'static str,
-    #[allow(dead_code)]
     pub quest_type: QuestType,
     pub description: &'static str,
-    pub required_items: &'static [(BlockType, u32)],
-    pub rewards: &'static [(BlockType, u32)],
-    pub unlocks: &'static [BlockType],
+    pub required_items: Vec<(ItemId, u32)>,
+    pub rewards: Vec<(ItemId, u32)>,
+    pub unlocks: Vec<ItemId>,
 }
 
-impl QuestSpec {
-    /// Get required items as ItemId
-    pub fn required_items_id(&self) -> Vec<(ItemId, u32)> {
-        self.required_items
-            .iter()
-            .map(|(bt, count)| (ItemId::from(*bt), *count))
-            .collect()
+impl Quest {
+    /// Get required items (already ItemId)
+    pub fn required_items_id(&self) -> &[(ItemId, u32)] {
+        &self.required_items
     }
 
-    /// Get rewards as ItemId
-    pub fn rewards_id(&self) -> Vec<(ItemId, u32)> {
-        self.rewards
-            .iter()
-            .map(|(bt, count)| (ItemId::from(*bt), *count))
-            .collect()
+    /// Get rewards (already ItemId)
+    pub fn rewards_id(&self) -> &[(ItemId, u32)] {
+        &self.rewards
     }
 
-    /// Get unlocks as ItemId
-    pub fn unlocks_id(&self) -> Vec<ItemId> {
-        self.unlocks.iter().map(|bt| ItemId::from(*bt)).collect()
+    /// Get unlocks (already ItemId)
+    pub fn unlocks_id(&self) -> &[ItemId] {
+        &self.unlocks
     }
 }
 
-/// Main quests
-pub const MAIN_QUESTS: &[QuestSpec] = &[
-    QuestSpec {
-        id: "main_1",
-        quest_type: QuestType::Main,
-        description: "鉄インゴットを10個納品せよ",
-        required_items: &[(BlockType::IronIngot, 10)],
-        rewards: &[
-            (BlockType::AssemblerBlock, 1),
-            (BlockType::ConveyorBlock, 20),
-        ],
-        unlocks: &[BlockType::AssemblerBlock], // Unlock Assembler (machine crafting)
-    },
-    QuestSpec {
-        id: "main_2",
-        quest_type: QuestType::Main,
-        description: "銅インゴットを30個納品せよ",
-        required_items: &[(BlockType::CopperIngot, 30)],
-        rewards: &[
-            (BlockType::CrusherBlock, 2),
-            (BlockType::FurnaceBlock, 1), // Extra furnace for parallel production
-        ],
-        unlocks: &[BlockType::CrusherBlock], // Unlock Crusher (ore doubling)
-    },
-    QuestSpec {
-        id: "main_3",
-        quest_type: QuestType::Main,
-        description: "鉄インゴット100個を納品せよ",
-        required_items: &[(BlockType::IronIngot, 100)],
-        rewards: &[
-            (BlockType::MinerBlock, 4),
-            (BlockType::ConveyorBlock, 50),
-            (BlockType::FurnaceBlock, 2),
-        ],
-        unlocks: &[], // No new unlocks - player can now craft everything
-    },
-];
+/// Main quests (LazyLock for runtime initialization with ItemId)
+static MAIN_QUESTS: LazyLock<Vec<Quest>> = LazyLock::new(|| {
+    vec![
+        Quest {
+            id: "main_1",
+            quest_type: QuestType::Main,
+            description: "鉄インゴットを10個納品せよ",
+            required_items: vec![(items::iron_ingot(), 10)],
+            rewards: vec![(items::assembler_block(), 1), (items::conveyor_block(), 20)],
+            unlocks: vec![items::assembler_block()], // Unlock Assembler (machine crafting)
+        },
+        Quest {
+            id: "main_2",
+            quest_type: QuestType::Main,
+            description: "銅インゴットを30個納品せよ",
+            required_items: vec![(items::copper_ingot(), 30)],
+            rewards: vec![
+                (items::crusher_block(), 2),
+                (items::furnace_block(), 1), // Extra furnace for parallel production
+            ],
+            unlocks: vec![items::crusher_block()], // Unlock Crusher (ore doubling)
+        },
+        Quest {
+            id: "main_3",
+            quest_type: QuestType::Main,
+            description: "鉄インゴット100個を納品せよ",
+            required_items: vec![(items::iron_ingot(), 100)],
+            rewards: vec![
+                (items::miner_block(), 4),
+                (items::conveyor_block(), 50),
+                (items::furnace_block(), 2),
+            ],
+            unlocks: vec![], // No new unlocks - player can now craft everything
+        },
+    ]
+});
 
 /// Sub quests (rewards are now more useful - machines instead of raw resources)
-pub const SUB_QUESTS: &[QuestSpec] = &[
-    QuestSpec {
-        id: "sub_iron_100",
-        quest_type: QuestType::Sub,
-        description: "鉄インゴット100個を納品",
-        required_items: &[(BlockType::IronIngot, 100)],
-        rewards: &[(BlockType::MinerBlock, 2), (BlockType::ConveyorBlock, 30)],
-        unlocks: &[],
-    },
-    QuestSpec {
-        id: "sub_copper_100",
-        quest_type: QuestType::Sub,
-        description: "銅インゴット100個を納品",
-        required_items: &[(BlockType::CopperIngot, 100)],
-        rewards: &[(BlockType::FurnaceBlock, 2), (BlockType::ConveyorBlock, 30)],
-        unlocks: &[],
-    },
-    QuestSpec {
-        id: "sub_coal_200",
-        quest_type: QuestType::Sub,
-        description: "石炭200個を納品",
-        required_items: &[(BlockType::Coal, 200)],
-        rewards: &[(BlockType::CrusherBlock, 1)],
-        unlocks: &[],
-    },
-];
+static SUB_QUESTS: LazyLock<Vec<Quest>> = LazyLock::new(|| {
+    vec![
+        Quest {
+            id: "sub_iron_100",
+            quest_type: QuestType::Sub,
+            description: "鉄インゴット100個を納品",
+            required_items: vec![(items::iron_ingot(), 100)],
+            rewards: vec![(items::miner_block(), 2), (items::conveyor_block(), 30)],
+            unlocks: vec![],
+        },
+        Quest {
+            id: "sub_copper_100",
+            quest_type: QuestType::Sub,
+            description: "銅インゴット100個を納品",
+            required_items: vec![(items::copper_ingot(), 100)],
+            rewards: vec![(items::furnace_block(), 2), (items::conveyor_block(), 30)],
+            unlocks: vec![],
+        },
+        Quest {
+            id: "sub_coal_200",
+            quest_type: QuestType::Sub,
+            description: "石炭200個を納品",
+            required_items: vec![(items::coal(), 200)],
+            rewards: vec![(items::crusher_block(), 1)],
+            unlocks: vec![],
+        },
+    ]
+});
+
+/// Get all main quests
+pub fn main_quests() -> &'static [Quest] {
+    &MAIN_QUESTS
+}
+
+/// Get all sub quests
+pub fn sub_quests() -> &'static [Quest] {
+    &SUB_QUESTS
+}
+
+/// Find quest by ID
+pub fn find_quest(id: &str) -> Option<&'static Quest> {
+    MAIN_QUESTS
+        .iter()
+        .chain(SUB_QUESTS.iter())
+        .find(|q| q.id == id)
+}
 
 #[cfg(test)]
 mod tests {
@@ -281,16 +295,17 @@ mod tests {
 
     #[test]
     fn test_main_quest_progression() {
-        let q1_total: u32 = MAIN_QUESTS[0].required_items.iter().map(|(_, n)| n).sum();
+        let quests = main_quests();
+        let q1_total: u32 = quests[0].required_items.iter().map(|(_, n)| n).sum();
         assert!(q1_total <= 20, "Quest 1 should be easy for early game");
 
         // First two quests should unlock new mechanics
         assert!(
-            !MAIN_QUESTS[0].unlocks.is_empty(),
+            !quests[0].unlocks.is_empty(),
             "Quest 1 should unlock Assembler"
         );
         assert!(
-            !MAIN_QUESTS[1].unlocks.is_empty(),
+            !quests[1].unlocks.is_empty(),
             "Quest 2 should unlock Crusher"
         );
         // Quest 3 doesn't need to unlock anything - player can craft all machines now
@@ -298,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_quest_rewards_not_empty() {
-        for quest in MAIN_QUESTS.iter().chain(SUB_QUESTS.iter()) {
+        for quest in main_quests().iter().chain(sub_quests().iter()) {
             assert!(
                 !quest.rewards.is_empty(),
                 "Quest {} should have rewards",
@@ -320,5 +335,19 @@ mod tests {
         assert!(global_inventory_spec::RETURN_ON_DEMOLISH);
         assert_eq!(delivery_platform_spec::INITIAL_COUNT, 1);
         assert!(quest_system_spec::MAX_ACTIVE_SUB_QUESTS >= 3);
+    }
+
+    #[test]
+    fn test_find_quest() {
+        let quest = find_quest("main_1");
+        assert!(quest.is_some());
+        assert_eq!(quest.unwrap().quest_type, QuestType::Main);
+
+        let sub_quest = find_quest("sub_iron_100");
+        assert!(sub_quest.is_some());
+        assert_eq!(sub_quest.unwrap().quest_type, QuestType::Sub);
+
+        let not_found = find_quest("nonexistent");
+        assert!(not_found.is_none());
     }
 }

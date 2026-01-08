@@ -57,7 +57,7 @@ impl CraftingRecipe {
     /// 入力アイテムが足りているか確認
     pub fn can_craft(&self, inventory: &HashMap<ItemId, u32>) -> bool {
         for input in &self.inputs {
-            let item_id: ItemId = input.item.into();
+            let item_id: ItemId = input.item;
             let have = inventory.get(&item_id).copied().unwrap_or(0);
             if have < input.count {
                 return false;
@@ -68,18 +68,12 @@ impl CraftingRecipe {
 
     /// 必要なアイテム一覧を取得
     pub fn required_items(&self) -> Vec<(ItemId, u32)> {
-        self.inputs
-            .iter()
-            .map(|i| (i.item.into(), i.count))
-            .collect()
+        self.inputs.iter().map(|i| (i.item, i.count)).collect()
     }
 
     /// 出力アイテム一覧を取得
     pub fn output_items(&self) -> Vec<(ItemId, u32)> {
-        self.outputs
-            .iter()
-            .map(|o| (o.item.into(), o.count))
-            .collect()
+        self.outputs.iter().map(|o| (o.item, o.count)).collect()
     }
 }
 
@@ -94,33 +88,14 @@ pub struct CraftingRecipeBuilder {
 
 impl CraftingRecipeBuilder {
     /// 入力アイテムを追加
-    ///
-    /// Items that can't be converted to BlockType will be skipped with a warning.
     pub fn input(mut self, item: ItemId, count: u32) -> Self {
-        if let Ok(block_type) = item.try_into() {
-            self.inputs.push(RecipeInput::new(block_type, count, 0));
-        } else {
-            tracing::warn!(
-                "Crafting recipe input {:?} not convertible to BlockType, skipping",
-                item
-            );
-        }
+        self.inputs.push(RecipeInput::new(item, count, 0));
         self
     }
 
     /// 出力アイテムを追加
-    ///
-    /// Items that can't be converted to BlockType will be skipped with a warning.
     pub fn output(mut self, item: ItemId, count: u32) -> Self {
-        if let Ok(block_type) = item.try_into() {
-            self.outputs
-                .push(RecipeOutput::guaranteed(block_type, count));
-        } else {
-            tracing::warn!(
-                "Crafting recipe output {:?} not convertible to BlockType, skipping",
-                item
-            );
-        }
+        self.outputs.push(RecipeOutput::guaranteed(item, count));
         self
     }
 
@@ -332,11 +307,8 @@ fn update_crafting(
             if job.is_complete() {
                 // 完了イベントを発火
                 if let Some(recipe) = registry.get(&job.recipe_name) {
-                    let outputs: Vec<_> = recipe
-                        .outputs
-                        .iter()
-                        .map(|o| (o.item.into(), o.count))
-                        .collect();
+                    let outputs: Vec<_> =
+                        recipe.outputs.iter().map(|o| (o.item, o.count)).collect();
 
                     completed_events.send(CraftCompletedEvent {
                         crafter: entity,

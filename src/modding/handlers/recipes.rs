@@ -2,7 +2,7 @@
 //!
 //! Implements `recipe.list` and `recipe.add` methods.
 
-use crate::game_spec::recipes::{get_recipes_for_machine, MachineType, ALL_RECIPES};
+use crate::game_spec::recipes::{all_recipes, get_recipes_for_machine, MachineType, Recipe};
 use crate::modding::protocol::{JsonRpcRequest, JsonRpcResponse, INVALID_PARAMS};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -96,8 +96,8 @@ fn parse_machine_type(s: &str) -> Option<MachineType> {
     }
 }
 
-/// Convert RecipeSpec to RecipeInfo
-fn recipe_to_info(recipe: &crate::game_spec::recipes::RecipeSpec) -> RecipeInfo {
+/// Convert Recipe to RecipeInfo
+fn recipe_to_info(recipe: &Recipe) -> RecipeInfo {
     RecipeInfo {
         id: recipe.id.to_string(),
         machine_type: machine_type_to_string(recipe.machine).to_string(),
@@ -105,7 +105,7 @@ fn recipe_to_info(recipe: &crate::game_spec::recipes::RecipeSpec) -> RecipeInfo 
             .inputs
             .iter()
             .map(|input| RecipeItemInfo {
-                item: input.item_id().name().unwrap_or("unknown").to_string(),
+                item: input.item.name().unwrap_or("unknown").to_string(),
                 count: input.count,
             })
             .collect(),
@@ -113,13 +113,13 @@ fn recipe_to_info(recipe: &crate::game_spec::recipes::RecipeSpec) -> RecipeInfo 
             .outputs
             .iter()
             .map(|output| RecipeItemInfo {
-                item: output.item_id().name().unwrap_or("unknown").to_string(),
+                item: output.item.name().unwrap_or("unknown").to_string(),
                 count: output.count,
             })
             .collect(),
         time: recipe.craft_time,
-        fuel: recipe.fuel.map(|f| FuelInfo {
-            item: f.fuel_id().name().unwrap_or("unknown").to_string(),
+        fuel: recipe.fuel.as_ref().map(|f| FuelInfo {
+            item: f.fuel_type.name().unwrap_or("unknown").to_string(),
             amount: f.amount,
         }),
     }
@@ -171,7 +171,7 @@ pub fn handle_recipe_list(request: &JsonRpcRequest) -> JsonRpcResponse {
         }
         None => {
             // No filter - return all recipes
-            ALL_RECIPES.iter().map(|r| recipe_to_info(r)).collect()
+            all_recipes().iter().map(recipe_to_info).collect()
         }
     };
 

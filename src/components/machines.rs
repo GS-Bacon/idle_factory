@@ -551,7 +551,7 @@ pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
 pub fn get_smelt_output_by_id(ore: ItemId) -> Option<ItemId> {
     find_recipe(MachineType::Furnace, ore)
         .and_then(|recipe| recipe.outputs.first())
-        .map(|output| output.item_id())
+        .map(|output| output.item)
 }
 
 /// Check if this ore can be crushed (uses recipe system)
@@ -579,7 +579,7 @@ pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
 pub fn get_crush_output_by_id(ore: ItemId) -> Option<(ItemId, u32)> {
     find_recipe(MachineType::Crusher, ore)
         .and_then(|recipe| recipe.outputs.first())
-        .map(|output| (output.item_id(), output.count))
+        .map(|output| (output.item, output.count))
 }
 
 /// Resource to hold loaded 3D model handles for machines and conveyors

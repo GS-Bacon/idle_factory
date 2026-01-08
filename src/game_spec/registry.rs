@@ -22,7 +22,7 @@ use crate::block_type::{BlockCategory, BlockType};
 use crate::core::{ItemId, ValidItemId};
 
 use super::machines::MachineSpec;
-use super::recipes::RecipeSpec;
+use super::recipes::Recipe;
 
 // =============================================================================
 // Item Descriptor (unified block/item definition)
@@ -307,7 +307,7 @@ pub struct GameRegistry {
     /// ItemId to BlockType mapping
     item_to_block: HashMap<ItemId, BlockType>,
     /// All recipes
-    recipes: Vec<&'static RecipeSpec>,
+    recipes: Vec<&'static Recipe>,
 }
 
 impl Default for GameRegistry {
@@ -336,7 +336,7 @@ impl GameRegistry {
             machines.insert(item_id, *spec);
         }
 
-        let recipes = super::recipes::ALL_RECIPES.to_vec();
+        let recipes = super::recipes::all_recipes().iter().collect();
 
         Self {
             items,
@@ -459,7 +459,7 @@ impl GameRegistry {
     // =========================================================================
 
     /// Get all recipes
-    pub fn recipes(&self) -> &[&'static RecipeSpec] {
+    pub fn recipes(&self) -> &[&'static Recipe] {
         &self.recipes
     }
 }

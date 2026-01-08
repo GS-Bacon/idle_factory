@@ -165,7 +165,7 @@ fn tick_recipe(
     }
 
     // Check if output has space
-    let output_item_id: Option<ItemId> = recipe.outputs.first().map(|o| o.item.into());
+    let output_item_id: Option<ItemId> = recipe.outputs.first().map(|o| o.item);
     let output_count = recipe.outputs.first().map(|o| o.count).unwrap_or(1);
 
     let output_slot = machine.slots.outputs.first();
