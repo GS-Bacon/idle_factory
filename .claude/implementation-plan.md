@@ -4,14 +4,36 @@
 > ロードマップは `.specify/roadmap.md` 参照
 > **移行状況確認**: `./scripts/migration-status.sh`
 
-## 現状サマリー
+## 現状サマリー (2026-01-08更新)
 
 | 項目 | 値 |
 |------|-----|
 | コード行数 | **~25,000行** |
 | テスト | **643件** 通過 |
 | Clippy警告 | **0件** |
-| Phase | **P.0-P.3 完了、M.1 準備中** |
+| Phase | **M.1-M.9 完了、BlockType段階的移行中** |
+
+### 完了済みタスク (最新確認)
+
+| タスク | 状態 | 備考 |
+|--------|------|------|
+| T.1 固定Tick | ✅ | `Time::<Fixed>::from_hz(20.0)` + FixedUpdate |
+| M.2 PlayerInventory Component化 | ✅ | Query<&PlayerInventory>パターン |
+| M.3 GlobalInventory統合 | ✅ | PlatformInventory Component |
+| M.4 MachineBundle移行 | ✅ | 全spawn箇所でMachineBundle使用 |
+| M.7 NetworkId/EntityMap | ✅ | components/network.rs実装済み |
+| M.8 イベント送信網羅 | ✅ | 8イベント全送信確認 |
+| M.9 GuardedEventWriter使用 | ✅ | 7ファイルで使用中 |
+| P.0-P.3 パニック防止 | ✅ | フォールバック実装済み |
+| P.4 Blockbenchフォールバック | ✅ | BlockbenchLoadErrorでエラー返却 |
+| D.3 WebSocket完成 | ✅ | port 9877で起動、18メソッド実装 |
+
+### 残タスク
+
+| タスク | 状態 | 見積もり |
+|--------|------|----------|
+| M.1 BlockType廃止 | 🔄 段階的移行中 | 8-10時間 |
+| P.5 ValidItemId導入 | ✅ 完了 | - |
 
 ---
 
@@ -945,8 +967,8 @@ P.0 → P.1 → P.3 → P.2
 | **P.1** | ConveyorItem, MachineSlot | BlockType廃止→**ItemId直接保持** | ✅ 完了 |
 | **P.2** | Quest, Craft | フォールバック + warn!() | ✅ 完了 |
 | **P.3** | セーブ/ロード | 不明アイテムフィルタリング | ✅ 完了 |
-| **P.4** | Blockbench | フォールバックメッシュ | ❌ 未着手 |
-| **P.5** | ValidItemId | 型安全強化 | ❌ 未着手 |
+| **P.4** | Blockbench | フォールバックメッシュ | ✅ 完了 |
+| **P.5** | ValidItemId | 型安全強化 | ✅ 完了 |
 
 ---
 

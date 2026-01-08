@@ -166,6 +166,80 @@ pub type RecipeId = Id<RecipeCategory>;
 pub type FluidId = Id<FluidCategory>;
 
 // =============================================================================
+// ValidItemId - Type-safe validated ItemId
+// =============================================================================
+
+/// Type-safe ItemId that is guaranteed to exist in the registry.
+///
+/// This type can only be constructed via `GameRegistry::validate()`,
+/// ensuring the ItemId is valid at compile-time.
+///
+/// # Example
+/// ```rust,ignore
+/// use idle_factory::core::{ItemId, ValidItemId};
+/// use idle_factory::game_spec::GameRegistry;
+///
+/// let registry = GameRegistry::new();
+/// let item_id = items::iron_ore();
+///
+/// // Validate returns None for unknown items
+/// let valid: Option<ValidItemId> = registry.validate(item_id);
+///
+/// // Use the validated ID safely
+/// if let Some(valid_id) = valid {
+///     let descriptor = registry.item_by_valid_id(valid_id);
+///     // descriptor is guaranteed to exist
+/// }
+/// ```
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct ValidItemId(ItemId);
+
+impl ValidItemId {
+    /// Create a ValidItemId (internal use only - use GameRegistry::validate())
+    ///
+    /// # Safety
+    /// Caller must ensure the ItemId exists in the registry.
+    pub(crate) fn new_unchecked(id: ItemId) -> Self {
+        Self(id)
+    }
+
+    /// Get the underlying ItemId
+    #[inline]
+    pub fn get(&self) -> ItemId {
+        self.0
+    }
+
+    /// Get the underlying ItemId (alias for get())
+    #[inline]
+    pub fn item_id(&self) -> ItemId {
+        self.0
+    }
+
+    /// Get the raw u32 value
+    #[inline]
+    pub fn raw(&self) -> u32 {
+        self.0.raw()
+    }
+
+    /// Get the string name
+    pub fn name(&self) -> Option<&'static str> {
+        self.0.name()
+    }
+}
+
+impl From<ValidItemId> for ItemId {
+    fn from(valid: ValidItemId) -> Self {
+        valid.0
+    }
+}
+
+impl AsRef<ItemId> for ValidItemId {
+    fn as_ref(&self) -> &ItemId {
+        &self.0
+    }
+}
+
+// =============================================================================
 // BlockType <-> ItemId Conversion (Migration Helpers)
 // =============================================================================
 
@@ -667,5 +741,62 @@ mod tests {
 
         assert_eq!(id1, id2);
         assert_eq!(id1.raw(), id2.raw());
+    }
+
+    // =========================================================================
+    // ValidItemId Tests
+    // =========================================================================
+
+    #[test]
+    fn test_valid_item_id_methods() {
+        // ValidItemId basic methods
+        let stone = items::stone();
+        let valid = ValidItemId::new_unchecked(stone);
+
+        assert_eq!(valid.get(), stone);
+        assert_eq!(valid.item_id(), stone);
+        assert_eq!(valid.raw(), stone.raw());
+        assert!(valid.name().is_some());
+    }
+
+    #[test]
+    fn test_valid_item_id_equality() {
+        let stone = items::stone();
+        let valid1 = ValidItemId::new_unchecked(stone);
+        let valid2 = ValidItemId::new_unchecked(stone);
+        let iron = items::iron_ore();
+        let valid3 = ValidItemId::new_unchecked(iron);
+
+        assert_eq!(valid1, valid2);
+        assert_ne!(valid1, valid3);
+    }
+
+    #[test]
+    fn test_valid_item_id_into_item_id() {
+        let stone = items::stone();
+        let valid = ValidItemId::new_unchecked(stone);
+
+        // Test From trait
+        let converted: ItemId = valid.into();
+        assert_eq!(converted, stone);
+
+        // Test AsRef trait
+        assert_eq!(*valid.as_ref(), stone);
+    }
+
+    #[test]
+    fn test_valid_item_id_hash() {
+        use std::collections::HashSet;
+
+        let stone = ValidItemId::new_unchecked(items::stone());
+        let iron = ValidItemId::new_unchecked(items::iron_ore());
+
+        let mut set = HashSet::new();
+        set.insert(stone);
+        set.insert(iron);
+
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(&stone));
+        assert!(set.contains(&iron));
     }
 }

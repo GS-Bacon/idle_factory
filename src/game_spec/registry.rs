@@ -20,7 +20,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::block_type::{BlockCategory, BlockType};
-use crate::core::ItemId;
+use crate::core::{ItemId, ValidItemId};
 
 use super::machines::MachineSpec;
 use super::recipes::RecipeSpec;
@@ -408,6 +408,50 @@ impl GameRegistry {
     }
 
     // =========================================================================
+    // Validated ItemId API (type-safe)
+    // =========================================================================
+
+    /// Validate an ItemId, returning a type-safe ValidItemId if it exists
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let valid = registry.validate(items::iron_ore());
+    /// assert!(valid.is_some());
+    ///
+    /// let unknown = ItemId::from_string("unknown:item", &mut interner);
+    /// assert!(registry.validate(unknown).is_none());
+    /// ```
+    pub fn validate(&self, item_id: ItemId) -> Option<ValidItemId> {
+        if self.items_by_id.contains_key(&item_id) {
+            Some(ValidItemId::new_unchecked(item_id))
+        } else {
+            None
+        }
+    }
+
+    /// Validate an ItemId, returning the default (stone) if invalid
+    pub fn validate_or_default(&self, item_id: ItemId) -> ValidItemId {
+        self.validate(item_id)
+            .unwrap_or_else(|| self.validate(crate::core::items::stone()).unwrap())
+    }
+
+    /// Get item descriptor by ValidItemId (guaranteed to succeed)
+    ///
+    /// This method never returns None because ValidItemId is guaranteed
+    /// to exist in the registry.
+    pub fn item_by_valid_id(&self, valid_id: ValidItemId) -> &ItemDescriptor {
+        // SAFETY: ValidItemId can only be created via validate() which checks existence
+        self.items_by_id
+            .get(&valid_id.get())
+            .expect("ValidItemId must exist in registry")
+    }
+
+    /// Get machine spec by ValidItemId (if it's a machine)
+    pub fn machine_by_valid_id(&self, valid_id: ValidItemId) -> Option<&MachineSpec> {
+        self.machines_by_id.get(&valid_id.get()).copied()
+    }
+
+    // =========================================================================
     // Conversion helpers
     // =========================================================================
 
@@ -628,6 +672,90 @@ mod tests {
             let item_id = registry.to_item_id(block_type).unwrap();
             let recovered = registry.to_block_type(item_id).unwrap();
             assert_eq!(recovered, block_type);
+        }
+    }
+
+    // =========================================================================
+    // ValidItemId API tests (P.5)
+    // =========================================================================
+
+    #[test]
+    fn test_validate_known_item() {
+        let registry = GameRegistry::new();
+
+        let valid = registry.validate(items::stone());
+        assert!(valid.is_some());
+
+        let valid_iron = registry.validate(items::iron_ore());
+        assert!(valid_iron.is_some());
+    }
+
+    #[test]
+    fn test_validate_unknown_item() {
+        let registry = GameRegistry::new();
+
+        // Create an unknown ItemId using a raw value that definitely doesn't exist
+        // (raw value 9999 is way beyond the 16 base items)
+        let unknown = crate::core::Id::new(9999);
+
+        let valid = registry.validate(unknown);
+        assert!(valid.is_none());
+    }
+
+    #[test]
+    fn test_validate_or_default() {
+        let registry = GameRegistry::new();
+
+        // Known item returns itself
+        let valid_iron = registry.validate_or_default(items::iron_ore());
+        assert_eq!(valid_iron.item_id(), items::iron_ore());
+
+        // Unknown item returns stone (default)
+        // Use a raw value that doesn't exist in the registry
+        let unknown = crate::core::Id::new(9999);
+        let valid_default = registry.validate_or_default(unknown);
+        assert_eq!(valid_default.item_id(), items::stone());
+    }
+
+    #[test]
+    fn test_item_by_valid_id() {
+        let registry = GameRegistry::new();
+
+        let valid = registry.validate(items::iron_ore()).unwrap();
+        let descriptor = registry.item_by_valid_id(valid);
+
+        assert_eq!(descriptor.name, "Iron Ore");
+        assert_eq!(descriptor.category, BlockCategory::Ore);
+    }
+
+    #[test]
+    fn test_machine_by_valid_id() {
+        let registry = GameRegistry::new();
+
+        // Machine item
+        let valid_miner = registry.validate(items::miner_block()).unwrap();
+        let spec = registry.machine_by_valid_id(valid_miner);
+        assert!(spec.is_some());
+        assert_eq!(spec.unwrap().id, "miner");
+
+        // Non-machine item
+        let valid_stone = registry.validate(items::stone()).unwrap();
+        let no_spec = registry.machine_by_valid_id(valid_stone);
+        assert!(no_spec.is_none());
+    }
+
+    #[test]
+    fn test_validate_all_base_items() {
+        let registry = GameRegistry::new();
+
+        // All base items should be validatable
+        for item_id in items::all() {
+            let valid = registry.validate(item_id);
+            assert!(
+                valid.is_some(),
+                "Base item {:?} should be validatable",
+                item_id.name()
+            );
         }
     }
 }
