@@ -18,7 +18,6 @@ pub use ui::*;
 pub use ui_state::*;
 
 use crate::core::ItemId;
-use crate::BlockType;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -114,19 +113,19 @@ pub struct GuideMarker;
 #[derive(Resource, Default)]
 pub struct GuideMarkers {
     pub entities: Vec<Entity>,
-    /// Last selected item (use last_selected_id() for ItemId access)
-    pub last_selected: Option<BlockType>,
+    /// Last selected item
+    pub last_selected: Option<ItemId>,
 }
 
 impl GuideMarkers {
-    /// Get last selected as ItemId (preferred API)
+    /// Get last selected as ItemId
     pub fn last_selected_id(&self) -> Option<ItemId> {
-        self.last_selected.map(|bt| bt.into())
+        self.last_selected
     }
 
     /// Set last selected from ItemId
     pub fn set_last_selected_id(&mut self, item: Option<ItemId>) {
-        self.last_selected = item.and_then(|id| id.try_into().ok());
+        self.last_selected = item;
     }
 }
 
@@ -156,7 +155,7 @@ pub struct TutorialPopup;
 // =============================================================================
 
 /// Tutorial actions that can trigger quest completion
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TutorialAction {
     /// Move a certain distance
     Move { distance: u32 },
@@ -164,21 +163,21 @@ pub enum TutorialAction {
     BreakBlock,
     /// Open inventory
     OpenInventory,
-    /// Place a specific machine type (internally stores BlockType for const compatibility)
-    PlaceMachine(BlockType),
+    /// Place a specific machine type
+    PlaceMachine(ItemId),
     /// Place consecutive conveyors
     PlaceConveyors { count: u32 },
     /// Create a valid machine connection line
     CreateConnection,
-    /// Produce a specific item (internally stores BlockType for const compatibility)
-    ProduceItem(BlockType),
+    /// Produce a specific item
+    ProduceItem(ItemId),
 }
 
 impl TutorialAction {
     /// Get the machine type as ItemId if this is a PlaceMachine action
     pub fn place_machine_id(&self) -> Option<ItemId> {
         match self {
-            TutorialAction::PlaceMachine(bt) => Some((*bt).into()),
+            TutorialAction::PlaceMachine(id) => Some(*id),
             _ => None,
         }
     }
@@ -186,7 +185,7 @@ impl TutorialAction {
     /// Get the item type as ItemId if this is a ProduceItem action
     pub fn produce_item_id(&self) -> Option<ItemId> {
         match self {
-            TutorialAction::ProduceItem(bt) => Some((*bt).into()),
+            TutorialAction::ProduceItem(id) => Some(*id),
             _ => None,
         }
     }
@@ -194,10 +193,7 @@ impl TutorialAction {
     /// Check if this action matches a placed machine (by ItemId)
     pub fn matches_place_machine_id(&self, item: ItemId) -> bool {
         match self {
-            TutorialAction::PlaceMachine(bt) => {
-                let expected: ItemId = (*bt).into();
-                expected == item
-            }
+            TutorialAction::PlaceMachine(id) => *id == item,
             _ => false,
         }
     }
@@ -205,10 +201,7 @@ impl TutorialAction {
     /// Check if this action matches a produced item (by ItemId)
     pub fn matches_produce_item_id(&self, item: ItemId) -> bool {
         match self {
-            TutorialAction::ProduceItem(bt) => {
-                let expected: ItemId = (*bt).into();
-                expected == item
-            }
+            TutorialAction::ProduceItem(id) => *id == item,
             _ => false,
         }
     }
@@ -222,51 +215,60 @@ pub struct TutorialStep {
     pub action: TutorialAction,
 }
 
-/// All tutorial steps
-pub const TUTORIAL_STEPS: &[TutorialStep] = &[
-    TutorialStep {
-        id: "tut_move",
-        description: "WASDで移動しよう",
-        hint: "WASDキーで移動、マウスで視点操作",
-        action: TutorialAction::Move { distance: 20 },
-    },
-    TutorialStep {
-        id: "tut_break",
-        description: "ブロックを掘ろう",
-        hint: "左クリックで採掘",
-        action: TutorialAction::BreakBlock,
-    },
-    TutorialStep {
-        id: "tut_inventory",
-        description: "Eでインベントリを開こう",
-        hint: "Eキーでインベントリを開閉",
-        action: TutorialAction::OpenInventory,
-    },
-    TutorialStep {
-        id: "tut_place_miner",
-        description: "採掘機を設置しよう",
-        hint: "ホットバーから採掘機を選択して右クリック",
-        action: TutorialAction::PlaceMachine(BlockType::MinerBlock),
-    },
-    TutorialStep {
-        id: "tut_place_conveyor",
-        description: "コンベアを3個繋げよう",
-        hint: "コンベアを選択して連続設置",
-        action: TutorialAction::PlaceConveyors { count: 3 },
-    },
-    TutorialStep {
-        id: "tut_place_furnace",
-        description: "精錬炉を設置しよう",
-        hint: "コンベアの先に精錬炉を設置",
-        action: TutorialAction::PlaceMachine(BlockType::FurnaceBlock),
-    },
-    TutorialStep {
-        id: "tut_first_ingot",
-        description: "インゴットを作ろう",
-        hint: "採掘機→コンベア→精錬炉の接続を待つ",
-        action: TutorialAction::ProduceItem(BlockType::IronIngot),
-    },
-];
+/// All tutorial steps (lazily initialized to use ItemId)
+static TUTORIAL_STEPS_VEC: std::sync::LazyLock<Vec<TutorialStep>> =
+    std::sync::LazyLock::new(|| {
+        use crate::core::items;
+        vec![
+            TutorialStep {
+                id: "tut_move",
+                description: "WASDで移動しよう",
+                hint: "WASDキーで移動、マウスで視点操作",
+                action: TutorialAction::Move { distance: 20 },
+            },
+            TutorialStep {
+                id: "tut_break",
+                description: "ブロックを掘ろう",
+                hint: "左クリックで採掘",
+                action: TutorialAction::BreakBlock,
+            },
+            TutorialStep {
+                id: "tut_inventory",
+                description: "Eでインベントリを開こう",
+                hint: "Eキーでインベントリを開閉",
+                action: TutorialAction::OpenInventory,
+            },
+            TutorialStep {
+                id: "tut_place_miner",
+                description: "採掘機を設置しよう",
+                hint: "ホットバーから採掘機を選択して右クリック",
+                action: TutorialAction::PlaceMachine(items::miner_block()),
+            },
+            TutorialStep {
+                id: "tut_place_conveyor",
+                description: "コンベアを3個繋げよう",
+                hint: "コンベアを選択して連続設置",
+                action: TutorialAction::PlaceConveyors { count: 3 },
+            },
+            TutorialStep {
+                id: "tut_place_furnace",
+                description: "精錬炉を設置しよう",
+                hint: "コンベアの先に精錬炉を設置",
+                action: TutorialAction::PlaceMachine(items::furnace_block()),
+            },
+            TutorialStep {
+                id: "tut_first_ingot",
+                description: "インゴットを作ろう",
+                hint: "採掘機→コンベア→精錬炉の接続を待つ",
+                action: TutorialAction::ProduceItem(items::iron_ingot()),
+            },
+        ]
+    });
+
+/// Get all tutorial steps
+pub fn tutorial_steps() -> &'static [TutorialStep] {
+    &TUTORIAL_STEPS_VEC
+}
 
 /// Tutorial progress tracking
 #[derive(Resource, Default)]
@@ -289,7 +291,7 @@ impl TutorialProgress {
         if self.completed {
             None
         } else {
-            TUTORIAL_STEPS.get(self.current_step)
+            tutorial_steps().get(self.current_step)
         }
     }
 
@@ -301,7 +303,7 @@ impl TutorialProgress {
         self.conveyor_count = 0;
         self.last_conveyor_pos = None;
 
-        if self.current_step >= TUTORIAL_STEPS.len() {
+        if self.current_step >= tutorial_steps().len() {
             self.completed = true;
         }
     }
@@ -334,67 +336,39 @@ pub struct TutorialProgressBarFill;
 pub struct QuestDef {
     /// Quest description
     pub description: &'static str,
-    /// Required item type (internally stores BlockType)
-    required_item: BlockType,
+    /// Required item type
+    pub required_item: ItemId,
     /// Required amount
     pub required_amount: u32,
-    /// Rewards: (BlockType, amount) - internally stores BlockType
-    rewards: Vec<(BlockType, u32)>,
+    /// Rewards: (ItemId, amount)
+    pub rewards: Vec<(ItemId, u32)>,
 }
 
 #[allow(dead_code)]
 impl QuestDef {
     /// Create a new quest definition using ItemIds
-    ///
-    /// Items that can't be converted to BlockType will:
-    /// - required_item: fallback to Stone with warning
-    /// - rewards: be filtered out with warning
     pub fn new(
         description: &'static str,
         required_item: ItemId,
         required_amount: u32,
         rewards: Vec<(ItemId, u32)>,
     ) -> Self {
-        let required_bt = required_item.try_into().unwrap_or_else(|_| {
-            tracing::warn!(
-                "Quest required item {:?} not convertible to BlockType, using Stone",
-                required_item
-            );
-            BlockType::Stone
-        });
-
-        let valid_rewards: Vec<(BlockType, u32)> = rewards
-            .into_iter()
-            .filter_map(|(id, count)| {
-                id.try_into().ok().map(|bt| (bt, count)).or_else(|| {
-                    tracing::warn!(
-                        "Quest reward {:?} not convertible to BlockType, skipping",
-                        id
-                    );
-                    None
-                })
-            })
-            .collect();
-
         Self {
             description,
-            required_item: required_bt,
+            required_item,
             required_amount,
-            rewards: valid_rewards,
+            rewards,
         }
     }
 
     /// Get required item as ItemId
-    pub fn required_item(&self) -> ItemId {
-        self.required_item.into()
+    pub fn required_item_id(&self) -> ItemId {
+        self.required_item
     }
 
     /// Get rewards as ItemIds
-    pub fn rewards(&self) -> Vec<(ItemId, u32)> {
-        self.rewards
-            .iter()
-            .map(|(bt, count)| ((*bt).into(), *count))
-            .collect()
+    pub fn rewards_ids(&self) -> &[(ItemId, u32)] {
+        &self.rewards
     }
 }
 
@@ -468,31 +442,31 @@ pub struct DeliveryUI;
 pub struct DeliveryUIText;
 
 /// All available items for creative mode, organized by category
-/// Note: Uses BlockType internally for const compatibility
-pub const CREATIVE_ITEMS: &[(BlockType, &str)] = &[
-    // Blocks
-    (BlockType::Stone, "Blocks"),
-    (BlockType::Grass, "Blocks"),
-    // Ores
-    (BlockType::IronOre, "Ores"),
-    (BlockType::CopperOre, "Ores"),
-    (BlockType::Coal, "Ores"),
-    // Ingots
-    (BlockType::IronIngot, "Ingots"),
-    (BlockType::CopperIngot, "Ingots"),
-    // Machines
-    (BlockType::MinerBlock, "Machines"),
-    (BlockType::ConveyorBlock, "Machines"),
-    (BlockType::CrusherBlock, "Machines"),
-    (BlockType::FurnaceBlock, "Machines"),
-];
+static CREATIVE_ITEMS_VEC: std::sync::LazyLock<Vec<(ItemId, &'static str)>> =
+    std::sync::LazyLock::new(|| {
+        use crate::core::items;
+        vec![
+            // Blocks
+            (items::stone(), "Blocks"),
+            (items::grass(), "Blocks"),
+            // Ores
+            (items::iron_ore(), "Ores"),
+            (items::copper_ore(), "Ores"),
+            (items::coal(), "Ores"),
+            // Ingots
+            (items::iron_ingot(), "Ingots"),
+            (items::copper_ingot(), "Ingots"),
+            // Machines
+            (items::miner_block(), "Machines"),
+            (items::conveyor_block(), "Machines"),
+            (items::crusher_block(), "Machines"),
+            (items::furnace_block(), "Machines"),
+        ]
+    });
 
 /// Get creative items as ItemIds with categories
-pub fn creative_items_ids() -> Vec<(ItemId, &'static str)> {
-    CREATIVE_ITEMS
-        .iter()
-        .map(|(bt, cat)| ((*bt).into(), *cat))
-        .collect()
+pub fn creative_items() -> &'static [(ItemId, &'static str)] {
+    &CREATIVE_ITEMS_VEC
 }
 
 /// State for save/load operations

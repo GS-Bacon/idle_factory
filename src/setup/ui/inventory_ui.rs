@@ -76,7 +76,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ))
                 .with_children(|catalog| {
                     // Creative catalog grid (5x9)
-                    let items: Vec<_> = crate::components::CREATIVE_ITEMS.iter().collect();
+                    let items = crate::components::creative_items();
                     for row_items in items.chunks(9) {
                         catalog
                             .spawn((Node {
@@ -85,10 +85,10 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                 ..default()
                             },))
                             .with_children(|row| {
-                                for (block_type, _category) in row_items {
+                                for (item_id, _category) in row_items {
                                     row.spawn((
                                         Button,
-                                        CreativeItemButton((*block_type).into()),
+                                        CreativeItemButton(*item_id),
                                         Node {
                                             width: Val::Px(SLOT_SIZE),
                                             height: Val::Px(SLOT_SIZE),
@@ -105,7 +105,7 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                     .with_children(|btn| {
                                         // Sprite image
                                         btn.spawn((
-                                            CreativeItemImage((*block_type).into()),
+                                            CreativeItemImage(*item_id),
                                             ImageNode::default(),
                                             Visibility::Hidden,
                                             Node {
@@ -117,8 +117,8 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
                                         ));
                                         // Text fallback
                                         btn.spawn((
-                                            Text::new(block_type.short_name()),
-                                            text_font(font, 12.0),
+                                            Text::new(item_id.short_name()),
+                                            text_font(font, 10.0),
                                             TextColor(Color::WHITE),
                                         ));
                                     });

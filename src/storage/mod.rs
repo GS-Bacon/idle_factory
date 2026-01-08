@@ -1,7 +1,7 @@
 //! Storage system for warehouses and item management
 
-use crate::block_type::BlockType;
 use crate::components::MachineSlot;
+use crate::core::ItemId;
 use bevy::prelude::*;
 
 /// ストレージブロックコンポーネント
@@ -12,7 +12,7 @@ pub struct StorageBlock {
     /// スロット一覧
     pub slots: Vec<MachineSlot>,
     /// フィルター（許可アイテムリスト、None = 全て許可）
-    pub filter: Option<Vec<BlockType>>,
+    pub filter: Option<Vec<ItemId>>,
     /// 入出力優先度（高いほど優先）
     pub priority: i32,
 }
@@ -28,7 +28,7 @@ impl StorageBlock {
     }
 
     /// フィルターを設定
-    pub fn with_filter(mut self, items: Vec<BlockType>) -> Self {
+    pub fn with_filter(mut self, items: Vec<ItemId>) -> Self {
         self.filter = Some(items);
         self
     }
@@ -40,7 +40,7 @@ impl StorageBlock {
     }
 
     /// アイテムが受け入れ可能か確認
-    pub fn accepts(&self, item: BlockType) -> bool {
+    pub fn accepts(&self, item: ItemId) -> bool {
         match &self.filter {
             None => true,
             Some(allowed) => allowed.contains(&item),
@@ -152,11 +152,13 @@ mod tests {
 
     #[test]
     fn test_storage_filter() {
-        let storage =
-            StorageBlock::new(100, 10).with_filter(vec![BlockType::IronOre, BlockType::Coal]);
+        use crate::core::items;
 
-        assert!(storage.accepts(BlockType::IronOre));
-        assert!(!storage.accepts(BlockType::Stone));
+        let storage =
+            StorageBlock::new(100, 10).with_filter(vec![items::iron_ore(), items::coal()]);
+
+        assert!(storage.accepts(items::iron_ore()));
+        assert!(!storage.accepts(items::stone()));
     }
 
     #[test]

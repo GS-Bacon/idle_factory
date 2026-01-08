@@ -222,14 +222,9 @@ pub fn update_held_item_3d(
 
     // Get selected item
     if let Some(item_id) = inventory.selected_item_id() {
-        // Convert to BlockType for material lookup
-        if let Ok(block_type) = crate::BlockType::try_from(item_id) {
-            if let Some(block_material) = cache.materials.get(&block_type) {
-                material.0 = block_material.clone();
-                *visibility = Visibility::Inherited;
-            } else {
-                *visibility = Visibility::Hidden;
-            }
+        if let Some(block_material) = cache.materials.get(&item_id) {
+            material.0 = block_material.clone();
+            *visibility = Visibility::Inherited;
         } else {
             *visibility = Visibility::Hidden;
         }

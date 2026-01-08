@@ -5,10 +5,10 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use crate::components::Machine;
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::meshes::create_wireframe_cube_mesh;
 use crate::player::{LocalPlayer, PlayerInventory};
-use crate::{BlockType, Conveyor, Direction, GuideMarker, GuideMarkers};
+use crate::{Conveyor, Direction, GuideMarker, GuideMarkers};
 
 /// Update guide markers based on selected item
 /// Shows recommended placement positions for machines
@@ -32,27 +32,24 @@ pub fn update_guide_markers(
     };
     let selected_item_id: Option<ItemId> = inventory.get_selected_item_id();
 
-    // Convert ItemId to Option<BlockType> for comparison with last_selected
-    let selected: Option<BlockType> = selected_item_id.and_then(|id| id.try_into().ok());
-
     // Clear markers if selection changed or nothing selected
-    if selected != guide_markers.last_selected {
+    if selected_item_id != guide_markers.last_selected {
         for entity in guide_markers.entities.drain(..) {
             commands.entity(entity).despawn_recursive();
         }
-        guide_markers.last_selected = selected;
+        guide_markers.last_selected = selected_item_id;
     }
 
     // No markers if nothing is selected or non-machine item
-    let Some(block_type) = selected else {
+    let Some(item_id) = selected_item_id else {
         return;
     };
 
     // Only show guides for placeable machines (not Miner - too noisy)
-    if !matches!(
-        block_type,
-        BlockType::ConveyorBlock | BlockType::FurnaceBlock | BlockType::CrusherBlock
-    ) {
+    if item_id != items::conveyor_block()
+        && item_id != items::furnace_block()
+        && item_id != items::crusher_block()
+    {
         return;
     }
 
@@ -60,16 +57,14 @@ pub fn update_guide_markers(
     let pulse = (time.elapsed_secs() * 3.0).sin() * 0.2 + 0.5;
 
     // Generate guide positions based on selected item
-    let guide_positions = match block_type {
-        BlockType::ConveyorBlock => {
-            // Show positions extending from existing machines
-            generate_conveyor_guide_positions(&machine_query, &conveyor_query)
-        }
-        BlockType::FurnaceBlock | BlockType::CrusherBlock => {
-            // Show positions along conveyor paths
-            generate_processor_guide_positions(&conveyor_query)
-        }
-        _ => vec![],
+    let guide_positions = if item_id == items::conveyor_block() {
+        // Show positions extending from existing machines
+        generate_conveyor_guide_positions(&machine_query, &conveyor_query)
+    } else if item_id == items::furnace_block() || item_id == items::crusher_block() {
+        // Show positions along conveyor paths
+        generate_processor_guide_positions(&conveyor_query)
+    } else {
+        vec![]
     };
 
     // Only update if we need to spawn new markers

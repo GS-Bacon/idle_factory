@@ -17,7 +17,6 @@ use crate::constants::ui_colors;
 use crate::core::ItemId;
 use crate::player::LocalPlatformInventory;
 use crate::systems::cursor;
-use crate::BlockType;
 
 /// Slots per page (8 columns x 4 rows)
 pub const SLOTS_PER_PAGE: usize = 32;
@@ -134,16 +133,8 @@ pub fn update_global_inventory_ui(
         .get_all_items()
         .into_iter()
         .filter(|(item_id, _)| {
-            // Convert to BlockType for category matching (returns false for mod items)
-            let block_type: Option<BlockType> = (*item_id).try_into().ok();
-
             // Filter by category
-            if let Some(bt) = block_type {
-                if !category.0.matches(bt) {
-                    return false;
-                }
-            } else if category.0 != ItemCategory::All {
-                // Mod items only show in "All" category
+            if !category.0.matches(*item_id) {
                 return false;
             }
 

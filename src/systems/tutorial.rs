@@ -2,10 +2,10 @@
 
 use bevy::prelude::*;
 
-use crate::block_type::BlockType;
 use crate::components::{
-    InventoryUI, TutorialAction, TutorialPanel, TutorialProgress, TutorialProgressBarBg,
-    TutorialProgressBarFill, TutorialProgressText, TutorialShown, TutorialStepText, TUTORIAL_STEPS,
+    tutorial_steps, InventoryUI, TutorialAction, TutorialPanel, TutorialProgress,
+    TutorialProgressBarBg, TutorialProgressBarFill, TutorialProgressText, TutorialShown,
+    TutorialStepText,
 };
 use crate::core::ItemId;
 use crate::player::LocalPlatformInventory;
@@ -20,11 +20,11 @@ pub enum TutorialEvent {
     /// Player opened inventory
     InventoryOpened,
     /// Player placed a machine
-    MachinePlaced(BlockType),
+    MachinePlaced(ItemId),
     /// Player placed a conveyor
     ConveyorPlaced { position: IVec3 },
     /// An item was produced
-    ItemProduced(BlockType),
+    ItemProduced(ItemId),
 }
 
 /// Track player movement for tutorial
@@ -208,7 +208,7 @@ pub fn update_tutorial_ui(
                 "[T] {} ({}/{})\n{}",
                 step.description,
                 progress.current_step + 1,
-                TUTORIAL_STEPS.len(),
+                tutorial_steps().len(),
                 step.hint
             );
         }
@@ -265,10 +265,7 @@ pub fn track_production(
     for (item_id, count) in platform_inventory.get_all_items() {
         let last = last_counts.get(&item_id).copied().unwrap_or(0);
         if count > last {
-            // Convert ItemId to BlockType for tutorial event
-            if let Ok(block_type) = BlockType::try_from(item_id) {
-                events.send(TutorialEvent::ItemProduced(block_type));
-            }
+            events.send(TutorialEvent::ItemProduced(item_id));
         }
         last_counts.insert(item_id, count);
     }

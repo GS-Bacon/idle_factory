@@ -8,7 +8,8 @@ use std::collections::HashMap;
 
 // Use real library types
 use idle_factory::constants::{CHUNK_SIZE, HOTBAR_SLOTS};
-use idle_factory::BlockType;
+use idle_factory::core::items;
+use idle_factory::{BlockType, ItemId};
 
 #[derive(Resource, Default)]
 struct Inventory {
@@ -4323,7 +4324,7 @@ fn test_game_events_plugin_registers_events() {
     // Verify events are registered by sending them (would panic if not registered)
     app.world_mut().send_event(BlockPlaceEvent {
         position: IVec3::new(0, 0, 0),
-        block_type: BlockType::Stone,
+        item_id: items::stone(),
         player_id: 1,
     });
 
@@ -4333,7 +4334,7 @@ fn test_game_events_plugin_registers_events() {
     });
 
     app.world_mut().send_event(QuestProgressEvent {
-        item_type: BlockType::IronOre,
+        item_id: items::iron_ore(),
         amount: 5,
     });
 
@@ -4508,7 +4509,7 @@ fn test_quest_progress_event_chain() {
 
     #[derive(Resource, Default)]
     struct QuestTracker {
-        items_collected: HashMap<BlockType, u32>,
+        items_collected: HashMap<ItemId, u32>,
     }
 
     fn track_quest_progress(
@@ -4516,7 +4517,7 @@ fn test_quest_progress_event_chain() {
         mut tracker: ResMut<QuestTracker>,
     ) {
         for event in events.read() {
-            *tracker.items_collected.entry(event.item_type).or_default() += event.amount;
+            *tracker.items_collected.entry(event.item_id).or_default() += event.amount;
         }
     }
 
@@ -4525,23 +4526,23 @@ fn test_quest_progress_event_chain() {
 
     // Simulate collecting items
     app.world_mut().send_event(QuestProgressEvent {
-        item_type: BlockType::IronOre,
+        item_id: items::iron_ore(),
         amount: 5,
     });
     app.world_mut().send_event(QuestProgressEvent {
-        item_type: BlockType::Coal,
+        item_id: items::coal(),
         amount: 10,
     });
     app.world_mut().send_event(QuestProgressEvent {
-        item_type: BlockType::IronOre,
+        item_id: items::iron_ore(),
         amount: 3,
     });
 
     app.update();
 
     let tracker = app.world().resource::<QuestTracker>();
-    assert_eq!(tracker.items_collected.get(&BlockType::IronOre), Some(&8));
-    assert_eq!(tracker.items_collected.get(&BlockType::Coal), Some(&10));
+    assert_eq!(tracker.items_collected.get(&items::iron_ore()), Some(&8));
+    assert_eq!(tracker.items_collected.get(&items::coal()), Some(&10));
 }
 
 /// Test multiple app updates don't duplicate events

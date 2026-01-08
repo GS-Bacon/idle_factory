@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
 use crate::components::MachineBundle;
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::events::game_events::{BlockPlaced, EventSource, MachineSpawned};
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::systems::TutorialEvent;
@@ -281,7 +281,7 @@ pub fn block_place(
                 // Tutorial event for miner placement
                 events
                     .tutorial
-                    .send(TutorialEvent::MachinePlaced(BlockType::MinerBlock));
+                    .send(TutorialEvent::MachinePlaced(items::miner_block()));
             }
             BlockType::ConveyorBlock => {
                 let front_pos = place_pos + facing_direction.to_ivec3();
@@ -453,7 +453,7 @@ pub fn block_place(
                 // Tutorial event for crusher placement
                 events
                     .tutorial
-                    .send(TutorialEvent::MachinePlaced(BlockType::CrusherBlock));
+                    .send(TutorialEvent::MachinePlaced(items::crusher_block()));
             }
             BlockType::FurnaceBlock => {
                 info!(
@@ -497,7 +497,7 @@ pub fn block_place(
                 // Tutorial event for furnace placement
                 events
                     .tutorial
-                    .send(TutorialEvent::MachinePlaced(BlockType::FurnaceBlock));
+                    .send(TutorialEvent::MachinePlaced(items::furnace_block()));
             }
             _ => {
                 info!(category = "BLOCK", action = "place", ?place_pos, block_type = ?selected_type, "Block placed");

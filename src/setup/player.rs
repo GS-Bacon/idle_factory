@@ -1,12 +1,11 @@
 //! Player setup
 
 use crate::components::*;
-use crate::BlockType;
+use crate::core::items;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use std::collections::HashMap;
-use strum::IntoEnumIterator;
 
 pub fn setup_player(
     mut commands: Commands,
@@ -16,12 +15,12 @@ pub fn setup_player(
     // Create held item 3D cache
     let cube_mesh = meshes.add(Cuboid::new(0.3, 0.3, 0.3)); // Smaller cube for hand
     let mut block_materials = HashMap::new();
-    for block_type in BlockType::iter() {
+    for item_id in items::all() {
         let material = materials.add(StandardMaterial {
-            base_color: block_type.color(),
+            base_color: item_id.color(),
             ..default()
         });
-        block_materials.insert(block_type, material);
+        block_materials.insert(item_id, material);
     }
     commands.insert_resource(HeldItem3DCache {
         cube_mesh: cube_mesh.clone(),

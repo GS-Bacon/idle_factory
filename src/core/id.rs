@@ -296,6 +296,16 @@ impl ItemId {
         }
     }
 
+    /// Get a short display name for UI (e.g., "Fe" for iron_ore)
+    pub fn short_name(&self) -> &'static str {
+        if let Ok(block_type) = crate::block_type::BlockType::try_from(*self) {
+            block_type.short_name()
+        } else {
+            // Return first 3 chars of name for mod items
+            self.name().unwrap_or("???")
+        }
+    }
+
     /// Convert a BlockType to ItemId (legacy version with explicit interner)
     ///
     /// Uses the format "base:{snake_case_name}" for base game items.

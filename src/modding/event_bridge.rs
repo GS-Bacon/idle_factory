@@ -49,7 +49,7 @@ fn bridge_block_place_events(
                     "y": event.position.y,
                     "z": event.position.z
                 },
-                "block_type": format!("{}", event.block_type),
+                "block_type": event.item_id.name().unwrap_or("unknown"),
                 "player_id": event.player_id
             }),
         );
@@ -124,7 +124,7 @@ fn bridge_item_transfer_events(
                     "y": event.to_pos.y,
                     "z": event.to_pos.z
                 },
-                "item": format!("{}", event.item),
+                "item": event.item.name().unwrap_or("unknown"),
                 "count": event.count
             }),
         );

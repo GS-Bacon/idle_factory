@@ -11,6 +11,7 @@ pub use game_events::*;
 pub use guarded_writer::*;
 
 use crate::block_type::BlockType;
+use crate::core::ItemId;
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -73,8 +74,16 @@ impl Plugin for EventsPlugin {
 #[derive(Event, Clone, Debug)]
 pub struct BlockPlaceEvent {
     pub position: IVec3,
-    pub block_type: BlockType,
+    pub item_id: ItemId,
     pub player_id: u64,
+}
+
+impl BlockPlaceEvent {
+    /// Get block_type (deprecated, use item_id directly)
+    #[deprecated(since = "0.3.0", note = "Use item_id field directly")]
+    pub fn block_type(&self) -> Option<BlockType> {
+        self.item_id.try_into().ok()
+    }
 }
 
 /// Event for block destruction
@@ -97,8 +106,8 @@ pub struct MachineInteractEvent {
 pub enum MachineAction {
     Open,
     Close,
-    AddItem(BlockType),
-    TakeItem(BlockType),
+    AddItem(ItemId),
+    TakeItem(ItemId),
 }
 
 /// Event for item transfer between machines/conveyors
@@ -106,14 +115,14 @@ pub enum MachineAction {
 pub struct ItemTransferEvent {
     pub from_pos: IVec3,
     pub to_pos: IVec3,
-    pub item: BlockType,
+    pub item: ItemId,
     pub count: u32,
 }
 
 /// Event for quest progress
 #[derive(Event, Clone, Debug)]
 pub struct QuestProgressEvent {
-    pub item_type: BlockType,
+    pub item_id: ItemId,
     pub amount: u32,
 }
 
@@ -121,7 +130,7 @@ pub struct QuestProgressEvent {
 #[derive(Event, Clone, Debug)]
 pub struct SpawnMachineEvent {
     pub position: IVec3,
-    pub machine_type: BlockType,
+    pub machine_id: ItemId,
     pub direction: Option<u8>, // For conveyors: 0=North, 1=East, 2=South, 3=West
 }
 

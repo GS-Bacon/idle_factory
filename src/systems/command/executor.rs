@@ -165,9 +165,10 @@ pub fn execute_command(
                 let direction: Option<u8> = parts.get(5).and_then(|s| s.parse().ok());
 
                 if let Some(machine_type) = parse_item_name(&machine_name) {
+                    let machine_id: ItemId = machine_type.into();
                     spawn_machine_events.send(SpawnMachineEvent {
                         position: IVec3::new(x, y, z),
-                        machine_type,
+                        machine_id,
                         direction,
                     });
                     info!("Spawning {} at ({}, {}, {})", machine_type.name(), x, y, z);
@@ -186,10 +187,11 @@ pub fn execute_command(
                 let start_z: i32 = parts[2].parse().unwrap_or(0);
                 let dir: u8 = parts[3].parse().unwrap_or(0);
                 let count: u32 = parts[4].parse().unwrap_or(5);
-                let machine = parts
+                let machine: BlockType = parts
                     .get(5)
                     .and_then(|s| parse_item_name(&s.to_lowercase()))
                     .unwrap_or(BlockType::ConveyorBlock);
+                let machine_id: ItemId = machine.into();
 
                 let y = 8; // Default height (surface level)
                 let (dx, dz) = match dir {
@@ -205,7 +207,7 @@ pub fn execute_command(
                     let z = start_z + dz * i as i32;
                     spawn_machine_events.send(SpawnMachineEvent {
                         position: IVec3::new(x, y, z),
-                        machine_type: machine,
+                        machine_id,
                         direction: Some(dir),
                     });
                 }
@@ -224,38 +226,40 @@ pub fn execute_command(
             // /test [scenario] - Run E2E test scenarios
             match parts.get(1).map(|s| s.as_ref()) {
                 Some("production") => {
+                    use crate::core::items;
                     // Production line: Miner -> Conveyor x3 -> Furnace
                     // Place miner on iron ore
                     spawn_machine_events.send(SpawnMachineEvent {
                         position: IVec3::new(0, 8, 0),
-                        machine_type: BlockType::MinerBlock,
+                        machine_id: items::miner_block(),
                         direction: None,
                     });
                     // Conveyors from miner to furnace
                     for i in 1..4 {
                         spawn_machine_events.send(SpawnMachineEvent {
                             position: IVec3::new(i, 8, 0),
-                            machine_type: BlockType::ConveyorBlock,
+                            machine_id: items::conveyor_block(),
                             direction: Some(1), // East
                         });
                     }
                     // Furnace at the end
                     spawn_machine_events.send(SpawnMachineEvent {
                         position: IVec3::new(4, 8, 0),
-                        machine_type: BlockType::FurnaceBlock,
+                        machine_id: items::furnace_block(),
                         direction: None,
                     });
                     // Give coal for furnace
-                    inventory.add_item_by_id(ItemId::from(BlockType::Coal), 16);
+                    inventory.add_item_by_id(items::coal(), 16);
                     info!("Production test: Miner -> 3x Conveyor -> Furnace spawned at y=8");
                 }
                 Some("stress") => {
+                    use crate::core::items;
                     // Stress test: 10x10 conveyor grid
                     for x in 0..10 {
                         for z in 0..10 {
                             spawn_machine_events.send(SpawnMachineEvent {
                                 position: IVec3::new(x, 8, z),
-                                machine_type: BlockType::ConveyorBlock,
+                                machine_id: items::conveyor_block(),
                                 direction: Some(1), // East
                             });
                         }

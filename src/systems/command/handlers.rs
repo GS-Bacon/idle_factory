@@ -99,8 +99,11 @@ pub fn handle_spawn_machine_event(
     for event in events.read() {
         let pos = event.position;
 
-        match event.machine_type {
-            BlockType::ConveyorBlock => {
+        // Convert ItemId to BlockType for matching (temporary until full migration)
+        let block_type: Option<BlockType> = event.machine_id.try_into().ok();
+
+        match block_type {
+            Some(BlockType::ConveyorBlock) => {
                 // Direction from event or default to North
                 let direction = match event.direction.unwrap_or(0) {
                     0 => Direction::North,
@@ -165,7 +168,7 @@ pub fn handle_spawn_machine_event(
                 }
                 info!("Spawned conveyor at {:?} facing {:?}", pos, direction);
             }
-            BlockType::MinerBlock => {
+            Some(BlockType::MinerBlock) => {
                 if let Some(model) = machine_models.miner.clone() {
                     commands.spawn((
                         SceneRoot(model),
@@ -185,7 +188,7 @@ pub fn handle_spawn_machine_event(
                 }
                 info!("Spawned miner at {:?}", pos);
             }
-            BlockType::FurnaceBlock => {
+            Some(BlockType::FurnaceBlock) => {
                 if let Some(model) = machine_models.furnace.clone() {
                     commands.spawn((
                         SceneRoot(model),
@@ -205,7 +208,7 @@ pub fn handle_spawn_machine_event(
                 }
                 info!("Spawned furnace at {:?}", pos);
             }
-            BlockType::CrusherBlock => {
+            Some(BlockType::CrusherBlock) => {
                 if let Some(model) = machine_models.crusher.clone() {
                     commands.spawn((
                         SceneRoot(model),
@@ -226,7 +229,7 @@ pub fn handle_spawn_machine_event(
                 info!("Spawned crusher at {:?}", pos);
             }
             _ => {
-                info!("Cannot spawn {:?} as machine", event.machine_type);
+                info!("Cannot spawn {:?} as machine", event.machine_id);
             }
         }
     }

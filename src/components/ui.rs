@@ -1,7 +1,6 @@
 //! UI-related components and resources
 
 use crate::core::ItemId;
-use crate::BlockType;
 use bevy::prelude::*;
 
 // === Inventory UI ===
@@ -224,24 +223,25 @@ impl ItemCategory {
         }
     }
 
-    pub fn matches(&self, block_type: crate::BlockType) -> bool {
-        use crate::BlockType;
+    pub fn matches(&self, item_id: ItemId) -> bool {
+        use crate::core::items;
         match self {
             ItemCategory::All => true,
-            ItemCategory::Ores => matches!(
-                block_type,
-                BlockType::IronOre | BlockType::CopperOre | BlockType::Coal | BlockType::Stone
-            ),
-            ItemCategory::Ingots => {
-                matches!(block_type, BlockType::IronIngot | BlockType::CopperIngot)
+            ItemCategory::Ores => {
+                item_id == items::iron_ore()
+                    || item_id == items::copper_ore()
+                    || item_id == items::coal()
+                    || item_id == items::stone()
             }
-            ItemCategory::Machines => matches!(
-                block_type,
-                BlockType::MinerBlock
-                    | BlockType::ConveyorBlock
-                    | BlockType::FurnaceBlock
-                    | BlockType::CrusherBlock
-            ),
+            ItemCategory::Ingots => {
+                item_id == items::iron_ingot() || item_id == items::copper_ingot()
+            }
+            ItemCategory::Machines => {
+                item_id == items::miner_block()
+                    || item_id == items::conveyor_block()
+                    || item_id == items::furnace_block()
+                    || item_id == items::crusher_block()
+            }
         }
     }
 }
@@ -288,5 +288,5 @@ pub struct HeldItem3D;
 #[derive(Resource)]
 pub struct HeldItem3DCache {
     pub cube_mesh: Handle<Mesh>,
-    pub materials: std::collections::HashMap<BlockType, Handle<StandardMaterial>>,
+    pub materials: std::collections::HashMap<ItemId, Handle<StandardMaterial>>,
 }
