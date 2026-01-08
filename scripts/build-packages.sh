@@ -20,6 +20,12 @@ fi
 VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 DIST_DIR="$PROJECT_ROOT/dist"
 
+# ターゲットディレクトリ（.cargo/config.tomlのtarget-dirを尊重）
+TARGET_DIR="${CARGO_TARGET_DIR:-$(cargo metadata --format-version 1 2>/dev/null | grep -o '"target_directory":"[^"]*"' | cut -d'"' -f4)}"
+if [ -z "$TARGET_DIR" ] || [ ! -d "$TARGET_DIR" ]; then
+    TARGET_DIR="$PROJECT_ROOT/target"
+fi
+
 # 色付き出力
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -77,8 +83,8 @@ if [ "$BUILD_LINUX" = true ]; then
     rm -rf "$LINUX_DIR"
     mkdir -p "$LINUX_DIR/assets"
 
-    cp target/release/idle_factory "$LINUX_DIR/"
-    cp target/release/updater "$LINUX_DIR/"
+    cp "$TARGET_DIR/release/idle_factory" "$LINUX_DIR/"
+    cp "$TARGET_DIR/release/updater" "$LINUX_DIR/"
     copy_assets "$LINUX_DIR"
 
     # 起動スクリプト
@@ -110,8 +116,8 @@ if [ "$BUILD_WINDOWS" = true ]; then
     rm -rf "$WINDOWS_DIR"
     mkdir -p "$WINDOWS_DIR/assets"
 
-    cp target/x86_64-pc-windows-gnu/release/idle_factory.exe "$WINDOWS_DIR/"
-    cp target/x86_64-pc-windows-gnu/release/updater.exe "$WINDOWS_DIR/"
+    cp "$TARGET_DIR/x86_64-pc-windows-gnu/release/idle_factory.exe" "$WINDOWS_DIR/"
+    cp "$TARGET_DIR/x86_64-pc-windows-gnu/release/updater.exe" "$WINDOWS_DIR/"
     copy_assets "$WINDOWS_DIR"
 
     # zip作成
