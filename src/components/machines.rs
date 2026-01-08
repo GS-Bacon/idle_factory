@@ -563,29 +563,44 @@ impl Machine {
 // Use the generic Machine component instead.
 // See MachineSpec in game_spec/machines.rs for machine definitions.
 
-// Helper functions moved to standalone functions for backward compatibility
-// These use the recipe system as Single Source of Truth
+// Helper functions for recipe lookup
+// BlockType versions are for render layer compatibility
+// ItemId versions are preferred for game logic
 
 /// Get smelt output for an ore type (uses recipe system)
+/// For ItemId input, use `get_smelt_output_by_id`
 pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
-    let item_id: ItemId = ore.into();
-    find_recipe_by_id(MachineType::Furnace, item_id)
+    get_smelt_output_by_id(ore.into()).and_then(|id| id.try_into().ok())
+}
+
+/// Get smelt output by ItemId (preferred)
+pub fn get_smelt_output_by_id(ore: ItemId) -> Option<ItemId> {
+    find_recipe_by_id(MachineType::Furnace, ore)
         .and_then(|recipe| recipe.outputs.first())
-        .map(|output| output.item)
+        .map(|output| output.item_id())
 }
 
 /// Check if this ore can be crushed (uses recipe system)
 pub fn can_crush(ore: BlockType) -> bool {
-    let item_id: ItemId = ore.into();
-    find_recipe_by_id(MachineType::Crusher, item_id).is_some()
+    can_crush_by_id(ore.into())
+}
+
+/// Check if item can be crushed by ItemId (preferred)
+pub fn can_crush_by_id(ore: ItemId) -> bool {
+    find_recipe_by_id(MachineType::Crusher, ore).is_some()
 }
 
 /// Get crush output for an ore type (uses recipe system)
 pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
-    let item_id: ItemId = ore.into();
-    find_recipe_by_id(MachineType::Crusher, item_id)
+    get_crush_output_by_id(ore.into())
+        .and_then(|(id, count)| id.try_into().ok().map(|bt| (bt, count)))
+}
+
+/// Get crush output by ItemId (preferred)
+pub fn get_crush_output_by_id(ore: ItemId) -> Option<(ItemId, u32)> {
+    find_recipe_by_id(MachineType::Crusher, ore)
         .and_then(|recipe| recipe.outputs.first())
-        .map(|output| (output.item, output.count))
+        .map(|output| (output.item_id(), output.count))
 }
 
 /// Resource to hold loaded 3D model handles for machines and conveyors
