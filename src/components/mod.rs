@@ -343,27 +343,42 @@ pub struct QuestDef {
 #[allow(dead_code)]
 impl QuestDef {
     /// Create a new quest definition using ItemIds
+    ///
+    /// Items that can't be converted to BlockType will:
+    /// - required_item: fallback to Stone with warning
+    /// - rewards: be filtered out with warning
     pub fn new(
         description: &'static str,
         required_item: ItemId,
         required_amount: u32,
         rewards: Vec<(ItemId, u32)>,
     ) -> Self {
+        let required_bt = required_item.try_into().unwrap_or_else(|_| {
+            tracing::warn!(
+                "Quest required item {:?} not convertible to BlockType, using Stone",
+                required_item
+            );
+            BlockType::Stone
+        });
+
+        let valid_rewards: Vec<(BlockType, u32)> = rewards
+            .into_iter()
+            .filter_map(|(id, count)| {
+                id.try_into().ok().map(|bt| (bt, count)).or_else(|| {
+                    tracing::warn!(
+                        "Quest reward {:?} not convertible to BlockType, skipping",
+                        id
+                    );
+                    None
+                })
+            })
+            .collect();
+
         Self {
             description,
-            required_item: required_item
-                .try_into()
-                .expect("ItemId must be convertible to BlockType"),
+            required_item: required_bt,
             required_amount,
-            rewards: rewards
-                .into_iter()
-                .map(|(id, count)| {
-                    let bt: BlockType = id
-                        .try_into()
-                        .expect("ItemId must be convertible to BlockType");
-                    (bt, count)
-                })
-                .collect(),
+            rewards: valid_rewards,
         }
     }
 

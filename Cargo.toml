@@ -1,6 +1,6 @@
 [package]
 name = "idle_factory"
-version = "0.3.92"
+version = "0.3.94"
 edition = "2021"
 
 [features]

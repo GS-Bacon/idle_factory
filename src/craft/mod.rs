@@ -123,13 +123,16 @@ impl CraftingRecipeBuilder {
 
     /// 入力アイテムを追加 (ItemId version)
     ///
-    /// # Panics
-    /// Panics if the ItemId doesn't correspond to a base game BlockType
+    /// Items that can't be converted to BlockType will be skipped with a warning.
     pub fn input_id(mut self, item: ItemId, count: u32) -> Self {
-        let block_type: BlockType = item
-            .try_into()
-            .expect("ItemId must be a base game item for crafting recipe");
-        self.inputs.push(RecipeInput::new(block_type, count, 0));
+        if let Ok(block_type) = item.try_into() {
+            self.inputs.push(RecipeInput::new(block_type, count, 0));
+        } else {
+            tracing::warn!(
+                "Crafting recipe input {:?} not convertible to BlockType, skipping",
+                item
+            );
+        }
         self
     }
 
@@ -142,14 +145,17 @@ impl CraftingRecipeBuilder {
 
     /// 出力アイテムを追加 (ItemId version)
     ///
-    /// # Panics
-    /// Panics if the ItemId doesn't correspond to a base game BlockType
+    /// Items that can't be converted to BlockType will be skipped with a warning.
     pub fn output_id(mut self, item: ItemId, count: u32) -> Self {
-        let block_type: BlockType = item
-            .try_into()
-            .expect("ItemId must be a base game item for crafting recipe");
-        self.outputs
-            .push(RecipeOutput::guaranteed(block_type, count));
+        if let Ok(block_type) = item.try_into() {
+            self.outputs
+                .push(RecipeOutput::guaranteed(block_type, count));
+        } else {
+            tracing::warn!(
+                "Crafting recipe output {:?} not convertible to BlockType, skipping",
+                item
+            );
+        }
         self
     }
 
