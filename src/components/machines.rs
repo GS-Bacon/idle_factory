@@ -2,7 +2,7 @@
 
 use crate::constants::*;
 use crate::core::ItemId;
-use crate::game_spec::{find_recipe_by_id, MachineType};
+use crate::game_spec::{find_recipe, MachineType};
 use crate::BlockType;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -123,13 +123,6 @@ impl ConveyorItem {
     /// Get BlockType for rendering (mod items fallback to Stone)
     pub fn block_type_for_render(&self) -> BlockType {
         self.item_id.try_into().unwrap_or(BlockType::Stone)
-    }
-
-    /// Legacy: Get block_type field (for backward compatibility during migration)
-    /// Returns the BlockType for rendering, fallback to Stone for mod items
-    #[deprecated(note = "Use item_id field directly or block_type_for_render() for visuals")]
-    pub fn block_type(&self) -> BlockType {
-        self.block_type_for_render()
     }
 
     /// Set the item type from ItemId
@@ -421,13 +414,6 @@ impl MachineSlot {
         self.item_id.and_then(|id| id.try_into().ok())
     }
 
-    /// Legacy accessor for item_type - returns BlockType if convertible
-    /// Note: Mod items return None even if slot is not empty
-    #[deprecated(note = "Use item_id field directly or block_type_for_render() for visuals")]
-    pub fn item_type(&self) -> Option<BlockType> {
-        self.block_type_for_render()
-    }
-
     /// Set item type from ItemId
     pub fn set_item_id(&mut self, item: ItemId) {
         self.item_id = Some(item);
@@ -575,7 +561,7 @@ pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
 
 /// Get smelt output by ItemId (preferred)
 pub fn get_smelt_output_by_id(ore: ItemId) -> Option<ItemId> {
-    find_recipe_by_id(MachineType::Furnace, ore)
+    find_recipe(MachineType::Furnace, ore)
         .and_then(|recipe| recipe.outputs.first())
         .map(|output| output.item_id())
 }
@@ -587,7 +573,7 @@ pub fn can_crush(ore: BlockType) -> bool {
 
 /// Check if item can be crushed by ItemId (preferred)
 pub fn can_crush_by_id(ore: ItemId) -> bool {
-    find_recipe_by_id(MachineType::Crusher, ore).is_some()
+    find_recipe(MachineType::Crusher, ore).is_some()
 }
 
 /// Get crush output for an ore type (uses recipe system)
@@ -598,7 +584,7 @@ pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
 
 /// Get crush output by ItemId (preferred)
 pub fn get_crush_output_by_id(ore: ItemId) -> Option<(ItemId, u32)> {
-    find_recipe_by_id(MachineType::Crusher, ore)
+    find_recipe(MachineType::Crusher, ore)
         .and_then(|recipe| recipe.outputs.first())
         .map(|output| (output.item_id(), output.count))
 }

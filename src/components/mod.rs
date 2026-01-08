@@ -384,29 +384,17 @@ impl QuestDef {
         }
     }
 
-    /// Get required item as ItemId (preferred API)
-    pub fn required_item_id(&self) -> ItemId {
+    /// Get required item as ItemId
+    pub fn required_item(&self) -> ItemId {
         self.required_item.into()
     }
 
-    /// Get required item as BlockType (deprecated)
-    #[deprecated(since = "0.4.0", note = "Use required_item_id() instead")]
-    pub fn required_item(&self) -> BlockType {
-        self.required_item
-    }
-
-    /// Get rewards as ItemIds (preferred API)
-    pub fn rewards_ids(&self) -> Vec<(ItemId, u32)> {
+    /// Get rewards as ItemIds
+    pub fn rewards(&self) -> Vec<(ItemId, u32)> {
         self.rewards
             .iter()
             .map(|(bt, count)| ((*bt).into(), *count))
             .collect()
-    }
-
-    /// Get rewards as BlockTypes (deprecated)
-    #[deprecated(since = "0.4.0", note = "Use rewards_ids() instead")]
-    pub fn rewards(&self) -> &Vec<(BlockType, u32)> {
-        &self.rewards
     }
 }
 

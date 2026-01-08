@@ -339,7 +339,7 @@ pub fn setup_delivery_platform(
                 platform_origin.z as f32 * BLOCK_SIZE + (PLATFORM_SIZE as f32 * BLOCK_SIZE / 2.0),
             )),
             DeliveryPlatform::new(platform_origin),
-            PlatformInventory::with_items_by_id(&game_spec::initial_equipment_by_id()),
+            PlatformInventory::with_items_by_id(&game_spec::initial_equipment()),
         ))
         .id();
 

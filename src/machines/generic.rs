@@ -7,7 +7,7 @@ use crate::components::Machine;
 use crate::core::{items, ItemId};
 use crate::events::game_events::{MachineCompleted, MachineStarted};
 use crate::events::GuardedEventWriter;
-use crate::game_spec::{find_recipe_by_id, MachineType, ProcessType};
+use crate::game_spec::{find_recipe, MachineType, ProcessType};
 use crate::world::biome::{BiomeMap, BiomeType};
 use crate::{BlockType, Conveyor};
 use bevy::prelude::*;
@@ -150,7 +150,7 @@ fn tick_recipe(
 
     // Find recipe
     let input_id = input_item_id?;
-    let recipe = find_recipe_by_id(machine_type, input_id)?;
+    let recipe = find_recipe(machine_type, input_id)?;
 
     // Check fuel requirement
     if spec.requires_fuel && machine.slots.fuel == 0 {

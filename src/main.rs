@@ -59,9 +59,8 @@ fn main() {
 mod tests {
     use bevy::prelude::*;
     use idle_factory::components::*;
-    use idle_factory::constants::{CONVEYOR_MAX_ITEMS, HOTBAR_SLOTS, NUM_SLOTS};
+    use idle_factory::constants::{HOTBAR_SLOTS, NUM_SLOTS};
     use idle_factory::core::items;
-    use idle_factory::game_spec::{find_recipe, MachineType};
     use idle_factory::player::PlayerInventory;
     use idle_factory::systems::quest::get_main_quests;
     use idle_factory::utils::{ray_aabb_intersection, ray_aabb_intersection_with_normal};
@@ -359,10 +358,11 @@ mod tests {
     fn test_furnace_uses_recipe_system() {
         // Verify furnace smelt output matches recipe system
         use idle_factory::components::get_smelt_output;
+        use idle_factory::core::items;
         use idle_factory::game_spec::{find_recipe, MachineType};
 
         let iron_output = get_smelt_output(BlockType::IronOre);
-        let recipe = find_recipe(MachineType::Furnace, BlockType::IronOre);
+        let recipe = find_recipe(MachineType::Furnace, items::iron_ore());
         assert!(iron_output.is_some());
         assert!(recipe.is_some());
         assert_eq!(
