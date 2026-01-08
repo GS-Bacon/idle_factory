@@ -426,7 +426,7 @@ pub fn conveyor_transfer(
     // Second pass: add items to target conveyors at their calculated join progress
     for (target_entity, block_type, progress, visual, lateral_offset) in conveyor_adds {
         if let Ok((_, mut target_conv)) = conveyor_query.get_mut(target_entity) {
-            target_conv.add_item_with_visual(block_type, progress, visual, lateral_offset);
+            target_conv.add_item_with_visual(block_type.into(), progress, visual, lateral_offset);
         }
     }
 

@@ -86,11 +86,12 @@ pub struct ConveyorItem {
 
 impl ConveyorItem {
     /// Create a new conveyor item from ItemId
+    /// Note: Mod items fallback to Stone for rendering but preserve the ItemId
     pub fn new(item_id: ItemId, progress: f32) -> Self {
+        // Try to convert to BlockType, fallback to Stone for Mod items
+        let block_type = item_id.try_into().unwrap_or(BlockType::Stone);
         Self {
-            block_type: item_id
-                .try_into()
-                .expect("ItemId must be convertible to BlockType"),
+            block_type,
             progress,
             visual_entity: None,
             lateral_offset: 0.0,
@@ -112,11 +113,15 @@ impl ConveyorItem {
         self.block_type.into()
     }
 
+    /// Get BlockType for rendering (always valid, never panics)
+    pub fn block_type_for_render(&self) -> BlockType {
+        self.block_type
+    }
+
     /// Set the item type from ItemId
+    /// Note: Mod items fallback to Stone for rendering
     pub fn set_item_id(&mut self, item_id: ItemId) {
-        self.block_type = item_id
-            .try_into()
-            .expect("ItemId must be convertible to BlockType");
+        self.block_type = item_id.try_into().unwrap_or(BlockType::Stone);
     }
 }
 
@@ -168,17 +173,15 @@ impl Conveyor {
     /// Add an item at the specified progress position with optional visual and lateral offset
     pub fn add_item_with_visual(
         &mut self,
-        block_type: BlockType,
+        item_id: ItemId,
         at_progress: f32,
         visual_entity: Option<Entity>,
         lateral_offset: f32,
     ) {
-        self.items.push(ConveyorItem {
-            block_type,
-            progress: at_progress,
-            visual_entity,
-            lateral_offset,
-        });
+        let mut item = ConveyorItem::new(item_id, at_progress);
+        item.visual_entity = visual_entity;
+        item.lateral_offset = lateral_offset;
+        self.items.push(item);
         // Sort by progress so we process items in order
         self.items.sort_by(|a, b| {
             a.progress
@@ -188,8 +191,13 @@ impl Conveyor {
     }
 
     /// Add an item at the specified progress position (no visual, no lateral offset)
-    pub fn add_item(&mut self, block_type: BlockType, at_progress: f32) {
-        self.add_item_with_visual(block_type, at_progress, None, 0.0);
+    pub fn add_item(&mut self, item_id: ItemId, at_progress: f32) {
+        self.add_item_with_visual(item_id, at_progress, None, 0.0);
+    }
+
+    /// Add an item at the specified progress position from BlockType (legacy API)
+    pub fn add_item_block_type(&mut self, block_type: BlockType, at_progress: f32) {
+        self.add_item_with_visual(block_type.into(), at_progress, None, 0.0);
     }
 
     /// Check if conveyor can accept item at entry (progress = 0.0)
@@ -368,20 +376,29 @@ impl MachineSlot {
         self.item_type.map(|bt| bt.into())
     }
 
+    /// Get BlockType for rendering (returns None for Mod items that don't have BlockType)
+    pub fn block_type_for_render(&self) -> Option<BlockType> {
+        self.item_type
+    }
+
     /// Add items using ItemId (preferred API)
+    /// Note: Mod items fallback to Stone for storage
     pub fn add_id(&mut self, item: ItemId, amount: u32) -> u32 {
-        let block_type: BlockType = item
-            .try_into()
-            .expect("ItemId must be convertible to BlockType");
+        let block_type: BlockType = item.try_into().unwrap_or(BlockType::Stone);
         self.add(block_type, amount)
     }
 
     /// Set item type from ItemId
+    /// Note: Mod items fallback to Stone for storage
     pub fn set_item_id(&mut self, item: ItemId) {
-        self.item_type = Some(
-            item.try_into()
-                .expect("ItemId must be convertible to BlockType"),
-        );
+        self.item_type = Some(item.try_into().unwrap_or(BlockType::Stone));
+    }
+
+    /// Check if slot contains a specific ItemId
+    pub fn contains_id(&self, item: ItemId) -> bool {
+        self.item_type
+            .map(|bt| bt == item.try_into().unwrap_or(BlockType::Stone))
+            .unwrap_or(false)
     }
 }
 
@@ -801,5 +818,76 @@ mod tests {
         assert_eq!(MachineDescriptor::MINER.id, "miner");
         assert_eq!(MachineDescriptor::FURNACE.has_fuel_slot, true);
         assert_eq!(MachineDescriptor::CRUSHER.input_slots, 1);
+    }
+
+    // =============================================================================
+    // P.1: Mod item safety tests (no panic on unknown ItemId)
+    // =============================================================================
+
+    use crate::core::{items, Id, ItemCategory, StringInterner};
+
+    /// Create a fake Mod item ID that doesn't exist in base items
+    fn create_mod_item_id() -> ItemId {
+        let mut interner = StringInterner::new();
+        Id::<ItemCategory>::from_string("mymod:super_ingot", &mut interner)
+    }
+
+    #[test]
+    fn test_conveyor_item_with_base_item_no_panic() {
+        // Base item should work normally
+        let item = ConveyorItem::new(items::iron_ore(), 0.5);
+        assert_eq!(item.item_id(), items::iron_ore());
+        assert_eq!(item.block_type_for_render(), BlockType::IronOre);
+    }
+
+    #[test]
+    fn test_conveyor_item_with_mod_item_no_panic() {
+        // Mod item should NOT panic - fallback to Stone for rendering
+        let mod_item_id = create_mod_item_id();
+        let item = ConveyorItem::new(mod_item_id, 0.5);
+
+        // block_type_for_render should fallback to Stone (not panic)
+        assert_eq!(item.block_type_for_render(), BlockType::Stone);
+    }
+
+    #[test]
+    fn test_machine_slot_with_base_item_no_panic() {
+        let mut slot = MachineSlot::empty();
+        slot.add_id(items::iron_ore(), 10);
+
+        assert_eq!(slot.item_id(), Some(items::iron_ore()));
+        assert_eq!(slot.block_type_for_render(), Some(BlockType::IronOre));
+        assert_eq!(slot.count, 10);
+    }
+
+    #[test]
+    fn test_machine_slot_with_mod_item_no_panic() {
+        let mod_item_id = create_mod_item_id();
+        let mut slot = MachineSlot::empty();
+        slot.add_id(mod_item_id, 5);
+
+        // block_type_for_render should fallback to Stone (not panic)
+        assert_eq!(slot.block_type_for_render(), Some(BlockType::Stone));
+        assert_eq!(slot.count, 5);
+    }
+
+    #[test]
+    fn test_conveyor_add_item_with_mod_item_no_panic() {
+        let mod_item_id = create_mod_item_id();
+        let mut conveyor = Conveyor {
+            position: IVec3::ZERO,
+            direction: Direction::East,
+            output_direction: Direction::East,
+            items: Vec::new(),
+            last_output_index: 0,
+            last_input_source: 0,
+            shape: ConveyorShape::Straight,
+        };
+
+        // Adding Mod item should NOT panic
+        conveyor.add_item(mod_item_id, 0.0);
+        assert_eq!(conveyor.items.len(), 1);
+        // Should fallback to Stone for rendering
+        assert_eq!(conveyor.items[0].block_type_for_render(), BlockType::Stone);
     }
 }

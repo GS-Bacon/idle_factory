@@ -6,7 +6,16 @@
 //! - `registry`: Mod content registration
 
 pub mod api;
+pub mod connection;
 pub mod data;
+pub mod handlers;
+pub mod protocol;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod server;
+
+// Re-export server types for convenience
+#[cfg(not(target_arch = "wasm32"))]
+pub use server::{ModApiServer, ModApiServerConfig, ModApiServerPlugin};
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};

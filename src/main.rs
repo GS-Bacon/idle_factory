@@ -283,7 +283,7 @@ mod tests {
             last_input_source: 0,
             shape: ConveyorShape::Straight,
         };
-        conveyor.add_item(BlockType::IronOre, 0.5);
+        conveyor.add_item(BlockType::IronOre.into(), 0.5);
         // Item at 0.5, so 0.4 and 0.6 should be too close
         assert!(!conveyor.can_accept_item(0.5));
         assert!(!conveyor.can_accept_item(0.45));
@@ -565,11 +565,11 @@ mod tests {
 
         // Add first item at 0.0
         assert!(conveyor.can_accept_item(0.0));
-        conveyor.add_item(BlockType::IronOre, 0.0);
+        conveyor.add_item(BlockType::IronOre.into(), 0.0);
 
         // Add second item at 0.5 (far enough away)
         assert!(conveyor.can_accept_item(0.5));
-        conveyor.add_item(BlockType::CopperOre, 0.5);
+        conveyor.add_item(BlockType::CopperOre.into(), 0.5);
 
         // Items should be sorted by progress
         assert_eq!(conveyor.items.len(), 2);
@@ -594,7 +594,7 @@ mod tests {
         // Fill up to max items
         for i in 0..CONVEYOR_MAX_ITEMS {
             let progress = i as f32 * 0.2; // Spread items out
-            conveyor.add_item(BlockType::Stone, progress);
+            conveyor.add_item(BlockType::Stone.into(), progress);
         }
 
         assert_eq!(conveyor.items.len(), CONVEYOR_MAX_ITEMS);

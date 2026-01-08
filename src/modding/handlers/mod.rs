@@ -1,0 +1,269 @@
+//! JSON-RPC method handlers for Mod API
+//!
+//! Each module handles a category of methods:
+//! - `game`: Game info (version, state)
+//! - `mod_handlers`: Mod management (list, info, enable, disable)
+//! - `items`: Item registry
+//! - `machines`: Machine registry
+//! - `recipes`: Recipe registry
+//! - `events`: Event subscription
+
+pub mod events;
+pub mod game;
+pub mod items;
+pub mod machines;
+pub mod mod_handlers;
+pub mod recipes;
+
+pub use events::{EventSubscriptions, EventType, Subscription};
+pub use game::{GameStateInfo, API_VERSION};
+pub use items::{
+    handle_item_add, handle_item_list, ItemAddParams, ItemAddResult, ItemInfo, ItemListParams,
+    ItemListResult, INVALID_ITEM_ID, ITEM_ALREADY_EXISTS,
+};
+
+use super::protocol::{JsonRpcRequest, JsonRpcResponse, METHOD_NOT_FOUND};
+use super::ModManager;
+
+/// Handler context for accessing game state
+pub struct HandlerContext<'a> {
+    /// Mod manager
+    pub mod_manager: &'a ModManager,
+    /// Game state info (paused, tick, player_count)
+    pub game_state: GameStateInfo,
+}
+
+/// Mutable handler context for modifying game state
+pub struct HandlerContextMut<'a> {
+    /// Mod manager
+    pub mod_manager: &'a mut ModManager,
+}
+
+/// Route a JSON-RPC request to the appropriate handler
+pub fn route_request(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRpcResponse {
+    match request.method.as_str() {
+        // Game handlers
+        "game.version" => game::handle_game_version(request),
+        "game.state" => game::handle_game_state(request, &ctx.game_state),
+        // Mod handlers
+        "mod.list" => mod_handlers::handle_mod_list(request, ctx),
+        "mod.info" => mod_handlers::handle_mod_info(request, ctx),
+        // Item handlers (read-only, no context needed)
+        "item.list" => items::handle_item_list(request),
+        "item.add" => items::handle_item_add(request),
+        // Machine handlers (read-only, no context needed)
+        "machine.list" => machines::handle_machine_list(request),
+        "machine.add" => machines::handle_machine_add(request),
+        // Recipe handlers (read-only, no context needed)
+        "recipe.list" => recipes::handle_recipe_list(request),
+        "recipe.add" => recipes::handle_recipe_add(request),
+        // Enable/disable require mutation, handled separately
+        _ => JsonRpcResponse::error(
+            request.id,
+            METHOD_NOT_FOUND,
+            format!("Method not found: {}", request.method),
+        ),
+    }
+}
+
+/// Route a JSON-RPC request that requires mutable access
+pub fn route_request_mut(request: &JsonRpcRequest, ctx: &mut HandlerContextMut) -> JsonRpcResponse {
+    match request.method.as_str() {
+        // Mod handlers (read-only can also be called here)
+        "mod.list" => {
+            let read_ctx = HandlerContext {
+                mod_manager: ctx.mod_manager,
+                game_state: GameStateInfo::default(),
+            };
+            mod_handlers::handle_mod_list(request, &read_ctx)
+        }
+        "mod.info" => {
+            let read_ctx = HandlerContext {
+                mod_manager: ctx.mod_manager,
+                game_state: GameStateInfo::default(),
+            };
+            mod_handlers::handle_mod_info(request, &read_ctx)
+        }
+        // Mod handlers (write)
+        "mod.enable" => mod_handlers::handle_mod_enable(request, ctx),
+        "mod.disable" => mod_handlers::handle_mod_disable(request, ctx),
+        // Item handlers (read-only, no context needed)
+        "item.list" => items::handle_item_list(request),
+        "item.add" => items::handle_item_add(request),
+        // Machine handlers (read-only, no context needed)
+        "machine.list" => machines::handle_machine_list(request),
+        "machine.add" => machines::handle_machine_add(request),
+        // Recipe handlers (read-only, no context needed)
+        "recipe.list" => recipes::handle_recipe_list(request),
+        "recipe.add" => recipes::handle_recipe_add(request),
+        _ => JsonRpcResponse::error(
+            request.id,
+            METHOD_NOT_FOUND,
+            format!("Method not found: {}", request.method),
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_route_unknown_method() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(1, "unknown.method", serde_json::Value::Null);
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_error());
+        assert_eq!(response.error.unwrap().code, METHOD_NOT_FOUND);
+    }
+
+    #[test]
+    fn test_route_machine_list() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(1, "machine.list", serde_json::Value::Null);
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+    }
+
+    #[test]
+    fn test_route_machine_add() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(
+            1,
+            "machine.add",
+            serde_json::json!({
+                "id": "test:machine",
+                "name": "Test Machine"
+            }),
+        );
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+    }
+
+    #[test]
+    fn test_route_recipe_list() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(1, "recipe.list", serde_json::Value::Null);
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+    }
+
+    #[test]
+    fn test_route_recipe_add() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(
+            1,
+            "recipe.add",
+            serde_json::json!({
+                "id": "mymod:test_recipe",
+                "inputs": ["base:iron_ore"],
+                "outputs": ["base:iron_ingot"],
+                "time": 1.0
+            }),
+        );
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+    }
+
+    #[test]
+    fn test_route_game_version() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(1, "game.version", serde_json::Value::Null);
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+        let result = response.result.unwrap();
+        assert!(result.get("version").is_some());
+        assert!(result.get("api_version").is_some());
+        assert_eq!(result["api_version"], API_VERSION);
+    }
+
+    #[test]
+    fn test_route_game_state() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo {
+                paused: true,
+                tick: 12345,
+                player_count: 1,
+            },
+        };
+        let request = JsonRpcRequest::new(1, "game.state", serde_json::Value::Null);
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+        let result = response.result.unwrap();
+        assert_eq!(result["paused"], true);
+        assert_eq!(result["tick"], 12345);
+        assert_eq!(result["player_count"], 1);
+    }
+
+    #[test]
+    fn test_route_item_list() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(1, "item.list", serde_json::Value::Null);
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+        let result = response.result.unwrap();
+        let items = result["items"].as_array().unwrap();
+        assert!(!items.is_empty());
+    }
+
+    #[test]
+    fn test_route_item_add() {
+        let manager = ModManager::new();
+        let ctx = HandlerContext {
+            mod_manager: &manager,
+            game_state: GameStateInfo::default(),
+        };
+        let request = JsonRpcRequest::new(
+            1,
+            "item.add",
+            serde_json::json!({
+                "id": "test:item",
+                "name": "Test Item"
+            }),
+        );
+        let response = route_request(&request, &ctx);
+
+        assert!(response.is_success());
+        let result = response.result.unwrap();
+        assert_eq!(result["success"], true);
+        assert_eq!(result["id"], "test:item");
+    }
+}

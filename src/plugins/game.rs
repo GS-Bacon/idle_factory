@@ -72,6 +72,10 @@ impl Plugin for GamePlugin {
             .add_plugins(RobotPlugin)
             .add_plugins(ModdingPlugin);
 
+        // Mod API WebSocket server (non-WASM only)
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_plugins(crate::modding::ModApiServerPlugin);
+
         // Initialize resources
         app.insert_resource(GlobalInventory::with_items_by_id(
             &game_spec::initial_equipment_by_id(),
