@@ -296,8 +296,10 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
 /// Central registry for all game data
 #[derive(Resource)]
 pub struct GameRegistry {
-    /// ItemId-indexed item descriptors
+    /// ItemId-indexed item descriptors (static, from ITEM_DESCRIPTORS)
     items: HashMap<ItemId, &'static ItemDescriptor>,
+    /// ItemId-indexed item descriptors (dynamic, from Mods/TOML)
+    mod_items: HashMap<ItemId, ItemDescriptor>,
     /// ItemId-indexed machine specs
     machines: HashMap<ItemId, &'static MachineSpec>,
     /// BlockType to ItemId mapping
@@ -338,6 +340,7 @@ impl GameRegistry {
 
         Self {
             items,
+            mod_items: HashMap::new(),
             machines,
             block_to_item,
             item_to_block,
@@ -346,9 +349,28 @@ impl GameRegistry {
     }
 
     // =========================================================================
-    /// Get item descriptor by ItemId
+    // Mod item registration (TOML/dynamic)
+    // =========================================================================
+
+    /// Register a mod item (from TOML/dynamic source)
+    pub fn register_mod_item(&mut self, item_id: ItemId, descriptor: ItemDescriptor) {
+        self.mod_items.insert(item_id, descriptor);
+    }
+
+    /// Get count of mod items
+    pub fn mod_item_count(&self) -> usize {
+        self.mod_items.len()
+    }
+
+    // =========================================================================
+    /// Get item descriptor by ItemId (checks both static and mod items)
     pub fn item(&self, item_id: ItemId) -> Option<&ItemDescriptor> {
-        self.items.get(&item_id).copied()
+        // First check static items
+        if let Some(desc) = self.items.get(&item_id).copied() {
+            return Some(desc);
+        }
+        // Then check mod items
+        self.mod_items.get(&item_id)
     }
 
     /// Get machine spec by ItemId
@@ -356,14 +378,17 @@ impl GameRegistry {
         self.machines.get(&item_id).copied()
     }
 
-    /// Check if an ItemId is registered
+    /// Check if an ItemId is registered (in static or mod items)
     pub fn is_registered(&self, item_id: ItemId) -> bool {
-        self.items.contains_key(&item_id)
+        self.items.contains_key(&item_id) || self.mod_items.contains_key(&item_id)
     }
 
-    /// Get all item IDs
+    /// Get all item IDs (static + mod items)
     pub fn all_item_ids(&self) -> impl Iterator<Item = ItemId> + '_ {
-        self.items.keys().copied()
+        self.items
+            .keys()
+            .copied()
+            .chain(self.mod_items.keys().copied())
     }
 
     /// Get all machine item IDs
@@ -386,7 +411,7 @@ impl GameRegistry {
     /// assert!(registry.validate(unknown).is_none());
     /// ```
     pub fn validate(&self, item_id: ItemId) -> Option<ValidItemId> {
-        if self.items.contains_key(&item_id) {
+        if self.is_registered(item_id) {
             Some(ValidItemId::new_unchecked(item_id))
         } else {
             None
@@ -447,7 +472,42 @@ pub struct RegistryPlugin;
 
 impl Plugin for RegistryPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameRegistry>();
+        app.init_resource::<GameRegistry>().add_systems(
+            Startup,
+            integrate_mod_items.after(crate::modding::load_base_mod),
+        );
+    }
+}
+
+/// Integrate items from LoadedModData into GameRegistry
+///
+/// Currently this only logs the loaded mod items. Full integration requires
+/// mutable string interner support which will be added in a future update.
+fn integrate_mod_items(mod_data: Res<crate::modding::LoadedModData>, registry: Res<GameRegistry>) {
+    use bevy::log::info;
+
+    let mod_item_count = mod_data.item_count();
+    let static_item_count = registry.items.len();
+
+    if mod_item_count > 0 {
+        info!(
+            "Loaded {} items from mods (static items: {})",
+            mod_item_count, static_item_count
+        );
+
+        // Log which items from TOML match existing static items
+        let mut matched = 0;
+        for item_def in mod_data.all_items() {
+            if let Some(item_id) = crate::core::items::by_name(&item_def.id) {
+                if registry.items.contains_key(&item_id) {
+                    matched += 1;
+                }
+            }
+        }
+
+        if matched > 0 {
+            info!("{} mod items match existing static definitions", matched);
+        }
     }
 }
 

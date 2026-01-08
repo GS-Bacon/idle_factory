@@ -1,7 +1,9 @@
 //! Pure inventory calculation logic (Bevy-independent)
 //!
 //! This module provides inventory operations that don't depend on Bevy.
+//! Uses ItemId for type-safe item identification.
 
+use super::ItemId;
 use crate::BlockType;
 
 /// Maximum stack size for items
@@ -10,17 +12,22 @@ pub const MAX_STACK: u32 = 999;
 /// An item stack (type + count)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemStack {
-    pub item: BlockType,
+    pub item: ItemId,
     pub count: u32,
 }
 
 impl ItemStack {
     /// Create a new item stack
-    pub fn new(item: BlockType, count: u32) -> Self {
+    pub fn new(item: ItemId, count: u32) -> Self {
         Self {
             item,
             count: count.min(MAX_STACK),
         }
+    }
+
+    /// Create from BlockType (convenience for legacy code)
+    pub fn from_block_type(block_type: BlockType, count: u32) -> Self {
+        Self::new(block_type.into(), count)
     }
 
     /// Check if this stack can merge with another
@@ -43,7 +50,7 @@ impl ItemStack {
 }
 
 /// Try to add an item to a slot array, returns remaining count
-pub fn try_add_to_slots(slots: &mut [Option<ItemStack>], item: BlockType, mut count: u32) -> u32 {
+pub fn try_add_to_slots(slots: &mut [Option<ItemStack>], item: ItemId, mut count: u32) -> u32 {
     // First, try to stack with existing items
     for slot in slots.iter_mut() {
         if count == 0 {
@@ -75,7 +82,7 @@ pub fn try_add_to_slots(slots: &mut [Option<ItemStack>], item: BlockType, mut co
 }
 
 /// Remove items from slots, returns actually removed count
-pub fn remove_from_slots(slots: &mut [Option<ItemStack>], item: BlockType, mut count: u32) -> u32 {
+pub fn remove_from_slots(slots: &mut [Option<ItemStack>], item: ItemId, mut count: u32) -> u32 {
     let original = count;
 
     for slot in slots.iter_mut() {
@@ -98,7 +105,7 @@ pub fn remove_from_slots(slots: &mut [Option<ItemStack>], item: BlockType, mut c
 }
 
 /// Count total items of a type in slots
-pub fn count_in_slots(slots: &[Option<ItemStack>], item: BlockType) -> u32 {
+pub fn count_in_slots(slots: &[Option<ItemStack>], item: ItemId) -> u32 {
     slots
         .iter()
         .filter_map(|s| s.as_ref())
@@ -107,14 +114,35 @@ pub fn count_in_slots(slots: &[Option<ItemStack>], item: BlockType) -> u32 {
         .sum()
 }
 
+// Legacy compatibility functions using BlockType
+pub mod legacy {
+    use super::*;
+
+    /// Try to add an item to a slot array (BlockType version)
+    pub fn try_add_to_slots(slots: &mut [Option<ItemStack>], item: BlockType, count: u32) -> u32 {
+        super::try_add_to_slots(slots, item.into(), count)
+    }
+
+    /// Remove items from slots (BlockType version)
+    pub fn remove_from_slots(slots: &mut [Option<ItemStack>], item: BlockType, count: u32) -> u32 {
+        super::remove_from_slots(slots, item.into(), count)
+    }
+
+    /// Count total items of a type in slots (BlockType version)
+    pub fn count_in_slots(slots: &[Option<ItemStack>], item: BlockType) -> u32 {
+        super::count_in_slots(slots, item.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
     fn test_item_stack_merge() {
-        let mut stack1 = ItemStack::new(BlockType::IronOre, 50);
-        let mut stack2 = ItemStack::new(BlockType::IronOre, 30);
+        let mut stack1 = ItemStack::new(items::iron_ore(), 50);
+        let mut stack2 = ItemStack::new(items::iron_ore(), 30);
 
         let remaining = stack1.merge_from(&mut stack2);
         assert_eq!(remaining, 0);
@@ -127,39 +155,46 @@ mod tests {
         let mut slots: [Option<ItemStack>; 3] = [None, None, None];
 
         // Add to empty slots
-        let remaining = try_add_to_slots(&mut slots, BlockType::IronOre, 100);
+        let remaining = try_add_to_slots(&mut slots, items::iron_ore(), 100);
         assert_eq!(remaining, 0);
-        assert_eq!(slots[0], Some(ItemStack::new(BlockType::IronOre, 100)));
+        assert_eq!(slots[0], Some(ItemStack::new(items::iron_ore(), 100)));
 
         // Stack with existing
-        let remaining = try_add_to_slots(&mut slots, BlockType::IronOre, 50);
+        let remaining = try_add_to_slots(&mut slots, items::iron_ore(), 50);
         assert_eq!(remaining, 0);
-        assert_eq!(slots[0], Some(ItemStack::new(BlockType::IronOre, 150)));
+        assert_eq!(slots[0], Some(ItemStack::new(items::iron_ore(), 150)));
     }
 
     #[test]
     fn test_remove_from_slots() {
         let mut slots: [Option<ItemStack>; 2] = [
-            Some(ItemStack::new(BlockType::IronOre, 100)),
-            Some(ItemStack::new(BlockType::IronOre, 50)),
+            Some(ItemStack::new(items::iron_ore(), 100)),
+            Some(ItemStack::new(items::iron_ore(), 50)),
         ];
 
-        let removed = remove_from_slots(&mut slots, BlockType::IronOre, 120);
+        let removed = remove_from_slots(&mut slots, items::iron_ore(), 120);
         assert_eq!(removed, 120);
         assert_eq!(slots[0], None);
-        assert_eq!(slots[1], Some(ItemStack::new(BlockType::IronOre, 30)));
+        assert_eq!(slots[1], Some(ItemStack::new(items::iron_ore(), 30)));
     }
 
     #[test]
     fn test_count_in_slots() {
         let slots: [Option<ItemStack>; 3] = [
-            Some(ItemStack::new(BlockType::IronOre, 100)),
-            Some(ItemStack::new(BlockType::CopperOre, 50)),
-            Some(ItemStack::new(BlockType::IronOre, 25)),
+            Some(ItemStack::new(items::iron_ore(), 100)),
+            Some(ItemStack::new(items::copper_ore(), 50)),
+            Some(ItemStack::new(items::iron_ore(), 25)),
         ];
 
-        assert_eq!(count_in_slots(&slots, BlockType::IronOre), 125);
-        assert_eq!(count_in_slots(&slots, BlockType::CopperOre), 50);
-        assert_eq!(count_in_slots(&slots, BlockType::Coal), 0);
+        assert_eq!(count_in_slots(&slots, items::iron_ore()), 125);
+        assert_eq!(count_in_slots(&slots, items::copper_ore()), 50);
+        assert_eq!(count_in_slots(&slots, items::coal()), 0);
+    }
+
+    #[test]
+    fn test_from_block_type() {
+        let stack = ItemStack::from_block_type(BlockType::IronOre, 10);
+        assert_eq!(stack.item, items::iron_ore());
+        assert_eq!(stack.count, 10);
     }
 }

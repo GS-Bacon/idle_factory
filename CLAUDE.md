@@ -326,75 +326,43 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 | 項目 | 値 |
 |------|-----|
 | バージョン | **0.3.103** |
-| コード行数 | **~25,000行** |
-| テスト | **616件** 通過 |
+| コード行数 | **36,413行** |
+| テスト | **397件** 通過 |
 | Clippy警告 | **0件** |
 
 ## タスク
 
 **詳細は `.claude/implementation-plan.md` 参照**
 
-### Phase D.0-D.14 完了！（基盤強化 + QoL）
+### 完了済み基盤
 
-**全15モジュール実装済み**
+| タスク | 確認方法 |
+|--------|----------|
+| LocalPlayer Entity化 | 47箇所で使用 |
+| PlayerInventory Component化 | `Res<PlayerInventory>` 0件 |
+| MachineBundle使用 | 23箇所で使用 |
+| GuardedEventWriter使用 | 16箇所で使用 |
+| WebSocket API (port 9877) | 18メソッド実装済み |
+| レガシー機械削除 | 旧struct 0件 |
+| パニック防止 (P.0-P.4) | フォールバック実装済み |
+| 固定Tick (20Hz) | FixedUpdate使用 |
 
-| タスク | 効果 | 状態 |
-|--------|------|------|
-| C.1 BlockDescriptor | 新ブロック追加 100行→10行 | ✅ 完了 |
-| C.2 ItemDescriptor | 新アイテム追加 50行→8行 | ✅ 完了 |
-| C.3 MachineDescriptor + UIジェネレータ | 新機械追加 500行→20行 | ✅ 完了 |
-| C.4 レジストリシステム | O(1)参照、一元管理 | ✅ 完了 |
+### 残りの移行
 
-### 完了済み（最新）
-
-- ✅ **Phase C 完了** (2026-01-07)
-  - C.1/C.2: ItemDescriptor統合（hardness, drops, stack_size）
-  - C.3: MachineSpec + generic UI
-  - C.4: GameRegistry with O(1) lookup
-  - レガシー定数削除
-- ✅ **Phase C.3 機械システム統合** (2026-01-07)
-  - `generic_machine_tick` で全機械を統一処理
-  - `setup_generic_machine_ui` でデータ駆動UI生成
-  - Legacy機械コード削除 (-629行)
-  - `InteractingMachine` 1リソースに統合
-- ✅ **UIステート管理システム** (2026-01-06)
-  - `UIState`, `UIAction`, `UIContext` 導入
-  - ESC/E/Tab処理を集約
-- ✅ **パフォーマンス最適化** (2026-01-06)
-  - ChunkData HashMap削除 → メモリ50%減
-  - Greedy meshing実装 → 頂点数50%減
-  - GameSettings基盤実装
-
-### 過去の完了
-
-- ✅ Phase A: v0.2完成（チュートリアル、バイオームUI、UIテーマ）
-- ✅ Phase B: アーキテクチャ再設計（物流分離、機械統合、UI統合）
-
-### 将来機能 (v0.3以降)
-
-**詳細は `.claude/architecture-future.md` 参照**
-
-17機能を計画済み:
-- 基盤: 電力、液体・気体、信号制御、クラフト
-- 物流: 線路、ストレージ
-- UI/UX: マップ、ブループリント、統計、サウンド、実績
-- カスタマイズ: プレイヤースキン、Blockbenchインポート
-- 拡張: Modding(フルアクセス)、マルチプレイ
-
-### 次のPhase: D.0（マルチ準備）
-
-**詳細は `.claude/architecture-future.md` 参照**
-
-| タスク | 内容 |
+| タスク | 状態 |
 |--------|------|
-| D.0.1 | `LocalPlayer(Entity)` リソース追加 |
-| D.0.2 | `Inventory` コンポーネント化 |
-| D.0.3 | 既存システムを段階的に移行 |
-| D.0.4 | `PlayerInventory` リソース削除 |
-| D.0.5 | `MachineBundle` 導入 |
+| BlockType→ItemId移行 | 🔄 約420箇所残り（段階的に実施） |
+| GameRegistry TOML統合 | ❌ 未着手 |
 
-**決定済み設計**:
-- イベントシステム: `GuardedEventWriter` で循環防止
-- 動的ID: `Id<Category>` Phantom Type + `StringInterner`
-- Mod API: `"namespace:id"` 形式、セマンティックバージョニング
-- NetworkId: `EntityMap` で Entity ↔ NetworkId マッピング
+### 次のステップ（ユーザー判断）
+
+| 機能 | 内容 |
+|------|------|
+| 電力システム | 発電機→電線→機械 |
+| 液体・気体 | パイプ、タンク |
+| 信号制御 | 論理回路 |
+
+**決定済み設計** (`.claude/architecture-future.md` 参照):
+- 動的ID: `Id<Category>` Phantom Type
+- Mod API: WebSocket + TOML
+- マルチ対応: Component化済み

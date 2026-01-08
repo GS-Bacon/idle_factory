@@ -28,8 +28,8 @@ echo ""
 # ---------------------------------------------
 # 1. BlockType → ItemId 移行
 # ---------------------------------------------
-BLOCKTYPE_COUNT=$(grep -r 'BlockType' src --include='*.rs' 2>/dev/null | grep -v '//.*BlockType' | wc -l || echo 0)
-ITEMID_COUNT=$(grep -r 'ItemId' src --include='*.rs' 2>/dev/null | wc -l || echo 0)
+BLOCKTYPE_COUNT=$(grep -r 'BlockType' src --include='*.rs' 2>/dev/null | grep -v '//.*BlockType' | wc -l | tr -d '[:space:]' || echo 0)
+ITEMID_COUNT=$(grep -r 'ItemId' src --include='*.rs' 2>/dev/null | wc -l | tr -d '[:space:]' || echo 0)
 
 echo "## D.2: 動的ID移行"
 echo ""
@@ -54,7 +54,7 @@ echo ""
 # ---------------------------------------------
 # 2. セーブデータ形式
 # ---------------------------------------------
-ENUM_SAVE=$(grep -r 'BlockTypeSave' src --include='*.rs' 2>/dev/null | wc -l || echo 0)
+ENUM_SAVE=$(grep -r 'BlockTypeSave' src --include='*.rs' 2>/dev/null | wc -l | tr -d '[:space:]' || echo 0)
 STRING_SAVE=$(grep -r 'block_id.*String\|id.*String' src/save --include='*.rs' 2>/dev/null | wc -l | tr -d '[:space:]' || echo 0)
 
 echo "## セーブデータ形式"
@@ -93,7 +93,7 @@ echo ""
 # ---------------------------------------------
 # 4. イベントシステム
 # ---------------------------------------------
-EVENT_DEFS=$(grep -r '#\[derive(Event)\]' src --include='*.rs' 2>/dev/null | wc -l || echo 0)
+EVENT_DEFS=$(grep -r '#\[derive(Event)\]' src --include='*.rs' 2>/dev/null | wc -l | tr -d '[:space:]' || echo 0)
 # Observer or EventReader for game events
 OBSERVER_USAGE=$(grep -r 'add_observer\|Trigger<' src --include='*.rs' 2>/dev/null | wc -l | tr -d '[:space:]' || echo 0)
 [ -z "$OBSERVER_USAGE" ] && OBSERVER_USAGE=0

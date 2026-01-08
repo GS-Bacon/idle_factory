@@ -3,6 +3,7 @@
 //! All machines are defined as `MachineSpec`.
 //! UI is automatically generated from the spec.
 
+use crate::core::ItemId;
 use crate::BlockType;
 
 use super::recipes::MachineType;
@@ -248,12 +249,25 @@ pub const ASSEMBLER: MachineSpec = MachineSpec {
 /// All machines
 pub const ALL_MACHINES: &[&MachineSpec] = &[&MINER, &FURNACE, &CRUSHER, &ASSEMBLER];
 
+impl MachineSpec {
+    /// Get ItemId for this machine
+    pub fn item_id(&self) -> ItemId {
+        self.block_type.into()
+    }
+}
+
 /// Get machine spec from BlockType
 pub fn get_machine_spec(block_type: BlockType) -> Option<&'static MachineSpec> {
     ALL_MACHINES
         .iter()
         .find(|m| m.block_type == block_type)
         .copied()
+}
+
+/// Get machine spec from ItemId
+pub fn get_machine_spec_by_id(item_id: ItemId) -> Option<&'static MachineSpec> {
+    let block_type: BlockType = item_id.try_into().ok()?;
+    get_machine_spec(block_type)
 }
 
 /// Get input ports for a machine
@@ -375,6 +389,28 @@ mod tests {
 
         let stone = get_machine_spec(BlockType::Stone);
         assert!(stone.is_none());
+    }
+
+    #[test]
+    fn test_machine_spec_item_id() {
+        use crate::core::items;
+
+        // Test ItemId-based lookup
+        let miner = get_machine_spec_by_id(items::miner_block());
+        assert!(miner.is_some());
+        assert_eq!(miner.unwrap().id, "miner");
+
+        let furnace = get_machine_spec_by_id(items::furnace_block());
+        assert!(furnace.is_some());
+        assert_eq!(furnace.unwrap().id, "furnace");
+
+        // Non-machine item returns None
+        let stone = get_machine_spec_by_id(items::stone());
+        assert!(stone.is_none());
+
+        // Test item_id() method on MachineSpec
+        assert_eq!(MINER.item_id(), items::miner_block());
+        assert_eq!(FURNACE.item_id(), items::furnace_block());
     }
 
     #[test]

@@ -9,8 +9,9 @@ pub mod registry;
 
 // Re-exports for convenience
 pub use machines::{
-    get_input_ports, get_machine_spec, get_output_ports, IoPort, MachineSpec, MachineState,
-    PortSide, ProcessType, UiSlotDef, UiSlotType, ALL_MACHINES, ASSEMBLER, CRUSHER, FURNACE, MINER,
+    get_input_ports, get_machine_spec, get_machine_spec_by_id, get_output_ports, IoPort,
+    MachineSpec, MachineState, PortSide, ProcessType, UiSlotDef, UiSlotType, ALL_MACHINES,
+    ASSEMBLER, CRUSHER, FURNACE, MINER,
 };
 pub use recipes::{
     find_recipe, get_recipes_for_machine, FuelRequirement, MachineType, RecipeInput, RecipeOutput,
@@ -183,6 +184,29 @@ pub struct QuestSpec {
     pub required_items: &'static [(BlockType, u32)],
     pub rewards: &'static [(BlockType, u32)],
     pub unlocks: &'static [BlockType],
+}
+
+impl QuestSpec {
+    /// Get required items as ItemId
+    pub fn required_items_id(&self) -> Vec<(ItemId, u32)> {
+        self.required_items
+            .iter()
+            .map(|(bt, count)| (ItemId::from(*bt), *count))
+            .collect()
+    }
+
+    /// Get rewards as ItemId
+    pub fn rewards_id(&self) -> Vec<(ItemId, u32)> {
+        self.rewards
+            .iter()
+            .map(|(bt, count)| (ItemId::from(*bt), *count))
+            .collect()
+    }
+
+    /// Get unlocks as ItemId
+    pub fn unlocks_id(&self) -> Vec<ItemId> {
+        self.unlocks.iter().map(|bt| ItemId::from(*bt)).collect()
+    }
 }
 
 /// Main quests

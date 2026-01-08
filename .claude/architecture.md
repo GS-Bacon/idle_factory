@@ -1,25 +1,10 @@
 # アーキテクチャ
 
-## コード規模 (2026-01-07更新)
+## コード規模 (2026-01-08更新)
 
-総計: 約19,000行 (リファクタリングで-3,500行削減)
+総計: 約36,400行
 
-| モジュール | 行数 | 責務 |
-|------------|------|------|
-| systems/ | 5,500 | ゲームロジック（Update系） |
-| components/ | 1,400 | ECSコンポーネント定義 |
-| save/ | 1,500 | セーブ/ロード |
-| ui/ | 800 | UI生成・操作（データ駆動化で削減） |
-| world/ | 1,200 | チャンク・地形生成（Greedy meshing含む） |
-| game_spec/ | 1,100 | 仕様定義（Single Source of Truth） |
-| machines/ | 600 | 機械システム（generic.rsに統合） |
-| setup/ | 1,000 | 起動時初期化（Startup） |
-| player/ | 600 | プレイヤー・インベントリ |
-| logistics/ | 560 | コンベア |
-| plugins/ | 440 | Bevyプラグイン |
-| debug/ | 380 | デバッグHUD・ステートダンプ |
-| core/ | 360 | 純粋ロジック（Bevy非依存） |
-| src/*.rs | 2,500 | main, meshes, utils, vox_loader |
+**確認コマンド**: `find src -name "*.rs" | xargs wc -l | tail -1`
 
 ## ディレクトリ構造
 

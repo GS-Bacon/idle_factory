@@ -290,7 +290,10 @@ impl LoadedModData {
 }
 
 /// base Modをロード
-fn load_base_mod(mut mod_data: ResMut<LoadedModData>, mut mod_manager: ResMut<ModManager>) {
+pub(crate) fn load_base_mod(
+    mut mod_data: ResMut<LoadedModData>,
+    mut mod_manager: ResMut<ModManager>,
+) {
     use tracing::{info, warn};
 
     // 実行ファイルからの相対パスでmodsディレクトリを探す

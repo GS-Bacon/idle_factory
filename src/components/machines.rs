@@ -539,6 +539,10 @@ impl Machine {
 
 /// Get smelt output for an ore type (uses recipe system)
 /// For ItemId input, use `get_smelt_output_by_id`
+#[deprecated(
+    since = "0.3.0",
+    note = "Use get_smelt_output_by_id() with ItemId instead"
+)]
 pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
     get_smelt_output_by_id(ore.into()).and_then(|id| id.try_into().ok())
 }
@@ -551,6 +555,7 @@ pub fn get_smelt_output_by_id(ore: ItemId) -> Option<ItemId> {
 }
 
 /// Check if this ore can be crushed (uses recipe system)
+#[deprecated(since = "0.3.0", note = "Use can_crush_by_id() with ItemId instead")]
 pub fn can_crush(ore: BlockType) -> bool {
     can_crush_by_id(ore.into())
 }
@@ -561,6 +566,10 @@ pub fn can_crush_by_id(ore: ItemId) -> bool {
 }
 
 /// Get crush output for an ore type (uses recipe system)
+#[deprecated(
+    since = "0.3.0",
+    note = "Use get_crush_output_by_id() with ItemId instead"
+)]
 pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
     get_crush_output_by_id(ore.into())
         .and_then(|(id, count)| id.try_into().ok().map(|bt| (bt, count)))
@@ -638,8 +647,8 @@ impl MachineModels {
 pub struct InputPort {
     /// Direction relative to machine facing (Back = behind machine)
     pub direction: PortDirection,
-    /// Optional filter for accepted item types
-    pub filter: Option<Vec<BlockType>>,
+    /// Optional filter for accepted item types (ItemId-based)
+    pub filter: Option<Vec<ItemId>>,
 }
 
 /// Output port definition for machines that eject items
@@ -704,15 +713,15 @@ pub struct Crafter {
     pub speed_multiplier: f32,
 }
 
-/// Component for machine's item inventory
+/// Component for machine's item inventory (ItemId-based)
 #[derive(Component, Clone, Debug, Default)]
 pub struct MachineInventory {
-    /// Input slots
-    pub input_slots: Vec<Option<(BlockType, u32)>>,
-    /// Output slots
-    pub output_slots: Vec<Option<(BlockType, u32)>>,
-    /// Fuel slot (for furnaces)
-    pub fuel_slot: Option<(BlockType, u32)>,
+    /// Input slots (ItemId, count)
+    pub input_slots: Vec<Option<(ItemId, u32)>>,
+    /// Output slots (ItemId, count)
+    pub output_slots: Vec<Option<(ItemId, u32)>>,
+    /// Fuel slot (for furnaces) (ItemId, count)
+    pub fuel_slot: Option<(ItemId, u32)>,
 }
 
 impl MachineInventory {
@@ -724,6 +733,22 @@ impl MachineInventory {
             output_slots: vec![None; output_count],
             fuel_slot: None,
         }
+    }
+
+    /// Get input item as BlockType for rendering (returns None for mod items)
+    pub fn input_block_type(&self, slot: usize) -> Option<BlockType> {
+        self.input_slots
+            .get(slot)?
+            .as_ref()
+            .and_then(|(id, _)| (*id).try_into().ok())
+    }
+
+    /// Get output item as BlockType for rendering (returns None for mod items)
+    pub fn output_block_type(&self, slot: usize) -> Option<BlockType> {
+        self.output_slots
+            .get(slot)?
+            .as_ref()
+            .and_then(|(id, _)| (*id).try_into().ok())
     }
 }
 

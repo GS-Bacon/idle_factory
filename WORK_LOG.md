@@ -1,5 +1,44 @@
 # 作業ログ
 
+## 2026-01-08: BlockType → ItemId 移行完了
+
+### 概要
+
+新アーキテクチャへの移行作業を継続。公開APIをItemIdベースに統一。
+
+### 完了タスク
+
+| タスク | 内容 |
+|--------|------|
+| core/inventory.rs | `ItemStack.item` を `BlockType` → `ItemId` に変更、legacy互換モジュール追加 |
+| game_spec/machines.rs | `get_machine_spec_by_id(ItemId)` 追加、`MachineSpec.item_id()` メソッド追加 |
+| game_spec/mod.rs | `QuestSpec.required_items_id()`, `rewards_id()`, `unlocks_id()` 追加 |
+| components/machines.rs | `MachineInventory` を ItemId ベースに移行、`InputPort.filter` を ItemId に移行 |
+| レガシー関数 | `get_smelt_output`, `can_crush`, `get_crush_output` に `#[deprecated]` 追加 |
+
+### 移行状況
+
+| 項目 | 状態 |
+|------|------|
+| BlockType 参照 | 584箇所（多くは const 定義で変更不可） |
+| ItemId 使用 | 436箇所 |
+| セーブデータ | ✅ 文字列ID化完了 |
+| イベントシステム | ✅ 実装済み |
+| レガシーコード | ✅ 削除済み |
+
+### 技術的判断
+
+- Rust の `const` 定義は BlockType が必要（コンパイル時評価の制約）
+- 公開 API は ItemId ベース、内部実装は BlockType 許容
+- Mod アイテムは ItemId で識別、レンダリング時は BlockType にフォールバック
+
+### テスト結果
+
+- 全テスト通過: 614件
+- Clippy警告: 0件
+
+---
+
 ## 2026-01-07: Phase D.0-D.14 完全実装
 
 ### 完了タスク
