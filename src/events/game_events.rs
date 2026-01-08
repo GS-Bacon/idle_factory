@@ -1,6 +1,5 @@
 //! Game event definitions
 
-use crate::block_type::BlockType;
 use crate::core::ItemId;
 use bevy::prelude::*;
 
@@ -18,7 +17,7 @@ pub enum EventSource {
 #[derive(Event, Debug)]
 pub struct BlockPlaced {
     pub pos: IVec3,
-    pub block: BlockType,
+    pub block: ItemId,
     pub source: EventSource,
 }
 
@@ -26,7 +25,7 @@ pub struct BlockPlaced {
 #[derive(Event, Debug)]
 pub struct BlockBroken {
     pub pos: IVec3,
-    pub block: BlockType,
+    pub block: ItemId,
     pub source: EventSource,
 }
 
@@ -36,7 +35,7 @@ pub struct BlockBroken {
 #[derive(Event, Debug)]
 pub struct MachineSpawned {
     pub entity: Entity,
-    pub machine_type: BlockType,
+    pub machine_type: ItemId,
     pub pos: IVec3,
 }
 
@@ -100,6 +99,7 @@ impl Plugin for GameEventsExtPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
     fn test_event_source() {
@@ -111,7 +111,7 @@ mod tests {
     fn test_block_placed_event() {
         let event = BlockPlaced {
             pos: IVec3::new(1, 2, 3),
-            block: BlockType::Stone,
+            block: items::stone(),
             source: EventSource::System,
         };
         assert_eq!(event.pos, IVec3::new(1, 2, 3));

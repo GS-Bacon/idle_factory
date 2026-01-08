@@ -537,45 +537,19 @@ impl Machine {
 // BlockType versions are for render layer compatibility
 // ItemId versions are preferred for game logic
 
-/// Get smelt output for an ore type (uses recipe system)
-/// For ItemId input, use `get_smelt_output_by_id`
-#[deprecated(
-    since = "0.3.0",
-    note = "Use get_smelt_output_by_id() with ItemId instead"
-)]
-pub fn get_smelt_output(ore: BlockType) -> Option<BlockType> {
-    get_smelt_output_by_id(ore.into()).and_then(|id| id.try_into().ok())
-}
-
-/// Get smelt output by ItemId (preferred)
+/// Get smelt output by ItemId
 pub fn get_smelt_output_by_id(ore: ItemId) -> Option<ItemId> {
     find_recipe(MachineType::Furnace, ore)
         .and_then(|recipe| recipe.outputs.first())
         .map(|output| output.item)
 }
 
-/// Check if this ore can be crushed (uses recipe system)
-#[deprecated(since = "0.3.0", note = "Use can_crush_by_id() with ItemId instead")]
-pub fn can_crush(ore: BlockType) -> bool {
-    can_crush_by_id(ore.into())
-}
-
-/// Check if item can be crushed by ItemId (preferred)
+/// Check if item can be crushed by ItemId
 pub fn can_crush_by_id(ore: ItemId) -> bool {
     find_recipe(MachineType::Crusher, ore).is_some()
 }
 
-/// Get crush output for an ore type (uses recipe system)
-#[deprecated(
-    since = "0.3.0",
-    note = "Use get_crush_output_by_id() with ItemId instead"
-)]
-pub fn get_crush_output(ore: BlockType) -> Option<(BlockType, u32)> {
-    get_crush_output_by_id(ore.into())
-        .and_then(|(id, count)| id.try_into().ok().map(|bt| (bt, count)))
-}
-
-/// Get crush output by ItemId (preferred)
+/// Get crush output by ItemId
 pub fn get_crush_output_by_id(ore: ItemId) -> Option<(ItemId, u32)> {
     find_recipe(MachineType::Crusher, ore)
         .and_then(|recipe| recipe.outputs.first())

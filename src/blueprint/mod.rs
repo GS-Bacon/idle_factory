@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::block_type::BlockType;
 use crate::components::Direction;
+use crate::core::ItemId;
 
 /// Direction for serialization (separate from gameplay Direction to maintain clean separation)
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -43,8 +43,8 @@ impl From<BlueprintDirection> for Direction {
 pub struct BlueprintBlock {
     /// Offset from the blueprint origin
     pub offset: IVec3,
-    /// Block type
-    pub block_type: BlockType,
+    /// Block type (stored as string ID for serialization)
+    pub item_id: ItemId,
     /// Rotation (0-3: 0, 90, 180, 270 degrees)
     pub rotation: u8,
     /// Machine direction (if this is a machine)
@@ -93,10 +93,10 @@ impl Blueprint {
     }
 
     /// Calculate required items to place this blueprint
-    pub fn required_items(&self) -> HashMap<BlockType, u32> {
+    pub fn required_items(&self) -> HashMap<ItemId, u32> {
         let mut items = HashMap::new();
         for block in &self.blocks {
-            *items.entry(block.block_type).or_insert(0) += 1;
+            *items.entry(block.item_id).or_insert(0) += 1;
         }
         items
     }
@@ -184,6 +184,7 @@ impl Plugin for BlueprintPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::items;
 
     #[test]
     fn test_blueprint_new() {
@@ -198,7 +199,7 @@ mod tests {
         let mut bp = Blueprint::new("Test");
         bp.add_block(BlueprintBlock {
             offset: IVec3::new(2, 0, 3),
-            block_type: BlockType::MinerBlock,
+            item_id: items::miner_block(),
             rotation: 0,
             direction: Some(BlueprintDirection::North),
         });
@@ -212,13 +213,13 @@ mod tests {
         let mut bp = Blueprint::new("Test");
         bp.add_block(BlueprintBlock {
             offset: IVec3::new(0, 0, 0),
-            block_type: BlockType::ConveyorBlock,
+            item_id: items::conveyor_block(),
             rotation: 0,
             direction: None,
         });
         bp.add_block(BlueprintBlock {
             offset: IVec3::new(5, 2, 3),
-            block_type: BlockType::ConveyorBlock,
+            item_id: items::conveyor_block(),
             rotation: 0,
             direction: None,
         });
@@ -231,26 +232,26 @@ mod tests {
         let mut bp = Blueprint::new("Test");
         bp.add_block(BlueprintBlock {
             offset: IVec3::ZERO,
-            block_type: BlockType::ConveyorBlock,
+            item_id: items::conveyor_block(),
             rotation: 0,
             direction: None,
         });
         bp.add_block(BlueprintBlock {
             offset: IVec3::new(1, 0, 0),
-            block_type: BlockType::ConveyorBlock,
+            item_id: items::conveyor_block(),
             rotation: 0,
             direction: None,
         });
         bp.add_block(BlueprintBlock {
             offset: IVec3::new(2, 0, 0),
-            block_type: BlockType::MinerBlock,
+            item_id: items::miner_block(),
             rotation: 0,
             direction: Some(BlueprintDirection::North),
         });
 
-        let items = bp.required_items();
-        assert_eq!(items.get(&BlockType::ConveyorBlock), Some(&2));
-        assert_eq!(items.get(&BlockType::MinerBlock), Some(&1));
+        let items_map = bp.required_items();
+        assert_eq!(items_map.get(&items::conveyor_block()), Some(&2));
+        assert_eq!(items_map.get(&items::miner_block()), Some(&1));
     }
 
     #[test]
@@ -329,7 +330,7 @@ mod tests {
         bp.created_at = Some(1234567890.0);
         bp.add_block(BlueprintBlock {
             offset: IVec3::new(1, 2, 3),
-            block_type: BlockType::FurnaceBlock,
+            item_id: items::furnace_block(),
             rotation: 2,
             direction: Some(BlueprintDirection::East),
         });
@@ -345,7 +346,7 @@ mod tests {
         assert_eq!(bp2.created_at, Some(1234567890.0));
         assert_eq!(bp2.blocks.len(), 1);
         assert_eq!(bp2.blocks[0].offset, IVec3::new(1, 2, 3));
-        assert_eq!(bp2.blocks[0].block_type, BlockType::FurnaceBlock);
+        assert_eq!(bp2.blocks[0].item_id, items::furnace_block());
         assert_eq!(bp2.blocks[0].rotation, 2);
         assert_eq!(bp2.blocks[0].direction, Some(BlueprintDirection::East));
     }

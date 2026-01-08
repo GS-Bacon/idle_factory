@@ -3,11 +3,10 @@
 //! Parses and executes slash commands like /creative, /give, /tp, etc.
 
 use crate::components::{CreativeMode, LoadGameEvent, SaveGameEvent};
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::events::SpawnMachineEvent;
 use crate::player::PlayerInventory;
 use crate::utils::parse_item_name;
-use crate::BlockType;
 use bevy::prelude::*;
 use tracing::info;
 
@@ -55,9 +54,9 @@ pub fn execute_command(
                 let item_name = parts[1].to_lowercase();
                 let count: u32 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(64);
 
-                if let Some(block_type) = parse_item_name(&item_name) {
-                    inventory.add_item_by_id(ItemId::from(block_type), count);
-                    info!("Gave {} x{}", block_type.name(), count);
+                if let Some(item_id) = parse_item_name(&item_name) {
+                    inventory.add_item_by_id(item_id, count);
+                    info!("Gave {:?} x{}", item_id.name(), count);
                 }
             }
         }
@@ -135,17 +134,17 @@ pub fn execute_command(
                 let y: i32 = parts[2].parse().unwrap_or(0);
                 let z: i32 = parts[3].parse().unwrap_or(0);
                 let block_name = parts[4].to_lowercase();
-                if let Some(block_type) = parse_item_name(&block_name) {
+                if let Some(item_id) = parse_item_name(&block_name) {
                     setblock_events.send(SetBlockEvent {
                         position: IVec3::new(x, y, z),
-                        block_type,
+                        block_type: item_id,
                     });
                     info!(
-                        "Setting block at ({}, {}, {}) to {}",
+                        "Setting block at ({}, {}, {}) to {:?}",
                         x,
                         y,
                         z,
-                        block_type.name()
+                        item_id.name()
                     );
                 } else {
                     info!("Unknown block type: {}", block_name);
@@ -164,14 +163,13 @@ pub fn execute_command(
                 let machine_name = parts[4].to_lowercase();
                 let direction: Option<u8> = parts.get(5).and_then(|s| s.parse().ok());
 
-                if let Some(machine_type) = parse_item_name(&machine_name) {
-                    let machine_id: ItemId = machine_type.into();
+                if let Some(machine_id) = parse_item_name(&machine_name) {
                     spawn_machine_events.send(SpawnMachineEvent {
                         position: IVec3::new(x, y, z),
                         machine_id,
                         direction,
                     });
-                    info!("Spawning {} at ({}, {}, {})", machine_type.name(), x, y, z);
+                    info!("Spawning {:?} at ({}, {}, {})", machine_id.name(), x, y, z);
                 } else {
                     info!("Unknown machine type: {}", machine_name);
                 }
@@ -187,11 +185,10 @@ pub fn execute_command(
                 let start_z: i32 = parts[2].parse().unwrap_or(0);
                 let dir: u8 = parts[3].parse().unwrap_or(0);
                 let count: u32 = parts[4].parse().unwrap_or(5);
-                let machine: BlockType = parts
+                let machine_id: ItemId = parts
                     .get(5)
                     .and_then(|s| parse_item_name(&s.to_lowercase()))
-                    .unwrap_or(BlockType::ConveyorBlock);
-                let machine_id: ItemId = machine.into();
+                    .unwrap_or_else(items::conveyor_block);
 
                 let y = 8; // Default height (surface level)
                 let (dx, dz) = match dir {
@@ -212,9 +209,9 @@ pub fn execute_command(
                     });
                 }
                 info!(
-                    "Spawned {} {} machines starting at ({}, {})",
+                    "Spawned {} {:?} machines starting at ({}, {})",
                     count,
-                    machine.name(),
+                    machine_id.name(),
                     start_x,
                     start_z
                 );
@@ -282,19 +279,19 @@ pub fn execute_command(
                         let item_name = parts[2].to_lowercase();
                         let min_count: u32 = parts[3].parse().unwrap_or(1);
 
-                        if let Some(block_type) = parse_item_name(&item_name) {
-                            let actual = inventory.get_total_count_by_id(ItemId::from(block_type));
+                        if let Some(item_id) = parse_item_name(&item_name) {
+                            let actual = inventory.get_total_count_by_id(item_id);
                             if actual >= min_count {
                                 info!(
-                                    "✓ PASS: {} >= {} (actual: {})",
-                                    block_type.name(),
+                                    "✓ PASS: {:?} >= {} (actual: {})",
+                                    item_id.name(),
                                     min_count,
                                     actual
                                 );
                             } else {
                                 tracing::error!(
-                                    "✗ FAIL: {} < {} (actual: {})",
-                                    block_type.name(),
+                                    "✗ FAIL: {:?} < {} (actual: {})",
+                                    item_id.name(),
                                     min_count,
                                     actual
                                 );
@@ -313,8 +310,7 @@ pub fn execute_command(
                         let item_name = parts[3].to_lowercase();
                         let expected_count: u32 = parts[4].parse().unwrap_or(1);
 
-                        if let Some(expected_block) = parse_item_name(&item_name) {
-                            let expected_type = crate::core::ItemId::from(expected_block);
+                        if let Some(expected_type) = parse_item_name(&item_name) {
                             if slot_idx < inventory.slots.len() {
                                 if let Some((actual_type, actual_count)) = inventory.slots[slot_idx]
                                 {

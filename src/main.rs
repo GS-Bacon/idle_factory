@@ -65,7 +65,6 @@ mod tests {
     use idle_factory::systems::quest::get_main_quests;
     use idle_factory::utils::{ray_aabb_intersection, ray_aabb_intersection_with_normal};
     use idle_factory::world::{ChunkData, WorldData};
-    use idle_factory::BlockType;
 
     #[test]
     fn test_chunk_generation() {
@@ -75,13 +74,12 @@ mod tests {
         assert!(block_count > 0);
         // Check surface block at (0, 7, 0)
         let surface_block = chunk.get_block(0, 7, 0);
-        assert!(matches!(
-            surface_block,
-            Some(BlockType::Grass)
-                | Some(BlockType::IronOre)
-                | Some(BlockType::CopperOre)
-                | Some(BlockType::Coal)
-        ));
+        assert!(
+            surface_block == Some(items::grass())
+                || surface_block == Some(items::iron_ore())
+                || surface_block == Some(items::copper_ore())
+                || surface_block == Some(items::coal())
+        );
     }
 
     #[test]
@@ -287,7 +285,7 @@ mod tests {
             last_input_source: 0,
             shape: ConveyorShape::Straight,
         };
-        conveyor.add_item(BlockType::IronOre.into(), 0.5);
+        conveyor.add_item(items::iron_ore(), 0.5);
         // Item at 0.5, so 0.4 and 0.6 should be too close
         assert!(!conveyor.can_accept_item(0.5));
         assert!(!conveyor.can_accept_item(0.45));
@@ -297,17 +295,17 @@ mod tests {
 
     #[test]
     fn test_furnace_smelt_output() {
-        use idle_factory::components::get_smelt_output;
+        use idle_factory::components::get_smelt_output_by_id;
 
         assert_eq!(
-            get_smelt_output(BlockType::IronOre),
-            Some(BlockType::IronIngot)
+            get_smelt_output_by_id(items::iron_ore()),
+            Some(items::iron_ingot())
         );
         assert_eq!(
-            get_smelt_output(BlockType::CopperOre),
-            Some(BlockType::CopperIngot)
+            get_smelt_output_by_id(items::copper_ore()),
+            Some(items::copper_ingot())
         );
-        assert_eq!(get_smelt_output(BlockType::Stone), None);
+        assert_eq!(get_smelt_output_by_id(items::stone()), None);
     }
 
     #[test]
@@ -324,34 +322,34 @@ mod tests {
         assert_eq!(input_slot.count, 0);
 
         // Can add ore when empty
-        input_slot.item_id = Some(BlockType::IronOre.into());
+        input_slot.item_id = Some(items::iron_ore());
         input_slot.count = 1;
 
         // Same type can be added
-        let same_type_ok = input_slot.item_id == Some(BlockType::IronOre.into());
+        let same_type_ok = input_slot.item_id == Some(items::iron_ore());
         assert!(same_type_ok);
     }
 
     #[test]
     fn test_crusher_has_recipes() {
-        use idle_factory::components::{can_crush, get_crush_output};
+        use idle_factory::components::{can_crush_by_id, get_crush_output_by_id};
 
         // Crusher now has recipes for ore -> dust (doubles output)
-        assert!(can_crush(BlockType::IronOre));
-        assert!(can_crush(BlockType::CopperOre));
-        assert!(!can_crush(BlockType::Stone)); // Stone can't be crushed
-        assert!(!can_crush(BlockType::IronIngot)); // Ingots can't be crushed
+        assert!(can_crush_by_id(items::iron_ore()));
+        assert!(can_crush_by_id(items::copper_ore()));
+        assert!(!can_crush_by_id(items::stone())); // Stone can't be crushed
+        assert!(!can_crush_by_id(items::iron_ingot())); // Ingots can't be crushed
 
         // Ore outputs should be dust (with count 2 = doubling)
         assert_eq!(
-            get_crush_output(BlockType::IronOre),
-            Some((BlockType::IronDust, 2))
+            get_crush_output_by_id(items::iron_ore()),
+            Some((items::iron_dust(), 2))
         );
         assert_eq!(
-            get_crush_output(BlockType::CopperOre),
-            Some((BlockType::CopperDust, 2))
+            get_crush_output_by_id(items::copper_ore()),
+            Some((items::copper_dust(), 2))
         );
-        assert!(get_crush_output(BlockType::Stone).is_none());
+        assert!(get_crush_output_by_id(items::stone()).is_none());
     }
 
     #[test]
@@ -570,11 +568,11 @@ mod tests {
 
         // Add first item at 0.0
         assert!(conveyor.can_accept_item(0.0));
-        conveyor.add_item(BlockType::IronOre.into(), 0.0);
+        conveyor.add_item(items::iron_ore(), 0.0);
 
         // Add second item at 0.5 (far enough away)
         assert!(conveyor.can_accept_item(0.5));
-        conveyor.add_item(BlockType::CopperOre.into(), 0.5);
+        conveyor.add_item(items::copper_ore(), 0.5);
 
         // Items should be sorted by progress
         assert_eq!(conveyor.items.len(), 2);
@@ -599,7 +597,7 @@ mod tests {
         // Fill up to max items
         for i in 0..CONVEYOR_MAX_ITEMS {
             let progress = i as f32 * 0.2; // Spread items out
-            conveyor.add_item(BlockType::Stone.into(), progress);
+            conveyor.add_item(items::stone(), progress);
         }
 
         assert_eq!(conveyor.items.len(), CONVEYOR_MAX_ITEMS);

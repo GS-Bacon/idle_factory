@@ -9,7 +9,7 @@ mod executor;
 mod handlers;
 mod ui;
 
-use crate::BlockType;
+use crate::core::ItemId;
 use bevy::prelude::*;
 
 // Re-export public items
@@ -34,7 +34,7 @@ pub struct LookEvent {
 #[derive(Event)]
 pub struct SetBlockEvent {
     pub position: IVec3,
-    pub block_type: BlockType,
+    pub block_type: ItemId,
 }
 
 /// Debug event types
@@ -67,7 +67,7 @@ pub enum MachineAssertType {
     /// Check if any conveyor has items
     ConveyorHasItems,
     /// Check total count of a specific machine type
-    MachineCount { machine: BlockType, min_count: u32 },
+    MachineCount { machine: ItemId, min_count: u32 },
 }
 
 /// Assert machine event for E2E testing

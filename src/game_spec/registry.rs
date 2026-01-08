@@ -17,9 +17,10 @@
 
 use bevy::prelude::*;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
-use crate::block_type::{BlockCategory, BlockType};
-use crate::core::{ItemId, ValidItemId};
+use crate::block_type::BlockCategory;
+use crate::core::{items, ItemId, ValidItemId};
 
 use super::machines::MachineSpec;
 use super::recipes::Recipe;
@@ -46,11 +47,12 @@ pub struct ItemDescriptor {
     /// Base break time in seconds (before tool multiplier)
     pub hardness: f32,
     /// What this block drops when broken (None = drops itself)
-    pub drops: Option<BlockType>,
+    pub drops: Option<ItemId>,
 }
 
 impl ItemDescriptor {
-    pub const fn new(
+    /// Create a new item descriptor
+    pub fn new(
         name: &'static str,
         short_name: &'static str,
         color: (f32, f32, f32),
@@ -71,20 +73,20 @@ impl ItemDescriptor {
     }
 
     /// Create with custom hardness
-    pub const fn with_hardness(mut self, hardness: f32) -> Self {
+    pub fn with_hardness(mut self, hardness: f32) -> Self {
         self.hardness = hardness;
         self
     }
 
     /// Create with custom drops
-    pub const fn with_drops(mut self, drops: BlockType) -> Self {
+    pub fn with_drops(mut self, drops: ItemId) -> Self {
         self.drops = Some(drops);
         self
     }
 
     /// Get what this block drops (self if None)
-    pub fn get_drops(&self, block_type: BlockType) -> BlockType {
-        self.drops.unwrap_or(block_type)
+    pub fn get_drops(&self, item_id: ItemId) -> ItemId {
+        self.drops.unwrap_or(item_id)
     }
 }
 
@@ -92,202 +94,209 @@ impl ItemDescriptor {
 // Static Item Definitions
 // =============================================================================
 
-/// All item descriptors (indexed by BlockType)
+/// All item descriptors (indexed by ItemId)
 /// Hardness values: 1.0 = terrain, 0.5 = machines, 0.0 = instant
-pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
-    // Terrain (hardness 1.0)
-    (
-        BlockType::Stone,
-        ItemDescriptor::new(
-            "Stone",
-            "Stn",
-            (0.5, 0.5, 0.5),
-            BlockCategory::Terrain,
-            999,
-            true,
-        )
-        .with_hardness(1.0),
-    ),
-    (
-        BlockType::Grass,
-        ItemDescriptor::new(
-            "Grass",
-            "Grs",
-            (0.2, 0.8, 0.2),
-            BlockCategory::Terrain,
-            999,
-            true,
-        )
-        .with_hardness(0.8),
-    ),
-    // Ores (hardness 1.2 - slightly harder than stone)
-    (
-        BlockType::IronOre,
-        ItemDescriptor::new(
-            "Iron Ore",
-            "FeO",
-            (0.6, 0.5, 0.4),
-            BlockCategory::Ore,
-            999,
-            true,
-        )
-        .with_hardness(1.2),
-    ),
-    (
-        BlockType::CopperOre,
-        ItemDescriptor::new(
-            "Copper Ore",
-            "CuO",
-            (0.7, 0.4, 0.3),
-            BlockCategory::Ore,
-            999,
-            true,
-        )
-        .with_hardness(1.2),
-    ),
-    (
-        BlockType::Coal,
-        ItemDescriptor::new(
-            "Coal",
-            "C",
-            (0.15, 0.15, 0.15),
-            BlockCategory::Ore,
-            999,
-            true,
-        )
-        .with_hardness(1.0),
-    ),
-    // Processed (not placeable, no hardness needed)
-    (
-        BlockType::IronIngot,
-        ItemDescriptor::new(
-            "Iron Ingot",
-            "Fe",
-            (0.8, 0.8, 0.85),
-            BlockCategory::Processed,
-            999,
-            false,
+static ITEM_DESCRIPTORS: LazyLock<Vec<(ItemId, ItemDescriptor)>> = LazyLock::new(|| {
+    vec![
+        // Terrain (hardness 1.0)
+        (
+            items::stone(),
+            ItemDescriptor::new(
+                "Stone",
+                "Stn",
+                (0.5, 0.5, 0.5),
+                BlockCategory::Terrain,
+                999,
+                true,
+            )
+            .with_hardness(1.0),
         ),
-    ),
-    (
-        BlockType::CopperIngot,
-        ItemDescriptor::new(
-            "Copper Ingot",
-            "Cu",
-            (0.9, 0.5, 0.3),
-            BlockCategory::Processed,
-            999,
-            false,
+        (
+            items::grass(),
+            ItemDescriptor::new(
+                "Grass",
+                "Grs",
+                (0.2, 0.8, 0.2),
+                BlockCategory::Terrain,
+                999,
+                true,
+            )
+            .with_hardness(0.8),
         ),
-    ),
-    (
-        BlockType::IronDust,
-        ItemDescriptor::new(
-            "Iron Dust",
-            "FeD",
-            (0.7, 0.7, 0.75),
-            BlockCategory::Processed,
-            999,
-            false,
+        // Ores (hardness 1.2 - slightly harder than stone)
+        (
+            items::iron_ore(),
+            ItemDescriptor::new(
+                "Iron Ore",
+                "FeO",
+                (0.6, 0.5, 0.4),
+                BlockCategory::Ore,
+                999,
+                true,
+            )
+            .with_hardness(1.2),
         ),
-    ),
-    (
-        BlockType::CopperDust,
-        ItemDescriptor::new(
-            "Copper Dust",
-            "CuD",
-            (0.85, 0.55, 0.4),
-            BlockCategory::Processed,
-            999,
-            false,
+        (
+            items::copper_ore(),
+            ItemDescriptor::new(
+                "Copper Ore",
+                "CuO",
+                (0.7, 0.4, 0.3),
+                BlockCategory::Ore,
+                999,
+                true,
+            )
+            .with_hardness(1.2),
         ),
-    ),
-    // Machines (hardness 0.5 - easier to break)
-    (
-        BlockType::MinerBlock,
-        ItemDescriptor::new(
-            "Miner",
-            "Min",
-            (0.8, 0.6, 0.2),
-            BlockCategory::Machine,
-            999,
-            true,
-        )
-        .with_hardness(0.5),
-    ),
-    (
-        BlockType::ConveyorBlock,
-        ItemDescriptor::new(
-            "Conveyor",
-            "Conv",
-            (0.3, 0.3, 0.35),
-            BlockCategory::Machine,
-            999,
-            true,
-        )
-        .with_hardness(0.3),
-    ),
-    (
-        BlockType::FurnaceBlock,
-        ItemDescriptor::new(
-            "Furnace",
-            "Fur",
-            (0.4, 0.3, 0.3),
-            BlockCategory::Machine,
-            999,
-            true,
-        )
-        .with_hardness(0.5),
-    ),
-    (
-        BlockType::CrusherBlock,
-        ItemDescriptor::new(
-            "Crusher",
-            "Cru",
-            (0.4, 0.3, 0.5),
-            BlockCategory::Machine,
-            999,
-            true,
-        )
-        .with_hardness(0.5),
-    ),
-    (
-        BlockType::AssemblerBlock,
-        ItemDescriptor::new(
-            "Assembler",
-            "Asm",
-            (0.3, 0.5, 0.4),
-            BlockCategory::Machine,
-            999,
-            true,
-        )
-        .with_hardness(0.5),
-    ),
-    (
-        BlockType::PlatformBlock,
-        ItemDescriptor::new(
-            "Platform",
-            "Plt",
-            (0.2, 0.5, 0.3),
-            BlockCategory::Machine,
-            999,
-            true,
-        )
-        .with_hardness(0.5),
-    ),
-    // Tools (not placeable)
-    (
-        BlockType::StonePickaxe,
-        ItemDescriptor::new(
-            "Stone Pickaxe",
-            "Pick",
-            (0.6, 0.6, 0.6),
-            BlockCategory::Tool,
-            1,
-            false,
+        (
+            items::coal(),
+            ItemDescriptor::new(
+                "Coal",
+                "C",
+                (0.15, 0.15, 0.15),
+                BlockCategory::Ore,
+                999,
+                true,
+            )
+            .with_hardness(1.0),
         ),
-    ),
-];
+        // Processed (not placeable, no hardness needed)
+        (
+            items::iron_ingot(),
+            ItemDescriptor::new(
+                "Iron Ingot",
+                "Fe",
+                (0.8, 0.8, 0.85),
+                BlockCategory::Processed,
+                999,
+                false,
+            ),
+        ),
+        (
+            items::copper_ingot(),
+            ItemDescriptor::new(
+                "Copper Ingot",
+                "Cu",
+                (0.9, 0.5, 0.3),
+                BlockCategory::Processed,
+                999,
+                false,
+            ),
+        ),
+        (
+            items::iron_dust(),
+            ItemDescriptor::new(
+                "Iron Dust",
+                "FeD",
+                (0.7, 0.7, 0.75),
+                BlockCategory::Processed,
+                999,
+                false,
+            ),
+        ),
+        (
+            items::copper_dust(),
+            ItemDescriptor::new(
+                "Copper Dust",
+                "CuD",
+                (0.85, 0.55, 0.4),
+                BlockCategory::Processed,
+                999,
+                false,
+            ),
+        ),
+        // Machines (hardness 0.5 - easier to break)
+        (
+            items::miner_block(),
+            ItemDescriptor::new(
+                "Miner",
+                "Min",
+                (0.8, 0.6, 0.2),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.5),
+        ),
+        (
+            items::conveyor_block(),
+            ItemDescriptor::new(
+                "Conveyor",
+                "Conv",
+                (0.3, 0.3, 0.35),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.3),
+        ),
+        (
+            items::furnace_block(),
+            ItemDescriptor::new(
+                "Furnace",
+                "Fur",
+                (0.4, 0.3, 0.3),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.5),
+        ),
+        (
+            items::crusher_block(),
+            ItemDescriptor::new(
+                "Crusher",
+                "Cru",
+                (0.4, 0.3, 0.5),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.5),
+        ),
+        (
+            items::assembler_block(),
+            ItemDescriptor::new(
+                "Assembler",
+                "Asm",
+                (0.3, 0.5, 0.4),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.5),
+        ),
+        (
+            items::platform_block(),
+            ItemDescriptor::new(
+                "Platform",
+                "Plt",
+                (0.2, 0.5, 0.3),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.5),
+        ),
+        // Tools (not placeable)
+        (
+            items::stone_pickaxe(),
+            ItemDescriptor::new(
+                "Stone Pickaxe",
+                "Pick",
+                (0.6, 0.6, 0.6),
+                BlockCategory::Tool,
+                1,
+                false,
+            ),
+        ),
+    ]
+});
+
+/// Get all item descriptors
+pub fn item_descriptors() -> &'static [(ItemId, ItemDescriptor)] {
+    &ITEM_DESCRIPTORS
+}
 
 // =============================================================================
 // Game Registry (Bevy Resource)
@@ -297,15 +306,11 @@ pub const ITEM_DESCRIPTORS: &[(BlockType, ItemDescriptor)] = &[
 #[derive(Resource)]
 pub struct GameRegistry {
     /// ItemId-indexed item descriptors (static, from ITEM_DESCRIPTORS)
-    items: HashMap<ItemId, &'static ItemDescriptor>,
+    items: HashMap<ItemId, ItemDescriptor>,
     /// ItemId-indexed item descriptors (dynamic, from Mods/TOML)
     mod_items: HashMap<ItemId, ItemDescriptor>,
     /// ItemId-indexed machine specs
     machines: HashMap<ItemId, &'static MachineSpec>,
-    /// BlockType to ItemId mapping
-    block_to_item: HashMap<BlockType, ItemId>,
-    /// ItemId to BlockType mapping
-    item_to_block: HashMap<ItemId, BlockType>,
     /// All recipes
     recipes: Vec<&'static Recipe>,
 }
@@ -320,19 +325,14 @@ impl GameRegistry {
     /// Create a new registry with all static data
     pub fn new() -> Self {
         let mut items = HashMap::new();
-        let mut block_to_item = HashMap::new();
-        let mut item_to_block = HashMap::new();
 
-        for (block_type, descriptor) in ITEM_DESCRIPTORS {
-            let item_id = ItemId::from(*block_type);
-            items.insert(item_id, descriptor);
-            block_to_item.insert(*block_type, item_id);
-            item_to_block.insert(item_id, *block_type);
+        for (item_id, descriptor) in ITEM_DESCRIPTORS.iter() {
+            items.insert(*item_id, descriptor.clone());
         }
 
         let mut machines = HashMap::new();
         for spec in super::machines::ALL_MACHINES {
-            let item_id = ItemId::from(spec.block_type);
+            let item_id = spec.item_id();
             machines.insert(item_id, *spec);
         }
 
@@ -342,8 +342,6 @@ impl GameRegistry {
             items,
             mod_items: HashMap::new(),
             machines,
-            block_to_item,
-            item_to_block,
             recipes,
         }
     }
@@ -366,7 +364,7 @@ impl GameRegistry {
     /// Get item descriptor by ItemId (checks both static and mod items)
     pub fn item(&self, item_id: ItemId) -> Option<&ItemDescriptor> {
         // First check static items
-        if let Some(desc) = self.items.get(&item_id).copied() {
+        if let Some(desc) = self.items.get(&item_id) {
             return Some(desc);
         }
         // Then check mod items
@@ -441,20 +439,6 @@ impl GameRegistry {
     }
 
     // =========================================================================
-    // Conversion helpers
-    // =========================================================================
-
-    /// Convert BlockType to ItemId
-    pub fn to_item_id(&self, block_type: BlockType) -> Option<ItemId> {
-        self.block_to_item.get(&block_type).copied()
-    }
-
-    /// Convert ItemId to BlockType
-    pub fn to_block_type(&self, item_id: ItemId) -> Option<BlockType> {
-        self.item_to_block.get(&item_id).copied()
-    }
-
-    // =========================================================================
     // Common API
     // =========================================================================
 
@@ -519,17 +503,15 @@ fn integrate_mod_items(mod_data: Res<crate::modding::LoadedModData>, registry: R
 mod tests {
     use super::*;
     use crate::core::items;
-    use strum::IntoEnumIterator;
 
     #[test]
-    fn test_all_block_types_registered() {
+    fn test_all_base_items_registered() {
         let registry = GameRegistry::new();
-        for block_type in BlockType::iter() {
-            let item_id: ItemId = block_type.into();
+        for item_id in items::all() {
             assert!(
                 registry.is_registered(item_id),
-                "BlockType::{:?} is not registered in ITEM_DESCRIPTORS",
-                block_type
+                "ItemId {:?} is not registered in ITEM_DESCRIPTORS",
+                item_id.name()
             );
         }
     }
@@ -601,19 +583,33 @@ mod tests {
     }
 
     #[test]
-    fn test_block_type_hardness_method() {
-        // Test that BlockType.hardness() delegates to ItemDescriptor
-        assert_eq!(BlockType::Stone.hardness(), 1.0);
-        assert_eq!(BlockType::MinerBlock.hardness(), 0.5);
-        assert!(BlockType::IronOre.hardness() > BlockType::Stone.hardness());
+    fn test_item_hardness_via_registry() {
+        let registry = GameRegistry::new();
+
+        // Verify hardness values through registry
+        let stone = registry.item(items::stone()).unwrap();
+        assert_eq!(stone.hardness, 1.0);
+
+        let miner = registry.item(items::miner_block()).unwrap();
+        assert_eq!(miner.hardness, 0.5);
+
+        let iron_ore = registry.item(items::iron_ore()).unwrap();
+        assert!(iron_ore.hardness > stone.hardness);
     }
 
     #[test]
-    fn test_block_drops() {
-        // Most blocks drop themselves
-        assert_eq!(BlockType::Stone.drops(), BlockType::Stone);
-        assert_eq!(BlockType::IronOre.drops(), BlockType::IronOre);
-        assert_eq!(BlockType::MinerBlock.drops(), BlockType::MinerBlock);
+    fn test_item_drops_via_descriptor() {
+        let registry = GameRegistry::new();
+
+        // Most items drop themselves (drops is None)
+        let stone_desc = registry.item(items::stone()).unwrap();
+        assert_eq!(stone_desc.get_drops(items::stone()), items::stone());
+
+        let iron_ore_desc = registry.item(items::iron_ore()).unwrap();
+        assert_eq!(
+            iron_ore_desc.get_drops(items::iron_ore()),
+            items::iron_ore()
+        );
     }
 
     #[test]
@@ -633,23 +629,11 @@ mod tests {
     }
 
     #[test]
-    fn test_block_type_item_id_conversion() {
-        let registry = GameRegistry::new();
-
-        // BlockType -> ItemId
-        let stone_id = registry.to_item_id(BlockType::Stone).unwrap();
-        assert_eq!(stone_id.name(), Some("base:stone"));
-
-        // ItemId -> BlockType
-        let stone_bt = registry.to_block_type(stone_id).unwrap();
-        assert_eq!(stone_bt, BlockType::Stone);
-
-        // Round-trip for all items
-        for block_type in BlockType::iter() {
-            let item_id = registry.to_item_id(block_type).unwrap();
-            let recovered = registry.to_block_type(item_id).unwrap();
-            assert_eq!(recovered, block_type);
-        }
+    fn test_item_id_name_lookup() {
+        // Test that ItemIds have correct names
+        assert_eq!(items::stone().name(), Some("base:stone"));
+        assert_eq!(items::iron_ore().name(), Some("base:iron_ore"));
+        assert_eq!(items::miner_block().name(), Some("base:miner_block"));
     }
 
     // =========================================================================

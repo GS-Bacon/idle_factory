@@ -439,7 +439,7 @@ pub fn handle_assert_machine_event(
             MachineAssertType::MachineCount { machine, min_count } => {
                 let count = machine_query
                     .iter()
-                    .filter(|m| m.spec.block_type == machine)
+                    .filter(|m| m.spec.item_id() == machine)
                     .count() as u32;
                 if count >= min_count {
                     info!(

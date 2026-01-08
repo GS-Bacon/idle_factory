@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::events::game_events::{BlockBroken, EventSource};
 use crate::game_spec::breaking_spec;
 use crate::player::PlayerInventory;
@@ -11,8 +11,8 @@ use crate::systems::TutorialEvent;
 use crate::utils::ray_aabb_intersection;
 use crate::world::{DirtyChunks, WorldData};
 use crate::{
-    BlockType, BreakingProgress, ConveyorItemVisual, CreativeMode, CursorLockState,
-    InputStateResources, TargetBlock, BLOCK_SIZE, PLATFORM_SIZE, REACH_DISTANCE,
+    BreakingProgress, ConveyorItemVisual, CreativeMode, CursorLockState, InputStateResources,
+    TargetBlock, BLOCK_SIZE, PLATFORM_SIZE, REACH_DISTANCE,
 };
 
 use super::{BlockBreakEvents, LocalPlayerInventory, MachineBreakQueries};
@@ -20,10 +20,10 @@ use super::{BlockBreakEvents, LocalPlayerInventory, MachineBreakQueries};
 /// What type of thing we're trying to break
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum BreakTarget {
-    /// A machine entity with its block type
-    Machine(Entity, BlockType),
+    /// A machine entity with its ItemId
+    Machine(Entity, ItemId),
     /// A world block at position
-    WorldBlock(IVec3, BlockType),
+    WorldBlock(IVec3, ItemId),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -220,7 +220,7 @@ fn find_break_target(
             pos + Vec3::new(half_size, 0.15, half_size),
         ) {
             if t > 0.0 && t < REACH_DISTANCE && closest.as_ref().is_none_or(|(_, d)| t < *d) {
-                closest = Some((BreakTarget::Machine(entity, BlockType::ConveyorBlock), t));
+                closest = Some((BreakTarget::Machine(entity, items::conveyor_block()), t));
             }
         }
     }
@@ -228,7 +228,7 @@ fn find_break_target(
     // Check all machines (miner, crusher, furnace)
     for (entity, machine, machine_transform) in machines.machine.iter() {
         let pos = machine_transform.translation();
-        let block_type = machine.spec.block_type;
+        let item_id = machine.spec.item_id();
         if let Some(t) = ray_aabb_intersection(
             ray_origin,
             ray_direction,
@@ -236,16 +236,16 @@ fn find_break_target(
             pos + Vec3::splat(half_size),
         ) {
             if t > 0.0 && t < REACH_DISTANCE && closest.as_ref().is_none_or(|(_, d)| t < *d) {
-                closest = Some((BreakTarget::Machine(entity, block_type), t));
+                closest = Some((BreakTarget::Machine(entity, item_id), t));
             }
         }
     }
 
     // Check world block if no machine is closer
     if let Some(break_pos) = target_block.break_target {
-        if let Some(block_type) = world_data.get_block(break_pos) {
+        if let Some(item_id) = world_data.get_block(break_pos) {
             // Don't break machines via world data
-            if !block_type.is_machine() {
+            if !items::is_machine(item_id) {
                 // Calculate distance to world block
                 let block_center = Vec3::new(
                     break_pos.x as f32 * BLOCK_SIZE + 0.5,
@@ -262,7 +262,7 @@ fn find_break_target(
                     && !platform_blocks
                     && closest.as_ref().is_none_or(|(_, d)| dist < *d)
                 {
-                    closest = Some((BreakTarget::WorldBlock(break_pos, block_type), dist));
+                    closest = Some((BreakTarget::WorldBlock(break_pos, item_id), dist));
                 }
             }
         }
@@ -275,77 +275,76 @@ fn find_break_target(
 fn execute_machine_break(
     commands: &mut Commands,
     entity: Entity,
-    machine_type: BlockType,
+    machine_id: ItemId,
     machines: &MachineBreakQueries,
     item_visual_query: &Query<Entity, With<ConveyorItemVisual>>,
     inventory: &mut PlayerInventory,
 ) {
-    match machine_type {
-        BlockType::ConveyorBlock => {
-            if let Ok((_, conveyor, transform)) = machines.conveyor.get(entity) {
-                let pos = transform.translation();
-                let count = conveyor.items.len();
-                for item in &conveyor.items {
-                    if let Some(visual_entity) = item.visual_entity {
-                        if item_visual_query.get(visual_entity).is_ok() {
-                            commands.entity(visual_entity).despawn();
-                        }
-                    }
-                    inventory.add_item_by_id(item.item_id, 1);
-                }
-                info!(
-                    category = "MACHINE",
-                    action = "break",
-                    machine = "conveyor",
-                    ?pos,
-                    items_returned = count,
-                    "Conveyor broken"
-                );
-            }
-            commands.entity(entity).despawn_recursive();
-            inventory.add_item_by_id(BlockType::ConveyorBlock.into(), 1);
-        }
-        BlockType::MinerBlock | BlockType::CrusherBlock | BlockType::FurnaceBlock => {
-            // Return contents from machine slots
-            if let Ok((_, machine, _)) = machines.machine.get(entity) {
-                // Return fuel
-                if machine.slots.fuel > 0 {
-                    inventory.add_item_by_id(BlockType::Coal.into(), machine.slots.fuel);
-                }
-                // Return input items
-                for input_slot in &machine.slots.inputs {
-                    if let Some(item_id) = input_slot.item_id {
-                        if input_slot.count > 0 {
-                            inventory.add_item_by_id(item_id, input_slot.count);
-                        }
+    if machine_id == items::conveyor_block() {
+        if let Ok((_, conveyor, transform)) = machines.conveyor.get(entity) {
+            let pos = transform.translation();
+            let count = conveyor.items.len();
+            for item in &conveyor.items {
+                if let Some(visual_entity) = item.visual_entity {
+                    if item_visual_query.get(visual_entity).is_ok() {
+                        commands.entity(visual_entity).despawn();
                     }
                 }
-                // Return output items
-                for output_slot in &machine.slots.outputs {
-                    if let Some(item_id) = output_slot.item_id {
-                        if output_slot.count > 0 {
-                            inventory.add_item_by_id(item_id, output_slot.count);
-                        }
-                    }
-                }
+                inventory.add_item_by_id(item.item_id, 1);
             }
             info!(
                 category = "MACHINE",
                 action = "break",
-                machine = ?machine_type,
-                "Machine broken"
+                machine = "conveyor",
+                ?pos,
+                items_returned = count,
+                "Conveyor broken"
             );
-            commands.entity(entity).despawn_recursive();
-            inventory.add_item_by_id(machine_type.into(), 1);
         }
-        _ => {}
+        commands.entity(entity).despawn_recursive();
+        inventory.add_item_by_id(items::conveyor_block(), 1);
+    } else if machine_id == items::miner_block()
+        || machine_id == items::crusher_block()
+        || machine_id == items::furnace_block()
+    {
+        // Return contents from machine slots
+        if let Ok((_, machine, _)) = machines.machine.get(entity) {
+            // Return fuel
+            if machine.slots.fuel > 0 {
+                inventory.add_item_by_id(items::coal(), machine.slots.fuel);
+            }
+            // Return input items
+            for input_slot in &machine.slots.inputs {
+                if let Some(item_id) = input_slot.item_id {
+                    if input_slot.count > 0 {
+                        inventory.add_item_by_id(item_id, input_slot.count);
+                    }
+                }
+            }
+            // Return output items
+            for output_slot in &machine.slots.outputs {
+                if let Some(item_id) = output_slot.item_id {
+                    if output_slot.count > 0 {
+                        inventory.add_item_by_id(item_id, output_slot.count);
+                    }
+                }
+            }
+        }
+        info!(
+            category = "MACHINE",
+            action = "break",
+            machine = ?machine_id.name(),
+            "Machine broken"
+        );
+        commands.entity(entity).despawn_recursive();
+        inventory.add_item_by_id(machine_id, 1);
     }
 }
 
 /// Execute world block breaking
 fn execute_block_break(
     break_pos: IVec3,
-    block_type: BlockType,
+    item_id: ItemId,
     world_data: &mut WorldData,
     dirty_chunks: &mut DirtyChunks,
     inventory: &mut PlayerInventory,
@@ -356,13 +355,13 @@ fn execute_block_break(
     world_data.remove_block(break_pos);
 
     // Add block to inventory
-    inventory.add_item_by_id(block_type.into(), 1);
+    inventory.add_item_by_id(item_id, 1);
 
     info!(
         category = "BLOCK",
         action = "break",
         ?break_pos,
-        ?block_type,
+        block = ?item_id.name(),
         "Block broken"
     );
 
@@ -374,7 +373,7 @@ fn execute_block_break(
     // Send block broken event
     let _ = block_broken_events.send(BlockBroken {
         pos: break_pos,
-        block: block_type,
+        block: item_id,
         source,
     });
 }

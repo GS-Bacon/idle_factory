@@ -5,8 +5,8 @@
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::core::{items, ItemId};
-use crate::game_spec::ITEM_DESCRIPTORS;
+use crate::core::items;
+use crate::game_spec::item_descriptors;
 use crate::modding::protocol::{JsonRpcRequest, JsonRpcResponse, INVALID_PARAMS};
 
 /// Item info returned by item.list
@@ -75,9 +75,8 @@ pub fn handle_item_list(request: &JsonRpcRequest) -> JsonRpcResponse {
     let interner = items::interner();
     let mut items_list = Vec::new();
 
-    // Get all registered items from ITEM_DESCRIPTORS
-    for (block_type, descriptor) in ITEM_DESCRIPTORS {
-        let item_id = ItemId::from(*block_type);
+    // Get all registered items from item_descriptors()
+    for (item_id, descriptor) in item_descriptors() {
         let Some(string_id) = item_id.to_string_id(interner) else {
             continue;
         };

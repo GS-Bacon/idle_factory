@@ -189,9 +189,9 @@ fn extract_world_stats(world: &World) -> WorldStatsDump {
         modified_blocks = world_data.modified_blocks.len();
 
         // Count block types in modified blocks
-        for block_type in world_data.modified_blocks.values().flatten() {
+        for item_id in world_data.modified_blocks.values().flatten() {
             *block_type_counts
-                .entry(block_type.name().to_string())
+                .entry(item_id.name().unwrap_or("unknown").to_string())
                 .or_insert(0) += 1;
         }
     }

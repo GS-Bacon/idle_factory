@@ -17,7 +17,7 @@ pub use recipes::{
     all_recipes, find_recipe, find_recipe_by_id, get_recipes_for_machine, FuelRequirement,
     MachineType, Recipe, RecipeInput, RecipeOutput,
 };
-pub use registry::{GameRegistry, ItemDescriptor, RegistryPlugin, ITEM_DESCRIPTORS};
+pub use registry::{item_descriptors, GameRegistry, ItemDescriptor, RegistryPlugin};
 
 use crate::block_type::BlockType;
 use crate::core::{items, ItemId};

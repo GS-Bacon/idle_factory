@@ -3,7 +3,7 @@
 use super::format as save;
 use crate::components::{LoadGameEvent, SaveGameEvent};
 use crate::components::{MachineBundle, *};
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
 use crate::player::{LocalPlatformInventory, LocalPlayer, PlatformInventory, PlayerInventory};
 use crate::world::WorldData;
@@ -93,7 +93,7 @@ pub fn collect_save_data(
         .map(|(pos, block)| {
             (
                 WorldSaveDataV2::pos_to_key(*pos),
-                block.map(|b| b.to_save_string_id()),
+                block.and_then(|b| b.name().map(|s| s.to_string())),
             )
         })
         .collect();
@@ -427,9 +427,7 @@ pub fn handle_load_event(
                 world_data.modified_blocks.clear();
                 for (key, block_opt) in &data.world.modified_blocks {
                     if let Some(pos) = save::WorldSaveDataV2::key_to_pos(key) {
-                        let block = block_opt
-                            .as_ref()
-                            .and_then(|id| BlockType::from_save_string_id(id));
+                        let block = block_opt.as_ref().and_then(|id| items::by_name(id));
                         world_data.modified_blocks.insert(pos, block);
                     }
                 }

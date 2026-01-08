@@ -137,12 +137,14 @@ impl BlockType {
     /// Get the item descriptor for this block type
     /// This is the single source of truth for all block/item metadata
     pub fn descriptor(&self) -> &'static crate::game_spec::ItemDescriptor {
-        use crate::game_spec::ITEM_DESCRIPTORS;
-        ITEM_DESCRIPTORS
+        use crate::core::ItemId;
+        use crate::game_spec::item_descriptors;
+        let item_id: ItemId = (*self).into();
+        item_descriptors()
             .iter()
-            .find(|(bt, _)| *bt == *self)
+            .find(|(id, _)| *id == item_id)
             .map(|(_, desc)| desc)
-            .expect("All BlockTypes must be registered in ITEM_DESCRIPTORS")
+            .expect("All BlockTypes must be registered in item_descriptors")
     }
 
     /// Get the color for this block type
@@ -215,7 +217,10 @@ impl BlockType {
 
     /// Get what this block drops when broken
     pub fn drops(&self) -> BlockType {
-        self.descriptor().get_drops(*self)
+        use crate::core::ItemId;
+        let item_id: ItemId = (*self).into();
+        let drop_id = self.descriptor().get_drops(item_id);
+        drop_id.try_into().unwrap_or(*self)
     }
 
     /// Get the max stack size for this block type

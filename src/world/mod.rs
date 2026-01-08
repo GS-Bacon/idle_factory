@@ -10,7 +10,7 @@ pub use biome::{mining_random, BiomeMap};
 
 use crate::block_type::BlockType;
 use crate::constants::*;
-use crate::core::ItemId;
+use crate::core::{items, ItemId};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::tasks::Task;
@@ -64,7 +64,7 @@ pub struct ChunkMeshData {
     #[allow(dead_code)]
     pub mesh: Mesh,
     /// Block positions for this chunk (for raycasting/breaking)
-    pub blocks: HashMap<IVec3, BlockType>,
+    pub blocks: HashMap<IVec3, ItemId>,
 }
 
 impl Default for ChunkMeshData {
@@ -140,7 +140,7 @@ impl DirtyChunks {
 #[derive(Clone)]
 pub struct ChunkData {
     /// Flat array of blocks. None = air
-    pub blocks: Vec<Option<BlockType>>,
+    pub blocks: Vec<Option<ItemId>>,
 }
 
 impl ChunkData {
@@ -223,20 +223,20 @@ impl ChunkData {
                     // Platform area: generate stone at ground level (no skip)
                     // This ensures no "hole" appears under the delivery platform
 
-                    let block_type = if y == GROUND_LEVEL {
+                    let item_id = if y == GROUND_LEVEL {
                         // Platform area: always stone at ground level
                         if Self::is_platform_area(world_x, world_z) {
-                            BlockType::Stone
+                            items::stone()
                         } else if is_ore_patch {
                             // Surface layer: show ore in patches based on biome
                             match biome {
-                                1 => BlockType::IronOre,   // Iron biome
-                                2 => BlockType::CopperOre, // Copper biome
-                                3 => BlockType::Coal,      // Coal biome
-                                _ => BlockType::Grass,     // Mixed biome
+                                1 => items::iron_ore(),   // Iron biome
+                                2 => items::copper_ore(), // Copper biome
+                                3 => items::coal(),       // Coal biome
+                                _ => items::grass(),      // Mixed biome
                             }
                         } else {
-                            BlockType::Grass
+                            items::grass()
                         }
                     } else {
                         // Underground: biome-weighted ore distribution
@@ -246,51 +246,51 @@ impl ChunkData {
                             1 => {
                                 // Iron biome: higher iron, some coal
                                 if y <= 5 && hash % 8 == 0 {
-                                    BlockType::IronOre // ~12.5% iron
+                                    items::iron_ore() // ~12.5% iron
                                 } else if y <= 4 && hash % 20 == 1 {
-                                    BlockType::Coal // ~5% coal
+                                    items::coal() // ~5% coal
                                 } else {
-                                    BlockType::Stone
+                                    items::stone()
                                 }
                             }
                             2 => {
                                 // Copper biome: higher copper, some iron
                                 if y <= 5 && hash % 8 == 0 {
-                                    BlockType::CopperOre // ~12.5% copper
+                                    items::copper_ore() // ~12.5% copper
                                 } else if y <= 4 && hash % 25 == 1 {
-                                    BlockType::IronOre // ~4% iron
+                                    items::iron_ore() // ~4% iron
                                 } else {
-                                    BlockType::Stone
+                                    items::stone()
                                 }
                             }
                             3 => {
                                 // Coal biome: high coal, some iron/copper
                                 if y <= 6 && hash % 6 == 0 {
-                                    BlockType::Coal // ~16% coal
+                                    items::coal() // ~16% coal
                                 } else if y <= 3 && hash % 30 == 1 {
-                                    BlockType::IronOre // ~3% iron
+                                    items::iron_ore() // ~3% iron
                                 } else if y <= 3 && hash % 30 == 2 {
-                                    BlockType::CopperOre // ~3% copper
+                                    items::copper_ore() // ~3% copper
                                 } else {
-                                    BlockType::Stone
+                                    items::stone()
                                 }
                             }
                             _ => {
                                 // Mixed biome: original distribution
                                 if y <= 4 && hash % 20 == 0 {
-                                    BlockType::IronOre // 5% iron
+                                    items::iron_ore() // 5% iron
                                 } else if y <= 3 && hash % 25 == 1 {
-                                    BlockType::CopperOre // 4% copper
+                                    items::copper_ore() // 4% copper
                                 } else if y <= 5 && hash % 15 == 2 {
-                                    BlockType::Coal // ~7% coal
+                                    items::coal() // ~7% coal
                                 } else {
-                                    BlockType::Stone
+                                    items::stone()
                                 }
                             }
                         }
                     };
                     let idx = Self::pos_to_index(x, y, z);
-                    blocks[idx] = Some(block_type);
+                    blocks[idx] = Some(item_id);
                     block_count += 1;
                 }
             }
@@ -343,7 +343,7 @@ impl ChunkData {
 
     /// Get block at local position (fast array access)
     #[inline(always)]
-    pub fn get_block(&self, x: i32, y: i32, z: i32) -> Option<BlockType> {
+    pub fn get_block(&self, x: i32, y: i32, z: i32) -> Option<ItemId> {
         if !(0..CHUNK_SIZE).contains(&x)
             || !(0..CHUNK_HEIGHT).contains(&y)
             || !(0..CHUNK_SIZE).contains(&z)
@@ -351,6 +351,12 @@ impl ChunkData {
             return None;
         }
         self.blocks[Self::pos_to_index(x, y, z)]
+    }
+
+    /// Get block at local position as BlockType (for legacy compatibility)
+    #[inline(always)]
+    pub fn get_block_type(&self, x: i32, y: i32, z: i32) -> Option<BlockType> {
+        self.get_block(x, y, z).and_then(|id| id.try_into().ok())
     }
 
     /// Check if a block exists at local position
@@ -436,8 +442,8 @@ impl ChunkData {
             // Iterate through slices perpendicular to axis
             for slice in 0..axis_sizes[axis] {
                 // Create mask for this slice
-                // mask[u][v] = Some(BlockType) if face is visible
-                let mut mask: Vec<Vec<Option<BlockType>>> =
+                // mask[u][v] = Some(ItemId) if face is visible
+                let mut mask: Vec<Vec<Option<ItemId>>> =
                     vec![vec![None; axis_sizes[axis2] as usize]; axis_sizes[axis1] as usize];
 
                 for u in 0..axis_sizes[axis1] {
@@ -454,7 +460,7 @@ impl ChunkData {
                             continue;
                         }
 
-                        if let Some(block_type) = self.get_block(x, y, z) {
+                        if let Some(item_id) = self.get_block(x, y, z) {
                             let (dx, dy, dz) = match axis {
                                 0 => (d, 0, 0),
                                 1 => (0, d, 0),
@@ -462,7 +468,7 @@ impl ChunkData {
                                 _ => unreachable!(),
                             };
                             if !has_neighbor(x, y, z, dx, dy, dz) {
-                                mask[u as usize][v as usize] = Some(block_type);
+                                mask[u as usize][v as usize] = Some(item_id);
                             }
                         }
                     }
@@ -478,13 +484,13 @@ impl ChunkData {
                             continue;
                         }
 
-                        let block_type = mask[u][v].unwrap();
+                        let item_id = mask[u][v].unwrap();
 
                         // Find width (extend in v direction)
                         let mut width = 1;
                         while v + width < axis_sizes[axis2] as usize
                             && !processed[u][v + width]
-                            && mask[u][v + width] == Some(block_type)
+                            && mask[u][v + width] == Some(item_id)
                         {
                             width += 1;
                         }
@@ -494,7 +500,7 @@ impl ChunkData {
                         'outer: while u + height < axis_sizes[axis1] as usize {
                             for w in 0..width {
                                 if processed[u + height][v + w]
-                                    || mask[u + height][v + w] != Some(block_type)
+                                    || mask[u + height][v + w] != Some(item_id)
                                 {
                                     break 'outer;
                                 }
@@ -510,7 +516,7 @@ impl ChunkData {
                         }
 
                         // Generate quad
-                        let color = block_type.color();
+                        let color = item_id.color();
                         let color_arr = [
                             color.to_srgba().red,
                             color.to_srgba().green,
@@ -680,8 +686,8 @@ pub struct WorldData {
     /// Block entities for each chunk (for despawning)
     pub chunk_entities: HashMap<IVec2, Vec<Entity>>,
     /// Player-modified blocks (persists across chunk unload/reload)
-    /// Key: world position, Value: Some(block_type) for placed, None for removed (air)
-    pub modified_blocks: HashMap<IVec3, Option<BlockType>>,
+    /// Key: world position, Value: Some(item_id) for placed, None for removed (air)
+    pub modified_blocks: HashMap<IVec3, Option<ItemId>>,
 }
 
 impl WorldData {
@@ -712,15 +718,20 @@ impl WorldData {
     }
 
     /// Get block at world position
-    pub fn get_block(&self, world_pos: IVec3) -> Option<BlockType> {
+    pub fn get_block(&self, world_pos: IVec3) -> Option<ItemId> {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
         let chunk = self.chunks.get(&chunk_coord)?;
         chunk.get_block(local_pos.x, local_pos.y, local_pos.z)
     }
 
+    /// Get block at world position as BlockType (for legacy compatibility)
+    pub fn get_block_type(&self, world_pos: IVec3) -> Option<BlockType> {
+        self.get_block(world_pos).and_then(|id| id.try_into().ok())
+    }
+
     /// Set block at world position
-    pub fn set_block(&mut self, world_pos: IVec3, block_type: BlockType) {
+    pub fn set_block(&mut self, world_pos: IVec3, item_id: ItemId) {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
         if let Some(chunk) = self.chunks.get_mut(&chunk_coord) {
@@ -729,15 +740,15 @@ impl WorldData {
                 return;
             }
             let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
-            chunk.blocks[idx] = Some(block_type);
+            chunk.blocks[idx] = Some(item_id);
         }
         // Persist player modification for chunk reload
-        self.modified_blocks.insert(world_pos, Some(block_type));
+        self.modified_blocks.insert(world_pos, Some(item_id));
     }
 
-    /// Remove block at world position, returns the removed block type
+    /// Remove block at world position, returns the removed block ItemId
     #[allow(dead_code)] // Used in tests
-    pub fn remove_block(&mut self, world_pos: IVec3) -> Option<BlockType> {
+    pub fn remove_block(&mut self, world_pos: IVec3) -> Option<ItemId> {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
         // Bounds check for y coordinate
@@ -758,25 +769,23 @@ impl WorldData {
     }
 
     // =========================================================================
-    // ItemId API
+    // ItemId API (now primary)
     // =========================================================================
 
-    /// Get block at world position as ItemId
+    /// Get block at world position as ItemId (alias for get_block)
     pub fn get_block_id(&self, world_pos: IVec3) -> Option<ItemId> {
-        self.get_block(world_pos).map(|bt| bt.into())
+        self.get_block(world_pos)
     }
 
-    /// Set block at world position using ItemId
+    /// Set block at world position using ItemId (alias for set_block)
     pub fn set_block_by_id(&mut self, world_pos: IVec3, item_id: ItemId) {
-        if let Ok(block_type) = item_id.try_into() {
-            self.set_block(world_pos, block_type);
-        }
+        self.set_block(world_pos, item_id);
     }
 
-    /// Remove block at world position, returns the removed block as ItemId
+    /// Remove block at world position, returns the removed block as ItemId (alias)
     #[allow(dead_code)]
     pub fn remove_block_as_id(&mut self, world_pos: IVec3) -> Option<ItemId> {
-        self.remove_block(world_pos).map(|bt| bt.into())
+        self.remove_block(world_pos)
     }
 
     /// Generate mesh for a chunk with proper neighbor checking across chunk boundaries
@@ -943,8 +952,8 @@ mod tests {
         assert!(world.get_block(pos).is_none());
 
         // Set block
-        world.set_block(pos, BlockType::Stone);
-        assert_eq!(world.get_block(pos), Some(BlockType::Stone));
+        world.set_block(pos, items::stone());
+        assert_eq!(world.get_block(pos), Some(items::stone()));
 
         // Verify modification is tracked
         assert!(world.modified_blocks.contains_key(&pos));

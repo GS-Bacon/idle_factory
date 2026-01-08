@@ -527,8 +527,15 @@ pub fn keycode_to_char(key_code: KeyCode, shift: bool) -> Option<char> {
     }
 }
 
-/// Parse item name to BlockType using strum's EnumString
-pub fn parse_item_name(name: &str) -> Option<crate::BlockType> {
-    use std::str::FromStr;
-    crate::BlockType::from_str(name).ok()
+/// Parse item name to ItemId
+/// Supports both short names (e.g., "stone") and full IDs (e.g., "base:stone")
+pub fn parse_item_name(name: &str) -> Option<crate::core::ItemId> {
+    use crate::core::items;
+    // First try exact match with "base:" prefix
+    if name.contains(':') {
+        items::by_name(name)
+    } else {
+        // Try with base namespace prefix
+        items::by_name(&format!("base:{}", name))
+    }
 }

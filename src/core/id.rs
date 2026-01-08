@@ -598,6 +598,16 @@ pub mod items {
             || item_id == iron_dust()
             || item_id == copper_dust()
     }
+
+    /// Check if an item is a machine block
+    pub fn is_machine(item_id: ItemId) -> bool {
+        item_id == miner_block()
+            || item_id == conveyor_block()
+            || item_id == furnace_block()
+            || item_id == crusher_block()
+            || item_id == assembler_block()
+            || item_id == platform_block()
+    }
 }
 
 #[cfg(test)]
