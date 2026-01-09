@@ -163,9 +163,13 @@ impl GamePlugin {
                 player_look,
                 player_move,
                 tick_action_timers,
-                update_pause_ui,
-                handle_pause_menu_buttons,
             ),
+        );
+
+        // Pause UI must run AFTER sync_legacy_ui_state to react to CursorLockState changes
+        app.add_systems(
+            Update,
+            (update_pause_ui, handle_pause_menu_buttons).after(sync_legacy_ui_state),
         );
 
         app.add_systems(Update, tutorial_dismiss);
