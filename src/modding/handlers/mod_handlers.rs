@@ -264,11 +264,13 @@ mod tests {
     }
 
     fn make_context(manager: &ModManager) -> HandlerContext<'_> {
-        use crate::modding::handlers::TestStateInfo;
+        use crate::modding::handlers::{inventory, player, TestStateInfo};
         HandlerContext {
             mod_manager: manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         }
     }
 

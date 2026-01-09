@@ -7,6 +7,7 @@ use crate::components::MachineBundle;
 use crate::core::items;
 use crate::events::game_events::{BlockPlaced, EventSource, MachineSpawned};
 use crate::game_spec::{CRUSHER, FURNACE, MINER};
+use crate::logistics::network::{Pipe, SignalWire, Wire};
 use crate::systems::TutorialEvent;
 use crate::utils::{
     auto_conveyor_direction, dda_raycast, ray_aabb_intersection, ray_aabb_intersection_with_normal,
@@ -491,6 +492,84 @@ pub fn block_place(
             events
                 .tutorial
                 .send(TutorialEvent::MachinePlaced(items::furnace_block()));
+        } else if items::is_conduit(selected_item_id) {
+            // Network conduit placement (wire, pipe, signal wire)
+            let (network_type, conduit_name) = if selected_item_id == items::wire() {
+                (events.network_types.power(), "wire")
+            } else if selected_item_id == items::pipe() {
+                (events.network_types.fluid(), "pipe")
+            } else {
+                (events.network_types.signal(), "signal_wire")
+            };
+
+            info!(
+                category = "NETWORK",
+                action = "place",
+                conduit = conduit_name,
+                ?place_pos,
+                "Network conduit placed"
+            );
+
+            // Create conduit entity with appropriate component
+            let conduit_pos = Vec3::new(
+                place_pos.x as f32 * BLOCK_SIZE + 0.5,
+                place_pos.y as f32 * BLOCK_SIZE + 0.5,
+                place_pos.z as f32 * BLOCK_SIZE + 0.5,
+            );
+
+            // Create fallback cube mesh for conduit (smaller than regular block)
+            let conduit_mesh = chunk_assets.meshes.add(Cuboid::new(
+                BLOCK_SIZE * 0.4,
+                BLOCK_SIZE * 0.4,
+                BLOCK_SIZE * 0.4,
+            ));
+            let material = chunk_assets.materials.add(StandardMaterial {
+                base_color: selected_item_id.color(),
+                ..default()
+            });
+
+            let entity = if selected_item_id == items::wire() {
+                commands
+                    .spawn((
+                        Mesh3d(conduit_mesh),
+                        MeshMaterial3d(material),
+                        Transform::from_translation(conduit_pos),
+                        Wire::new(place_pos),
+                    ))
+                    .id()
+            } else if selected_item_id == items::pipe() {
+                commands
+                    .spawn((
+                        Mesh3d(conduit_mesh),
+                        MeshMaterial3d(material),
+                        Transform::from_translation(conduit_pos),
+                        Pipe::new(place_pos, network_type),
+                    ))
+                    .id()
+            } else {
+                commands
+                    .spawn((
+                        Mesh3d(conduit_mesh),
+                        MeshMaterial3d(material),
+                        Transform::from_translation(conduit_pos),
+                        SignalWire::new(place_pos),
+                    ))
+                    .id()
+            };
+
+            // Send network block placed event for segment detection
+            events
+                .network_block_placed
+                .send(crate::logistics::network::NetworkBlockPlaced {
+                    position: place_pos,
+                    entity,
+                    network_type,
+                });
+
+            // Tutorial event
+            events
+                .tutorial
+                .send(TutorialEvent::MachinePlaced(selected_item_id));
         } else {
             // Regular block placement
             info!(category = "BLOCK", action = "place", ?place_pos, block = ?selected_item_id.name(), "Block placed");

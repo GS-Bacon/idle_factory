@@ -1,0 +1,28 @@
+# ブロック回転テスト
+name = "Block Rotation"
+description = "Rキーでブロックを回転できることを確認"
+
+# 初期状態: ゲームプレイ中
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Rキーでブロック回転
+[[steps]]
+action = "send_input"
+params = { action = "RotateBlock" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# 状態変化なし（ゲームプレイのまま）
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

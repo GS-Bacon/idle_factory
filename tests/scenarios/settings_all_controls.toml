@@ -1,0 +1,50 @@
+# 設定画面全コントロールテスト
+# NOTE: 設定画面に入るにはポーズメニューから「設定」ボタンをクリックする必要があるが
+# WebSocket APIでは直接UIボタンをクリックできない
+# このテストではポーズメニューの表示確認のみ行う
+name = "Settings All Controls Test"
+description = "ポーズメニューが正常に表示されることをテスト"
+
+# 初期状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# ポーズメニューを開く
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# ポーズメニュー状態を確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+# スクリーンショット
+[[steps]]
+action = "screenshot"
+params = { name = "settings_all_controls" }
+
+# ESCでポーズメニューを閉じる
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# ゲームプレイに戻ることを確認
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

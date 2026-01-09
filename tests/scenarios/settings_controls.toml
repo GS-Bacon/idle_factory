@@ -1,0 +1,50 @@
+# 設定画面テスト
+name = "Settings Controls Test"
+description = "ポーズメニューの開閉とカーソル状態をテスト"
+
+# 初期状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# ESCでポーズメニューを開く（CloseUIを使用）
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+# カーソルが解放されていることを確認
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+# ポーズメニューを閉じる（ESC）
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# カーソルが再ロックされていることを確認
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == true" }

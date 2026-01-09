@@ -113,3 +113,33 @@ outputs = [
 input_main = { slot_id = 0, label = "主素材" }
 input_sub = { slot_id = 1, label = "副素材" }
 output = { slot_id = 0, label = "出力" }
+
+# =============================================================================
+# Generator - Produces power from fuel (coal/wood)
+# =============================================================================
+
+[[machine]]
+id = "generator"
+name = "発電機"
+name_en = "Generator"
+block_type = "GeneratorBlock"
+process_time = 10.0
+buffer_size = 64
+requires_fuel = true
+auto_generate = false
+process_type = "power_generator"
+power_output = 100.0
+
+[machine.ports]
+inputs = [
+    { side = "back", slot_id = 0 }   # Fuel input
+]
+# No item output - generates power instead
+
+[machine.ui_slots]
+fuel = { slot_id = 0, label = "燃料" }
+
+# Power port definition
+[machine.power]
+type = "producer"
+output_watts = 100.0

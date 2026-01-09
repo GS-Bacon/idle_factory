@@ -6,18 +6,24 @@
 use bevy::prelude::*;
 use crossbeam_channel::{Receiver, Sender};
 
+use super::commands::{TestCommand, TestCommandQueue};
 use super::connection::ConnectionManager;
 use super::handlers::events::EventSubscriptions;
+use super::handlers::inventory::{InventoryStateInfo, SlotInfo};
+use super::handlers::player::PlayerStateInfo;
 use super::handlers::test::{handle_test_subscribe_event, handle_test_unsubscribe_event};
 use super::handlers::ui::{handle_ui_register, handle_ui_set_condition};
 use super::handlers::{route_request, GameStateInfo, HandlerContext, TestStateInfo};
 use super::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
 use super::ModManager;
 
-use crate::components::{CursorLockState, UIState};
+use crate::components::{CommandInputState, CursorLockState, PlayerPhysics, UIState};
+use crate::constants::HOTBAR_SLOTS;
+use crate::core::items;
 use crate::events::{UIConditionChanged, UIRegistration};
 use crate::input::{GameAction, TestInputEvent};
-use crate::player::LocalPlayer;
+use crate::player::{LocalPlayer, PlayerInventory};
+use crate::ui::visibility::{UIId, UIVisibilityController};
 
 /// Server configuration
 #[derive(Resource, Clone)]
@@ -350,11 +356,16 @@ fn process_server_messages(
     server: Option<ResMut<ModApiServer>>,
     mod_manager: Res<ModManager>,
     mut event_subscriptions: ResMut<EventSubscriptions>,
+    mut command_queue: ResMut<TestCommandQueue>,
     cursor_lock: Option<Res<CursorLockState>>,
     time: Res<Time>,
     ui_state: Option<Res<UIState>>,
+    command_input_state: Option<Res<CommandInputState>>,
     local_player: Option<Res<LocalPlayer>>,
+    visibility_controller: Option<Res<UIVisibilityController>>,
     transforms: Query<&Transform>,
+    inventory_query: Query<&PlayerInventory>,
+    physics_query: Query<&PlayerPhysics>,
     mut test_input_writer: EventWriter<TestInputEvent>,
     mut ui_condition_writer: EventWriter<UIConditionChanged>,
     mut ui_registration_writer: EventWriter<UIRegistration>,
@@ -369,18 +380,71 @@ fn process_server_messages(
     };
 
     // Build test state info
-    let test_state = TestStateInfo {
-        ui_state: ui_state
+    let cursor_state = cursor_lock.as_ref();
+    let player_transform = local_player
+        .as_ref()
+        .and_then(|lp| transforms.get(lp.0).ok());
+    // Compute UI state, checking CommandInputState if UIState shows Gameplay
+    let computed_ui_state = if command_input_state.as_ref().is_some_and(|c| c.open) {
+        "Command".to_string() // Match InputState::Command
+    } else {
+        ui_state
             .as_ref()
             .map(|s| format!("{:?}", s.current()))
-            .unwrap_or_default(),
-        player_position: local_player
-            .as_ref()
-            .and_then(|lp| transforms.get(lp.0).ok())
+            .unwrap_or_default()
+    };
+
+    // Build visible_ui_elements including UIVisibilityController state
+    let mut visible_elements = ui_state
+        .as_ref()
+        .map(|s| s.visible_elements())
+        .unwrap_or_default();
+
+    // Add visibility-controlled UI elements from UIVisibilityController
+    if let Some(controller) = visibility_controller.as_ref() {
+        // Check QuestPanel visibility
+        if controller.evaluate(&UIId::QuestPanel) == bevy::prelude::Visibility::Inherited {
+            visible_elements.push("QuestPanel".to_string());
+        }
+        // Check TutorialPanel visibility
+        if controller.evaluate(&UIId::TutorialPanel) == bevy::prelude::Visibility::Inherited {
+            visible_elements.push("TutorialPanel".to_string());
+        }
+        // Check Hotbar visibility (replace the static one if needed)
+        if controller.evaluate(&UIId::Hotbar) != bevy::prelude::Visibility::Inherited {
+            visible_elements.retain(|e| e != "Hotbar");
+        }
+    }
+
+    let test_state = TestStateInfo {
+        ui_state: computed_ui_state,
+        player_position: player_transform
             .map(|t| [t.translation.x, t.translation.y, t.translation.z])
             .unwrap_or_default(),
-        cursor_locked: cursor_lock.as_ref().is_some_and(|c| !c.paused),
+        cursor_locked: cursor_state.is_some_and(|c| !c.paused),
+        visible_ui_elements: visible_elements,
+        settings_open: ui_state.as_ref().is_some_and(|s| s.settings_open),
+        cursor_in_window: cursor_state.is_some_and(|c| c.cursor_in_window),
+        cursor_visible: cursor_state.is_some_and(|c| c.cursor_visible),
     };
+
+    // Build inventory state from actual ECS data
+    let inventory_state = local_player
+        .as_ref()
+        .and_then(|lp| inventory_query.get(lp.0).ok())
+        .map(build_inventory_state)
+        .unwrap_or_default();
+
+    // Build player state from actual ECS data
+    let player_state = build_player_state(
+        player_transform,
+        local_player
+            .as_ref()
+            .and_then(|lp| physics_query.get(lp.0).ok()),
+        local_player
+            .as_ref()
+            .and_then(|lp| inventory_query.get(lp.0).ok()),
+    );
 
     // Process received messages (non-blocking)
     while let Ok(msg) = server.rx.try_recv() {
@@ -425,6 +489,8 @@ fn process_server_messages(
                             mod_manager: &mod_manager,
                             game_state: game_state.clone(),
                             test_state: test_state.clone(),
+                            inventory_state: inventory_state.clone(),
+                            player_state: player_state.clone(),
                         };
                         route_request(&request, &ctx)
                     }
@@ -448,12 +514,23 @@ fn process_server_messages(
                     "test.unsubscribe_event" => {
                         handle_test_unsubscribe_event(&request, &mut event_subscriptions)
                     }
+                    // Command queue methods - these need to be queued for execution
+                    "player.teleport" => queue_player_teleport(&request, &mut command_queue),
+                    "player.set_selected_slot" => {
+                        queue_player_set_slot(&request, &mut command_queue)
+                    }
+                    "inventory.move_item" => queue_inventory_move(&request, &mut command_queue),
+                    "world.place_block" => queue_world_place_block(&request, &mut command_queue),
+                    "world.break_block" => queue_world_break_block(&request, &mut command_queue),
+                    "test.reset_state" => queue_test_reset_state(&request, &mut command_queue),
                     _ => {
                         // Route to normal handlers
                         let ctx = HandlerContext {
                             mod_manager: &mod_manager,
                             game_state: game_state.clone(),
                             test_state: test_state.clone(),
+                            inventory_state: inventory_state.clone(),
+                            player_state: player_state.clone(),
                         };
                         route_request(&request, &ctx)
                     }
@@ -470,6 +547,319 @@ fn process_server_messages(
             }
         }
     }
+}
+
+/// Build InventoryStateInfo from actual PlayerInventory component
+fn build_inventory_state(inventory: &PlayerInventory) -> InventoryStateInfo {
+    let slots: Vec<SlotInfo> = inventory
+        .slots
+        .iter()
+        .enumerate()
+        .map(|(i, slot)| SlotInfo {
+            index: i,
+            item_id: slot
+                .as_ref()
+                .and_then(|(id, _)| id.name().map(|s| s.to_string())),
+            amount: slot.as_ref().map(|(_, count)| *count).unwrap_or(0),
+        })
+        .collect();
+
+    let hotbar: Vec<SlotInfo> = slots.iter().take(HOTBAR_SLOTS).cloned().collect();
+
+    InventoryStateInfo {
+        slots,
+        hotbar,
+        selected_hotbar: inventory.selected_slot,
+        equipment: vec![], // Equipment slots not implemented yet
+    }
+}
+
+/// Build PlayerStateInfo from actual ECS data
+fn build_player_state(
+    transform: Option<&Transform>,
+    physics: Option<&PlayerPhysics>,
+    inventory: Option<&PlayerInventory>,
+) -> PlayerStateInfo {
+    let position = transform
+        .map(|t| [t.translation.x, t.translation.y, t.translation.z])
+        .unwrap_or_default();
+
+    // Extract rotation (yaw, pitch) from transform
+    let rotation = transform
+        .map(|t| {
+            let (_, rotation, _) = t.rotation.to_euler(EulerRot::YXZ);
+            // Note: This is a simplification, actual camera rotation may be stored differently
+            [rotation.to_degrees(), 0.0]
+        })
+        .unwrap_or_default();
+
+    let velocity = physics
+        .map(|p| [p.velocity.x, p.velocity.y, p.velocity.z])
+        .unwrap_or_default();
+
+    let on_ground = physics.map(|p| p.on_ground).unwrap_or(false);
+
+    PlayerStateInfo {
+        position,
+        rotation,
+        velocity,
+        on_ground,
+        flying: false, // TODO: Track flying state if implemented
+        selected_slot: inventory.map(|i| i.selected_slot).unwrap_or(0),
+        looking_at: None, // TODO: Implement raycast to get looking_at block
+        looking_distance: None,
+    }
+}
+
+// =============================================================================
+// Command Queue Helper Functions
+// =============================================================================
+
+use super::protocol::INVALID_PARAMS;
+
+/// Queue player teleport command
+fn queue_player_teleport(
+    request: &JsonRpcRequest,
+    queue: &mut TestCommandQueue,
+) -> JsonRpcResponse {
+    #[derive(serde::Deserialize)]
+    struct Params {
+        x: f32,
+        y: f32,
+        z: f32,
+        yaw: Option<f32>,
+        pitch: Option<f32>,
+    }
+
+    let params: Params = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    let request_id = queue.next_request_id();
+    queue.queue(TestCommand::PlayerTeleport {
+        position: Vec3::new(params.x, params.y, params.z),
+        rotation: params.yaw.zip(params.pitch),
+        request_id,
+    });
+
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "queued": true,
+            "request_id": request_id,
+            "position": [params.x, params.y, params.z],
+        }),
+    )
+}
+
+/// Queue player set selected slot command
+fn queue_player_set_slot(
+    request: &JsonRpcRequest,
+    queue: &mut TestCommandQueue,
+) -> JsonRpcResponse {
+    #[derive(serde::Deserialize)]
+    struct Params {
+        slot: usize,
+    }
+
+    let params: Params = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    if params.slot > 8 {
+        return JsonRpcResponse::error(
+            request.id,
+            INVALID_PARAMS,
+            format!("Slot must be 0-8, got {}", params.slot),
+        );
+    }
+
+    let request_id = queue.next_request_id();
+    queue.queue(TestCommand::PlayerSetSlot {
+        slot: params.slot,
+        request_id,
+    });
+
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "queued": true,
+            "request_id": request_id,
+            "slot": params.slot,
+        }),
+    )
+}
+
+/// Queue inventory move command
+fn queue_inventory_move(request: &JsonRpcRequest, queue: &mut TestCommandQueue) -> JsonRpcResponse {
+    #[derive(serde::Deserialize)]
+    struct Params {
+        from: usize,
+        to: usize,
+        amount: Option<u32>,
+    }
+
+    let params: Params = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    let request_id = queue.next_request_id();
+    queue.queue(TestCommand::InventoryMove {
+        from: params.from,
+        to: params.to,
+        amount: params.amount,
+        request_id,
+    });
+
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "queued": true,
+            "request_id": request_id,
+            "from": params.from,
+            "to": params.to,
+        }),
+    )
+}
+
+/// Queue world place block command
+fn queue_world_place_block(
+    request: &JsonRpcRequest,
+    queue: &mut TestCommandQueue,
+) -> JsonRpcResponse {
+    #[derive(serde::Deserialize)]
+    struct Params {
+        x: i32,
+        y: i32,
+        z: i32,
+        item_id: String,
+        facing: Option<u8>,
+    }
+
+    let params: Params = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    // Convert item_id string to ItemId
+    let item_id = match items::by_name(&params.item_id) {
+        Some(id) => id,
+        None => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Unknown item_id: {}", params.item_id),
+            );
+        }
+    };
+
+    let request_id = queue.next_request_id();
+    queue.queue(TestCommand::WorldPlaceBlock {
+        pos: IVec3::new(params.x, params.y, params.z),
+        item_id,
+        facing: params.facing,
+        request_id,
+    });
+
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "queued": true,
+            "request_id": request_id,
+            "position": [params.x, params.y, params.z],
+            "item_id": params.item_id,
+        }),
+    )
+}
+
+/// Queue world break block command
+fn queue_world_break_block(
+    request: &JsonRpcRequest,
+    queue: &mut TestCommandQueue,
+) -> JsonRpcResponse {
+    #[derive(serde::Deserialize)]
+    struct Params {
+        x: i32,
+        y: i32,
+        z: i32,
+    }
+
+    let params: Params = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    let request_id = queue.next_request_id();
+    queue.queue(TestCommand::WorldBreakBlock {
+        pos: IVec3::new(params.x, params.y, params.z),
+        request_id,
+    });
+
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "queued": true,
+            "request_id": request_id,
+            "position": [params.x, params.y, params.z],
+        }),
+    )
+}
+
+/// Queue a test.reset_state command
+fn queue_test_reset_state(
+    request: &JsonRpcRequest,
+    queue: &mut TestCommandQueue,
+) -> JsonRpcResponse {
+    let request_id = queue.next_request_id();
+    queue.queue(TestCommand::ResetState { request_id });
+
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "queued": true,
+            "request_id": request_id,
+            "note": "State reset queued - will close all UIs and return to Gameplay"
+        }),
+    )
 }
 
 /// Parse GameAction from string

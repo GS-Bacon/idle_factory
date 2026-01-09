@@ -1,0 +1,44 @@
+# コマンド入力テスト
+name = "Command Input Toggle"
+description = "Tまたは/キーでコマンド入力を開けることを確認"
+
+# 初期状態: ゲームプレイ中
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Tキーでコマンド入力を開く
+[[steps]]
+action = "send_input"
+params = { action = "OpenCommand" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# コマンドモードになったことを確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Command" }
+
+# reset_stateでリセット（コマンド入力はESCキーに直接反応するため）
+[[steps]]
+action = "reset_state"
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# ゲームプレイに戻る
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

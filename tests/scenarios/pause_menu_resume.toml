@@ -1,5 +1,23 @@
+# ポーズメニューから再開テスト
 name = "ポーズメニューから再開"
-description = "ポーズメニューでESCを押すとゲームに戻れることを確認"
+description = "ポーズメニューを開き、ESCで閉じてGameplayに戻れることを確認"
+
+# 初期状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# ポーズメニューを開く（CloseUIがGameplayの時はポーズを開く）
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
 
 [[steps]]
 action = "get_state"
@@ -12,9 +30,10 @@ params = { condition = "ui_state == PauseMenu" }
 action = "assert"
 params = { condition = "cursor_locked == false" }
 
+# ESCでポーズメニューを閉じる
 [[steps]]
 action = "send_input"
-params = { action = "Cancel" }
+params = { action = "CloseUI" }
 
 [[steps]]
 action = "wait"

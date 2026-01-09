@@ -1,0 +1,37 @@
+# ホットバー選択テスト
+name = "Hotbar Selection"
+description = "数字キーでホットバースロットを選択できることを確認"
+
+# 初期状態: ゲームプレイ中
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# スロット1を選択
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar1" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# スロット5を選択
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar5" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# ゲームプレイ状態のまま
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

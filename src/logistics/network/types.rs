@@ -97,7 +97,7 @@ pub enum NodeRole {
 /// Registry for network types
 ///
 /// Stores all registered network types (base + mods).
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct NetworkTypeRegistry {
     /// Registered network types by ID
     types: HashMap<u32, NetworkTypeSpec>,
@@ -110,10 +110,23 @@ pub struct NetworkTypeRegistry {
     base_signal: Option<NetworkTypeId>,
 }
 
+impl Default for NetworkTypeRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NetworkTypeRegistry {
     /// Create a new registry with base types
     pub fn new() -> Self {
-        let mut registry = Self::default();
+        let mut registry = Self {
+            types: HashMap::new(),
+            interner: StringInterner::default(),
+            base_power: None,
+            base_fluid: None,
+            base_gas: None,
+            base_signal: None,
+        };
         registry.register_base_types();
         registry
     }

@@ -143,10 +143,17 @@ pub struct CreativeMode {
 }
 
 /// Tutorial shown state (prevents showing again)
-#[derive(Resource, Default)]
+/// Default is true - no welcome popup, game starts immediately
+#[derive(Resource)]
 pub struct TutorialShown(pub bool);
 
-/// Marker for tutorial popup UI
+impl Default for TutorialShown {
+    fn default() -> Self {
+        Self(true) // Start immediately without popup
+    }
+}
+
+/// Marker for tutorial popup UI (legacy, no longer used)
 #[derive(Component)]
 pub struct TutorialPopup;
 

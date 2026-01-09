@@ -19,6 +19,8 @@ pub struct GameStateResult {
     pub player_position: [f32; 3],
     pub cursor_locked: bool,
     pub paused: bool,
+    pub visible_ui_elements: Vec<String>, // List of visible UI element markers
+    pub settings_open: bool,
 }
 
 /// Handle test.get_state request
@@ -42,6 +44,10 @@ pub fn handle_test_get_state(
             "ui_state": test_state.ui_state,
             "player_position": test_state.player_position,
             "cursor_locked": test_state.cursor_locked,
+            "visible_ui_elements": test_state.visible_ui_elements,
+            "settings_open": test_state.settings_open,
+            "cursor_in_window": test_state.cursor_in_window,
+            "cursor_visible": test_state.cursor_visible,
         }),
     )
 }
@@ -169,6 +175,19 @@ fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, 
     let actual = match field {
         "ui_state" => state.ui_state.clone(),
         "cursor_locked" => state.cursor_locked.to_string(),
+        "settings_open" => state.settings_open.to_string(),
+        "cursor_in_window" => state.cursor_in_window.to_string(),
+        "cursor_visible" => state.cursor_visible.to_string(),
+        "has_ui_element" => {
+            // Check if expected element is in visible_ui_elements
+            let has = state.visible_ui_elements.contains(&expected.to_string());
+            return (has, expected.to_string(), has.to_string());
+        }
+        "no_ui_element" => {
+            // Check that expected element is NOT in visible_ui_elements
+            let has = state.visible_ui_elements.contains(&expected.to_string());
+            return (!has, format!("no {}", expected), (!has).to_string());
+        }
         _ => {
             return (
                 false,
@@ -271,6 +290,31 @@ pub fn handle_test_unsubscribe_event(
     }
 }
 
+// === test.reset_state ===
+
+/// Handle test.reset_state request
+///
+/// Resets game state to Gameplay mode for clean test runs.
+/// This closes all UIs and returns to normal gameplay.
+///
+/// # ja
+/// テスト用にゲーム状態をGameplayモードにリセット
+///
+/// # Response
+/// ```json
+/// { "success": true, "note": "State reset queued" }
+/// ```
+pub fn handle_test_reset_state(request: &JsonRpcRequest) -> JsonRpcResponse {
+    // Note: 実際のリセットはprocess_server_messagesで行う
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "note": "State reset queued - will close all UIs and return to Gameplay"
+        }),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,6 +377,10 @@ mod tests {
             ui_state: "Gameplay".to_string(),
             player_position: [1.0, 2.0, 3.0],
             cursor_locked: true,
+            visible_ui_elements: vec!["Hotbar".to_string(), "Crosshair".to_string()],
+            settings_open: false,
+            cursor_in_window: true,
+            cursor_visible: false,
         };
         let request = JsonRpcRequest::new(1, "test.get_state", serde_json::Value::Null);
         let response = handle_test_get_state(&request, &test_state);
@@ -341,6 +389,8 @@ mod tests {
         let result = response.result.unwrap();
         assert_eq!(result["ui_state"], "Gameplay");
         assert_eq!(result["cursor_locked"], true);
+        assert_eq!(result["cursor_in_window"], true);
+        assert_eq!(result["cursor_visible"], false);
     }
 
     #[test]
@@ -368,6 +418,10 @@ mod tests {
             ui_state: "Inventory".to_string(),
             player_position: [0.0, 0.0, 0.0],
             cursor_locked: false,
+            visible_ui_elements: vec!["InventoryPanel".to_string()],
+            settings_open: false,
+            cursor_in_window: true,
+            cursor_visible: true,
         };
         let request = JsonRpcRequest::new(
             1,
@@ -389,6 +443,10 @@ mod tests {
             ui_state: "Gameplay".to_string(),
             player_position: [0.0, 0.0, 0.0],
             cursor_locked: false,
+            visible_ui_elements: vec![],
+            settings_open: false,
+            cursor_in_window: true,
+            cursor_visible: false,
         };
         let request = JsonRpcRequest::new(
             1,
@@ -419,6 +477,10 @@ mod tests {
             ui_state: "Gameplay".to_string(),
             player_position: [1.0, 2.0, 3.0],
             cursor_locked: true,
+            visible_ui_elements: vec!["Hotbar".to_string(), "Crosshair".to_string()],
+            settings_open: false,
+            cursor_in_window: true,
+            cursor_visible: false,
         };
 
         // Test ui_state
@@ -427,6 +489,22 @@ mod tests {
 
         // Test cursor_locked
         let (success, _, _) = evaluate_condition("cursor_locked == true", &state);
+        assert!(success);
+
+        // Test cursor_in_window
+        let (success, _, _) = evaluate_condition("cursor_in_window == true", &state);
+        assert!(success);
+
+        // Test cursor_visible
+        let (success, _, _) = evaluate_condition("cursor_visible == false", &state);
+        assert!(success);
+
+        // Test has_ui_element
+        let (success, _, _) = evaluate_condition("has_ui_element == Hotbar", &state);
+        assert!(success);
+
+        // Test no_ui_element
+        let (success, _, _) = evaluate_condition("no_ui_element == InventoryPanel", &state);
         assert!(success);
 
         // Test invalid condition

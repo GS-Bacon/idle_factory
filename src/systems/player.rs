@@ -274,6 +274,21 @@ fn survival_movement(
     right: Vec3,
     dt: f32,
 ) {
+    use crate::world::WorldData as WD;
+
+    // Check if player's chunk is loaded - if not, simulate virtual ground
+    let player_pos = player_transform.translation;
+    let player_world_pos = IVec3::new(player_pos.x as i32, 0, player_pos.z as i32);
+    let player_chunk = WD::world_to_chunk(player_world_pos);
+
+    if !world_data.chunks.contains_key(&player_chunk) {
+        // Chunk not loaded - keep player on virtual ground at spawn height
+        // Don't apply gravity, don't fall through unloaded chunks
+        physics.velocity.y = 0.0;
+        physics.on_ground = true;
+        return;
+    }
+
     // Get horizontal movement input
     let mut horizontal = Vec3::ZERO;
     if input.pressed(GameAction::MoveForward) {

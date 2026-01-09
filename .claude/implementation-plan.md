@@ -3,15 +3,12 @@
 > **設計詳細**: `.claude/architecture-future.md`
 > **ロードマップ**: `.specify/roadmap.md`（概要）
 
-## 現状サマリー (2026-01-10)
+## 現状サマリー
 
-| 項目 | 値 |
-|------|-----|
-| バージョン | **0.3.164** |
-| コード行数 | **34,525行** |
-| テスト | **756件** 通過 |
-| Clippy警告 | **0件** |
+> **最新の数値は `CLAUDE.md` の「現在の状態」を参照**
+
 | 現在のフェーズ | **M2→M3: 技術的負債解消** |
+|---------------|---------------------------|
 
 ---
 
@@ -97,60 +94,55 @@
 
 ---
 
-### N: リソースネットワーク設計 ❌ 未着手
-
-**⚠️ ユーザーと相談しながら進めること**
+### N: リソースネットワーク基盤 ✅ 完了 (2026-01-09)
 
 **目標**: 電力・液体・信号を統一的に扱える汎用基盤
 
 | タスク | 内容 | 状態 |
 |--------|------|------|
-| N.1 | リソース種別の抽象定義 | ❌ |
-| N.2 | ネットワーク接続の仕組み | ❌ |
-| N.3 | ノード種別（Producer/Consumer/Storage/Conduit） | ❌ |
-| N.4 | 計算方式（供給/需要/優先度） | ❌ |
-| N.5 | Mod拡張ポイント | ❌ |
+| N.1 | リソース種別の抽象定義 | ✅ |
+| N.2 | ネットワーク接続の仕組み（Flood Fill） | ✅ |
+| N.3 | ノード種別（Producer/Consumer/Storage/Conduit） | ✅ |
+| N.4 | 計算方式（供給/需要/優先度） | ✅ |
+| N.5 | Mod拡張ポイント | ✅ |
+| N.6 | 電線・パイプ・信号線ブロック追加 | ✅ |
+| N.7 | 発電機定義 | ✅ |
 
-**設計案**:
-```rust
-struct ResourceType {
-    name: String,
-    unit: String,
-    decay: bool,
-    max_transfer: f32,
-    // M4で追加: is_signal, propagation_delay
-}
-```
+**実装ファイル**: `src/logistics/network/` - 8ファイル
+- `types.rs` - NetworkTypeId, NetworkTypeSpec, SegmentId, NodeRole
+- `segment.rs` - NetworkSegment Component
+- `node.rs` - NetworkPort, PowerNode, FluidNode, SignalNode
+- `registry.rs` - SegmentRegistry, NetworkTypeRegistry
+- `detector.rs` - Flood Fill セグメント検出
+- `conduit.rs` - Wire, Pipe, SignalWire Component
+- `distribution.rs` - distribute_power, distribute_fluid, propagate_signal
+- `virtual_link.rs` - VirtualLink（Mod無線用）
 
-| 特性 | 電力・液体 | 信号 |
-|------|-----------|------|
-| 値の型 | 数値 | ON/OFF or 0-15 |
-| 分岐時 | 分割される | コピーされる |
-| 消費 | 使うと減る | 減らない |
+**新規アイテム**: wire, pipe, signal_wire, generator_block
 
 ---
 
 ## M3: 電力システム
 
-| タスク | 内容 |
-|--------|------|
-| P.1 | 電力グリッド計算 |
-| P.2 | 発電機（水車、石炭発電） |
-| P.3 | 電線ブロック |
-| P.4 | 電力消費機械 |
-| P.5 | 電力UI |
+| タスク | 内容 | 状態 |
+|--------|------|------|
+| P.1 | 電力グリッド計算 | ✅ (N.1-N.5で実装) |
+| P.2 | 発電機（水車、石炭発電） | 🔨 基盤あり |
+| P.3 | 電線ブロック | ✅ (wire追加) |
+| P.4 | 電力消費機械 | ❌ 未着手 |
+| P.5 | 電力UI | ❌ 未着手 |
 
 ---
 
 ## M4: 液体・信号
 
-| タスク | 内容 |
-|--------|------|
-| F.1 | 液体スロット・パイプ |
-| F.2 | ポンプ・タンク |
-| S.1 | 信号ワイヤー |
-| S.2 | センサー |
-| S.3 | 論理ゲート |
+| タスク | 内容 | 状態 |
+|--------|------|------|
+| F.1 | 液体スロット・パイプ | 🔨 基盤あり (pipe追加) |
+| F.2 | ポンプ・タンク | ❌ 未着手 |
+| S.1 | 信号ワイヤー | 🔨 基盤あり (signal_wire追加) |
+| S.2 | センサー | ❌ 未着手 |
+| S.3 | 論理ゲート | ❌ 未着手 |
 
 ---
 
@@ -239,4 +231,4 @@ struct ResourceType {
 
 ---
 
-*最終更新: 2026-01-10*
+*最終更新: 2026-01-09*

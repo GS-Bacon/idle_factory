@@ -207,3 +207,55 @@ category = "tool"
 is_placeable = false
 color = [0.6, 0.6, 0.6]
 tags = ["tool", "tool/pickaxe"]
+
+# =============================================================================
+# Network Infrastructure (Power/Fluid)
+# =============================================================================
+
+[[item]]
+id = "wire"
+name = "Wire"
+short_name = "Wir"
+description = "Transmits power between machines"
+stack_size = 999
+category = "network"
+is_placeable = true
+hardness = 0.3
+color = [0.8, 0.2, 0.2]
+tags = ["network", "network/power", "conduit"]
+
+[[item]]
+id = "pipe"
+name = "Pipe"
+short_name = "Pip"
+description = "Transports fluids and gases"
+stack_size = 999
+category = "network"
+is_placeable = true
+hardness = 0.3
+color = [0.4, 0.4, 0.6]
+tags = ["network", "network/fluid", "conduit"]
+
+[[item]]
+id = "signal_wire"
+name = "Signal Wire"
+short_name = "Sig"
+description = "Transmits control signals"
+stack_size = 999
+category = "network"
+is_placeable = true
+hardness = 0.3
+color = [0.2, 0.8, 0.2]
+tags = ["network", "network/signal", "conduit"]
+
+[[item]]
+id = "generator_block"
+name = "Generator"
+short_name = "Gen"
+description = "Generates power from fuel"
+stack_size = 999
+category = "machine"
+is_placeable = true
+hardness = 0.5
+color = [0.9, 0.7, 0.2]
+tags = ["machine", "machine/generator", "power"]

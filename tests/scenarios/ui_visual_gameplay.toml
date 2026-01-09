@@ -1,0 +1,33 @@
+# ゲームプレイ画面のビジュアルテスト
+name = "Visual Test: Gameplay Screen"
+description = "ゲームプレイ画面が正常に表示されることを確認"
+
+# 期待される状態:
+# - UI状態: Gameplay
+# - カーソル: ロック中
+# - 画面要素: ホットバー、クロスヘア、地形
+
+# 初期状態を確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# 少し待ってからスクリーンショット
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+[[steps]]
+action = "screenshot"
+params = { name = "gameplay_default" }
+
+# 最終状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

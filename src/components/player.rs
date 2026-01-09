@@ -46,6 +46,10 @@ pub struct CursorLockState {
     pub paused: bool,
     /// Skip inventory toggle this frame (used when closing machine UI with E key)
     pub skip_inventory_toggle: bool,
+    /// Cursor is within the game window
+    pub cursor_in_window: bool,
+    /// Cursor is visible (not grabbed)
+    pub cursor_visible: bool,
 }
 
 /// Timer for continuous block break/place operations

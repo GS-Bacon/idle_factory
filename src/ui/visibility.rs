@@ -336,14 +336,14 @@ pub fn create_default_rules() -> UIVisibilityController {
         },
     );
 
-    // Global Inventory: visible when in inventory state (part of inventory UI)
-    controller.register(
-        UIId::GlobalInventory,
-        VisibilityRules {
-            conditions: vec![VisibilityCondition::InputStateIs(InputState::Inventory)],
-            layer: UILayer::Content,
-        },
-    );
+    // Global Inventory: disabled (will be integrated as tab in InventoryUI later)
+    // controller.register(
+    //     UIId::GlobalInventory,
+    //     VisibilityRules {
+    //         conditions: vec![VisibilityCondition::InputStateIs(InputState::Inventory)],
+    //         layer: UILayer::Content,
+    //     },
+    // );
 
     // Inventory Overlay: visible when in inventory state
     controller.register(

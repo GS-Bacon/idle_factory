@@ -1,0 +1,71 @@
+# コンベア配置テスト
+name = "Conveyor Placement Test"
+description = "コンベアを配置してブロックが存在することを確認するテスト"
+
+# 初期状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# テスト用の位置にテレポート
+[[steps]]
+action = "player_teleport"
+params = { x = 20.0, y = 50.0, z = 20.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# コンベアを3つ配置（直線）- facing は u8 (0=+X, 4=+Z(north))
+[[steps]]
+action = "world_place_block"
+params = { x = 20, y = 49, z = 22, item_id = "base:conveyor_block", facing = 4 }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "world_place_block"
+params = { x = 20, y = 49, z = 23, item_id = "base:conveyor_block", facing = 4 }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "world_place_block"
+params = { x = 20, y = 49, z = 24, item_id = "base:conveyor_block", facing = 4 }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# 配置されたブロックを確認
+[[steps]]
+action = "world_get_block"
+params = { x = 20, y = 49, z = 22 }
+
+[[steps]]
+action = "world_get_block"
+params = { x = 20, y = 49, z = 23 }
+
+[[steps]]
+action = "world_get_block"
+params = { x = 20, y = 49, z = 24 }
+
+# クリーンアップ：配置したコンベアを破壊
+[[steps]]
+action = "world_break_block"
+params = { x = 20, y = 49, z = 22 }
+
+[[steps]]
+action = "world_break_block"
+params = { x = 20, y = 49, z = 23 }
+
+[[steps]]
+action = "world_break_block"
+params = { x = 20, y = 49, z = 24 }

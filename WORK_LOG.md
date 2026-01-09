@@ -1,5 +1,89 @@
 # 作業ログ
 
+## 2026-01-09: リソースネットワーク基盤 (N.1-N.5) 実装
+
+### 概要
+
+電力・液体・気体・信号を統一的に扱う汎用ネットワーク基盤を実装。Factorio Fluids 2.0方式（セグメント統合、即時伝播）採用。
+
+### 実装内容
+
+#### 新規ファイル（8ファイル）: `src/logistics/network/`
+
+| ファイル | 内容 |
+|----------|------|
+| `mod.rs` | モジュール定義、NetworkPlugin |
+| `types.rs` | NetworkTypeId, SegmentId, NetworkTypeRegistry |
+| `segment.rs` | NetworkSegment Component |
+| `node.rs` | NetworkPort, PowerNode, FluidNode, SignalNode |
+| `registry.rs` | SegmentRegistry Resource |
+| `detector.rs` | Flood Fillセグメント検出 |
+| `distribution.rs` | 電力/液体/信号の分配アルゴリズム |
+| `conduit.rs` | Wire, Pipe, SignalWire Component |
+| `virtual_link.rs` | 仮想リンク（Mod無線用） |
+
+#### Mod API（7メソッド）: `src/modding/handlers/network.rs`
+
+| メソッド | 説明 |
+|----------|------|
+| `network.type.list` | ネットワーク種別一覧 |
+| `network.type.register` | カスタム種別登録 |
+| `network.segment.list` | セグメント一覧 |
+| `network.segment.get` | セグメント詳細 |
+| `network.virtual_link.add` | 仮想リンク追加 |
+| `network.virtual_link.remove` | 仮想リンク削除 |
+| `network.virtual_link.list` | 仮想リンク一覧 |
+
+#### アイテム/機械追加
+
+| ファイル | 追加内容 |
+|----------|----------|
+| `mods/base/items.toml` | wire, pipe, signal_wire, generator_block |
+| `mods/base/machines.toml` | generator（発電機、100W出力） |
+| `src/core/id.rs` | 4新アイテムのヘルパー関数、is_conduit()等 |
+
+#### 配置システム統合
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/systems/block_operations/placement.rs` | 電線/パイプ配置ロジック追加 |
+| `src/systems/block_operations/mod.rs` | BlockPlaceEventsにnetwork関連フィールド追加 |
+
+### 分配アルゴリズム
+
+| 種別 | アルゴリズム |
+|------|-------------|
+| 電力 | 優先度順にソート → 高優先度から満たす |
+| 液体/気体 | セグメント内で即時均一化（Factorio方式） |
+| 信号 | 最大強度をセグメント全体に伝播 |
+
+### 技術判断
+
+| 判断 | 理由 |
+|------|------|
+| enum化せずにフラット構造 | Mod拡張性を優先、既存設計で十分 |
+| Flood Fill検出 | セグメント形成に最適 |
+| FixedUpdate使用 | 決定論的シミュレーション |
+| 仮想リンク対応 | Modで無線電力等を実装可能 |
+
+### テスト結果
+
+| 項目 | 結果 |
+|------|------|
+| ビルド | ✅ 成功 |
+| テスト | ✅ 508テスト通過 |
+| Clippy | ✅ 0件 |
+
+### 現在の状態
+
+| 項目 | 値 |
+|------|-----|
+| バージョン | **0.3.167** |
+| コード行数 | **34,624行** |
+| テスト | **781件** 通過 |
+
+---
+
 ## 2026-01-09: アップデータのGitHub Release API移行
 
 ### 概要

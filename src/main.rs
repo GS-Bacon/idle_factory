@@ -237,6 +237,7 @@ mod tests {
 
     #[test]
     fn test_input_state_priority() {
+        // Default state is Gameplay
         let state = InputState::current(
             &InventoryOpen(false),
             &InteractingMachine(None),
@@ -245,8 +246,21 @@ mod tests {
         );
         assert!(matches!(state, InputState::Gameplay));
 
+        // Inventory takes priority over paused (cursor unlocked)
         let state = InputState::current(
             &InventoryOpen(true),
+            &InteractingMachine(None),
+            &CommandInputState::default(),
+            &CursorLockState {
+                paused: true,
+                ..default()
+            },
+        );
+        assert!(matches!(state, InputState::Inventory));
+
+        // Paused only when no UI is open
+        let state = InputState::current(
+            &InventoryOpen(false),
             &InteractingMachine(None),
             &CommandInputState::default(),
             &CursorLockState {

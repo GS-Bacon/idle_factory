@@ -10,17 +10,26 @@
 //! - `ui`: UI visibility control
 //! - `textures`: Texture system (atlas, resolvers)
 //! - `network`: Network segments and virtual links
+//! - `inventory`: Player inventory operations (E2E testing)
+//! - `world`: World/block operations (E2E testing)
+//! - `player`: Player state and actions (E2E testing)
 
+pub mod craft;
 pub mod events;
 pub mod game;
+pub mod inventory;
 pub mod items;
+pub mod machine;
 pub mod machines;
 pub mod mod_handlers;
 pub mod network;
+pub mod player;
+pub mod quest;
 pub mod recipes;
 pub mod test;
 pub mod textures;
 pub mod ui;
+pub mod world;
 
 pub use events::{EventSubscriptions, EventType, Subscription};
 pub use game::{GameStateInfo, API_VERSION};
@@ -41,6 +50,14 @@ pub struct TestStateInfo {
     pub player_position: [f32; 3],
     /// カーソルがロックされているか
     pub cursor_locked: bool,
+    /// 表示中のUI要素リスト
+    pub visible_ui_elements: Vec<String>,
+    /// 設定画面が開いているか
+    pub settings_open: bool,
+    /// カーソルがゲーム画面内にあるか
+    pub cursor_in_window: bool,
+    /// カーソルが表示されているか（非ロック時）
+    pub cursor_visible: bool,
 }
 
 /// Handler context for accessing game state
@@ -51,6 +68,10 @@ pub struct HandlerContext<'a> {
     pub game_state: GameStateInfo,
     /// Test state info for E2E testing
     pub test_state: TestStateInfo,
+    /// Inventory state for E2E testing
+    pub inventory_state: inventory::InventoryStateInfo,
+    /// Player state for E2E testing
+    pub player_state: player::PlayerStateInfo,
 }
 
 /// Mutable handler context for modifying game state
@@ -81,6 +102,7 @@ pub fn route_request(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRpcR
         "test.get_state" => test::handle_test_get_state(request, &ctx.test_state),
         "test.send_input" => test::handle_test_send_input(request),
         "test.assert" => test::handle_test_assert(request, &ctx.test_state),
+        "test.reset_state" => test::handle_test_reset_state(request),
         // Texture handlers
         "texture.list" => textures::handle_texture_list(request),
         "texture.get_atlas_info" => textures::handle_get_atlas_info(request),
@@ -93,6 +115,35 @@ pub fn route_request(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRpcR
         "network.virtual_link.add" => network::handle_network_virtual_link_add(request),
         "network.virtual_link.remove" => network::handle_network_virtual_link_remove(request),
         "network.virtual_link.list" => network::handle_network_virtual_link_list(request),
+        // Inventory handlers (E2E testing)
+        "inventory.get_slot" => inventory::handle_inventory_get_slot(request, &ctx.inventory_state),
+        "inventory.list" => inventory::handle_inventory_list(request, &ctx.inventory_state),
+        "inventory.move_item" => inventory::handle_inventory_move_item(request),
+        "inventory.get_hotbar" => {
+            inventory::handle_inventory_get_hotbar(request, &ctx.inventory_state)
+        }
+        // Player handlers (E2E testing)
+        "player.get_state" => player::handle_player_get_state(request, &ctx.player_state),
+        "player.teleport" => player::handle_player_teleport(request),
+        "player.get_looking_at" => player::handle_player_get_looking_at(request, &ctx.player_state),
+        "player.set_selected_slot" => player::handle_player_set_selected_slot(request),
+        // World handlers (E2E testing)
+        "world.get_block" => world::handle_world_get_block(request),
+        "world.place_block" => world::handle_world_place_block(request),
+        "world.break_block" => world::handle_world_break_block(request),
+        "world.raycast" => world::handle_world_raycast(request),
+        // Quest handlers (E2E testing)
+        "quest.list" => quest::handle_quest_list(request),
+        "quest.get" => quest::handle_quest_get(request),
+        // Craft handlers (E2E testing)
+        "craft.list" => craft::handle_craft_list(request),
+        "craft.get" => craft::handle_craft_get(request),
+        "craft.can_craft" => craft::handle_craft_can_craft(request, &ctx.inventory_state),
+        // Machine slot handlers (E2E testing)
+        "machine.get_slots" => machine::handle_machine_get_slots(request),
+        "machine.insert_item" => machine::handle_machine_insert_item(request),
+        "machine.extract_item" => machine::handle_machine_extract_item(request),
+        "machine.get_progress" => machine::handle_machine_get_progress(request),
         // Enable/disable require mutation, handled separately
         _ => JsonRpcResponse::error(
             request.id,
@@ -111,6 +162,8 @@ pub fn route_request_mut(request: &JsonRpcRequest, ctx: &mut HandlerContextMut) 
                 mod_manager: ctx.mod_manager,
                 game_state: GameStateInfo::default(),
                 test_state: TestStateInfo::default(),
+                inventory_state: inventory::InventoryStateInfo::default(),
+                player_state: player::PlayerStateInfo::default(),
             };
             mod_handlers::handle_mod_list(request, &read_ctx)
         }
@@ -119,6 +172,8 @@ pub fn route_request_mut(request: &JsonRpcRequest, ctx: &mut HandlerContextMut) 
                 mod_manager: ctx.mod_manager,
                 game_state: GameStateInfo::default(),
                 test_state: TestStateInfo::default(),
+                inventory_state: inventory::InventoryStateInfo::default(),
+                player_state: player::PlayerStateInfo::default(),
             };
             mod_handlers::handle_mod_info(request, &read_ctx)
         }
@@ -153,6 +208,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "unknown.method", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -168,6 +225,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "machine.list", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -182,6 +241,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(
             1,
@@ -203,6 +264,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "recipe.list", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -217,6 +280,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(
             1,
@@ -240,6 +305,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "game.version", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -262,6 +329,8 @@ mod tests {
                 player_count: 1,
             },
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "game.state", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -280,6 +349,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "item.list", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -297,6 +368,8 @@ mod tests {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            inventory_state: inventory::InventoryStateInfo::default(),
+            player_state: player::PlayerStateInfo::default(),
         };
         let request = JsonRpcRequest::new(
             1,

@@ -1,0 +1,38 @@
+# インベントリ操作テスト
+name = "Inventory Operations Test"
+description = "インベントリのスロット取得と移動をテスト"
+
+# インベントリを開く
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 状態確認
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Inventory" }
+
+# インベントリ一覧取得
+[[steps]]
+action = "inventory_list"
+
+# ホットバー取得
+[[steps]]
+action = "inventory_get_hotbar"
+
+# インベントリを閉じる
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

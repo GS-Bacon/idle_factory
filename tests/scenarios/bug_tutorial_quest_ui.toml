@@ -1,21 +1,38 @@
 # BUG-879db5a: チュートリアル中にクエストUIが表示される問題
-# チュートリアル中はクエストUIが非表示であることを確認
+# チュートリアル中はQuestPanelが非表示、TutorialPanelが表示であることを確認
 
 name = "Bug Regression: Tutorial blocks Quest UI"
-description = "During tutorial, Quest UI should not be displayed"
+description = "チュートリアル中はQuestPanel非表示、TutorialPanel表示を検証"
 
-# Step 1: Get initial state
+# Step 1: 初期状態を取得
 [[steps]]
 action = "get_state"
 
-# Step 2: Verify we start in Gameplay mode
+# Step 2: Gameplay状態であることを確認
 [[steps]]
 action = "assert"
 params = { condition = "ui_state == Gameplay" }
 
-# Step 3: Try to open Quest UI with Q key (should be blocked during tutorial)
-# Note: This test verifies that Q key doesn't open quest during tutorial
-# The actual behavior depends on tutorial state
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Step 3: チュートリアル中なのでQuestPanelが非表示であることを確認
+[[steps]]
+action = "assert"
+params = { condition = "no_ui_element == QuestPanel" }
+
+# Step 4: チュートリアル中なのでTutorialPanelが表示されていることを確認
+[[steps]]
+action = "assert"
+params = { condition = "has_ui_element == TutorialPanel" }
+
+# Step 5: スクリーンショットを撮影
+[[steps]]
+action = "screenshot"
+params = { name = "tutorial_no_quest_ui" }
+
+# Step 6: Qキーでクエスト画面トグルを試みる（チュートリアル中はブロックされるはず）
 [[steps]]
 action = "send_input"
 params = { action = "ToggleQuest" }
@@ -24,10 +41,12 @@ params = { action = "ToggleQuest" }
 action = "wait"
 params = { ms = 100 }
 
-# Step 4: Get state after Q press
+# Step 7: まだGameplay状態のままであることを確認
 [[steps]]
-action = "get_state"
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
 
-# Step 5: In gameplay mode, Q should toggle quest
-# But during tutorial, it should be blocked
-# This test verifies the UI state is accessible for checking
+# Step 8: QuestPanelはまだ非表示のままであることを確認
+[[steps]]
+action = "assert"
+params = { condition = "no_ui_element == QuestPanel" }

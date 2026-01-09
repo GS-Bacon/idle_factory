@@ -6,6 +6,8 @@
 //! - `registry`: Mod content registration
 
 pub mod api;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod commands;
 pub mod connection;
 pub mod data;
 pub mod dependency;
@@ -23,6 +25,8 @@ pub mod server;
 pub mod wasm;
 
 // Re-export server types for convenience
+#[cfg(not(target_arch = "wasm32"))]
+pub use commands::{process_test_commands, TestCommand, TestCommandQueue};
 pub use dependency::{DependencyError, DependencyResolver, ModDependencyInfo};
 #[cfg(not(target_arch = "wasm32"))]
 pub use event_bridge::EventBridgePlugin;
@@ -389,6 +393,13 @@ impl Plugin for ModdingPlugin {
             .add_event::<ModUnloadedEvent>()
             .add_event::<ModErrorEvent>()
             .add_systems(Startup, load_base_mod);
+
+        // Add test command queue (native only)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            app.init_resource::<commands::TestCommandQueue>()
+                .add_systems(Update, commands::process_test_commands);
+        }
     }
 }
 

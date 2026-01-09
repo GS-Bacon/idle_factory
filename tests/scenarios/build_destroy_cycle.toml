@@ -1,0 +1,83 @@
+# 配置・破壊サイクルテスト
+name = "Build Destroy Cycle Test"
+description = "ブロックの配置→破壊→再配置のサイクルをテスト"
+
+# 初期状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# テスト用の位置にテレポート
+[[steps]]
+action = "player_teleport"
+params = { x = 30.0, y = 50.0, z = 30.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# サイクル1: 石を配置
+[[steps]]
+action = "world_place_block"
+params = { x = 30, y = 49, z = 32, item_id = "base:stone" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# 配置確認
+[[steps]]
+action = "world_get_block"
+params = { x = 30, y = 49, z = 32 }
+
+# 破壊
+[[steps]]
+action = "world_break_block"
+params = { x = 30, y = 49, z = 32 }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# サイクル2: 別のブロックを同じ場所に配置（grassを使用）
+[[steps]]
+action = "world_place_block"
+params = { x = 30, y = 49, z = 32, item_id = "base:grass" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# 配置確認
+[[steps]]
+action = "world_get_block"
+params = { x = 30, y = 49, z = 32 }
+
+# サイクル3: 上に積む
+[[steps]]
+action = "world_place_block"
+params = { x = 30, y = 50, z = 32, item_id = "base:stone" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# まとめて破壊
+[[steps]]
+action = "world_break_block"
+params = { x = 30, y = 50, z = 32 }
+
+[[steps]]
+action = "world_break_block"
+params = { x = 30, y = 49, z = 32 }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# 最終状態確認
+[[steps]]
+action = "get_state"

@@ -60,6 +60,54 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
             Visibility::Hidden,
         ))
         .with_children(|parent| {
+            // === Tab bar for Inventory/Storage switching ===
+            parent
+                .spawn((Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(4.0),
+                    margin: UiRect::bottom(Val::Px(8.0)),
+                    ..default()
+                },))
+                .with_children(|tabs| {
+                    // Inventory tab (selected)
+                    tabs.spawn((
+                        Node {
+                            padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.3, 0.4, 0.5, 0.95)),
+                        BorderColor(QUEST_BORDER_COLOR),
+                        BorderRadius::all(Val::Px(4.0)),
+                    ))
+                    .with_children(|tab| {
+                        tab.spawn((
+                            Text::new("自分 [E]"),
+                            text_font(font, 14.0),
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+
+                    // Storage tab (unselected, click to switch)
+                    tabs.spawn((
+                        Node {
+                            padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.15, 0.18, 0.22, 0.8)),
+                        BorderColor(Color::srgba(0.4, 0.4, 0.45, 0.6)),
+                        BorderRadius::all(Val::Px(4.0)),
+                    ))
+                    .with_children(|tab| {
+                        tab.spawn((
+                            Text::new("倉庫 [Tab]"),
+                            text_font(font, 14.0),
+                            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        ));
+                    });
+                });
+
             // === Creative catalog (top, only visible in creative mode) ===
             parent
                 .spawn((

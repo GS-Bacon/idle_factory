@@ -289,6 +289,55 @@ static ITEM_DESCRIPTORS: LazyLock<Vec<(ItemId, ItemDescriptor)>> = LazyLock::new
                 false,
             ),
         ),
+        // Network infrastructure
+        (
+            items::wire(),
+            ItemDescriptor::new(
+                "Wire",
+                "Wire",
+                (0.8, 0.5, 0.2),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.3),
+        ),
+        (
+            items::pipe(),
+            ItemDescriptor::new(
+                "Pipe",
+                "Pipe",
+                (0.5, 0.5, 0.6),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.3),
+        ),
+        (
+            items::signal_wire(),
+            ItemDescriptor::new(
+                "Signal Wire",
+                "Sig",
+                (0.8, 0.2, 0.2),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.3),
+        ),
+        (
+            items::generator_block(),
+            ItemDescriptor::new(
+                "Generator",
+                "Gen",
+                (0.4, 0.4, 0.5),
+                BlockCategory::Machine,
+                999,
+                true,
+            )
+            .with_hardness(0.5),
+        ),
     ]
 });
 
@@ -627,7 +676,7 @@ mod tests {
         let registry = GameRegistry::new();
         let all_ids: Vec<_> = registry.all_item_ids().collect();
 
-        assert_eq!(all_ids.len(), 16); // All 16 base items
+        assert_eq!(all_ids.len(), 20); // All 20 base items
     }
 
     #[test]

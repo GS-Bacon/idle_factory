@@ -95,15 +95,22 @@ pub fn sync_legacy_ui_state(
 pub fn ui_escape_handler(
     input: Res<InputManager>,
     ui_state: Res<UIState>,
-    command_state: Res<CommandInputState>,
+    mut command_state: ResMut<CommandInputState>,
+    mut cursor_lock: ResMut<CursorLockState>,
     mut action_writer: EventWriter<UIAction>,
 ) {
-    if !input.just_pressed(GameAction::Cancel) {
+    // Handle both Cancel (ESC) and CloseUI actions
+    if !input.just_pressed(GameAction::Cancel) && !input.just_pressed(GameAction::CloseUI) {
         return;
     }
 
-    // Don't handle ESC if command input is open (it handles its own ESC)
+    // Handle command input specially - close it via CloseUI action
+    // (keyboard ESC is handled by command_input_handler, but API CloseUI needs this)
     if command_state.open {
+        command_state.open = false;
+        command_state.text.clear();
+        command_state.suggestion_index = 0;
+        cursor_lock.paused = false;
         return;
     }
 
@@ -116,7 +123,10 @@ pub fn ui_escape_handler(
     }
 }
 
-/// Handle E key for inventory toggle
+/// Handle E key for inventory toggle and tab switching
+/// - Gameplay → Inventory (open)
+/// - Inventory → Gameplay (close)
+/// - GlobalInventory → Inventory (switch tab)
 pub fn ui_inventory_handler(
     input: Res<InputManager>,
     ui_state: Res<UIState>,
@@ -126,13 +136,16 @@ pub fn ui_inventory_handler(
         return;
     }
 
-    // Only toggle inventory from gameplay or inventory itself
     match ui_state.current() {
         UIContext::Gameplay => {
             action_writer.send(UIAction::Push(UIContext::Inventory));
         }
         UIContext::Inventory => {
             action_writer.send(UIAction::Pop);
+        }
+        UIContext::GlobalInventory => {
+            // Switch back to inventory tab
+            action_writer.send(UIAction::Replace(UIContext::Inventory));
         }
         UIContext::Machine(_) => {
             // Close machine UI and open inventory
@@ -142,7 +155,10 @@ pub fn ui_inventory_handler(
     }
 }
 
-/// Handle Tab key for global inventory toggle
+/// Handle Tab key for inventory tab switching
+/// - Gameplay → Inventory (open inventory)
+/// - Inventory → GlobalInventory (switch tab)
+/// - GlobalInventory → Inventory (switch tab)
 pub fn ui_global_inventory_handler(
     input: Res<InputManager>,
     ui_state: Res<UIState>,
@@ -160,10 +176,16 @@ pub fn ui_global_inventory_handler(
 
     match ui_state.current() {
         UIContext::Gameplay => {
-            action_writer.send(UIAction::Push(UIContext::GlobalInventory));
+            // Open inventory first (Tab from gameplay opens inventory)
+            action_writer.send(UIAction::Push(UIContext::Inventory));
+        }
+        UIContext::Inventory => {
+            // Switch to global inventory tab
+            action_writer.send(UIAction::Replace(UIContext::GlobalInventory));
         }
         UIContext::GlobalInventory => {
-            action_writer.send(UIAction::Pop);
+            // Switch back to inventory tab
+            action_writer.send(UIAction::Replace(UIContext::Inventory));
         }
         _ => {} // Ignore Tab in other contexts
     }

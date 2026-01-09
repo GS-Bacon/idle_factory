@@ -314,19 +314,57 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
             Visibility::Hidden,
         ))
         .with_children(|parent| {
-            // Title
-            parent.spawn((
-                Text::new("Storage"),
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.9, 0.9, 0.95)), // Slightly off-white
-                Node {
+            // === Tab bar for Inventory/Storage switching ===
+            parent
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(4.0),
                     margin: UiRect::bottom(Val::Px(8.0)),
                     ..default()
-                },
-            ));
+                })
+                .with_children(|tabs| {
+                    // Inventory tab (unselected)
+                    tabs.spawn((
+                        Node {
+                            padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(ui_colors::TAB_UNSELECTED),
+                        BorderColor(ui_colors::BORDER_SHADOW),
+                    ))
+                    .with_children(|tab| {
+                        tab.spawn((
+                            Text::new("自分 [E]"),
+                            TextFont {
+                                font_size: 14.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                        ));
+                    });
+
+                    // Storage tab (selected)
+                    tabs.spawn((
+                        Node {
+                            padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(ui_colors::TAB_SELECTED),
+                        BorderColor(ui_colors::BORDER_HIGHLIGHT),
+                    ))
+                    .with_children(|tab| {
+                        tab.spawn((
+                            Text::new("倉庫 [Tab]"),
+                            TextFont {
+                                font_size: 14.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+                });
 
             // Category tabs row
             parent

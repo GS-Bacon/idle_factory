@@ -32,7 +32,7 @@ pub fn setup_player(
         .spawn((
             Player,
             PlayerPhysics::default(),
-            Transform::from_xyz(8.0, 12.0, 20.0),
+            Transform::from_xyz(8.0, 34.0, 20.0),
             Visibility::default(),
         ))
         .with_children(|parent| {

@@ -335,7 +335,8 @@ pub fn generic_machine_interact(
     }
 
     let e_pressed = input.just_pressed(GameAction::ToggleInventory);
-    let esc_pressed = input.just_pressed(GameAction::Cancel);
+    let esc_pressed =
+        input.just_pressed(GameAction::Cancel) || input.just_pressed(GameAction::CloseUI);
 
     // Close UI with E or ESC
     if interacting.0.is_some() && (e_pressed || esc_pressed) {

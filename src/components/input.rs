@@ -23,20 +23,29 @@ pub enum InputState {
 
 impl InputState {
     /// Determine current input state from all UI resources
+    ///
+    /// Priority order (highest to lowest):
+    /// 1. Command input (T or / key)
+    /// 2. Inventory (E key)
+    /// 3. Machine UI (right-click on machine)
+    /// 4. Paused (ESC key, only if no other UI is open)
+    /// 5. Gameplay (default)
     pub fn current(
         inventory_open: &InventoryOpen,
         interacting_machine: &InteractingMachine,
         command_state: &CommandInputState,
         cursor_state: &CursorLockState,
     ) -> Self {
-        if cursor_state.paused {
-            InputState::Paused
-        } else if command_state.open {
+        // Command input takes highest priority
+        if command_state.open {
             InputState::Command
         } else if inventory_open.0 {
             InputState::Inventory
         } else if interacting_machine.0.is_some() {
             InputState::MachineUI
+        } else if cursor_state.paused {
+            // Only show paused if no other UI is open
+            InputState::Paused
         } else {
             InputState::Gameplay
         }

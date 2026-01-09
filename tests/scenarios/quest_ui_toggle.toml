@@ -1,0 +1,30 @@
+# クエストUI開閉テスト
+# NOTE: UIContext::Questは存在しない - クエストUIはオーバーレイとして常時表示
+# このテストはGameplayのまま動作確認する
+name = "Quest UI Toggle"
+description = "クエストUI関連の入力が正常に処理されることを確認"
+
+# 初期状態: ゲームプレイ中
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# ToggleQuestアクションを送信（状態は変わらないがエラーにならないことを確認）
+[[steps]]
+action = "send_input"
+params = { action = "ToggleQuest" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# UIContextにQuestはないのでGameplayのまま
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

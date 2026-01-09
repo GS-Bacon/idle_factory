@@ -1,0 +1,20 @@
+# プレイヤーテレポートテスト
+name = "Player Teleport Test"
+description = "プレイヤーのテレポートと状態取得をテスト"
+
+# 現在のプレイヤー状態を取得
+[[steps]]
+action = "player_get_state"
+
+# テレポート
+[[steps]]
+action = "player_teleport"
+params = { x = 100.0, y = 50.0, z = 100.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# テレポート後の状態を確認（実際のテレポートはキュー処理なので、成功のみ確認）
+[[steps]]
+action = "player_get_state"

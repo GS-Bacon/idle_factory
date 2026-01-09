@@ -124,10 +124,14 @@ fn can_deliver_from_platform_inventory(
 }
 
 /// Update quest UI (supports multiple required items with progress bars)
+///
+/// NOTE: This system only runs after tutorial is completed.
+/// QuestUI visibility is controlled by UIVisibilityController.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_quest_ui(
     current_quest: Res<CurrentQuest>,
     platform_inventory: LocalPlatformInventory,
+    tutorial_progress: Res<TutorialProgress>,
     mut text_query: Query<&mut Text, With<QuestUIText>>,
     mut button_query: Query<
         (&mut Visibility, &mut BackgroundColor),
@@ -144,6 +148,12 @@ pub fn update_quest_ui(
     >,
     quest_cache: Res<QuestCache>,
 ) {
+    // Skip quest UI updates during tutorial
+    // QuestUI visibility is controlled by UIVisibilityController
+    if !tutorial_progress.completed {
+        return;
+    }
+
     let Ok(mut text) = text_query.get_single_mut() else {
         return;
     };

@@ -135,6 +135,8 @@ pub struct BlockPlaceEvents<'w> {
     pub tutorial: EventWriter<'w, crate::systems::TutorialEvent>,
     pub block_placed: GuardedEventWriter<'w, crate::events::game_events::BlockPlaced>,
     pub machine_spawned: GuardedEventWriter<'w, crate::events::game_events::MachineSpawned>,
+    pub network_block_placed: EventWriter<'w, crate::logistics::network::NetworkBlockPlaced>,
+    pub network_types: Res<'w, crate::logistics::network::NetworkTypeRegistry>,
 }
 
 #[cfg(test)]

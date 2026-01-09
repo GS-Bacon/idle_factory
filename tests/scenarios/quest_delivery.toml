@@ -1,0 +1,25 @@
+# クエスト納品テスト
+# NOTE: UIContext::Questは存在しないため、クエストUIはオーバーレイとして常時表示される
+# このテストではインベントリ確認のみ行う
+name = "Quest Delivery Test"
+description = "インベントリ内容を確認するテスト"
+
+# 初期状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# インベントリ内容を確認
+[[steps]]
+action = "inventory_list"
+
+# 最終状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

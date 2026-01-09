@@ -400,11 +400,25 @@ pub mod items {
         "assembler_block",
         "platform_block",
         "stone_pickaxe",
+        // Network infrastructure
+        "wire",
+        "pipe",
+        "signal_wire",
+        "generator_block",
     ];
 
-    /// Get an ItemId by its base name (e.g., "stone", "iron_ore")
+    /// Get an ItemId by its name
+    ///
+    /// Accepts both short names ("stone") and fully qualified names ("base:stone").
     pub fn by_name(name: &str) -> Option<ItemId> {
         let interner = get_interner();
+
+        // If name already contains a namespace, try it directly
+        if name.contains(':') {
+            return interner.get(name).map(Id::new);
+        }
+
+        // Otherwise, assume base namespace
         let full_id = format!("{}:{}", BASE_NAMESPACE, name);
         interner.get(&full_id).map(Id::new)
     }
@@ -472,6 +486,20 @@ pub mod items {
         by_name("stone_pickaxe").unwrap_or_else(stone)
     }
 
+    // Network infrastructure
+    pub fn wire() -> ItemId {
+        by_name("wire").unwrap_or_else(stone)
+    }
+    pub fn pipe() -> ItemId {
+        by_name("pipe").unwrap_or_else(stone)
+    }
+    pub fn signal_wire() -> ItemId {
+        by_name("signal_wire").unwrap_or_else(stone)
+    }
+    pub fn generator_block() -> ItemId {
+        by_name("generator_block").unwrap_or_else(stone)
+    }
+
     /// Get all base item IDs
     pub fn all() -> Vec<ItemId> {
         BASE_ITEM_NAMES
@@ -523,6 +551,27 @@ pub mod items {
             || item_id == crusher_block()
             || item_id == assembler_block()
             || item_id == platform_block()
+            || item_id == generator_block()
+    }
+
+    /// Check if an item is a network conduit (wire, pipe, signal wire)
+    pub fn is_conduit(item_id: ItemId) -> bool {
+        item_id == wire() || item_id == pipe() || item_id == signal_wire()
+    }
+
+    /// Check if an item is a power conduit (wire)
+    pub fn is_power_conduit(item_id: ItemId) -> bool {
+        item_id == wire()
+    }
+
+    /// Check if an item is a fluid conduit (pipe)
+    pub fn is_fluid_conduit(item_id: ItemId) -> bool {
+        item_id == pipe()
+    }
+
+    /// Check if an item is a signal conduit (signal wire)
+    pub fn is_signal_conduit(item_id: ItemId) -> bool {
+        item_id == signal_wire()
     }
 }
 
@@ -551,7 +600,7 @@ mod tests {
     #[test]
     fn test_base_items_all() {
         let all = items::all();
-        assert_eq!(all.len(), 16); // All 16 base items
+        assert_eq!(all.len(), 20); // All 20 base items (including network infrastructure)
     }
 
     #[test]

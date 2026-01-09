@@ -1,0 +1,31 @@
+# クエスト画面のビジュアルテスト
+# NOTE: UIContext::Questは存在しない - クエストUIはオーバーレイとして常時表示
+name = "Visual Test: Quest Panel (Overlay)"
+description = "ゲームプレイ画面でクエストオーバーレイが表示されることを確認"
+
+# 期待される状態:
+# - UI状態: Gameplay（クエストは別画面ではなくオーバーレイ）
+# - カーソル: ロック中
+# - 画面要素: クエストリスト、進捗表示（オーバーレイ）
+
+# 初期状態を確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 300 }
+
+# スクリーンショット（クエストオーバーレイを含む）
+[[steps]]
+action = "screenshot"
+params = { name = "quest_panel" }
+
+# 状態は変わらない
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

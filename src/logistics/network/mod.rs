@@ -56,6 +56,8 @@ impl Plugin for NetworkPlugin {
             .add_event::<PowerShortage>()
             .add_event::<VirtualLinkAdded>()
             .add_event::<VirtualLinkRemoved>()
+            .add_event::<NetworkBlockPlaced>()
+            .add_event::<NetworkBlockRemoved>()
             // Systems (FixedUpdate for deterministic simulation)
             .add_systems(
                 FixedUpdate,

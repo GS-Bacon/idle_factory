@@ -1,0 +1,47 @@
+# ポーズメニュー画面のビジュアルテスト
+name = "Visual Test: Pause Menu"
+description = "ポーズメニューが正常に表示されることを確認"
+
+# 期待される状態:
+# - UI状態: PauseMenu
+# - カーソル: アンロック
+# - 画面要素: Resume/Quit ボタン、背景暗転
+
+# 初期状態を確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# ポーズメニューを開く (ESC)
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 300 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+# スクリーンショット
+[[steps]]
+action = "screenshot"
+params = { name = "pause_menu" }
+
+# 閉じる (ESC)
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

@@ -485,51 +485,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
                 });
         });
 
-    // Tutorial popup (shown at game start, dismiss on any input)
-    let font_tut = font.clone();
-    commands
-        .spawn((
-            TutorialPopup,
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Percent(30.0),
-                left: Val::Percent(50.0),
-                margin: UiRect {
-                    left: Val::Px(-200.0),
-                    ..default()
-                },
-                padding: UiRect::all(Val::Px(20.0)),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.0),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.1, 0.1, 0.15, 0.95)),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new("Welcome to Idle Factory!"),
-                text_font(&font_tut, 24.0),
-                TextColor(Color::srgb(1.0, 0.9, 0.5)),
-            ));
-            parent.spawn((
-                Text::new(
-                    "操作方法:\n\
-                     WASD - 移動\n\
-                     マウス - 視点操作\n\
-                     左クリック - ブロック採掘\n\
-                     右クリック - 設置/操作\n\
-                     E - インベントリ\n\
-                     1-9/スクロール - ホットバー選択\n\
-                     R - コンベア回転\n\
-                     T or / - コマンド入力\n\
-                     F3 - デバッグ情報\n\
-                     ESC - ポーズ\n\n\
-                     任意のキーでスタート...",
-                ),
-                text_font(&font_tut, 14.0),
-                TextColor(Color::WHITE),
-            ));
-        });
+    // NOTE: Welcome popup removed - tutorial panel provides sufficient guidance
 
     // Tutorial progress panel (shown during tutorial, hidden after completion)
     let font_panel = font.clone();

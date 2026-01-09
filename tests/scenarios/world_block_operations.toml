@@ -1,0 +1,35 @@
+# ワールドブロック操作テスト
+name = "World Block Operations Test"
+description = "ブロックの配置と破壊をテスト"
+
+# プレイヤーが見ているブロックを取得
+[[steps]]
+action = "player_get_looking_at"
+
+# 特定座標のブロックを取得
+[[steps]]
+action = "world_get_block"
+params = { x = 0, y = 10, z = 0 }
+
+# ブロックを配置（キューに追加）
+[[steps]]
+action = "world_place_block"
+params = { x = 5, y = 15, z = 5, item_id = "base:stone" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# ブロックを破壊（キューに追加）
+[[steps]]
+action = "world_break_block"
+params = { x = 5, y = 15, z = 5 }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# レイキャストテスト
+[[steps]]
+action = "world_raycast"
+params = { origin = [0.0, 50.0, 0.0], direction = [0.0, -1.0, 0.0], max_distance = 100.0 }

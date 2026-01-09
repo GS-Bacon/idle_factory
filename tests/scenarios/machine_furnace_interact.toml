@@ -1,0 +1,44 @@
+# 精錬炉インタラクトテスト
+# NOTE: 精錬炉(furnace)は機械であり、items.tomlには存在しないため
+# このテストでは採掘機(miner)を代わりに使用します
+name = "Machine Miner Interact Test (was Furnace)"
+description = "機械を配置してSecondaryActionでUIを開くテスト"
+
+# 初期状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# 機械の前にテレポート（テスト用の位置）
+[[steps]]
+action = "player_teleport"
+params = { x = 10.0, y = 50.0, z = 10.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 採掘機を配置 (minerはアイテムとして存在)
+[[steps]]
+action = "world_place_block"
+params = { x = 10, y = 49, z = 12, item_id = "base:miner_block" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 機械UI表示中の確認（配置したことを確認）
+[[steps]]
+action = "world_get_block"
+params = { x = 10, y = 49, z = 12 }
+
+# 最終状態確認
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

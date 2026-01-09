@@ -31,6 +31,8 @@ pub struct UIState {
     /// 画面のスタック。末尾が現在アクティブな画面。
     /// 空の場合は Gameplay 状態とみなす。
     stack: Vec<UIContext>,
+    /// 設定画面が開いているか（ポーズメニューの子画面）
+    pub settings_open: bool,
 }
 
 impl UIState {
@@ -92,6 +94,62 @@ impl UIState {
             UIContext::Machine(entity) => Some(entity),
             _ => None,
         }
+    }
+
+    /// Get list of visible UI elements (for E2E testing)
+    pub fn visible_elements(&self) -> Vec<String> {
+        let mut elements = Vec::new();
+
+        // Add current context as visible element
+        match self.current() {
+            UIContext::Gameplay => {
+                elements.push("Hotbar".to_string());
+                elements.push("Crosshair".to_string());
+            }
+            UIContext::Inventory => {
+                elements.push("InventoryPanel".to_string());
+                elements.push("EquipmentSlots".to_string());
+                elements.push("CraftingList".to_string());
+            }
+            UIContext::GlobalInventory => {
+                elements.push("GlobalInventoryPanel".to_string());
+            }
+            UIContext::CommandInput => {
+                elements.push("CommandInputField".to_string());
+            }
+            UIContext::PauseMenu => {
+                elements.push("PauseMenuPanel".to_string());
+                elements.push("ResumeButton".to_string());
+                elements.push("SettingsButton".to_string());
+                elements.push("QuitButton".to_string());
+            }
+            UIContext::Settings => {
+                elements.push("SettingsPanel".to_string());
+                elements.push("BackButton".to_string());
+                // Settings controls
+                elements.push("Slider_MouseSensitivity".to_string());
+                elements.push("Slider_ViewDistance".to_string());
+                elements.push("Slider_Fov".to_string());
+                elements.push("Slider_MasterVolume".to_string());
+                elements.push("Slider_SfxVolume".to_string());
+                elements.push("Slider_MusicVolume".to_string());
+                elements.push("Toggle_VSync".to_string());
+                elements.push("Toggle_Fullscreen".to_string());
+                elements.push("Toggle_InvertY".to_string());
+            }
+            UIContext::Machine(_) => {
+                elements.push("MachineUIPanel".to_string());
+                elements.push("InputSlots".to_string());
+                elements.push("OutputSlots".to_string());
+            }
+        }
+
+        // Add settings if open
+        if self.settings_open {
+            elements.push("SettingsPanel".to_string());
+        }
+
+        elements
     }
 }
 
