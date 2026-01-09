@@ -130,9 +130,15 @@ pub fn ui_escape_handler(
 pub fn ui_inventory_handler(
     input: Res<InputManager>,
     ui_state: Res<UIState>,
+    command_state: Res<CommandInputState>,
     mut action_writer: EventWriter<UIAction>,
 ) {
     if !input.just_pressed(GameAction::ToggleInventory) {
+        return;
+    }
+
+    // Don't toggle inventory if command input is open (typing 'e')
+    if command_state.open {
         return;
     }
 

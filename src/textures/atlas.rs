@@ -326,6 +326,11 @@ impl TextureRegistry {
         self.source_images.contains(&id)
     }
 
+    /// Check if an asset ID belongs to a pending texture (for load completion detection)
+    pub fn has_pending_texture(&self, id: AssetId<Image>) -> bool {
+        self.texture_handles.values().any(|h| h.id() == id)
+    }
+
     /// Rebuild the atlas from source images
     pub fn rebuild_atlas(&mut self, images: &mut Assets<Image>) {
         self.build_atlas(images);

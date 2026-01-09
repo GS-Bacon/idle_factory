@@ -65,7 +65,7 @@ pub fn setup_settings_ui(commands: &mut Commands, font: &Handle<Font>) {
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-            GlobalZIndex(101), // Above pause menu
+            GlobalZIndex(200), // Well above pause menu to prevent UI conflicts
             Visibility::Hidden,
         ))
         .with_children(|root| {

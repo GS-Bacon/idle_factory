@@ -39,8 +39,6 @@ pub fn toggle_cursor_lock(
         // Use Locked mode - it properly captures relative mouse motion
         // Confined mode causes issues where mouse hits window edge and spins
         cursor::lock_cursor(&mut window);
-        // Mark that we just locked - skip next block break to avoid accidental destruction
-        cursor_state.just_locked = true;
         cursor_state.paused = false;
     }
 }

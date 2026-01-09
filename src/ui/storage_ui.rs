@@ -179,6 +179,7 @@ pub fn update_global_inventory_ui(
 
 /// Handle category tab clicks
 pub fn global_inventory_category_click(
+    global_inv_open: Res<GlobalInventoryOpen>,
     mut category: ResMut<GlobalInventoryCategory>,
     mut page: ResMut<GlobalInventoryPage>,
     mut button_query: Query<
@@ -190,6 +191,11 @@ pub fn global_inventory_category_click(
         Changed<Interaction>,
     >,
 ) {
+    // Only handle clicks when global inventory is actually open
+    if !global_inv_open.0 {
+        return;
+    }
+
     for (interaction, tab, mut bg_color) in button_query.iter_mut() {
         match *interaction {
             Interaction::Pressed => {

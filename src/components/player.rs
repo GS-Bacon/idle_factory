@@ -40,8 +40,6 @@ pub struct CursorLockState {
     pub skip_frames: u8,
     /// Last mouse position for calculating delta in RDP/absolute mode
     pub last_mouse_pos: Option<Vec2>,
-    /// Skip next block break (used when resuming from pointer lock release)
-    pub just_locked: bool,
     /// Game is paused (ESC pressed, waiting for click to resume)
     pub paused: bool,
     /// Skip inventory toggle this frame (used when closing machine UI with E key)

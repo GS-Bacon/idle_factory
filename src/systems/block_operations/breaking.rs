@@ -35,7 +35,7 @@ pub fn block_break(
     mut player_inventory: LocalPlayerInventory,
     windows: Query<&Window>,
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
-    mut cursor_state: ResMut<CursorLockState>,
+    cursor_state: Res<CursorLockState>,
     input_resources: InputStateResources,
     target_block: Res<TargetBlock>,
     mut world_data: ResMut<WorldData>,
@@ -58,13 +58,6 @@ pub fn block_break(
     // Use InputState to check if block actions are allowed
     let input_state = input_resources.get_state_with(&cursor_state);
     if !input_state.allows_block_actions() || !cursor_locked {
-        breaking_progress.reset();
-        return;
-    }
-
-    // Skip block break if we just locked the cursor
-    if cursor_state.just_locked {
-        cursor_state.just_locked = false;
         breaking_progress.reset();
         return;
     }

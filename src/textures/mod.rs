@@ -74,18 +74,36 @@ fn setup_texture_system(
     );
 }
 
-/// Update texture atlas when resources change
+/// Update texture atlas when resources change or finish loading
 fn update_texture_atlas(
     mut registry: ResMut<TextureRegistry>,
     mut images: ResMut<Assets<Image>>,
     mut ev_asset: EventReader<AssetEvent<Image>>,
 ) {
+    let mut needs_rebuild = false;
+
     for ev in ev_asset.read() {
-        if let AssetEvent::Modified { id } = ev {
-            if registry.needs_rebuild(*id) {
-                registry.rebuild_atlas(&mut images);
+        match ev {
+            // Detect when textures finish loading (initial load)
+            AssetEvent::LoadedWithDependencies { id } => {
+                if registry.has_pending_texture(*id) {
+                    needs_rebuild = true;
+                    info!("Texture loaded: {:?}", id);
+                }
             }
+            // Detect when textures are modified (hot reload)
+            AssetEvent::Modified { id } => {
+                if registry.needs_rebuild(*id) {
+                    needs_rebuild = true;
+                }
+            }
+            _ => {}
         }
+    }
+
+    if needs_rebuild {
+        info!("Rebuilding texture atlas...");
+        registry.rebuild_atlas(&mut images);
     }
 }
 
