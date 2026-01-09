@@ -23,7 +23,7 @@ Minecraft風の3Dボクセル世界で、Factorioのような工場自動化を�
 | コード行数 | **約28,500行** |
 | テスト数 | **593件** |
 | エンジン | Bevy 0.15 |
-| 対応プラットフォーム | Windows, Linux, WASM (Web) |
+| 対応プラットフォーム | Windows, Linux |
 
 ### このプロジェクトの特徴
 
@@ -490,9 +490,6 @@ cargo clippy
 
 # フォーマット
 cargo fmt
-
-# WASMビルド（Web版）
-./scripts/build-wasm.sh
 ```
 
 ---

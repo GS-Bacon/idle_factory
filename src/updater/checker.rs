@@ -12,10 +12,10 @@ const REPO_NAME: &str = "idle_factory";
 /// Current application version (from Cargo.toml at compile time).
 pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// GitHub API URL for latest release (uses 'latest' tag, not the "Latest" marked release)
+/// GitHub API URL for latest release (uses GitHub's "Latest" marked release)
 fn get_releases_url() -> String {
     format!(
-        "https://api.github.com/repos/{}/{}/releases/tags/latest",
+        "https://api.github.com/repos/{}/{}/releases/latest",
         REPO_OWNER, REPO_NAME
     )
 }

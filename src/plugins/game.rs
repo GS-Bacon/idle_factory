@@ -13,6 +13,7 @@ use crate::craft::CraftPlugin;
 use crate::events::GameEventsPlugin;
 use crate::game_spec::RegistryPlugin;
 use crate::input::InputManagerPlugin;
+use crate::logistics::network::NetworkPlugin;
 use crate::map::MapPlugin;
 use crate::modding::ModdingPlugin;
 use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
@@ -72,7 +73,9 @@ impl Plugin for GamePlugin {
             .add_plugins(SkinPlugin)
             .add_plugins(RobotPlugin)
             .add_plugins(TexturePlugin)
-            .add_plugins(ModdingPlugin);
+            .add_plugins(ModdingPlugin)
+            // Resource network (N.1-N.5: power, fluid, signal)
+            .add_plugins(NetworkPlugin);
 
         // Mod API WebSocket server (non-WASM only)
         #[cfg(not(target_arch = "wasm32"))]

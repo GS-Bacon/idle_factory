@@ -156,13 +156,18 @@ ls -lh "$DIST_DIR"/*.{tar.gz,zip} 2>/dev/null || true
 if [ "$UPLOAD" = true ]; then
     info "=== GitHub Releaseにアップロード中 ==="
 
-    # latestリリースが存在しない場合は作成
-    if ! gh release view latest &>/dev/null; then
-        gh release create latest --title "Latest Build" --prerelease --notes "Automatically updated latest build."
+    TAG="v${VERSION}"
+
+    # リリースが存在しない場合は作成
+    if ! gh release view "$TAG" &>/dev/null; then
+        gh release create "$TAG" --title "$TAG" --notes "Release $TAG"
     fi
 
-    # アップロード（既存ファイルは上書き）
-    gh release upload latest "$DIST_DIR"/*.tar.gz "$DIST_DIR"/*.zip --clobber
+    # アップロード（現在バージョンのファイルのみ）
+    gh release upload "$TAG" \
+        "$DIST_DIR/idle_factory_${VERSION}_linux.tar.gz" \
+        "$DIST_DIR/idle_factory_${VERSION}_windows.zip" \
+        --clobber
 
-    info "アップロード完了: https://github.com/GS-Bacon/idle_factory/releases/tag/latest"
+    info "アップロード完了: https://github.com/GS-Bacon/idle_factory/releases/tag/$TAG"
 fi

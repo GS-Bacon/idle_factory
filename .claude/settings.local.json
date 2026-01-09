@@ -391,7 +391,11 @@
       "Bash(gh workflow run:*)",
       "Bash(python scripts/generate-wiki.py:*)",
       "Bash(gh cache list:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(for branch in feat/hide-main-quest-tutorial feat/simplify-biome-hud feat/tutorial-progress-bar fix/furnace-input)",
+      "Bash(gh workflow:*)",
+      "Bash(timeout 300 gemini -m gemini-2.5-pro \"\nあなたはRust/Bevyゲーム開発のアーキテクトです。以下のリソースネットワーク設計をレビューし、見積もりの妥当性を検証してください。\n\n## プロジェクト概要\n- Bevy製のファクトリービルダーゲーム（~35,000行）\n- Modding対応（TOML + WASM）\n- 動的ID方式（ItemId, MachineId）採用済み\n\n## 設計概要\n\n### 目的\n電力・液体・信号を統一的に扱う汎用ネットワーク基盤\n\n### 設計方針\nFactorio Fluids 2.0 方式（セグメント統合）\n- パイプ/電線を1つのセグメントとして扱い、即座に伝播\n- セグメント内は「流れ」の概念なし（シンプル・高性能）\n\n### データ構造\n\n\\\\`\\\\`\\\\`rust\n// ネットワーク種別ID（Mod拡張可能）\npub type NetworkTypeId = Id<NetworkTypeCategory>;\n\npub struct NetworkTypeSpec {\n    pub id: NetworkTypeId,\n    pub name: String,\n    pub has_storage: bool,\n    pub value_type: NetworkValueType,  // Float or Discrete\n    pub propagation: PropagationType,  // Instant, Segment, Distance\n    pub conduit_group: Option<String>,\n}\n\n#[derive\\(Component\\)]\npub struct NetworkSegment {\n    pub id: SegmentId,\n    pub network_type: NetworkType,\n    pub supply: f32,\n    pub demand: f32,\n    pub capacity: f32,    // 液体用\n    pub amount: f32,      // 液体用\n    pub nodes: Vec<Entity>,\n    pub node_positions: HashMap<IVec3, Entity>,\n}\n\npub enum NodeRole { Producer, Consumer, Storage, Conduit }\n\n#[derive\\(Component\\)]\npub struct NetworkPort {\n    pub side: PortSide,\n    pub network_type: NetworkType,\n    pub role: NodeRole,\n    pub segment_id: Option<SegmentId>,\n}\n\\\\`\\\\`\\\\`\n\n### アルゴリズム\n\n1. セグメント検出: Flood Fill（ブロック配置/破壊時に再計算）\n2. 電力分配: 優先度順にソート → 高優先度から満たす\n3. 液体分配: 充填率 × 定格流量\n\n### ファイル構成\n\\\\`\\\\`\\\\`\nsrc/logistics/network/\n├── mod.rs\n├── types.rs\n├── segment.rs\n├── node.rs\n├── conduit.rs\n├── registry.rs\n├── detector.rs\n└── distribution.rs\n\\\\`\\\\`\\\\`\n\n### 現在の見積もり\n| Phase | 時間 |\n|-------|------|\n| Phase 1: 型定義 | 1h |\n| Phase 2: セグメント管理 | 2h |\n| Phase 3: 分配アルゴリズム | 2h |\n| Phase 4: 統合 | 1h |\n| Phase 5: Mod API | 1h |\n| **合計** | **7h** |\n\n## 質問\n\n1. **設計の問題点**: 見落としや矛盾はあるか？\n2. **Factorio方式との差異**: 何か重要な点を見落としているか？\n3. **Bevyとの相性**: ECSパターンとして適切か？\n4. **見積もりの妥当性**: 楽観的すぎ/悲観的すぎの指摘\n5. **リスク**: 実装中にハマりそうなポイント\n6. **代替案**: より良いアプローチがあれば提案\n\n簡潔に回答してください。\n\")",
+      "Bash(while read asset)"
     ]
   },
   "enableAllProjectMcpServers": true,

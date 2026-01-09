@@ -9,12 +9,14 @@
 //! - `events`: Event subscription
 //! - `ui`: UI visibility control
 //! - `textures`: Texture system (atlas, resolvers)
+//! - `network`: Network segments and virtual links
 
 pub mod events;
 pub mod game;
 pub mod items;
 pub mod machines;
 pub mod mod_handlers;
+pub mod network;
 pub mod recipes;
 pub mod test;
 pub mod textures;
@@ -83,6 +85,14 @@ pub fn route_request(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRpcR
         "texture.list" => textures::handle_texture_list(request),
         "texture.get_atlas_info" => textures::handle_get_atlas_info(request),
         "texture.register_resolver" => textures::handle_register_resolver(request),
+        // Network handlers (N.5: resource network API)
+        "network.type.list" => network::handle_network_type_list(request),
+        "network.type.register" => network::handle_network_type_register(request),
+        "network.segment.list" => network::handle_network_segment_list(request),
+        "network.segment.get" => network::handle_network_segment_get(request),
+        "network.virtual_link.add" => network::handle_network_virtual_link_add(request),
+        "network.virtual_link.remove" => network::handle_network_virtual_link_remove(request),
+        "network.virtual_link.list" => network::handle_network_virtual_link_list(request),
         // Enable/disable require mutation, handled separately
         _ => JsonRpcResponse::error(
             request.id,
