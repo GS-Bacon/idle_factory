@@ -38,6 +38,7 @@ impl From<std::io::Error> for HotReloadError {
 }
 
 /// 変更されたModの情報
+#[cfg(debug_assertions)]
 #[derive(Debug, Clone)]
 pub struct ModChange {
     pub mod_id: String,
@@ -151,6 +152,12 @@ impl ModHotReloader {
 }
 
 /// リリースビルドではスタブ実装
+#[cfg(not(debug_assertions))]
+pub struct ModChange {
+    pub mod_id: String,
+    pub wasm_path: std::path::PathBuf,
+}
+
 #[cfg(not(debug_assertions))]
 pub struct ModHotReloader;
 
