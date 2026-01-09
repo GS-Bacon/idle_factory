@@ -1,6 +1,8 @@
-# インベントリ開閉テスト
-name = "インベントリ開閉"
-description = "Eキーでインベントリを開閉できることを確認"
+# ESCでポーズメニュー表示テスト
+# ネイティブ版でESCでポーズ表示を確認
+
+name = "ESCでポーズメニュー表示"
+description = "ゲームプレイ中にESCでポーズメニューが表示されることを確認"
 
 # 初期状態: ゲームプレイ中
 [[steps]]
@@ -10,33 +12,31 @@ action = "get_state"
 action = "assert"
 params = { condition = "ui_state == Gameplay" }
 
-# Eキーでインベントリを開く
+# ESCでポーズメニュー
 [[steps]]
 action = "send_input"
-params = { action = "ToggleInventory" }
+params = { action = "Cancel" }
 
 [[steps]]
 action = "wait"
 params = { ms = 100 }
 
-# インベントリが開いたことを確認
 [[steps]]
 action = "get_state"
 
 [[steps]]
 action = "assert"
-params = { condition = "ui_state == Inventory" }
+params = { condition = "ui_state == PauseMenu" }
 
-# もう一度Eキーで閉じる
+# もう一度ESCで閉じる
 [[steps]]
 action = "send_input"
-params = { action = "ToggleInventory" }
+params = { action = "Cancel" }
 
 [[steps]]
 action = "wait"
 params = { ms = 100 }
 
-# ゲームプレイに戻ったことを確認
 [[steps]]
 action = "get_state"
 

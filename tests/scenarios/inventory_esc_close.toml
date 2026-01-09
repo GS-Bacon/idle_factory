@@ -1,6 +1,8 @@
-# インベントリ開閉テスト
-name = "インベントリ開閉"
-description = "Eキーでインベントリを開閉できることを確認"
+# インベントリをESCで閉じるテスト
+# バグ #10 関連: UI表示中にESCで閉じられることを確認
+
+name = "インベントリをESCで閉じる"
+description = "インベントリ表示中にESCで閉じてゲームプレイに戻れることを確認"
 
 # 初期状態: ゲームプレイ中
 [[steps]]
@@ -10,7 +12,7 @@ action = "get_state"
 action = "assert"
 params = { condition = "ui_state == Gameplay" }
 
-# Eキーでインベントリを開く
+# インベントリを開く（Eキー）
 [[steps]]
 action = "send_input"
 params = { action = "ToggleInventory" }
@@ -19,7 +21,6 @@ params = { action = "ToggleInventory" }
 action = "wait"
 params = { ms = 100 }
 
-# インベントリが開いたことを確認
 [[steps]]
 action = "get_state"
 
@@ -27,19 +28,24 @@ action = "get_state"
 action = "assert"
 params = { condition = "ui_state == Inventory" }
 
-# もう一度Eキーで閉じる
+# ESCで閉じる（Cancel）
 [[steps]]
 action = "send_input"
-params = { action = "ToggleInventory" }
+params = { action = "Cancel" }
 
 [[steps]]
 action = "wait"
 params = { ms = 100 }
 
-# ゲームプレイに戻ったことを確認
 [[steps]]
 action = "get_state"
 
+# ESCでインベントリが閉じてゲームプレイに戻る
 [[steps]]
 action = "assert"
 params = { condition = "ui_state == Gameplay" }
+
+# カーソルロックも復帰
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == true" }

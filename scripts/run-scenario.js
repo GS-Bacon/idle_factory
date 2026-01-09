@@ -16,7 +16,7 @@ const path = require('path');
 const WS_URL = 'ws://127.0.0.1:9877';
 const TIMEOUT = 5000;
 
-// Simple TOML parser (basic, for scenarios only)
+// Better TOML parser for scenarios
 function parseTOML(content) {
     const lines = content.split('\n');
     const result = { steps: [] };
@@ -32,14 +32,44 @@ function parseTOML(content) {
             continue;
         }
 
+        // Match key = value pairs
         const match = trimmed.match(/^(\w+)\s*=\s*(.+)$/);
         if (match) {
-            const [, key, value] = match;
-            const cleanValue = value.replace(/^["']|["']$/g, '');
-            if (currentStep) {
-                currentStep[key] = isNaN(cleanValue) ? cleanValue : Number(cleanValue);
+            const [, key, rawValue] = match;
+            let value;
+
+            // Handle inline table: { key = "value", ... }
+            if (rawValue.startsWith('{') && rawValue.endsWith('}')) {
+                value = {};
+                const inner = rawValue.slice(1, -1).trim();
+                // Parse key = value pairs inside {}
+                const pairs = inner.split(/,\s*(?=\w+\s*=)/);
+                for (const pair of pairs) {
+                    const pairMatch = pair.match(/(\w+)\s*=\s*(.+)/);
+                    if (pairMatch) {
+                        const [, pKey, pVal] = pairMatch;
+                        // Remove quotes and parse value
+                        const cleanVal = pVal.trim().replace(/^["']|["']$/g, '');
+                        value[pKey] = isNaN(cleanVal) ? cleanVal : Number(cleanVal);
+                    }
+                }
+            } else if (rawValue.startsWith('"') || rawValue.startsWith("'")) {
+                // String value
+                value = rawValue.replace(/^["']|["']$/g, '');
+            } else if (rawValue === 'true' || rawValue === 'false') {
+                // Boolean value
+                value = rawValue === 'true';
+            } else if (!isNaN(rawValue)) {
+                // Number value
+                value = Number(rawValue);
             } else {
-                result[key] = cleanValue;
+                value = rawValue;
+            }
+
+            if (currentStep) {
+                currentStep[key] = value;
+            } else {
+                result[key] = value;
             }
         }
     }
@@ -97,41 +127,57 @@ async function runScenario(scenarioPath) {
 
     for (let i = 0; i < scenario.steps.length; i++) {
         const step = scenario.steps[i];
+        const params = step.params || {};
         process.stdout.write(`  Step ${i + 1}: `);
 
         try {
             switch (step.action) {
-                case 'input':
-                    await send('test.send_input', { action: step.key });
-                    console.log(`Input: ${step.key} ✓`);
+                case 'get_state':
+                    const state = await send('test.get_state', {});
+                    // Store state for later use
+                    variables._lastState = state;
+                    console.log(`Get state: ui_state=${state.ui_state} ✓`);
+                    break;
+
+                case 'send_input':
+                    await send('test.send_input', { action: params.action });
+                    console.log(`Send input: ${params.action} ✓`);
                     break;
 
                 case 'wait':
-                    await new Promise(r => setTimeout(r, step.ms));
-                    console.log(`Wait: ${step.ms}ms ✓`);
+                    const ms = params.ms || 100;
+                    await new Promise(r => setTimeout(r, ms));
+                    console.log(`Wait: ${ms}ms ✓`);
                     break;
 
                 case 'assert':
                     // Replace variables in condition
-                    let condition = step.condition;
+                    let condition = params.condition;
                     for (const [varName, varValue] of Object.entries(variables)) {
+                        if (varName.startsWith('_')) continue;
                         condition = condition.replace(`$${varName}`, JSON.stringify(varValue));
                     }
                     const result = await send('test.assert', { condition });
                     if (result.success) {
-                        console.log(`Assert: ${step.condition} ✓`);
+                        console.log(`Assert: ${params.condition} ✓`);
                         passed++;
                     } else {
-                        console.log(`Assert: ${step.condition} ✗`);
+                        console.log(`Assert: ${params.condition} ✗`);
                         console.log(`    Expected: ${result.expected}`);
                         console.log(`    Actual: ${result.actual}`);
                         failed++;
                     }
                     break;
 
+                // Legacy format support
+                case 'input':
+                    await send('test.send_input', { action: step.key });
+                    console.log(`Input: ${step.key} ✓`);
+                    break;
+
                 case 'save':
-                    const state = await send('test.get_state', {});
-                    variables[step.variable] = state[step.field];
+                    const savedState = await send('test.get_state', {});
+                    variables[step.variable] = savedState[step.field];
                     console.log(`Save: ${step.variable} = ${JSON.stringify(variables[step.variable])} ✓`);
                     break;
 
