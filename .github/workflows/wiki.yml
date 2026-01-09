@@ -2,7 +2,9 @@ name: Update Wiki
 
 on:
   push:
-    paths: ['src/modding/**']
+    paths:
+      - 'src/modding/**'
+      - 'wiki/**'
     branches: [master]
   workflow_dispatch:
 
