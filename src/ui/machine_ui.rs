@@ -8,6 +8,7 @@ use crate::setup::ui::{
     text_font, QUEST_BORDER_COLOR, QUEST_PROGRESS_COLOR, QUEST_RADIUS, SLOT_BG, SLOT_BORDER,
     SLOT_BORDER_COLOR, SLOT_RADIUS, SLOT_SIZE,
 };
+use crate::ui::{UIId, UIVisibilityTarget};
 use bevy::prelude::*;
 
 // === Design Rule Constants ===
@@ -89,6 +90,7 @@ pub fn setup_generic_machine_ui(
             GenericMachineUI {
                 machine_id: spec.id,
             },
+            UIVisibilityTarget::new(UIId::Machine),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(25.0),

@@ -1,0 +1,38 @@
+# Event Subscription Test
+# Tests the event subscription system via WebSocket API
+
+name = "Event Subscription Test"
+description = "Test subscribing and unsubscribing to game events"
+
+# Step 1: Check initial state
+[[steps]]
+action = "get_state"
+
+# Step 2: Subscribe to item.delivered events
+[[steps]]
+action = "subscribe"
+params = { event_type = "item.delivered" }
+
+# Step 3: Subscribe to machine.completed events
+[[steps]]
+action = "subscribe"
+params = { event_type = "machine.completed" }
+
+# Step 4: Wait briefly
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Step 5: Unsubscribe from item.delivered
+[[steps]]
+action = "unsubscribe"
+params = { event_type = "item.delivered" }
+
+# Step 6: Verify we can still interact with game state
+[[steps]]
+action = "get_state"
+
+# Step 7: Unsubscribe from machine.completed
+[[steps]]
+action = "unsubscribe"
+params = { event_type = "machine.completed" }

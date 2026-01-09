@@ -16,8 +16,13 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
     Ok(())
 }
 
-/// 機械の状態を取得
-/// 戻り値: 0=正常, 1=処理中, 2=待機中, -1=エラー
+/// Get machine state by entity ID
+///
+/// # Returns
+/// - 0: Idle
+/// - 1: Processing
+/// - 2: Waiting for input
+/// - -1: Error (entity not found)
 fn host_get_machine_state(_caller: Caller<'_, ModState>, entity_id: u64) -> i32 {
     // TODO: 実際のBevy Worldからの状態取得
     // 現在はスタブ実装
@@ -25,8 +30,12 @@ fn host_get_machine_state(_caller: Caller<'_, ModState>, entity_id: u64) -> i32 
     0 // 正常
 }
 
-/// 機械の有効/無効を設定
-/// 戻り値: 0=成功, -1=エンティティ不存在, -2=権限エラー
+/// Enable or disable a machine
+///
+/// # Returns
+/// - 0: Success
+/// - -1: Entity not found
+/// - -2: Permission denied
 fn host_set_machine_enabled(_caller: Caller<'_, ModState>, entity_id: u64, enabled: i32) -> i32 {
     // TODO: 実際のBevy Worldへの状態設定
     tracing::debug!(

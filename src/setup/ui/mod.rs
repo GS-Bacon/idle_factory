@@ -15,6 +15,7 @@ pub use settings_ui::{
 pub use crate::ui::machine_ui::setup_generic_machine_ui;
 
 use crate::components::*;
+use crate::ui::{UIId, UIVisibilityTarget};
 use bevy::prelude::*;
 
 /// Helper to create TextFont with the game font
@@ -116,6 +117,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     commands
         .spawn((
             HotbarUI,
+            UIVisibilityTarget::new(UIId::Hotbar),
             Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(20.0),
@@ -299,6 +301,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     commands
         .spawn((
             QuestUI,
+            UIVisibilityTarget::new(UIId::QuestPanel),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(10.0),
@@ -533,6 +536,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     commands
         .spawn((
             TutorialPanel,
+            UIVisibilityTarget::new(UIId::TutorialPanel),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(60.0),
@@ -625,6 +629,7 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     commands
         .spawn((
             PauseUI,
+            UIVisibilityTarget::new(UIId::PauseMenu),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),

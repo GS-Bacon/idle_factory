@@ -2,11 +2,21 @@
 
 use crate::components::Player;
 use crate::settings::GameSettings;
+use crate::textures::{TextureRegistry, UVCache};
 use crate::world::{ChunkData, ChunkLod, ChunkMesh, ChunkMeshData, ChunkMeshTasks, WorldData};
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use futures_lite::future;
 use std::collections::{HashMap, HashSet};
+
+/// Cached material for chunk rendering with texture atlas
+#[derive(Resource, Default)]
+pub struct ChunkMaterialCache {
+    /// Cached material handle (reused for all chunks)
+    pub material: Option<Handle<StandardMaterial>>,
+    /// Generation counter to detect texture atlas changes
+    pub generation: u32,
+}
 
 /// Calculate LOD for a chunk based on distance from player
 fn calculate_lod(chunk_coord: IVec2, player_chunk: IVec2) -> ChunkLod {
@@ -16,10 +26,16 @@ fn calculate_lod(chunk_coord: IVec2, player_chunk: IVec2) -> ChunkLod {
     ChunkLod::from_distance(distance)
 }
 
-/// Generate chunk data synchronously
-fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
+/// Generate chunk data synchronously with texture UV support
+fn generate_chunk_sync(chunk_coord: IVec2, uv_cache: UVCache) -> ChunkMeshData {
     let chunk_data = ChunkData::generate(chunk_coord);
-    let mesh = chunk_data.generate_mesh(chunk_coord);
+
+    // Use textured mesh generation if UV cache has entries
+    let mesh = if uv_cache.is_empty() {
+        chunk_data.generate_mesh(chunk_coord)
+    } else {
+        chunk_data.generate_mesh_textured(chunk_coord, |_| false, ChunkLod::Full, &uv_cache)
+    };
 
     // Convert flat array to world positions HashMap for ChunkMeshData
     let mut world_blocks = HashMap::new();
@@ -38,12 +54,49 @@ fn generate_chunk_sync(chunk_coord: IVec2) -> ChunkMeshData {
     }
 }
 
+/// Get or create the chunk material with texture atlas
+fn get_chunk_material(
+    cache: &mut ChunkMaterialCache,
+    materials: &mut Assets<StandardMaterial>,
+    texture_registry: &TextureRegistry,
+) -> Handle<StandardMaterial> {
+    // Check if we need to create or update the material
+    if let Some(ref handle) = cache.material {
+        // TODO: Check if texture atlas has changed and needs rebuild
+        return handle.clone();
+    }
+
+    // Create new material with texture atlas
+    let material = if let Some(atlas_image) = texture_registry.atlas_image() {
+        StandardMaterial {
+            base_color: Color::WHITE,
+            base_color_texture: Some(atlas_image),
+            perceptual_roughness: 0.9,
+            reflectance: 0.1,
+            ..default()
+        }
+    } else {
+        // Fallback to solid color material if no atlas
+        StandardMaterial {
+            base_color: Color::WHITE,
+            perceptual_roughness: 0.9,
+            ..default()
+        }
+    };
+
+    let handle = materials.add(material);
+    cache.material = Some(handle.clone());
+    cache.generation += 1;
+    handle
+}
+
 /// Spawn async tasks for chunk generation using background threads
 pub fn spawn_chunk_tasks(
     mut tasks: ResMut<ChunkMeshTasks>,
     world_data: Res<WorldData>,
     player_query: Query<&Transform, With<Player>>,
     settings: Res<GameSettings>,
+    texture_registry: Res<TextureRegistry>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
         return;
@@ -55,6 +108,9 @@ pub fn spawn_chunk_tasks(
 
     // Limit chunks per frame for async generation
     const MAX_SPAWN_PER_FRAME: i32 = 4;
+
+    // Export UV cache once for all tasks this frame
+    let uv_cache = texture_registry.export_uv_cache();
 
     let view_distance = settings.view_distance;
     let mut spawned = 0;
@@ -73,9 +129,13 @@ pub fn spawn_chunk_tasks(
                 continue;
             }
 
-            // Spawn async task
+            // Clone UV cache for this task
+            let uv_cache_clone = uv_cache.clone();
+
+            // Spawn async task with UV cache
             let task_pool = AsyncComputeTaskPool::get();
-            let task = task_pool.spawn(async move { generate_chunk_sync(chunk_coord) });
+            let task =
+                task_pool.spawn(async move { generate_chunk_sync(chunk_coord, uv_cache_clone) });
             tasks.pending.insert(chunk_coord, PendingChunk::Task(task));
 
             spawned += 1;
@@ -84,6 +144,7 @@ pub fn spawn_chunk_tasks(
 }
 
 /// Receive completed chunk meshes and spawn them
+#[allow(clippy::too_many_arguments)]
 pub fn receive_chunk_meshes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -91,6 +152,8 @@ pub fn receive_chunk_meshes(
     mut world_data: ResMut<WorldData>,
     mut tasks: ResMut<ChunkMeshTasks>,
     player_query: Query<&Transform, With<Player>>,
+    mut material_cache: ResMut<ChunkMaterialCache>,
+    texture_registry: Res<TextureRegistry>,
 ) {
     // Get player chunk for LOD calculation
     let player_chunk = player_query
@@ -170,20 +233,20 @@ pub fn receive_chunk_meshes(
         tracing::debug!("Chunk {:?} loaded", coord);
     }
 
+    // Export UV cache for textured mesh generation
+    let uv_cache = texture_registry.export_uv_cache();
+
     // Now regenerate meshes for new chunks and their neighbors (with proper neighbor data)
     for coord in &coords_needing_neighbor_update {
         let coord = *coord;
         // Calculate LOD based on distance from player
         let lod = calculate_lod(coord, player_chunk);
 
-        // Regenerate this chunk's mesh with neighbor awareness and LOD
-        if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(coord, lod) {
+        // Regenerate this chunk's mesh with neighbor awareness, LOD, and textures
+        if let Some(new_mesh) = world_data.generate_chunk_mesh_textured(coord, lod, &uv_cache) {
             let mesh_handle = meshes.add(new_mesh);
-            let material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                perceptual_roughness: 0.9,
-                ..default()
-            });
+            let material =
+                get_chunk_material(&mut material_cache, &mut materials, &texture_registry);
 
             // Find and despawn old mesh entity if exists
             if let Some(entities) = world_data.chunk_entities.remove(&coord) {
@@ -223,14 +286,11 @@ pub fn receive_chunk_meshes(
 
             let neighbor_lod = calculate_lod(neighbor_coord, player_chunk);
             if let Some(new_mesh) =
-                world_data.generate_chunk_mesh_with_lod(neighbor_coord, neighbor_lod)
+                world_data.generate_chunk_mesh_textured(neighbor_coord, neighbor_lod, &uv_cache)
             {
                 let mesh_handle = meshes.add(new_mesh);
-                let material = materials.add(StandardMaterial {
-                    base_color: Color::WHITE,
-                    perceptual_roughness: 0.9,
-                    ..default()
-                });
+                let material =
+                    get_chunk_material(&mut material_cache, &mut materials, &texture_registry);
 
                 if let Some(entities) = world_data.chunk_entities.remove(&neighbor_coord) {
                     for entity in entities {
@@ -307,6 +367,7 @@ pub use crate::world::PendingChunk;
 
 /// Update LOD for chunks based on player distance
 /// Regenerates mesh if LOD level should change
+#[allow(clippy::too_many_arguments)]
 pub fn update_chunk_lod(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -314,6 +375,8 @@ pub fn update_chunk_lod(
     mut world_data: ResMut<WorldData>,
     player_query: Query<&Transform, With<Player>>,
     chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
+    mut material_cache: ResMut<ChunkMaterialCache>,
+    texture_registry: Res<TextureRegistry>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
         return;
@@ -325,6 +388,9 @@ pub fn update_chunk_lod(
     // Limit LOD updates per frame to avoid frame spikes
     const MAX_LOD_UPDATES_PER_FRAME: usize = 2;
     let mut updates = 0;
+
+    // Export UV cache for textured mesh generation
+    let uv_cache = texture_registry.export_uv_cache();
 
     for (entity, chunk_mesh) in chunk_mesh_query.iter() {
         if updates >= MAX_LOD_UPDATES_PER_FRAME {
@@ -343,8 +409,10 @@ pub fn update_chunk_lod(
             continue;
         }
 
-        // Regenerate mesh with new LOD
-        if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(chunk_mesh.coord, new_lod) {
+        // Regenerate mesh with new LOD and textures
+        if let Some(new_mesh) =
+            world_data.generate_chunk_mesh_textured(chunk_mesh.coord, new_lod, &uv_cache)
+        {
             // Despawn old entity
             commands.entity(entity).despawn_recursive();
 
@@ -352,11 +420,8 @@ pub fn update_chunk_lod(
             world_data.chunk_entities.remove(&chunk_mesh.coord);
 
             let mesh_handle = meshes.add(new_mesh);
-            let material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                perceptual_roughness: 0.9,
-                ..default()
-            });
+            let material =
+                get_chunk_material(&mut material_cache, &mut materials, &texture_registry);
 
             let new_entity = commands
                 .spawn((
@@ -386,6 +451,7 @@ pub fn update_chunk_lod(
 
 /// Process dirty chunks - regenerate meshes for chunks that had block changes
 /// Limits regeneration to MAX_DIRTY_PER_FRAME to avoid frame spikes
+#[allow(clippy::too_many_arguments)]
 pub fn process_dirty_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -393,6 +459,8 @@ pub fn process_dirty_chunks(
     mut world_data: ResMut<WorldData>,
     mut dirty_chunks: ResMut<DirtyChunks>,
     player_query: Query<&Transform, With<Player>>,
+    mut material_cache: ResMut<ChunkMaterialCache>,
+    texture_registry: Res<TextureRegistry>,
 ) {
     if dirty_chunks.is_empty() {
         return;
@@ -410,6 +478,9 @@ pub fn process_dirty_chunks(
     // Limit chunks processed per frame to avoid frame spikes
     const MAX_DIRTY_PER_FRAME: usize = 4;
 
+    // Export UV cache for textured mesh generation
+    let uv_cache = texture_registry.export_uv_cache();
+
     let all_dirty = dirty_chunks.take_all();
     let mut processed_count = 0;
 
@@ -422,8 +493,8 @@ pub fn process_dirty_chunks(
         // Calculate LOD for this chunk
         let lod = calculate_lod(coord, player_chunk);
 
-        // Regenerate mesh with LOD
-        if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(coord, lod) {
+        // Regenerate mesh with LOD and textures
+        if let Some(new_mesh) = world_data.generate_chunk_mesh_textured(coord, lod, &uv_cache) {
             // Remove old mesh entity
             if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
                 for entity in old_entities {
@@ -432,11 +503,8 @@ pub fn process_dirty_chunks(
             }
 
             let mesh_handle = meshes.add(new_mesh);
-            let material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                perceptual_roughness: 0.9,
-                ..default()
-            });
+            let material =
+                get_chunk_material(&mut material_cache, &mut materials, &texture_registry);
 
             let entity = commands
                 .spawn((

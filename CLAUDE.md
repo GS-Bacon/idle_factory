@@ -171,15 +171,79 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 - 「次に進みますか？」「続けますか？」は**聞かない**
 - 途中で寝落ちしても翌朝には完了している状態を目指す
 
-## タスク実行ルール（必須）
+## タスク実行ルール（最重要）
 
-**全てのタスクは git worktree + Task tool で並列実行する**（詳細: `./scripts/parallel-run.sh --help`）
+**常に最大限の並列化を行う。直列実行は禁止。**
+
+### 並列化の原則
+
+| 原則 | 詳細 |
+|------|------|
+| **デフォルトは並列** | 直列実行する理由がない限り並列 |
+| **調査は常に並列** | Task(Explore)を複数同時起動 |
+| **実装はファイル分割並列** | 1ファイル1エージェント、同時編集 |
+| **ビルドは最後に1回** | サブエージェントはビルドしない |
+
+### 判断フロー
+
+```
+タスクを受けたら...
+  → 2つ以上に分割できる？
+    → YES → 並列実行
+    → NO → それでも調査と実装は分けて並列化できないか検討
+```
+
+### 計画フェーズ（プランモード時）
+
+**必ず `.claude/plan-template.md` の形式で並列計画を立てる**
+
+```markdown
+## Phase 1: 調査（並列、worktree不要）
+| ID | 調査内容 | 依存 |
+|----|----------|------|
+| R1 | xxx調査 | - |
+| R2 | yyy調査 | - |
+
+## Phase 2: 実装（並列、worktree内）
+| ID | ファイル | 依存 | Group |
+|----|----------|------|-------|
+| I1 | src/a.rs | - | A |
+| I2 | src/b.rs | I1 | B |
+```
+
+### 実行フェーズ
+
+```bash
+# 1. 調査フェーズ（Task tool 並列、worktree不要）
+Task(Explore) × N を同時実行
+
+# 2. 実装フェーズ（worktree内でファイル分割並列）
+./scripts/parallel-run.sh start feature-x
+Task(general-purpose) × N を同時実行（各エージェントは担当ファイルのみ編集）
+# サブエージェントはビルドチェックしない
+
+# 3. 検証フェーズ（直列、1回だけ）
+cargo build && cargo test && cargo clippy
+
+# 4. 完了
+./scripts/parallel-run.sh finish feature-x
+```
+
+### 並列化ルール
+
+| ルール | 詳細 |
+|--------|------|
+| 調査フェーズ | 全て並列、worktree不要 |
+| 実装フェーズ | 同一ファイルは1エージェント限定 |
+| ビルドチェック | worktreeごとに1回（サブエージェントはしない） |
+| 依存順序 | 型定義→使用、実装→mod.rs |
+
+### worktree管理
 
 ```bash
 ./scripts/parallel-run.sh check 2   # 容量チェック（必須）
-./scripts/parallel-run.sh start task-a && ./scripts/parallel-run.sh start task-b
-# Task tool で並列作業
-./scripts/parallel-run.sh finish task-a && ./scripts/parallel-run.sh finish task-b
+./scripts/parallel-run.sh start task-a
+./scripts/parallel-run.sh finish task-a
 ```
 
 **禁止**: 直列実行、masterで直接作業、worktree放置
@@ -307,7 +371,8 @@ params = { condition = "ui_state == Inventory" }
 |--------|------|--------|
 | `gemini <cmd>` | Gemini連携（アーキ設計、レビュー、数学検証） | `gemini --help` |
 | `./scripts/vlm_check.sh` | VLMビジュアルチェック | `scripts/vlm_check/README.md` |
-| `./scripts/parallel-run.sh` | 並列タスク実行 | `--help` |
+| `./scripts/parallel-run.sh` | worktree管理 | `--help` |
+| `./scripts/parallel-plan.sh` | 並列計画の実行 | `--help` |
 | `node scripts/run-scenario.js <file>` | シナリオテスト実行 | 上記「バグ修正ルール」参照 |
 
 ※Gemini使用条件: Gemini 3/2.5モデルの時のみ（トークン制限でモデル切り替わったら使わない）

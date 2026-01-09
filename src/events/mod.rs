@@ -7,8 +7,11 @@
 
 pub mod game_events;
 pub mod guarded_writer;
+pub mod ui_events;
+
 pub use game_events::*;
 pub use guarded_writer::*;
+pub use ui_events::*;
 
 use crate::core::ItemId;
 use bevy::prelude::*;

@@ -7,6 +7,8 @@
 //! - `machines`: Machine registry
 //! - `recipes`: Recipe registry
 //! - `events`: Event subscription
+//! - `ui`: UI visibility control
+//! - `textures`: Texture system (atlas, resolvers)
 
 pub mod events;
 pub mod game;
@@ -15,6 +17,8 @@ pub mod machines;
 pub mod mod_handlers;
 pub mod recipes;
 pub mod test;
+pub mod textures;
+pub mod ui;
 
 pub use events::{EventSubscriptions, EventType, Subscription};
 pub use game::{GameStateInfo, API_VERSION};
@@ -75,6 +79,10 @@ pub fn route_request(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRpcR
         "test.get_state" => test::handle_test_get_state(request, &ctx.test_state),
         "test.send_input" => test::handle_test_send_input(request),
         "test.assert" => test::handle_test_assert(request, &ctx.test_state),
+        // Texture handlers
+        "texture.list" => textures::handle_texture_list(request),
+        "texture.get_atlas_info" => textures::handle_get_atlas_info(request),
+        "texture.register_resolver" => textures::handle_register_resolver(request),
         // Enable/disable require mutation, handled separately
         _ => JsonRpcResponse::error(
             request.id,

@@ -4,8 +4,10 @@
 //! - Query game state
 //! - Inject virtual input
 //! - Run assertions
+//! - Subscribe to game events
 
 use super::super::protocol::{JsonRpcRequest, JsonRpcResponse, INVALID_PARAMS};
+use super::events::{EventSubscriptions, EventType};
 use super::TestStateInfo;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +21,14 @@ pub struct GameStateResult {
     pub paused: bool,
 }
 
+/// Handle test.get_state request
+///
+/// Returns current game state for E2E testing.
+///
+/// # Response
+/// ```json
+/// { "ui_state": "Gameplay", "player_position": [0.0, 10.0, 0.0], "cursor_locked": true }
+/// ```
 pub fn handle_test_get_state(
     request: &JsonRpcRequest,
     test_state: &TestStateInfo,
@@ -40,6 +50,14 @@ pub struct SendInputParams {
     pub action: String, // "ToggleInventory", "MoveForward", etc.
 }
 
+/// Handle test.send_input request
+///
+/// Injects virtual input for E2E testing.
+///
+/// # Response
+/// ```json
+/// { "success": true, "action": "ToggleInventory" }
+/// ```
 pub fn handle_test_send_input(request: &JsonRpcRequest) -> JsonRpcResponse {
     // パラメータをパース
     let params: SendInputParams = match serde_json::from_value(request.params.clone()) {
@@ -71,6 +89,14 @@ pub struct AssertParams {
     pub condition: String, // "ui_state == Inventory"
 }
 
+/// Handle test.assert request
+///
+/// Evaluates a condition against game state for E2E testing.
+///
+/// # Response
+/// ```json
+/// { "success": true, "expected": "Inventory", "actual": "Inventory" }
+/// ```
 pub fn handle_test_assert(request: &JsonRpcRequest, test_state: &TestStateInfo) -> JsonRpcResponse {
     let params: AssertParams = match serde_json::from_value(request.params.clone()) {
         Ok(p) => p,
@@ -147,9 +173,150 @@ fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, 
     (success, expected.to_string(), actual)
 }
 
+// === test.subscribe_event ===
+
+#[derive(Deserialize)]
+pub struct SubscribeEventParams {
+    pub event_type: String, // "item.delivered", "block.placed", etc.
+}
+
+/// Subscribe to game events for test monitoring
+pub fn handle_test_subscribe_event(
+    request: &JsonRpcRequest,
+    conn_id: u64,
+    subscriptions: &mut EventSubscriptions,
+) -> JsonRpcResponse {
+    let params: SubscribeEventParams = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    // Parse event type
+    let Some(event_type) = EventType::parse(&params.event_type) else {
+        let valid_types: Vec<&str> = EventType::all().iter().map(|e| e.as_str()).collect();
+        return JsonRpcResponse::error_with_data(
+            request.id,
+            INVALID_PARAMS,
+            format!("Unknown event type: {}", params.event_type),
+            serde_json::json!({ "valid_types": valid_types }),
+        );
+    };
+
+    // Create subscription
+    let subscription_id = subscriptions.subscribe(conn_id, event_type);
+
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "subscription_id": subscription_id,
+            "event_type": params.event_type
+        }),
+    )
+}
+
+// === test.unsubscribe_event ===
+
+#[derive(Deserialize)]
+pub struct UnsubscribeEventParams {
+    pub subscription_id: String,
+}
+
+/// Unsubscribe from game events
+pub fn handle_test_unsubscribe_event(
+    request: &JsonRpcRequest,
+    subscriptions: &mut EventSubscriptions,
+) -> JsonRpcResponse {
+    let params: UnsubscribeEventParams = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    let removed = subscriptions.unsubscribe(&params.subscription_id);
+
+    if removed {
+        JsonRpcResponse::success(
+            request.id,
+            serde_json::json!({
+                "success": true
+            }),
+        )
+    } else {
+        JsonRpcResponse::error(
+            request.id,
+            INVALID_PARAMS,
+            format!("Subscription not found: {}", params.subscription_id),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_handle_test_subscribe_event() {
+        let mut subs = EventSubscriptions::default();
+        let request = JsonRpcRequest::new(
+            1,
+            "test.subscribe_event",
+            serde_json::json!({ "event_type": "item.delivered" }),
+        );
+        let response = handle_test_subscribe_event(&request, 42, &mut subs);
+        assert!(response.is_success());
+
+        let result = response.result.unwrap();
+        assert_eq!(result["success"], true);
+        assert!(result["subscription_id"]
+            .as_str()
+            .unwrap()
+            .starts_with("sub_"));
+        assert_eq!(result["event_type"], "item.delivered");
+    }
+
+    #[test]
+    fn test_handle_test_subscribe_event_invalid_type() {
+        let mut subs = EventSubscriptions::default();
+        let request = JsonRpcRequest::new(
+            1,
+            "test.subscribe_event",
+            serde_json::json!({ "event_type": "invalid.event" }),
+        );
+        let response = handle_test_subscribe_event(&request, 42, &mut subs);
+        assert!(response.is_error());
+        assert!(response
+            .error
+            .unwrap()
+            .message
+            .contains("Unknown event type"));
+    }
+
+    #[test]
+    fn test_handle_test_unsubscribe_event() {
+        let mut subs = EventSubscriptions::default();
+        let sub_id = subs.subscribe(42, EventType::ItemDelivered);
+
+        let request = JsonRpcRequest::new(
+            1,
+            "test.unsubscribe_event",
+            serde_json::json!({ "subscription_id": sub_id }),
+        );
+        let response = handle_test_unsubscribe_event(&request, &mut subs);
+        assert!(response.is_success());
+        assert_eq!(subs.count(), 0);
+    }
 
     #[test]
     fn test_handle_test_get_state() {

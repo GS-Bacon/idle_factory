@@ -15,6 +15,7 @@ const path = require('path');
 
 const WS_URL = 'ws://127.0.0.1:9877';
 const TIMEOUT = 5000;
+const EVENT_TIMEOUT = 10000; // Longer timeout for waiting events
 
 // Better TOML parser for scenarios
 function parseTOML(content) {
@@ -91,6 +92,21 @@ async function runScenario(scenarioPath) {
     const ws = new WebSocket(WS_URL);
     let requestId = 1;
     const variables = {};
+    const subscriptions = {}; // event_type -> subscription_id
+    const eventQueue = []; // Received events
+
+    // Handle incoming notifications
+    ws.on('message', (data) => {
+        const msg = JSON.parse(data.toString());
+        // JSON-RPC notification (no id field)
+        if (!msg.id && msg.method && msg.method.startsWith('event.')) {
+            eventQueue.push({
+                type: msg.params?.event_type,
+                data: msg.params,
+                timestamp: Date.now()
+            });
+        }
+    });
 
     const send = (method, params = {}) => {
         return new Promise((resolve, reject) => {
@@ -112,6 +128,32 @@ async function runScenario(scenarioPath) {
 
             ws.on('message', handler);
             ws.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+        });
+    };
+
+    const waitForEvent = (eventType, timeoutMs = EVENT_TIMEOUT) => {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+
+            const check = () => {
+                // Look for matching event in queue
+                const idx = eventQueue.findIndex(e => e.type === eventType);
+                if (idx !== -1) {
+                    const event = eventQueue.splice(idx, 1)[0];
+                    resolve(event.data);
+                    return;
+                }
+
+                // Check timeout
+                if (Date.now() - startTime > timeoutMs) {
+                    reject(new Error(`Timeout waiting for event: ${eventType}`));
+                    return;
+                }
+
+                // Check again soon
+                setTimeout(check, 50);
+            };
+            check();
         });
     };
 
@@ -179,6 +221,66 @@ async function runScenario(scenarioPath) {
                     const savedState = await send('test.get_state', {});
                     variables[step.variable] = savedState[step.field];
                     console.log(`Save: ${step.variable} = ${JSON.stringify(variables[step.variable])} ✓`);
+                    break;
+
+                case 'subscribe':
+                    // Subscribe to an event type
+                    const eventType = params.event_type;
+                    const subResult = await send('test.subscribe_event', { event_type: eventType });
+                    if (subResult.success) {
+                        subscriptions[eventType] = subResult.subscription_id;
+                        console.log(`Subscribe: ${eventType} (id=${subResult.subscription_id}) ✓`);
+                    } else {
+                        throw new Error(`Failed to subscribe to ${eventType}`);
+                    }
+                    break;
+
+                case 'unsubscribe':
+                    // Unsubscribe from an event type
+                    const unsubType = params.event_type;
+                    const subId = subscriptions[unsubType];
+                    if (subId) {
+                        await send('test.unsubscribe_event', { subscription_id: subId });
+                        delete subscriptions[unsubType];
+                        console.log(`Unsubscribe: ${unsubType} ✓`);
+                    } else {
+                        console.log(`Unsubscribe: ${unsubType} (not subscribed) ✓`);
+                    }
+                    break;
+
+                case 'wait_for_event':
+                    // Wait for a specific event
+                    const waitType = params.event_type;
+                    const timeoutMs = params.timeout_ms || EVENT_TIMEOUT;
+                    const eventData = await waitForEvent(waitType, timeoutMs);
+                    variables._lastEvent = eventData;
+                    console.log(`Wait for event: ${waitType} received ✓`);
+                    if (params.store_as) {
+                        variables[params.store_as] = eventData;
+                    }
+                    break;
+
+                case 'assert_event':
+                    // Assert on the last received event
+                    const eventCond = params.condition;
+                    const lastEvent = variables._lastEvent;
+                    if (!lastEvent) {
+                        console.log(`Assert event: no event received ✗`);
+                        failed++;
+                        break;
+                    }
+                    // Simple field comparison
+                    const [field, expectedVal] = eventCond.split('==').map(s => s.trim());
+                    const actualVal = lastEvent[field];
+                    if (String(actualVal) === expectedVal || actualVal === expectedVal) {
+                        console.log(`Assert event: ${eventCond} ✓`);
+                        passed++;
+                    } else {
+                        console.log(`Assert event: ${eventCond} ✗`);
+                        console.log(`    Expected: ${expectedVal}`);
+                        console.log(`    Actual: ${actualVal}`);
+                        failed++;
+                    }
                     break;
 
                 default:

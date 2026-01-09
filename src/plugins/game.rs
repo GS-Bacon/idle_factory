@@ -38,6 +38,7 @@ use crate::systems::{
     update_quest_ui, update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent,
     LookEvent, ScreenshotEvent, SetBlockEvent, TeleportEvent,
 };
+use crate::textures::TexturePlugin;
 use crate::ui::{
     global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
     setup_global_inventory_ui, update_global_inventory_ui, update_global_inventory_visibility,
@@ -70,6 +71,7 @@ impl Plugin for GamePlugin {
             .add_plugins(AchievementsPlugin)
             .add_plugins(SkinPlugin)
             .add_plugins(RobotPlugin)
+            .add_plugins(TexturePlugin)
             .add_plugins(ModdingPlugin);
 
         // Mod API WebSocket server (non-WASM only)
@@ -80,9 +82,9 @@ impl Plugin for GamePlugin {
         #[cfg(not(target_arch = "wasm32"))]
         app.add_plugins(crate::modding::EventBridgePlugin);
 
-        // Initialize event subscriptions for Mod API (non-WASM only)
+        // Event notifier for WebSocket subscriptions (non-WASM only)
         #[cfg(not(target_arch = "wasm32"))]
-        app.init_resource::<crate::modding::handlers::EventSubscriptions>();
+        app.add_plugins(crate::modding::EventNotifierPlugin);
 
         // Initialize resources
         // NOTE: GlobalInventory Resource removed - PlatformInventory is now a Component
@@ -99,6 +101,7 @@ impl Plugin for GamePlugin {
             .init_resource::<GameFont>()
             .init_resource::<ChunkMeshTasks>()
             .init_resource::<DirtyChunks>()
+            .init_resource::<crate::systems::chunk::ChunkMaterialCache>()
             .init_resource::<CreativeMode>()
             .init_resource::<ContinuousActionTimer>()
             .init_resource::<GlobalInventoryOpen>()

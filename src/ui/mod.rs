@@ -4,6 +4,7 @@
 
 pub mod machine_ui;
 pub mod storage_ui;
+pub mod visibility;
 pub mod widgets;
 
 pub use storage_ui::{
@@ -17,3 +18,4 @@ pub use widgets::{
 };
 
 pub use machine_ui::setup_generic_machine_ui;
+pub use visibility::{UIId, UIVisibilityTarget};

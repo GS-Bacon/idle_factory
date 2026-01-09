@@ -3,11 +3,11 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    tutorial_steps, InventoryUI, TutorialAction, TutorialPanel, TutorialProgress,
-    TutorialProgressBarBg, TutorialProgressBarFill, TutorialProgressText, TutorialShown,
-    TutorialStepText,
+    tutorial_steps, InventoryUI, TutorialAction, TutorialProgress, TutorialProgressBarBg,
+    TutorialProgressBarFill, TutorialProgressText, TutorialShown, TutorialStepText,
 };
 use crate::core::ItemId;
+use crate::events::UIConditionChanged;
 use crate::player::LocalPlatformInventory;
 
 /// Event for tutorial action notifications
@@ -78,6 +78,7 @@ pub fn track_inventory_open(
 pub fn process_tutorial_events(
     mut events: EventReader<TutorialEvent>,
     mut progress: ResMut<TutorialProgress>,
+    mut ui_events: EventWriter<UIConditionChanged>,
 ) {
     if progress.completed {
         events.clear();
@@ -144,63 +145,41 @@ pub fn process_tutorial_events(
 
             if progress.completed {
                 info!("All tutorials completed!");
+                // Fire UIConditionChanged event for visibility control
+                ui_events.send(UIConditionChanged::TutorialCompleted);
             }
             return;
         }
     }
 }
 
-/// Update tutorial UI panel
+/// Update tutorial UI panel content (text, progress bar)
+///
+/// Note: Visibility is now controlled by UIVisibilityController.
+/// This function only updates the content when the tutorial is active.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn update_tutorial_ui(
     progress: Res<TutorialProgress>,
     tutorial_shown: Res<TutorialShown>,
-    mut panel_query: Query<&mut Visibility, With<TutorialPanel>>,
-    mut quest_query: Query<&mut Visibility, (With<crate::QuestUI>, Without<TutorialPanel>)>,
     mut text_query: Query<&mut Text, With<TutorialStepText>>,
     mut progress_text_query: Query<
         (&mut Text, &mut Visibility),
         (
             With<TutorialProgressText>,
             Without<TutorialStepText>,
-            Without<TutorialPanel>,
-            Without<crate::QuestUI>,
             Without<TutorialProgressBarBg>,
         ),
     >,
     mut progress_bar_bg_query: Query<
         &mut Visibility,
-        (
-            With<TutorialProgressBarBg>,
-            Without<TutorialPanel>,
-            Without<TutorialProgressText>,
-            Without<crate::QuestUI>,
-        ),
+        (With<TutorialProgressBarBg>, Without<TutorialProgressText>),
     >,
     mut progress_bar_fill_query: Query<&mut Node, With<TutorialProgressBarFill>>,
 ) {
-    // Quest UI visibility: only show when tutorial is completed
-    // Must run BEFORE early return to ensure QuestUI is controlled even if TutorialPanel is missing
-    if let Ok(mut quest_vis) = quest_query.get_single_mut() {
-        *quest_vis = if progress.completed {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
-
-    let Ok(mut panel_vis) = panel_query.get_single_mut() else {
-        return;
-    };
-
-    // Hide tutorial panel if tutorials completed or initial popup still showing
+    // Don't update content if tutorials completed or initial popup still showing
     if progress.completed || !tutorial_shown.0 {
-        *panel_vis = Visibility::Hidden;
         return;
     }
-
-    // Show tutorial panel during tutorial
-    *panel_vis = Visibility::Visible;
 
     if let Some(step) = progress.current() {
         // Update step text

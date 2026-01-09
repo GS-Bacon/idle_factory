@@ -10,6 +10,7 @@ pub use biome::{mining_random, BiomeMap};
 
 use crate::constants::*;
 use crate::core::{items, ItemId};
+use crate::textures::UVCache;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::tasks::Task;
@@ -669,6 +670,290 @@ impl ChunkData {
     pub fn generate_mesh_with_lod(&self, chunk_coord: IVec2, lod: ChunkLod) -> Mesh {
         self.generate_mesh_with_neighbors(chunk_coord, |_| false, lod)
     }
+
+    /// Generate mesh with texture UV coordinates from cache
+    pub fn generate_mesh_textured<F>(
+        &self,
+        chunk_coord: IVec2,
+        neighbor_checker: F,
+        lod: ChunkLod,
+        uv_cache: &UVCache,
+    ) -> Mesh
+    where
+        F: Fn(IVec3) -> bool,
+    {
+        let min_y = lod.min_y();
+        let estimated_faces = (CHUNK_SIZE * CHUNK_SIZE) as usize;
+        let mut positions: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
+        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
+        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(estimated_faces * 4);
+        let mut colors: Vec<[f32; 4]> = Vec::with_capacity(estimated_faces * 4);
+        let mut indices: Vec<u32> = Vec::with_capacity(estimated_faces * 6);
+
+        let chunk_world_x = (chunk_coord.x * CHUNK_SIZE) as f32;
+        let chunk_world_z = (chunk_coord.y * CHUNK_SIZE) as f32;
+
+        let has_neighbor = |x: i32, y: i32, z: i32, dx: i32, dy: i32, dz: i32| -> bool {
+            let nx = x + dx;
+            let ny = y + dy;
+            let nz = z + dz;
+            if (0..CHUNK_SIZE).contains(&nx)
+                && (0..CHUNK_HEIGHT).contains(&ny)
+                && (0..CHUNK_SIZE).contains(&nz)
+            {
+                self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
+            } else if !(0..CHUNK_HEIGHT).contains(&ny) {
+                false
+            } else {
+                let world_pos = IVec3::new(
+                    chunk_coord.x * CHUNK_SIZE + nx,
+                    ny,
+                    chunk_coord.y * CHUNK_SIZE + nz,
+                );
+                neighbor_checker(world_pos)
+            }
+        };
+
+        // Face configs with BlockFace index mapping
+        // (axis, positive, face_index)
+        // BlockFace order: 0=Top, 1=Bottom, 2=North, 3=South, 4=East, 5=West
+        let face_configs: [(usize, bool, u8); 6] = [
+            (1, true, 0),  // +Y = Top
+            (1, false, 1), // -Y = Bottom
+            (0, true, 4),  // +X = East
+            (0, false, 5), // -X = West
+            (2, true, 3),  // +Z = South
+            (2, false, 2), // -Z = North
+        ];
+
+        let axis_sizes = [CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE];
+
+        for (axis, positive, face_idx) in face_configs {
+            let (axis1, axis2) = match axis {
+                0 => (1, 2),
+                1 => (0, 2),
+                2 => (0, 1),
+                _ => unreachable!(),
+            };
+
+            let d = if positive { 1 } else { -1 };
+
+            for slice in 0..axis_sizes[axis] {
+                let mut mask: Vec<Vec<Option<ItemId>>> =
+                    vec![vec![None; axis_sizes[axis2] as usize]; axis_sizes[axis1] as usize];
+
+                for u in 0..axis_sizes[axis1] {
+                    for v in 0..axis_sizes[axis2] {
+                        let (x, y, z) = match axis {
+                            0 => (slice, u, v),
+                            1 => (u, slice, v),
+                            2 => (u, v, slice),
+                            _ => unreachable!(),
+                        };
+
+                        if y < min_y {
+                            continue;
+                        }
+
+                        if let Some(item_id) = self.get_block(x, y, z) {
+                            let (dx, dy, dz) = match axis {
+                                0 => (d, 0, 0),
+                                1 => (0, d, 0),
+                                2 => (0, 0, d),
+                                _ => unreachable!(),
+                            };
+                            if !has_neighbor(x, y, z, dx, dy, dz) {
+                                mask[u as usize][v as usize] = Some(item_id);
+                            }
+                        }
+                    }
+                }
+
+                let mut processed =
+                    vec![vec![false; axis_sizes[axis2] as usize]; axis_sizes[axis1] as usize];
+
+                for u in 0..axis_sizes[axis1] as usize {
+                    for v in 0..axis_sizes[axis2] as usize {
+                        if processed[u][v] || mask[u][v].is_none() {
+                            continue;
+                        }
+
+                        let item_id = mask[u][v].unwrap();
+
+                        // Find width (extend in v direction)
+                        let mut width = 1;
+                        while v + width < axis_sizes[axis2] as usize
+                            && !processed[u][v + width]
+                            && mask[u][v + width] == Some(item_id)
+                        {
+                            width += 1;
+                        }
+
+                        // Find height (extend in u direction)
+                        let mut height = 1;
+                        'outer: while u + height < axis_sizes[axis1] as usize {
+                            for w in 0..width {
+                                if processed[u + height][v + w]
+                                    || mask[u + height][v + w] != Some(item_id)
+                                {
+                                    break 'outer;
+                                }
+                            }
+                            height += 1;
+                        }
+
+                        // Mark as processed
+                        for du in 0..height {
+                            for dv in 0..width {
+                                processed[u + du][v + dv] = true;
+                            }
+                        }
+
+                        // Generate quad with textured UVs
+                        let color = item_id.color();
+                        let color_arr = [
+                            color.to_srgba().red,
+                            color.to_srgba().green,
+                            color.to_srgba().blue,
+                            1.0,
+                        ];
+
+                        let u0f = u as f32;
+                        let v0f = v as f32;
+                        let u1f = (u + height) as f32;
+                        let v1f = (v + width) as f32;
+
+                        let (verts, normal): ([[f32; 3]; 4], [f32; 3]) = match (axis, positive) {
+                            (0, true) => {
+                                let x = chunk_world_x + (slice + 1) as f32;
+                                (
+                                    [
+                                        [x, u0f, chunk_world_z + v0f],
+                                        [x, u1f, chunk_world_z + v0f],
+                                        [x, u1f, chunk_world_z + v1f],
+                                        [x, u0f, chunk_world_z + v1f],
+                                    ],
+                                    [1.0, 0.0, 0.0],
+                                )
+                            }
+                            (0, false) => {
+                                let x = chunk_world_x + slice as f32;
+                                (
+                                    [
+                                        [x, u0f, chunk_world_z + v0f],
+                                        [x, u0f, chunk_world_z + v1f],
+                                        [x, u1f, chunk_world_z + v1f],
+                                        [x, u1f, chunk_world_z + v0f],
+                                    ],
+                                    [-1.0, 0.0, 0.0],
+                                )
+                            }
+                            (1, true) => {
+                                let y = (slice + 1) as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, y, chunk_world_z + v0f],
+                                        [chunk_world_x + u0f, y, chunk_world_z + v1f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v1f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v0f],
+                                    ],
+                                    [0.0, 1.0, 0.0],
+                                )
+                            }
+                            (1, false) => {
+                                let y = slice as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, y, chunk_world_z + v0f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v0f],
+                                        [chunk_world_x + u1f, y, chunk_world_z + v1f],
+                                        [chunk_world_x + u0f, y, chunk_world_z + v1f],
+                                    ],
+                                    [0.0, -1.0, 0.0],
+                                )
+                            }
+                            (2, true) => {
+                                let z = chunk_world_z + (slice + 1) as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, v0f, z],
+                                        [chunk_world_x + u1f, v0f, z],
+                                        [chunk_world_x + u1f, v1f, z],
+                                        [chunk_world_x + u0f, v1f, z],
+                                    ],
+                                    [0.0, 0.0, 1.0],
+                                )
+                            }
+                            (2, false) => {
+                                let z = chunk_world_z + slice as f32;
+                                (
+                                    [
+                                        [chunk_world_x + u0f, v0f, z],
+                                        [chunk_world_x + u0f, v1f, z],
+                                        [chunk_world_x + u1f, v1f, z],
+                                        [chunk_world_x + u1f, v0f, z],
+                                    ],
+                                    [0.0, 0.0, -1.0],
+                                )
+                            }
+                            _ => unreachable!(),
+                        };
+
+                        let base_idx = positions.len() as u32;
+
+                        for vert in &verts {
+                            positions.push(*vert);
+                        }
+
+                        for _ in 0..4 {
+                            normals.push(normal);
+                            colors.push(color_arr);
+                        }
+
+                        // Get UV from cache or use tiled fallback
+                        if let Some(uv_rect) = uv_cache.get(item_id, face_idx) {
+                            // Use texture atlas UVs with tiling
+                            let uv_data = uv_rect.get_uvs(width as f32, height as f32);
+                            uvs.push(uv_data[0]);
+                            uvs.push(uv_data[1]);
+                            uvs.push(uv_data[2]);
+                            uvs.push(uv_data[3]);
+                        } else {
+                            // Fallback to simple tiled UVs (no texture)
+                            uvs.push([0.0, 0.0]);
+                            uvs.push([width as f32, 0.0]);
+                            uvs.push([width as f32, height as f32]);
+                            uvs.push([0.0, height as f32]);
+                        }
+
+                        indices.extend_from_slice(&[
+                            base_idx,
+                            base_idx + 1,
+                            base_idx + 2,
+                            base_idx,
+                            base_idx + 2,
+                            base_idx + 3,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        tracing::debug!(
+            "Textured mesh for chunk {:?}: {} vertices, {} indices",
+            chunk_coord,
+            positions.len(),
+            indices.len()
+        );
+
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, default());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        mesh.insert_indices(Indices::U32(indices));
+        mesh
+    }
 }
 
 /// World data - manages multiple chunks
@@ -791,6 +1076,33 @@ impl WorldData {
             lod,
         );
         Some(mesh)
+    }
+
+    /// Generate textured mesh for a chunk with specific LOD level
+    pub fn generate_chunk_mesh_textured(
+        &self,
+        chunk_coord: IVec2,
+        lod: ChunkLod,
+        uv_cache: &UVCache,
+    ) -> Option<Mesh> {
+        let chunk_data = self.chunks.get(&chunk_coord)?;
+        if uv_cache.is_empty() {
+            // Fallback to non-textured version
+            let mesh = chunk_data.generate_mesh_with_neighbors(
+                chunk_coord,
+                |world_pos| self.has_block(world_pos),
+                lod,
+            );
+            Some(mesh)
+        } else {
+            let mesh = chunk_data.generate_mesh_textured(
+                chunk_coord,
+                |world_pos| self.has_block(world_pos),
+                lod,
+                uv_cache,
+            );
+            Some(mesh)
+        }
     }
 }
 

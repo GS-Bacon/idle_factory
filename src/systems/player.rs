@@ -2,7 +2,7 @@
 
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
-    InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialPopup,
+    InteractingMachine, InventoryOpen, Player, PlayerCamera, PlayerPhysics, TutorialPopup,
     TutorialShown, UIAction, UIContext,
 };
 use crate::input::{GameAction, InputManager};
@@ -403,26 +403,15 @@ pub fn tick_action_timers(time: Res<Time>, mut action_timer: ResMut<ContinuousAc
     action_timer.inventory_timer.tick(time.delta());
 }
 
-/// Update pause UI visibility and cursor state based on CursorLockState
-pub fn update_pause_ui(
-    cursor_state: Res<CursorLockState>,
-    mut pause_query: Query<&mut Visibility, With<PauseUI>>,
-    mut windows: Query<&mut Window>,
-) {
+/// Handle cursor state changes for pause UI
+///
+/// Note: Visibility is now controlled by UIVisibilityController.
+/// This function only handles cursor release/lock side effects.
+pub fn update_pause_ui(cursor_state: Res<CursorLockState>, mut windows: Query<&mut Window>) {
     // Only update when cursor_state changes
     if !cursor_state.is_changed() {
         return;
     }
-
-    let Ok(mut visibility) = pause_query.get_single_mut() else {
-        return;
-    };
-
-    *visibility = if cursor_state.paused {
-        Visibility::Visible
-    } else {
-        Visibility::Hidden
-    };
 
     // Handle cursor release/lock when entering/leaving pause
     if let Ok(mut window) = windows.get_single_mut() {

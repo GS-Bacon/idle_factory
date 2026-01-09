@@ -32,6 +32,7 @@ pub mod skin;
 pub mod statistics;
 pub mod storage;
 pub mod systems;
+pub mod textures;
 pub mod ui;
 #[cfg(feature = "updater")]
 pub mod updater;

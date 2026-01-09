@@ -16,6 +16,10 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
     Ok(())
 }
 
+/// Log an info message from WASM mod
+///
+/// # Returns
+/// Nothing (void function)
 fn host_log_info(mut caller: Caller<'_, ModState>, ptr: u32, len: u32) {
     if let Some(msg) = read_string(&mut caller, ptr, len) {
         let mod_id = &caller.data().mod_id;
@@ -23,6 +27,10 @@ fn host_log_info(mut caller: Caller<'_, ModState>, ptr: u32, len: u32) {
     }
 }
 
+/// Log an error message from WASM mod
+///
+/// # Returns
+/// Nothing (void function)
 fn host_log_error(mut caller: Caller<'_, ModState>, ptr: u32, len: u32) {
     if let Some(msg) = read_string(&mut caller, ptr, len) {
         let mod_id = &caller.data().mod_id;

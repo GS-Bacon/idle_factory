@@ -1,5 +1,326 @@
 # 作業ログ
 
+## 2026-01-09: テクスチャシステム実装（T1-T5）
+
+### 概要
+
+ブロックにMinecraft風テクスチャシステムを実装。テクスチャアトラス、面別テクスチャ、blockstates JSON、リソースパック、MOD拡張ポイントを完成。
+
+### 実装内容
+
+#### T1: テクスチャアトラス基盤
+
+| ファイル | 内容 |
+|----------|------|
+| `src/textures/atlas.rs` | `TextureAtlas`, `UVRect`, `UVCache`, `BlockTextureConfig` |
+| 仕様 | 256x256アトラス、16x16タイル、UV座標マッピング |
+
+**BlockTextureConfig**:
+- `All`: 全面同一テクスチャ
+- `TopSideBottom`: 上/横/下で異なるテクスチャ
+- `PerFace`: 各面で異なるテクスチャ
+
+#### T2: 面別テクスチャ対応
+
+| ファイル | 内容 |
+|----------|------|
+| `src/world/mod.rs` | `generate_mesh_textured()` - UV付きGreedy meshing |
+| `src/systems/chunk.rs` | `receive_chunk_meshes` でテクスチャ版メッシュ使用 |
+
+**草ブロック設定**:
+- 上面: `grass_top` (緑)
+- 側面: `grass_side` (茶緑)
+- 底面: `dirt` (茶)
+
+#### T3: blockstates JSONシステム
+
+| ファイル | 内容 |
+|----------|------|
+| `src/textures/blockstates.rs` | `BlockstateRegistry`, `BlockstateDefinition` |
+| `assets/blockstates/` | `grass.json`, `stone.json`, `conveyor.json` |
+
+#### T4: リソースパック読み込み
+
+| ファイル | 内容 |
+|----------|------|
+| `src/textures/resource_pack.rs` | `ResourcePackManager` - テクスチャ上書き機能 |
+
+#### T5: MOD拡張ポイント
+
+| ファイル | 内容 |
+|----------|------|
+| `src/textures/resolver.rs` | `TextureResolver` trait, Connected/Random resolvers |
+| `src/modding/handlers/textures.rs` | WebSocket API (`texture.list`, `texture.get_atlas_info`, `texture.register_resolver`) |
+
+### 修正した問題
+
+| 問題 | 対応 |
+|------|------|
+| `receive_chunk_meshes` がテクスチャなし版を使用 | `generate_chunk_mesh_textured` に変更 |
+| 隣接チャンク再生成もテクスチャなし | 同様に修正 |
+
+### 動作確認
+
+| 項目 | 結果 |
+|------|------|
+| アトラス構築 | ✅ 7テクスチャ |
+| UVキャッシュ | ✅ 30エントリ (5ブロック × 6面) |
+| 地形レンダリング | ✅ 草の緑色が表示 |
+| 全テスト | ✅ 通過 |
+
+### 技術判断
+
+| 判断 | 理由 |
+|------|------|
+| フォールバック色を使用 | 実テクスチャPNGがなくても動作するため |
+| UVCacheをClone可能に | 非同期タスクに渡すため |
+| Resolver構造体は未使用警告許容 | 将来のMOD用API |
+
+### 学び
+
+| 問題 | 教訓 |
+|------|------|
+| メッシュ生成関数が複数箇所で呼ばれる | **全箇所を確認してテクスチャ版に統一** |
+| ログで問題を特定 | 「Greedy mesh」vs「Textured mesh」でどちらが使われているか判別 |
+
+---
+
+## 2026-01-09: シナリオテスト改善・イベント購読システム実装
+
+### 概要
+
+シナリオテストにイベント購読機能を追加。E2Eテストを新構造に分割。全9シナリオテスト通過を確認。
+
+### 実装内容
+
+#### 1. イベント購読システム (Rust)
+
+| ファイル | 内容 |
+|----------|------|
+| `src/modding/handlers/test.rs` | `test.subscribe_event`, `test.unsubscribe_event` ハンドラ追加 |
+| `src/modding/event_notifier.rs` | イベント通知プラグイン新規作成 |
+| `src/modding/server.rs` | イベント購読ルーティング追加 |
+
+**対応イベント**:
+- `item.delivered` - アイテム納品
+- `machine.completed` - 機械加工完了
+- `block.placed` - ブロック配置
+- `block.removed` - ブロック削除
+
+#### 2. シナリオランナー拡張 (JavaScript)
+
+`scripts/run-scenario.js` に以下アクションを追加:
+
+| アクション | 説明 |
+|-----------|------|
+| `subscribe` | イベント購読開始 |
+| `unsubscribe` | イベント購読解除 |
+| `wait_for_event` | イベント待機（タイムアウト付き） |
+| `assert_event` | イベントデータ検証 |
+
+#### 3. E2Eテスト構造改善
+
+| 変更前 | 変更後 |
+|--------|--------|
+| `e2e_test.rs` (5593行, 148テスト) | `tests/e2e/` ディレクトリに分割 |
+| 単一ファイル | 10ファイル（カテゴリ別） |
+
+**新構造**:
+```
+tests/
+├── e2e_new.rs (エントリポイント, 58テスト)
+├── e2e/
+│   ├── common.rs (共通ヘルパー)
+│   ├── world.rs
+│   ├── inventory.rs
+│   ├── machines.rs
+│   ├── automation.rs
+│   ├── quest.rs
+│   ├── events.rs
+│   ├── save.rs
+│   ├── ui.rs
+│   └── bugs.rs
+└── e2e_test.rs (レガシー, 148テスト)
+```
+
+### シナリオテスト結果
+
+全9シナリオ通過:
+
+| シナリオ | 結果 |
+|----------|------|
+| bug_pause_cursor_lock.toml | ✓ |
+| bug_tutorial_quest_ui.toml | ✓ |
+| esc_pause_menu.toml | ✓ |
+| event_subscription.toml | ✓ |
+| inventory_esc_close.toml | ✓ |
+| inventory_toggle.toml | ✓ |
+| pause_menu_cursor.toml | ✓ |
+| pause_menu_resume.toml | ✓ |
+| ui_cursor_lock.toml | ✓ |
+
+### 発見・修正した問題
+
+| 問題 | 対応 |
+|------|------|
+| `TogglePause`アクションが未使用 | シナリオで`Cancel`を使用するよう修正 |
+| `tests/scenarios/mod.rs` 不要ファイル | 削除 |
+
+### 学び
+
+| 項目 | 内容 |
+|------|------|
+| GameAction設計 | `TogglePause`と`Cancel`が両方ESCバインドだが、実装は`Cancel`のみ使用 |
+| イベント駆動テスト | ポーリングより信頼性高い（wait_for_eventでタイミング問題回避） |
+
+### テスト結果
+
+| 項目 | 値 |
+|------|-----|
+| 全テスト | 718件通過 |
+| シナリオテスト | 9件通過 |
+| Clippy警告 | 0件 |
+
+---
+
+## 2026-01-09: 並列実行システム構築
+
+### 概要
+
+サブエージェントの並列化システムを設計・実装。調査フェーズ（worktree不要）と実装フェーズ（ファイル分割並列）の2段階並列化を可能にした。
+
+### 作成物
+
+| ファイル | 内容 |
+|----------|------|
+| `.claude/plan-template.md` | 並列計画のテンプレート |
+| `scripts/parallel-plan.sh` | 計画の検証・実行コマンド生成 |
+| `CLAUDE.md` 更新 | 並列化ルールの強化 |
+
+### 並列化アーキテクチャ
+
+```
+Phase 1: 調査（並列、worktree不要）
+  Task(Explore) × N → masterを読むだけ
+      ↓
+  結果を集約
+      ↓
+Phase 2: 実装（worktree内でファイル分割並列）
+  worktree作成
+      ↓
+  Group A: Task × N（依存なし）→ 同時実行
+  Group B: Task × N（A依存）→ A完了後に同時実行
+  Group C: Task × N（B依存）→ B完了後に同時実行
+      ↓
+Phase 3: 検証（直列）
+  cargo build && cargo test && cargo clippy
+```
+
+### 設計判断
+
+| 判断 | 理由 |
+|------|------|
+| サブエージェントはビルドしない | 依存関係でビルドエラーになる、最後に1回で十分 |
+| 調査はworktree不要 | 読み取り専用なので競合しない |
+| 同一ファイルは1エージェント限定 | 競合防止 |
+| 依存関係をグループ化 | 型定義→使用の順序を保証 |
+
+### 学び
+
+| 問題 | 対策 |
+|------|------|
+| 階層的worktreeは不可 | フラット並列 + ファイル分割並列で代替 |
+| サブエージェント間の依存 | グループ化して順序制御 |
+| コンテキスト断絶 | 調査結果を集約してから実装フェーズへ |
+
+---
+
+## 2026-01-09: UI Visibility システム アーキテクチャレビュー
+
+### 概要
+
+現在進行中のUI表示制御一元化（UIVisibilityController）の設計をレビュー。技術的負債と改善計画を策定。
+
+### レビュー内容
+
+#### 良い点
+
+| 観点 | 評価 |
+|------|------|
+| Single Source of Truth | ✅ `create_default_rules()` に全ルール集約 |
+| テスト可能性 | ✅ Controller は単体テスト可能 |
+| Mod対応 | ✅ `UIId::Mod` と `ConditionKey::Custom` で拡張可能 |
+| コード削減 | ✅ -75行（143削除、68追加） |
+| 責務分離 | ✅ 各システムは副作用のみ、表示制御は委譲 |
+
+#### 発見した問題
+
+| 問題 | 重大度 | 詳細 |
+|------|--------|------|
+| Query の Without チェーン | 中 | UIが増えるたびにシステム修正が必要 |
+| Machine UI の除外 | 中 | 一元管理から除外されており不整合 |
+
+**Without チェーン問題の例**:
+```rust
+// 現状: UIごとにQueryが必要、Withoutが爆発
+Query<&mut Visibility, (With<InventoryUI>, Without<QuestUI>, Without<TutorialPanel>, ...)>
+```
+
+### 改善計画（UI.1）
+
+| タスク | 内容 |
+|--------|------|
+| UI.1.1 | `UIVisibilityTarget` コンポーネント追加 |
+| UI.1.2 | 各UI Spawn時に `UIVisibilityTarget` を付与（8箇所） |
+| UI.1.3 | `update_all_ui_visibility` を単一Query化 |
+| UI.1.4 | Machine UI を UIVisibilityController に統合 |
+| UI.1.5 | Mod UI 登録 API 実装 (`ui.register`) |
+
+**改善後の設計**:
+```rust
+#[derive(Component)]
+pub struct UIVisibilityTarget {
+    pub id: UIId,
+}
+
+// 1つのQueryで全UI処理
+fn update_all_ui_visibility(
+    controller: Res<UIVisibilityController>,
+    mut query: Query<(&UIVisibilityTarget, &mut Visibility)>,
+) {
+    for (target, mut vis) in query.iter_mut() {
+        *vis = controller.evaluate(&target.id);
+    }
+}
+```
+
+### 学び
+
+| 問題 | 教訓 |
+|------|------|
+| M2設計時に予測できなかった | **実装してみないとわからない問題がある** |
+| Bevy の Query 制約 | 書くまで「どれくらい酷いか」は不明 |
+| Machine UI 除外の理由消失 | **「なぜ除外したか」をコメントに残すべき** |
+
+**結論**: 設計時に完璧を目指すより、**実装 → レビュー → 改善** のサイクルが現実的。
+
+### Mod UI の統合について
+
+**改善後のフロー**:
+```
+1. Mod が ui.register API を呼ぶ（TOMLまたはWebSocket）
+2. UIVisibilityController に VisibilityRules 登録
+3. Mod が UI Entity を spawn（UIVisibilityTarget 付き）
+4. update_all_ui_visibility が自動で表示制御
+```
+
+**Mod作者のメリット**:
+- 表示条件をTOMLに書くだけ
+- 他のUIとの衝突を心配しなくていい
+- `InputState` の仕組みを理解しなくていい
+
+---
+
 ## 2026-01-08: 設計議論セッション
 
 ### 概要

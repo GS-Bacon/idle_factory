@@ -4,15 +4,19 @@
 
 use bevy::prelude::*;
 
+use crate::events::{UIConditionChanged, UIRegistration};
 use crate::systems::{
-    command_input_handler, command_input_toggle, creative_inventory_click,
-    inventory_continuous_shift_click, inventory_slot_click, inventory_update_slots,
-    process_tutorial_events, spawn_breaking_progress_ui, track_inventory_open, track_movement,
-    track_production, trash_slot_click, update_breaking_progress_ui, update_command_suggestions,
-    update_creative_catalog_sprites, update_held_item_3d, update_held_item_display,
-    update_hotbar_item_name, update_hotbar_ui, update_inventory_tooltip,
-    update_inventory_visibility, update_tutorial_ui, TutorialEvent,
+    apply_ui_registration, command_input_handler, command_input_toggle, creative_inventory_click,
+    init_tutorial_state, inventory_continuous_shift_click, inventory_slot_click,
+    inventory_update_slots, on_ui_condition_changed, process_tutorial_events,
+    spawn_breaking_progress_ui, sync_input_state_to_controller, track_inventory_open,
+    track_movement, track_production, trash_slot_click, update_all_ui_visibility,
+    update_breaking_progress_ui, update_command_suggestions, update_creative_catalog_sprites,
+    update_held_item_3d, update_held_item_display, update_hotbar_item_name, update_hotbar_ui,
+    update_inventory_tooltip, update_inventory_visibility, update_machine_ui_visibility,
+    update_tutorial_ui, TutorialEvent,
 };
+use crate::ui::visibility::create_default_rules;
 use crate::{
     CommandInputState, GuideMarkers, HeldItem, InventoryOpen, ItemSprites, TargetBlock,
     TutorialProgress, TutorialShown,
@@ -33,8 +37,13 @@ impl Plugin for UIPlugin {
             .init_resource::<GuideMarkers>()
             .init_resource::<ItemSprites>();
 
-        // Tutorial event
-        app.add_event::<TutorialEvent>();
+        // UI Visibility Controller
+        app.insert_resource(create_default_rules());
+
+        // Events
+        app.add_event::<TutorialEvent>()
+            .add_event::<UIConditionChanged>()
+            .add_event::<UIRegistration>();
 
         // Spawn breaking progress UI
         app.add_systems(Startup, spawn_breaking_progress_ui);
@@ -77,6 +86,19 @@ impl Plugin for UIPlugin {
                     process_tutorial_events,
                     update_tutorial_ui,
                 ),
+            )
+            // UI Visibility control systems (must run in order)
+            .add_systems(
+                Update,
+                (
+                    apply_ui_registration,
+                    on_ui_condition_changed,
+                    init_tutorial_state,
+                    sync_input_state_to_controller,
+                    update_all_ui_visibility,
+                    update_machine_ui_visibility,
+                )
+                    .chain(),
             );
     }
 }

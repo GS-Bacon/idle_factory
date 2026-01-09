@@ -7,11 +7,10 @@ use crate::player::{LocalPlayer, PlayerInventory};
 use crate::setup::ui::{
     SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
 };
-use crate::systems::cursor;
 use crate::{HOTBAR_SLOTS, MAX_STACK_SIZE, NUM_SLOTS};
 use bevy::color::Srgba;
 use bevy::prelude::*;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Set the UI open state (no-op, kept for API compatibility)
 pub fn set_ui_open_state(_ui_open: bool) {
@@ -31,8 +30,10 @@ fn return_held_item_to_inventory(inventory: &mut PlayerInventory, held_item: &mu
     }
 }
 
-/// Update inventory UI visibility when InventoryOpen changes
-/// (Key handling moved to ui_navigation.rs)
+/// Handle inventory state changes (side effects only)
+///
+/// Note: Visibility is now controlled by UIVisibilityController.
+/// This function only handles side effects like returning held items and creative panel display.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 pub fn update_inventory_visibility(
@@ -41,24 +42,7 @@ pub fn update_inventory_visibility(
     mut inventory_query: Query<&mut PlayerInventory>,
     mut held_item: ResMut<HeldItem>,
     creative_mode: Res<CreativeMode>,
-    mut ui_query: Query<&mut Visibility, With<InventoryUI>>,
-    mut overlay_query: Query<
-        &mut Visibility,
-        (
-            With<InventoryBackgroundOverlay>,
-            Without<InventoryUI>,
-            Without<CreativePanel>,
-        ),
-    >,
-    mut creative_panel_query: Query<
-        (&mut Visibility, &mut Node),
-        (
-            With<CreativePanel>,
-            Without<InventoryUI>,
-            Without<InventoryBackgroundOverlay>,
-        ),
-    >,
-    mut windows: Query<&mut Window>,
+    mut creative_panel_query: Query<(&mut Visibility, &mut Node), With<CreativePanel>>,
 ) {
     // Only update when InventoryOpen changes
     if !inventory_open.is_changed() {
@@ -76,36 +60,8 @@ pub fn update_inventory_visibility(
         }
     }
 
-    // Update UI visibility
-    let mut ui_count = 0;
-    for mut vis in ui_query.iter_mut() {
-        ui_count += 1;
-        *vis = if inventory_open.0 {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
-
-    // Show/hide background overlay
-    for mut vis in overlay_query.iter_mut() {
-        *vis = if inventory_open.0 {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
-
-    info!(
-        "[INVENTORY] Updated {} UI entities, now open={}",
-        ui_count, inventory_open.0
-    );
-
-    if ui_count == 0 {
-        warn!("[INVENTORY] No InventoryUI entity found! UI will not display.");
-    }
-
     // Show/hide creative panel based on creative mode
+    // (Creative panel is a child UI element that follows inventory state)
     for (mut vis, mut node) in creative_panel_query.iter_mut() {
         if inventory_open.0 && creative_mode.enabled {
             *vis = Visibility::Visible;
@@ -116,14 +72,7 @@ pub fn update_inventory_visibility(
         }
     }
 
-    // Unlock/lock cursor
-    if let Ok(mut window) = windows.get_single_mut() {
-        if inventory_open.0 {
-            cursor::unlock_cursor(&mut window);
-        } else {
-            cursor::lock_cursor(&mut window);
-        }
-    }
+    // Note: Cursor lock/unlock is now handled by sync_legacy_ui_state in ui_navigation.rs
 }
 
 /// Handle creative inventory item button clicks (only in creative mode)

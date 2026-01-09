@@ -16,8 +16,10 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
     Ok(())
 }
 
-/// インベントリスロットを取得
-/// 戻り値: 上位32bit=item_id, 下位32bit=count
+/// Get inventory slot contents
+///
+/// # Returns
+/// Upper 32 bits: item_id, Lower 32 bits: count (0 = empty slot)
 fn host_get_inventory_slot(_caller: Caller<'_, ModState>, entity_id: u64, slot: u32) -> u64 {
     // TODO: 実際のインベントリからの取得
     tracing::debug!(
@@ -28,8 +30,13 @@ fn host_get_inventory_slot(_caller: Caller<'_, ModState>, entity_id: u64, slot: 
     0 // 空スロット
 }
 
-/// アイテムを転送
-/// 戻り値: 0=成功, -1=転送元エラー, -2=転送先エラー, -3=アイテム不足
+/// Transfer items between entities
+///
+/// # Returns
+/// - 0: Success
+/// - -1: Source entity error
+/// - -2: Destination entity error
+/// - -3: Insufficient items
 fn host_transfer_item(
     _caller: Caller<'_, ModState>,
     from_entity: u64,

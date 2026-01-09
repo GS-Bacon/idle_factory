@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 /// Current input state - used to determine which inputs should be active
 /// See CLAUDE.md "入力マトリクス" for the full state table
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputState {
     /// Normal gameplay - all inputs active
     Gameplay,

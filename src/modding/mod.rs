@@ -11,6 +11,8 @@ pub mod data;
 pub mod dependency;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod event_bridge;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod event_notifier;
 pub mod handlers;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod hot_reload;
@@ -24,6 +26,8 @@ pub mod wasm;
 pub use dependency::{DependencyError, DependencyResolver, ModDependencyInfo};
 #[cfg(not(target_arch = "wasm32"))]
 pub use event_bridge::EventBridgePlugin;
+#[cfg(not(target_arch = "wasm32"))]
+pub use event_notifier::EventNotifierPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 pub use hot_reload::{HotReloadError, ModChange, ModHotReloader};
 #[cfg(not(target_arch = "wasm32"))]

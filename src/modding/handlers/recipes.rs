@@ -130,8 +130,10 @@ fn recipe_to_info(recipe: &Recipe) -> RecipeInfo {
 /// Parameters:
 /// - `machine_type` (optional): Filter by machine type ("furnace", "crusher", "assembler")
 ///
-/// Returns:
-/// - `recipes`: Array of recipe info objects
+/// # Response
+/// ```json
+/// { "recipes": [{ "id": "smelt_iron", "machine_type": "furnace", "inputs": [{ "item": "iron_ore", "count": 1 }], "outputs": [{ "item": "iron_ingot", "count": 1 }], "time": 2.0 }] }
+/// ```
 pub fn handle_recipe_list(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Parse parameters (allow null/empty)
     let params: RecipeListParams = if request.params.is_null() {
@@ -185,18 +187,19 @@ pub fn handle_recipe_list(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 /// Handle recipe.add method (stub)
 ///
+/// Note: Currently a stub that only logs the request.
+/// Dynamic recipe registration will be implemented in a future phase.
+///
 /// Parameters:
 /// - `id`: Recipe ID (e.g., "mymod:super_smelt")
 /// - `inputs`: Array of input item IDs
 /// - `outputs`: Array of output item IDs
 /// - `time`: Processing time in seconds
 ///
-/// Returns:
-/// - `success`: true
-/// - `id`: The registered recipe ID
-///
-/// Note: Currently a stub that only logs the request.
-/// Dynamic recipe registration will be implemented in a future phase.
+/// # Response
+/// ```json
+/// { "success": true, "id": "mymod:super_smelt" }
+/// ```
 pub fn handle_recipe_add(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Parse parameters
     let params: RecipeAddParams = match serde_json::from_value(request.params.clone()) {

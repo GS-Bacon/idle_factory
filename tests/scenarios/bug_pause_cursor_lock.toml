@@ -1,0 +1,50 @@
+# BUG-b09e632: ポーズメニュー表示時にカーソルが解放されない問題
+# ポーズメニューを開いたときにカーソルがロック解除されることを確認
+
+name = "Bug Regression: Pause menu cursor release"
+description = "When pause menu is shown, cursor should be released (cursor_locked = false)"
+
+# Step 1: Get initial state - should be in gameplay with cursor locked
+[[steps]]
+action = "get_state"
+
+# Step 2: Verify cursor is locked initially (in gameplay)
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == true" }
+
+# Step 3: Open pause menu with ESC (Cancel action)
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Step 4: Get state after opening pause menu
+[[steps]]
+action = "get_state"
+
+# Step 5: Verify cursor is NOT locked when pause menu is open
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+# Step 6: Close pause menu
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Step 7: Get state after closing pause menu
+[[steps]]
+action = "get_state"
+
+# Step 8: Verify cursor is locked again
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == true" }

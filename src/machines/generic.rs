@@ -305,7 +305,7 @@ fn get_biome_output(biome: BiomeType, tick: u32) -> ItemId {
 
 use crate::components::{
     CursorLockState, GenericMachineProgressBar, GenericMachineSlotButton, GenericMachineSlotCount,
-    GenericMachineUI, InteractingMachine, InventoryOpen, PlayerCamera,
+    InteractingMachine, InventoryOpen, PlayerCamera,
 };
 use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlayer, PlayerInventory};
@@ -314,6 +314,8 @@ use crate::REACH_DISTANCE;
 use bevy::window::CursorGrabMode;
 
 /// Generic machine interaction (open/close UI)
+///
+/// Note: Visibility is controlled by update_machine_ui_visibility in ui_visibility.rs
 #[allow(clippy::too_many_arguments)]
 pub fn generic_machine_interact(
     input: Res<InputManager>,
@@ -321,7 +323,6 @@ pub fn generic_machine_interact(
     machine_query: Query<(Entity, &Transform, &Machine)>,
     mut interacting: ResMut<InteractingMachine>,
     inventory_open: Res<InventoryOpen>,
-    mut ui_query: Query<(&GenericMachineUI, &mut Visibility)>,
     mut windows: Query<&mut Window>,
     mut cursor_state: ResMut<CursorLockState>,
 ) {
@@ -338,18 +339,6 @@ pub fn generic_machine_interact(
 
     // Close UI with E or ESC
     if interacting.0.is_some() && (e_pressed || esc_pressed) {
-        let machine_id = machine_query
-            .get(interacting.0.unwrap())
-            .map(|(_, _, m)| m.spec.id)
-            .unwrap_or("");
-
-        // Hide UI
-        for (ui, mut vis) in ui_query.iter_mut() {
-            if ui.machine_id == machine_id {
-                *vis = Visibility::Hidden;
-            }
-        }
-
         interacting.0 = None;
 
         // Lock cursor (unless ESC)
@@ -375,8 +364,8 @@ pub fn generic_machine_interact(
     let ray_dir = camera_transform.forward().as_vec3();
 
     // Find closest machine
-    let mut closest: Option<(Entity, f32, &'static str)> = None;
-    for (entity, transform, machine) in machine_query.iter() {
+    let mut closest: Option<(Entity, f32)> = None;
+    for (entity, transform, _machine) in machine_query.iter() {
         let to_machine = transform.translation - ray_origin;
         let dist = to_machine.dot(ray_dir);
         if dist > 0.0 && dist < REACH_DISTANCE {
@@ -385,21 +374,14 @@ pub fn generic_machine_interact(
             if diff < 0.7 {
                 // Within machine hitbox
                 if closest.is_none() || dist < closest.unwrap().1 {
-                    closest = Some((entity, dist, machine.spec.id));
+                    closest = Some((entity, dist));
                 }
             }
         }
     }
 
-    if let Some((entity, _, machine_id)) = closest {
+    if let Some((entity, _)) = closest {
         interacting.0 = Some(entity);
-
-        // Show UI
-        for (ui, mut vis) in ui_query.iter_mut() {
-            if ui.machine_id == machine_id {
-                *vis = Visibility::Inherited;
-            }
-        }
 
         // Unlock cursor
         if let Ok(mut window) = windows.get_single_mut() {

@@ -17,7 +17,7 @@ use crate::constants::ui_colors;
 use crate::core::ItemId;
 use crate::input::{GameAction, InputManager};
 use crate::player::LocalPlatformInventory;
-use crate::systems::cursor;
+use crate::ui::{UIId, UIVisibilityTarget};
 
 /// Slots per page (8 columns x 4 rows)
 pub const SLOTS_PER_PAGE: usize = 32;
@@ -28,35 +28,13 @@ pub const SLOT_SIZE: f32 = 54.0;
 /// Slot spacing
 pub const SLOT_GAP: f32 = 4.0;
 
-/// Update global inventory UI visibility when GlobalInventoryOpen changes
-/// (Key handling moved to ui_navigation.rs)
-pub fn update_global_inventory_visibility(
-    global_inv_open: Res<GlobalInventoryOpen>,
-    mut ui_query: Query<&mut Visibility, With<GlobalInventoryUI>>,
-    mut windows: Query<&mut Window>,
-) {
-    // Only update when GlobalInventoryOpen changes
-    if !global_inv_open.is_changed() {
-        return;
-    }
-
-    // Update UI visibility
-    for mut vis in ui_query.iter_mut() {
-        *vis = if global_inv_open.0 {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
-
-    // Handle cursor lock
-    if let Ok(mut window) = windows.get_single_mut() {
-        if global_inv_open.0 {
-            cursor::unlock_cursor(&mut window);
-        } else {
-            cursor::lock_cursor(&mut window);
-        }
-    }
+/// Handle global inventory state changes (side effects only)
+///
+/// Note: Visibility is now controlled by UIVisibilityController.
+/// This function is kept for API compatibility but has minimal functionality.
+pub fn update_global_inventory_visibility(_global_inv_open: Res<GlobalInventoryOpen>) {
+    // Visibility is now controlled by UIVisibilityController
+    // Cursor lock/unlock is handled by sync_legacy_ui_state in ui_navigation.rs
 }
 
 /// Handle page navigation button clicks
@@ -332,6 +310,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
             BackgroundColor(ui_colors::PANEL_BG),
             BorderColor(ui_colors::BORDER_HIGHLIGHT),
             GlobalInventoryUI,
+            UIVisibilityTarget::new(UIId::GlobalInventory),
             Visibility::Hidden,
         ))
         .with_children(|parent| {

@@ -16,17 +16,22 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
     Ok(())
 }
 
-/// イベントを購読
-/// event_type: 0=BlockPlace, 1=BlockBreak, 2=ItemDeliver, 3=MachineComplete
-/// 戻り値: subscription_id (0以上=成功, 負=エラー)
+/// Subscribe to game events
+///
+/// Event types: 0=BlockPlace, 1=BlockBreak, 2=ItemDeliver, 3=MachineComplete
+///
+/// # Returns
+/// Subscription ID (>= 0 on success, negative on error)
 fn host_subscribe_event(_caller: Caller<'_, ModState>, event_type: u32) -> i32 {
     // TODO: イベント購読の実装
     tracing::debug!("host_subscribe_event called for type {}", event_type);
     0 // 仮のsubscription_id
 }
 
-/// イベントを発火
-/// data_ptr, data_len: イベントデータ（JSON形式）
+/// Emit a custom event
+///
+/// # Returns
+/// Nothing (void function)
 fn host_emit_event(
     mut caller: Caller<'_, ModState>,
     event_type: u32,

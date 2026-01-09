@@ -67,6 +67,11 @@ pub const INVALID_ITEM_ID: i32 = -32011;
 /// Handle item.list request
 ///
 /// Returns a list of all registered items, optionally filtered by namespace.
+///
+/// # Response
+/// ```json
+/// { "items": [{ "id": "base:iron_ore", "name": "Iron Ore", "stack_size": 999 }] }
+/// ```
 pub fn handle_item_list(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Parse params (optional)
     let list_params: ItemListParams =
@@ -107,6 +112,11 @@ pub fn handle_item_list(request: &JsonRpcRequest) -> JsonRpcResponse {
 ///
 /// Currently a stub - logs the request but does not actually add items.
 /// Dynamic item addition will be implemented in a future version.
+///
+/// # Response
+/// ```json
+/// { "success": true, "id": "mymod:super_ingot" }
+/// ```
 pub fn handle_item_add(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Parse params
     let add_params: ItemAddParams = match serde_json::from_value(request.params.clone()) {

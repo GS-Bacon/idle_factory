@@ -7,11 +7,15 @@ use bevy::prelude::*;
 use crossbeam_channel::{Receiver, Sender};
 
 use super::connection::ConnectionManager;
+use super::handlers::events::EventSubscriptions;
+use super::handlers::test::{handle_test_subscribe_event, handle_test_unsubscribe_event};
+use super::handlers::ui::{handle_ui_register, handle_ui_set_condition};
 use super::handlers::{route_request, GameStateInfo, HandlerContext, TestStateInfo};
 use super::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
 use super::ModManager;
 
 use crate::components::{CursorLockState, UIState};
+use crate::events::{UIConditionChanged, UIRegistration};
 use crate::input::{GameAction, TestInputEvent};
 use crate::player::LocalPlayer;
 
@@ -321,6 +325,7 @@ pub struct ModApiServerPlugin;
 impl Plugin for ModApiServerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ModApiServerConfig>()
+            .init_resource::<EventSubscriptions>()
             .add_systems(Startup, setup_mod_api_server)
             .add_systems(Update, process_server_messages);
     }
@@ -344,12 +349,15 @@ fn setup_mod_api_server(mut commands: Commands, config: Res<ModApiServerConfig>)
 fn process_server_messages(
     server: Option<ResMut<ModApiServer>>,
     mod_manager: Res<ModManager>,
+    mut event_subscriptions: ResMut<EventSubscriptions>,
     cursor_lock: Option<Res<CursorLockState>>,
     time: Res<Time>,
     ui_state: Option<Res<UIState>>,
     local_player: Option<Res<LocalPlayer>>,
     transforms: Query<&Transform>,
     mut test_input_writer: EventWriter<TestInputEvent>,
+    mut ui_condition_writer: EventWriter<UIConditionChanged>,
+    mut ui_registration_writer: EventWriter<UIRegistration>,
 ) {
     let Some(mut server) = server else { return };
 
@@ -391,6 +399,8 @@ fn process_server_messages(
                 // Remove by server conn_id
                 // Note: This is a simplified implementation - in production we'd need proper ID mapping
                 server.connections.remove_connection(conn_id);
+                // Clean up event subscriptions for this connection
+                event_subscriptions.remove_connection(conn_id);
                 tracing::info!("Mod disconnected: {}", conn_id);
             }
             ServerMessage::Request { conn_id, request } => {
@@ -400,23 +410,55 @@ fn process_server_messages(
                     request.method
                 );
 
-                // Handle test.send_input specially to inject input
-                if request.method == "test.send_input" {
-                    if let Some(action_str) = request.params.get("action").and_then(|v| v.as_str())
-                    {
-                        if let Some(action) = parse_game_action(action_str) {
-                            test_input_writer.send(TestInputEvent { action });
+                // Handle special methods that produce events
+                let response = match request.method.as_str() {
+                    "test.send_input" => {
+                        if let Some(action_str) =
+                            request.params.get("action").and_then(|v| v.as_str())
+                        {
+                            if let Some(action) = parse_game_action(action_str) {
+                                test_input_writer.send(TestInputEvent { action });
+                            }
                         }
+                        // Still route through normal handler for response
+                        let ctx = HandlerContext {
+                            mod_manager: &mod_manager,
+                            game_state: game_state.clone(),
+                            test_state: test_state.clone(),
+                        };
+                        route_request(&request, &ctx)
                     }
-                }
-
-                // Route to appropriate handler
-                let ctx = HandlerContext {
-                    mod_manager: &mod_manager,
-                    game_state: game_state.clone(),
-                    test_state: test_state.clone(),
+                    "ui.set_condition" => match handle_ui_set_condition(&request) {
+                        Ok((response, event)) => {
+                            ui_condition_writer.send(event);
+                            response
+                        }
+                        Err(error_response) => error_response,
+                    },
+                    "ui.register" => match handle_ui_register(&request) {
+                        Ok((response, event)) => {
+                            ui_registration_writer.send(event);
+                            response
+                        }
+                        Err(error_response) => error_response,
+                    },
+                    "test.subscribe_event" => {
+                        handle_test_subscribe_event(&request, conn_id, &mut event_subscriptions)
+                    }
+                    "test.unsubscribe_event" => {
+                        handle_test_unsubscribe_event(&request, &mut event_subscriptions)
+                    }
+                    _ => {
+                        // Route to normal handlers
+                        let ctx = HandlerContext {
+                            mod_manager: &mod_manager,
+                            game_state: game_state.clone(),
+                            test_state: test_state.clone(),
+                        };
+                        route_request(&request, &ctx)
+                    }
                 };
-                let response = route_request(&request, &ctx);
+
                 tracing::info!("Sending response for conn {}: {:?}", conn_id, response.id);
                 match server
                     .tx

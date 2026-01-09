@@ -57,6 +57,13 @@ pub struct MachineAddResponse {
 }
 
 /// Handle machine.list request
+///
+/// Returns a list of all registered machines with their slot configurations.
+///
+/// # Response
+/// ```json
+/// { "machines": [{ "id": "furnace", "name": "精錬炉", "input_slots": 1, "output_slots": 1, "requires_fuel": true }] }
+/// ```
 pub fn handle_machine_list(request: &JsonRpcRequest) -> JsonRpcResponse {
     let machines: Vec<MachineInfo> = ALL_MACHINES
         .iter()
@@ -88,6 +95,13 @@ pub fn handle_machine_list(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 /// Handle machine.add request
+///
+/// Registers a new machine type (stub implementation).
+///
+/// # Response
+/// ```json
+/// { "success": true, "id": "mymod:super_furnace" }
+/// ```
 pub fn handle_machine_add(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Parse parameters
     let params: MachineAddParams = match serde_json::from_value(request.params.clone()) {

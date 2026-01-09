@@ -1,0 +1,6 @@
+[pack]
+id = "example_pack"
+name = "Example Resource Pack"
+version = "1.0.0"
+description = "サンプルリソースパック - テクスチャの上書きデモ"
+authors = ["Idle Factory Team"]
