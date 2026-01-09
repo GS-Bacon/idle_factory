@@ -5,6 +5,7 @@ use std::collections::HashSet;
 
 use crate::components::Machine;
 use crate::core::{items, ItemId};
+use crate::input::{GameAction, InputManager};
 use crate::meshes::create_conveyor_mesh;
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
 
 /// Handle R key to rotate conveyor/machine placement direction
 pub fn rotate_conveyor_placement(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     mut rotation: ResMut<ConveyorRotationOffset>,
     local_player: Option<Res<LocalPlayer>>,
     inventories: Query<&PlayerInventory>,
@@ -44,7 +45,7 @@ pub fn rotate_conveyor_placement(
     }
 
     // R key rotates 90 degrees clockwise
-    if keyboard.just_pressed(KeyCode::KeyR) {
+    if input.just_pressed(GameAction::RotateBlock) {
         rotation.offset = (rotation.offset + 1) % 4;
     }
 }

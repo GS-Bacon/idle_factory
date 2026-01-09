@@ -5,6 +5,7 @@ use crate::components::{
     InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialPopup,
     TutorialShown, UIAction, UIContext,
 };
+use crate::input::{GameAction, InputManager};
 use crate::settings::GameSettings;
 use crate::systems::cursor;
 use crate::world::WorldData;
@@ -18,7 +19,7 @@ use tracing::info;
 
 /// Handle cursor lock on click (ESC handling moved to ui_navigation.rs)
 pub fn toggle_cursor_lock(
-    mouse_button: Res<ButtonInput<MouseButton>>,
+    input: Res<InputManager>,
     mut windows: Query<&mut Window>,
     interacting_machine: Res<InteractingMachine>,
     creative_inv_open: Res<InventoryOpen>,
@@ -31,7 +32,7 @@ pub fn toggle_cursor_lock(
 
     // Click to lock cursor (when not locked or paused, and no UI open)
     // Also handle case where cursor may have been released
-    if mouse_button.just_pressed(MouseButton::Left)
+    if input.just_pressed(GameAction::PrimaryAction)
         && (cursor::is_unlocked(&window) || cursor_state.paused)
         && !any_ui_open
     {
@@ -48,7 +49,7 @@ pub fn toggle_cursor_lock(
 pub fn player_look(
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
-    key_input: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     time: Res<Time>,
     windows: Query<&Window>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
@@ -88,16 +89,16 @@ pub fn player_look(
     const PITCH_LIMIT: f32 = 1.54; // ~88 degrees in radians
 
     // --- Arrow keys for camera control (always works, time-based) ---
-    if key_input.pressed(KeyCode::ArrowLeft) {
+    if input.pressed(GameAction::LookLeft) {
         camera.yaw += KEY_ROTATION_SPEED * time.delta_secs();
     }
-    if key_input.pressed(KeyCode::ArrowRight) {
+    if input.pressed(GameAction::LookRight) {
         camera.yaw -= KEY_ROTATION_SPEED * time.delta_secs();
     }
-    if key_input.pressed(KeyCode::ArrowUp) {
+    if input.pressed(GameAction::LookUp) {
         camera.pitch += KEY_ROTATION_SPEED * time.delta_secs();
     }
-    if key_input.pressed(KeyCode::ArrowDown) {
+    if input.pressed(GameAction::LookDown) {
         camera.pitch -= KEY_ROTATION_SPEED * time.delta_secs();
     }
 
@@ -189,7 +190,7 @@ pub fn tutorial_dismiss(
 #[allow(clippy::too_many_arguments)]
 pub fn player_move(
     time: Res<Time>,
-    key_input: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     mut player_query: Query<(&mut Transform, &mut PlayerPhysics), With<Player>>,
     camera_query: Query<&PlayerCamera>,
     input_resources: InputStateResourcesWithCursor,
@@ -226,22 +227,22 @@ pub fn player_move(
         // Creative mode: fly movement
         let mut direction = Vec3::ZERO;
 
-        if key_input.pressed(KeyCode::KeyW) {
+        if input.pressed(GameAction::MoveForward) {
             direction += forward;
         }
-        if key_input.pressed(KeyCode::KeyS) {
+        if input.pressed(GameAction::MoveBackward) {
             direction -= forward;
         }
-        if key_input.pressed(KeyCode::KeyA) {
+        if input.pressed(GameAction::MoveLeft) {
             direction -= right;
         }
-        if key_input.pressed(KeyCode::KeyD) {
+        if input.pressed(GameAction::MoveRight) {
             direction += right;
         }
-        if key_input.pressed(KeyCode::Space) {
+        if input.pressed(GameAction::Jump) {
             direction.y += 1.0;
         }
-        if key_input.pressed(KeyCode::ShiftLeft) {
+        if input.pressed(GameAction::Descend) {
             direction.y -= 1.0;
         }
 
@@ -254,7 +255,7 @@ pub fn player_move(
         survival_movement(
             &mut player_transform,
             &mut physics,
-            &key_input,
+            &input,
             &world_data,
             forward,
             right,
@@ -267,7 +268,7 @@ pub fn player_move(
 fn survival_movement(
     player_transform: &mut Transform,
     physics: &mut PlayerPhysics,
-    key_input: &ButtonInput<KeyCode>,
+    input: &InputManager,
     world_data: &WorldData,
     forward: Vec3,
     right: Vec3,
@@ -275,16 +276,16 @@ fn survival_movement(
 ) {
     // Get horizontal movement input
     let mut horizontal = Vec3::ZERO;
-    if key_input.pressed(KeyCode::KeyW) {
+    if input.pressed(GameAction::MoveForward) {
         horizontal += forward;
     }
-    if key_input.pressed(KeyCode::KeyS) {
+    if input.pressed(GameAction::MoveBackward) {
         horizontal -= forward;
     }
-    if key_input.pressed(KeyCode::KeyA) {
+    if input.pressed(GameAction::MoveLeft) {
         horizontal -= right;
     }
-    if key_input.pressed(KeyCode::KeyD) {
+    if input.pressed(GameAction::MoveRight) {
         horizontal += right;
     }
 
@@ -298,7 +299,7 @@ fn survival_movement(
     physics.velocity.y = physics.velocity.y.max(-TERMINAL_VELOCITY);
 
     // Jump if on ground and space pressed
-    if physics.on_ground && key_input.just_pressed(KeyCode::Space) {
+    if physics.on_ground && input.just_pressed(GameAction::Jump) {
         physics.velocity.y = JUMP_VELOCITY;
         physics.on_ground = false;
     }

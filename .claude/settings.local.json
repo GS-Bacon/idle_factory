@@ -378,7 +378,11 @@
       "Bash(CARGO_INCREMENTAL=0 cargo build:*)",
       "Bash(cargo update:*)",
       "Bash(/home/bacon/idle_factory/scripts/build_mod.sh:*)",
-      "Bash(./scripts/verify-package.sh:*)"
+      "Bash(./scripts/verify-package.sh:*)",
+      "Bash(# バックグラウンドでゲーム起動 cd /home/bacon/idle_factory pkill -f idle_factory || true sleep 1 DISPLAY=:10 cargo run --bin idle_factory 2>&1 & GAME_PID=$! echo \"\"Game PID: $GAME_PID\"\" # WebSocketポートが開くのを待つ for i in {1..20}; do if ss -tlnp)",
+      "Bash(cd:*)",
+      "Bash(node scripts/run-scenario.js:*)",
+      "Bash(then echo \"Port 9877 ready at second $i\" break fi sleep 1 done ss -tlnp)"
     ]
   },
   "enableAllProjectMcpServers": true,

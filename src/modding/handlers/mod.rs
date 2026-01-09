@@ -14,6 +14,7 @@ pub mod items;
 pub mod machines;
 pub mod mod_handlers;
 pub mod recipes;
+pub mod test;
 
 pub use events::{EventSubscriptions, EventType, Subscription};
 pub use game::{GameStateInfo, API_VERSION};
@@ -25,12 +26,25 @@ pub use items::{
 use super::protocol::{JsonRpcRequest, JsonRpcResponse, METHOD_NOT_FOUND};
 use super::ModManager;
 
+/// テスト用ゲーム状態
+#[derive(Default, Clone)]
+pub struct TestStateInfo {
+    /// UI状態 ("Gameplay", "Inventory", etc.)
+    pub ui_state: String,
+    /// プレイヤー位置 [x, y, z]
+    pub player_position: [f32; 3],
+    /// カーソルがロックされているか
+    pub cursor_locked: bool,
+}
+
 /// Handler context for accessing game state
 pub struct HandlerContext<'a> {
     /// Mod manager
     pub mod_manager: &'a ModManager,
     /// Game state info (paused, tick, player_count)
     pub game_state: GameStateInfo,
+    /// Test state info for E2E testing
+    pub test_state: TestStateInfo,
 }
 
 /// Mutable handler context for modifying game state
@@ -57,6 +71,10 @@ pub fn route_request(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRpcR
         // Recipe handlers (read-only, no context needed)
         "recipe.list" => recipes::handle_recipe_list(request),
         "recipe.add" => recipes::handle_recipe_add(request),
+        // Test handlers (for E2E testing)
+        "test.get_state" => test::handle_test_get_state(request, &ctx.test_state),
+        "test.send_input" => test::handle_test_send_input(request),
+        "test.assert" => test::handle_test_assert(request, &ctx.test_state),
         // Enable/disable require mutation, handled separately
         _ => JsonRpcResponse::error(
             request.id,
@@ -74,6 +92,7 @@ pub fn route_request_mut(request: &JsonRpcRequest, ctx: &mut HandlerContextMut) 
             let read_ctx = HandlerContext {
                 mod_manager: ctx.mod_manager,
                 game_state: GameStateInfo::default(),
+                test_state: TestStateInfo::default(),
             };
             mod_handlers::handle_mod_list(request, &read_ctx)
         }
@@ -81,6 +100,7 @@ pub fn route_request_mut(request: &JsonRpcRequest, ctx: &mut HandlerContextMut) 
             let read_ctx = HandlerContext {
                 mod_manager: ctx.mod_manager,
                 game_state: GameStateInfo::default(),
+                test_state: TestStateInfo::default(),
             };
             mod_handlers::handle_mod_info(request, &read_ctx)
         }
@@ -114,6 +134,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "unknown.method", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -128,6 +149,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "machine.list", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -141,6 +163,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(
             1,
@@ -161,6 +184,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "recipe.list", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -174,6 +198,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(
             1,
@@ -196,6 +221,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "game.version", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -217,6 +243,7 @@ mod tests {
                 tick: 12345,
                 player_count: 1,
             },
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "game.state", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -234,6 +261,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(1, "item.list", serde_json::Value::Null);
         let response = route_request(&request, &ctx);
@@ -250,6 +278,7 @@ mod tests {
         let ctx = HandlerContext {
             mod_manager: &manager,
             game_state: GameStateInfo::default(),
+            test_state: TestStateInfo::default(),
         };
         let request = JsonRpcRequest::new(
             1,

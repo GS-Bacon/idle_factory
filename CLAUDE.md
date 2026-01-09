@@ -188,13 +188,62 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 
 ## バグ修正ルール
 
-1. **再現テストを先に書く**（またはE2Eで再現確認）
+1. **シナリオテストで再現**（`tests/scenarios/` にTOML作成）
 2. テストが失敗することを確認
 3. 修正する
 4. テストがパスすることを確認
 5. 関連テストも全部パスすることを確認
 
 **禁止**: 「多分これが原因」で修正開始。必ずログかテストで原因特定してから。
+
+### シナリオテストの書き方
+
+```bash
+# 実行方法
+node scripts/run-scenario.js tests/scenarios/bug_xxx.toml
+```
+
+```toml
+# tests/scenarios/bug_xxx.toml
+name = "バグ再現: XXXの問題"
+description = "XXXするとYYYになる問題"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Inventory" }
+```
+
+### 利用可能なアクション
+
+| アクション | 説明 | パラメータ |
+|-----------|------|-----------|
+| `get_state` | ゲーム状態取得 | なし |
+| `send_input` | 入力注入 | `action`: GameAction名 |
+| `assert` | 状態検証 | `condition`: "field == value" |
+| `wait` | 待機 | `ms`: ミリ秒 |
+
+### 利用可能なGameAction
+
+`MoveForward`, `MoveBackward`, `MoveLeft`, `MoveRight`, `Jump`, `ToggleInventory`, `TogglePause`, `ToggleQuest`, `OpenCommand`, `CloseUI`, `PrimaryAction`, `SecondaryAction`, `RotateBlock`, `Hotbar1`-`Hotbar9`
+
+### 検証可能なフィールド
+
+| フィールド | 型 | 例 |
+|-----------|-----|-----|
+| `ui_state` | String | `Gameplay`, `Inventory`, `PauseMenu` |
+| `cursor_locked` | bool | `true`, `false` |
+| `player_position` | [f32;3] | `[0.0, 10.0, 0.0]` |
 
 ## 禁止事項
 
@@ -208,6 +257,36 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 **確認不要**: バグ修正、リファクタリング、テスト追加
 
 仕様は `src/game_spec.rs` に定義（Single Source of Truth）
+
+### 機能追加時のテスト
+
+新機能を実装したら、**シナリオテストを追加する**:
+
+```bash
+# 例: インベントリ機能のテスト
+tests/scenarios/feature_inventory.toml
+```
+
+```toml
+name = "機能テスト: インベントリ開閉"
+description = "Eキーでインベントリが開閉できることを確認"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Inventory" }
+```
 
 ## 検証の分担
 
@@ -229,6 +308,7 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 | `gemini <cmd>` | Gemini連携（アーキ設計、レビュー、数学検証） | `gemini --help` |
 | `./scripts/vlm_check.sh` | VLMビジュアルチェック | `scripts/vlm_check/README.md` |
 | `./scripts/parallel-run.sh` | 並列タスク実行 | `--help` |
+| `node scripts/run-scenario.js <file>` | シナリオテスト実行 | 上記「バグ修正ルール」参照 |
 
 ※Gemini使用条件: Gemini 3/2.5モデルの時のみ（トークン制限でモデル切り替わったら使わない）
 

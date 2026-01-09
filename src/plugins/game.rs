@@ -12,6 +12,7 @@ use crate::components::*;
 use crate::craft::CraftPlugin;
 use crate::events::GameEventsPlugin;
 use crate::game_spec::RegistryPlugin;
+use crate::input::InputManagerPlugin;
 use crate::map::MapPlugin;
 use crate::modding::ModdingPlugin;
 use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
@@ -51,7 +52,8 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         // Add sub-plugins
-        app.add_plugins(GameEventsPlugin)
+        app.add_plugins(InputManagerPlugin)
+            .add_plugins(GameEventsPlugin)
             .add_plugins(RegistryPlugin)
             .add_plugins(SettingsPlugin)
             .add_plugins(MachineSystemsPlugin)

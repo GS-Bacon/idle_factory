@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "@google/generative-ai": "^0.24.1"
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
   }
 }

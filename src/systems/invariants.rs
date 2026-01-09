@@ -10,6 +10,7 @@
 
 use crate::components::{Player, PlayerPhysics};
 use crate::constants::{PLAYER_HEIGHT, PLAYER_WIDTH};
+use crate::input::{GameAction, InputManager};
 use crate::world::WorldData;
 use bevy::prelude::*;
 use std::fs::{self, OpenOptions};
@@ -94,14 +95,11 @@ const WORLD_FLOOR_Y: f32 = -10.0;
 const MOVEMENT_EPSILON: f32 = 0.01;
 
 /// System to track movement input
-pub fn track_movement_input(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut stuck_detector: ResMut<StuckDetector>,
-) {
-    stuck_detector.has_input = keyboard.pressed(KeyCode::KeyW)
-        || keyboard.pressed(KeyCode::KeyS)
-        || keyboard.pressed(KeyCode::KeyA)
-        || keyboard.pressed(KeyCode::KeyD);
+pub fn track_movement_input(input: Res<InputManager>, mut stuck_detector: ResMut<StuckDetector>) {
+    stuck_detector.has_input = input.pressed(GameAction::MoveForward)
+        || input.pressed(GameAction::MoveBackward)
+        || input.pressed(GameAction::MoveLeft)
+        || input.pressed(GameAction::MoveRight);
 }
 
 /// System to detect if player is stuck

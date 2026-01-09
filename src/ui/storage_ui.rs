@@ -15,6 +15,7 @@ use crate::components::{
 };
 use crate::constants::ui_colors;
 use crate::core::ItemId;
+use crate::input::{GameAction, InputManager};
 use crate::player::LocalPlatformInventory;
 use crate::systems::cursor;
 
@@ -239,6 +240,7 @@ pub fn global_inventory_search_input(
     global_inv_open: Res<GlobalInventoryOpen>,
     mut search: ResMut<GlobalInventorySearch>,
     mut page: ResMut<GlobalInventoryPage>,
+    input: Res<InputManager>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut search_text_query: Query<&mut Text, With<GlobalInventorySearchInput>>,
 ) {
@@ -249,7 +251,7 @@ pub fn global_inventory_search_input(
     let mut changed = false;
 
     // Handle backspace
-    if key_input.just_pressed(KeyCode::Backspace) {
+    if input.just_pressed(GameAction::DeleteChar) {
         search.0.pop();
         changed = true;
     }

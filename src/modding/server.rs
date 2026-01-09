@@ -7,11 +7,13 @@ use bevy::prelude::*;
 use crossbeam_channel::{Receiver, Sender};
 
 use super::connection::ConnectionManager;
-use super::handlers::{route_request, GameStateInfo, HandlerContext};
+use super::handlers::{route_request, GameStateInfo, HandlerContext, TestStateInfo};
 use super::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
 use super::ModManager;
 
-use crate::components::CursorLockState;
+use crate::components::{CursorLockState, UIState};
+use crate::input::{GameAction, TestInputEvent};
+use crate::player::LocalPlayer;
 
 /// Server configuration
 #[derive(Resource, Clone)]
@@ -338,11 +340,16 @@ fn setup_mod_api_server(mut commands: Commands, config: Res<ModApiServerConfig>)
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_server_messages(
     server: Option<ResMut<ModApiServer>>,
     mod_manager: Res<ModManager>,
     cursor_lock: Option<Res<CursorLockState>>,
     time: Res<Time>,
+    ui_state: Option<Res<UIState>>,
+    local_player: Option<Res<LocalPlayer>>,
+    transforms: Query<&Transform>,
+    mut test_input_writer: EventWriter<TestInputEvent>,
 ) {
     let Some(mut server) = server else { return };
 
@@ -351,6 +358,20 @@ fn process_server_messages(
         paused: cursor_lock.as_ref().is_some_and(|c| c.paused),
         tick: (time.elapsed_secs_f64() * 1000.0) as u64,
         player_count: 1, // Single-player for now
+    };
+
+    // Build test state info
+    let test_state = TestStateInfo {
+        ui_state: ui_state
+            .as_ref()
+            .map(|s| format!("{:?}", s.current()))
+            .unwrap_or_default(),
+        player_position: local_player
+            .as_ref()
+            .and_then(|lp| transforms.get(lp.0).ok())
+            .map(|t| [t.translation.x, t.translation.y, t.translation.z])
+            .unwrap_or_default(),
+        cursor_locked: cursor_lock.as_ref().is_some_and(|c| !c.paused),
     };
 
     // Process received messages (non-blocking)
@@ -379,10 +400,21 @@ fn process_server_messages(
                     request.method
                 );
 
+                // Handle test.send_input specially to inject input
+                if request.method == "test.send_input" {
+                    if let Some(action_str) = request.params.get("action").and_then(|v| v.as_str())
+                    {
+                        if let Some(action) = parse_game_action(action_str) {
+                            test_input_writer.send(TestInputEvent { action });
+                        }
+                    }
+                }
+
                 // Route to appropriate handler
                 let ctx = HandlerContext {
                     mod_manager: &mod_manager,
                     game_state: game_state.clone(),
+                    test_state: test_state.clone(),
                 };
                 let response = route_request(&request, &ctx);
                 tracing::info!("Sending response for conn {}: {:?}", conn_id, response.id);
@@ -395,6 +427,46 @@ fn process_server_messages(
                 }
             }
         }
+    }
+}
+
+/// Parse GameAction from string
+fn parse_game_action(s: &str) -> Option<GameAction> {
+    match s {
+        "MoveForward" => Some(GameAction::MoveForward),
+        "MoveBackward" => Some(GameAction::MoveBackward),
+        "MoveLeft" => Some(GameAction::MoveLeft),
+        "MoveRight" => Some(GameAction::MoveRight),
+        "Jump" => Some(GameAction::Jump),
+        "Descend" => Some(GameAction::Descend),
+        "LookUp" => Some(GameAction::LookUp),
+        "LookDown" => Some(GameAction::LookDown),
+        "LookLeft" => Some(GameAction::LookLeft),
+        "LookRight" => Some(GameAction::LookRight),
+        "ToggleInventory" => Some(GameAction::ToggleInventory),
+        "TogglePause" => Some(GameAction::TogglePause),
+        "ToggleGlobalInventory" => Some(GameAction::ToggleGlobalInventory),
+        "ToggleQuest" => Some(GameAction::ToggleQuest),
+        "OpenCommand" => Some(GameAction::OpenCommand),
+        "CloseUI" => Some(GameAction::CloseUI),
+        "Confirm" => Some(GameAction::Confirm),
+        "Cancel" => Some(GameAction::Cancel),
+        "Hotbar1" => Some(GameAction::Hotbar1),
+        "Hotbar2" => Some(GameAction::Hotbar2),
+        "Hotbar3" => Some(GameAction::Hotbar3),
+        "Hotbar4" => Some(GameAction::Hotbar4),
+        "Hotbar5" => Some(GameAction::Hotbar5),
+        "Hotbar6" => Some(GameAction::Hotbar6),
+        "Hotbar7" => Some(GameAction::Hotbar7),
+        "Hotbar8" => Some(GameAction::Hotbar8),
+        "Hotbar9" => Some(GameAction::Hotbar9),
+        "PrimaryAction" => Some(GameAction::PrimaryAction),
+        "SecondaryAction" => Some(GameAction::SecondaryAction),
+        "RotateBlock" => Some(GameAction::RotateBlock),
+        "ModifierShift" => Some(GameAction::ModifierShift),
+        "ToggleDebug" => Some(GameAction::ToggleDebug),
+        "DeleteChar" => Some(GameAction::DeleteChar),
+        _ => None,
     }
 }
 

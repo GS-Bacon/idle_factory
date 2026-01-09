@@ -1,6 +1,7 @@
 //! Hotbar UI systems
 
 use crate::components::*;
+use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::systems::block_operations::LocalPlayerInventory;
 use bevy::prelude::*;
@@ -129,7 +130,7 @@ pub fn update_hotbar_item_name(
 
 /// Select slot with number keys (1-9) or scroll wheel
 pub fn select_block_type(
-    key_input: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     mut mouse_wheel: EventReader<bevy::input::mouse::MouseWheel>,
     mut local_player_inventory: LocalPlayerInventory,
     input_resources: InputStateResourcesWithCursor,
@@ -171,20 +172,20 @@ pub fn select_block_type(
         }
     }
 
-    // Number keys 1-9 select hotbar slots directly
-    let digit_keys = [
-        (KeyCode::Digit1, 0),
-        (KeyCode::Digit2, 1),
-        (KeyCode::Digit3, 2),
-        (KeyCode::Digit4, 3),
-        (KeyCode::Digit5, 4),
-        (KeyCode::Digit6, 5),
-        (KeyCode::Digit7, 6),
-        (KeyCode::Digit8, 7),
-        (KeyCode::Digit9, 8),
+    // Number keys 1-9 select hotbar slots directly via InputManager
+    const HOTBAR_ACTIONS: [(GameAction, usize); 9] = [
+        (GameAction::Hotbar1, 0),
+        (GameAction::Hotbar2, 1),
+        (GameAction::Hotbar3, 2),
+        (GameAction::Hotbar4, 3),
+        (GameAction::Hotbar5, 4),
+        (GameAction::Hotbar6, 5),
+        (GameAction::Hotbar7, 6),
+        (GameAction::Hotbar8, 7),
+        (GameAction::Hotbar9, 8),
     ];
-    for (key, slot) in digit_keys {
-        if key_input.just_pressed(key) {
+    for (action, slot) in HOTBAR_ACTIONS {
+        if input.just_pressed(action) {
             inventory.selected_slot = slot;
         }
     }

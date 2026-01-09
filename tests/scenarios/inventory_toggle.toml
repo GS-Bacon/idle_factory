@@ -1,0 +1,54 @@
+name = "inventory_toggle"
+description = "Test that E key opens and closes inventory"
+
+# Initial state: should be in gameplay
+[[steps]]
+action = "assert"
+condition = "ui_state == Gameplay"
+
+# Press E to open inventory
+[[steps]]
+action = "input"
+key = "ToggleInventory"
+
+[[steps]]
+action = "wait"
+ms = 100
+
+# Verify inventory is open
+[[steps]]
+action = "assert"
+condition = "ui_state == Inventory"
+
+# Player should not be able to move
+[[steps]]
+action = "save"
+variable = "pos_before"
+field = "player_position"
+
+[[steps]]
+action = "input"
+key = "MoveForward"
+
+[[steps]]
+action = "wait"
+ms = 200
+
+# Position should be unchanged
+[[steps]]
+action = "assert"
+condition = "player_position == $pos_before"
+
+# Press E again to close inventory
+[[steps]]
+action = "input"
+key = "ToggleInventory"
+
+[[steps]]
+action = "wait"
+ms = 100
+
+# Verify back to gameplay
+[[steps]]
+action = "assert"
+condition = "ui_state == Gameplay"

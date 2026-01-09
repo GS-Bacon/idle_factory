@@ -2,6 +2,7 @@
 
 use crate::components::{BiomeHudText, PlayerPhysics, *};
 use crate::core::items;
+use crate::input::{GameAction, InputManager};
 use crate::world::{BiomeMap, WorldData};
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::prelude::*;
@@ -24,11 +25,11 @@ pub fn update_window_title(mut windows: Query<&mut Window>, mut done: Local<bool
 /// Toggle debug HUD with F3 key
 pub fn toggle_debug_hud(
     mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     mut debug_state: ResMut<DebugHudState>,
     debug_query: Query<Entity, With<DebugHudText>>,
 ) {
-    if keyboard.just_pressed(KeyCode::F3) {
+    if input.just_pressed(GameAction::ToggleDebug) {
         debug_state.visible = !debug_state.visible;
 
         if debug_state.visible {

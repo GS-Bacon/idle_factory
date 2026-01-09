@@ -8,6 +8,7 @@
 
 use crate::components::*;
 use crate::events::SpawnMachineEvent;
+use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::systems::cursor;
 use crate::{GlobalInventoryOpen, InteractingMachine};
@@ -35,6 +36,7 @@ fn get_suggestions(input: &str) -> Vec<&'static str> {
 /// Toggle command input with T or / key
 #[allow(clippy::too_many_arguments)]
 pub fn command_input_toggle(
+    input: Res<InputManager>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut command_state: ResMut<CommandInputState>,
     mut ui_query: Query<&mut Visibility, With<CommandInputUI>>,
@@ -50,14 +52,12 @@ pub fn command_input_toggle(
     }
 
     // T or / to open command input (when not already open)
-    if !command_state.open
-        && (key_input.just_pressed(KeyCode::KeyT) || key_input.just_pressed(KeyCode::Slash))
-    {
+    if !command_state.open && input.just_pressed(GameAction::OpenCommand) {
         command_state.open = true;
         command_state.text.clear();
         command_state.skip_input_frame = true; // Skip input this frame
 
-        // Start with / if opened with slash key
+        // Start with / if opened with slash key (check raw input for this specific case)
         if key_input.just_pressed(KeyCode::Slash) {
             command_state.text.push('/');
         }

@@ -2,6 +2,7 @@
 
 use crate::components::*;
 use crate::core::ItemId;
+use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::setup::ui::{
     SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
@@ -189,7 +190,7 @@ pub fn inventory_slot_click(
     local_player: Option<Res<LocalPlayer>>,
     mut inventory_query: Query<&mut PlayerInventory>,
     mut held_item: ResMut<HeldItem>,
-    key_input: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     mut interaction_query: Query<
         (
             &Interaction,
@@ -211,8 +212,7 @@ pub fn inventory_slot_click(
         return;
     };
 
-    let shift_held =
-        key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
+    let shift_held = input.pressed(GameAction::ModifierShift);
 
     for (interaction, slot_ui, mut bg_color, mut border_color) in interaction_query.iter_mut() {
         let slot_idx = slot_ui.0;
@@ -369,8 +369,7 @@ pub fn inventory_continuous_shift_click(
     inventory_open: Res<InventoryOpen>,
     local_player: Option<Res<LocalPlayer>>,
     mut inventory_query: Query<&mut PlayerInventory>,
-    key_input: Res<ButtonInput<KeyCode>>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
+    input: Res<InputManager>,
     mut action_timer: ResMut<ContinuousActionTimer>,
     interaction_query: Query<(&Interaction, &InventorySlotUI)>,
 ) {
@@ -385,9 +384,8 @@ pub fn inventory_continuous_shift_click(
         return;
     };
 
-    let shift_held =
-        key_input.pressed(KeyCode::ShiftLeft) || key_input.pressed(KeyCode::ShiftRight);
-    if !shift_held || !mouse_button.pressed(MouseButton::Left) {
+    let shift_held = input.pressed(GameAction::ModifierShift);
+    if !shift_held || !input.pressed(GameAction::PrimaryAction) {
         return;
     }
 

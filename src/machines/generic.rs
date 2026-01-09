@@ -307,6 +307,7 @@ use crate::components::{
     CursorLockState, GenericMachineProgressBar, GenericMachineSlotButton, GenericMachineSlotCount,
     GenericMachineUI, InteractingMachine, InventoryOpen, PlayerCamera,
 };
+use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::systems::cursor;
 use crate::REACH_DISTANCE;
@@ -315,8 +316,7 @@ use bevy::window::CursorGrabMode;
 /// Generic machine interaction (open/close UI)
 #[allow(clippy::too_many_arguments)]
 pub fn generic_machine_interact(
-    key_input: Res<ButtonInput<KeyCode>>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
+    input: Res<InputManager>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
     machine_query: Query<(Entity, &Transform, &Machine)>,
     mut interacting: ResMut<InteractingMachine>,
@@ -333,8 +333,8 @@ pub fn generic_machine_interact(
         return;
     }
 
-    let e_pressed = key_input.just_pressed(KeyCode::KeyE);
-    let esc_pressed = key_input.just_pressed(KeyCode::Escape);
+    let e_pressed = input.just_pressed(GameAction::ToggleInventory);
+    let esc_pressed = input.just_pressed(GameAction::Cancel);
 
     // Close UI with E or ESC
     if interacting.0.is_some() && (e_pressed || esc_pressed) {
@@ -363,7 +363,7 @@ pub fn generic_machine_interact(
     }
 
     // Open UI with right-click when cursor locked
-    if !mouse_button.just_pressed(MouseButton::Right) || !cursor_locked {
+    if !input.just_pressed(GameAction::SecondaryAction) || !cursor_locked {
         return;
     }
 

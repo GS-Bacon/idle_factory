@@ -2,6 +2,7 @@
 
 use crate::components::*;
 use crate::core::ItemId;
+use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlatform, LocalPlatformInventory, PlatformInventory};
 use crate::{game_spec, BLOCK_SIZE, PLATFORM_SIZE};
 use bevy::prelude::*;
@@ -73,7 +74,7 @@ pub fn quest_progress_check(mut current_quest: ResMut<CurrentQuest>, quest_cache
 
 /// Claim quest rewards with Q key
 pub fn quest_claim_rewards(
-    key_input: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     mut current_quest: ResMut<CurrentQuest>,
     mut platform_inventory: LocalPlatformInventory,
     command_state: Res<CommandInputState>,
@@ -88,7 +89,7 @@ pub fn quest_claim_rewards(
         return;
     }
 
-    if !key_input.just_pressed(KeyCode::KeyQ) {
+    if !input.just_pressed(GameAction::ToggleQuest) {
         return;
     }
 

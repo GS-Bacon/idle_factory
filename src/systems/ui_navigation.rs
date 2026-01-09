@@ -8,6 +8,7 @@ use crate::components::{
     CommandInputState, CursorLockState, GlobalInventoryOpen, InteractingMachine, InventoryOpen,
     UIAction, UIContext, UIState,
 };
+use crate::input::{GameAction, InputManager};
 
 /// Handle UIAction events and update UIState
 pub fn ui_action_handler(mut ui_state: ResMut<UIState>, mut action_events: EventReader<UIAction>) {
@@ -92,12 +93,12 @@ pub fn sync_legacy_ui_state(
 /// Handle ESC key for UI navigation
 /// ESC pops current UI or opens pause menu if in gameplay
 pub fn ui_escape_handler(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     ui_state: Res<UIState>,
     command_state: Res<CommandInputState>,
     mut action_writer: EventWriter<UIAction>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Escape) {
+    if !input.just_pressed(GameAction::Cancel) {
         return;
     }
 
@@ -117,11 +118,11 @@ pub fn ui_escape_handler(
 
 /// Handle E key for inventory toggle
 pub fn ui_inventory_handler(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     ui_state: Res<UIState>,
     mut action_writer: EventWriter<UIAction>,
 ) {
-    if !keyboard.just_pressed(KeyCode::KeyE) {
+    if !input.just_pressed(GameAction::ToggleInventory) {
         return;
     }
 
@@ -143,12 +144,12 @@ pub fn ui_inventory_handler(
 
 /// Handle Tab key for global inventory toggle
 pub fn ui_global_inventory_handler(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    input: Res<InputManager>,
     ui_state: Res<UIState>,
     command_state: Res<CommandInputState>,
     mut action_writer: EventWriter<UIAction>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Tab) {
+    if !input.just_pressed(GameAction::ToggleGlobalInventory) {
         return;
     }
 
