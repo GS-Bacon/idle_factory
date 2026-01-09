@@ -63,6 +63,9 @@ pub struct ItemDefinition {
     /// カスタムプロパティ
     #[serde(default)]
     pub properties: HashMap<String, serde_json::Value>,
+    /// タグ（Forge Ore Dictionary相当）
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 fn default_stack_size() -> u32 {
@@ -89,6 +92,7 @@ impl ItemDefinition {
             icon: String::new(),
             model: String::new(),
             properties: HashMap::new(),
+            tags: Vec::new(),
         }
     }
 }

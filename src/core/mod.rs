@@ -7,8 +7,10 @@ pub mod category;
 pub mod id;
 pub mod inventory;
 pub mod network;
+pub mod tags;
 
 pub use category::*;
 pub use id::*;
 pub use inventory::*;
 pub use network::*;
+pub use tags::TagRegistry;

@@ -8,16 +8,24 @@
 pub mod api;
 pub mod connection;
 pub mod data;
+pub mod dependency;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod event_bridge;
 pub mod handlers;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod hot_reload;
 pub mod protocol;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod server;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod wasm;
 
 // Re-export server types for convenience
+pub use dependency::{DependencyError, DependencyResolver, ModDependencyInfo};
 #[cfg(not(target_arch = "wasm32"))]
 pub use event_bridge::EventBridgePlugin;
+#[cfg(not(target_arch = "wasm32"))]
+pub use hot_reload::{HotReloadError, ModChange, ModHotReloader};
 #[cfg(not(target_arch = "wasm32"))]
 pub use server::{ModApiServer, ModApiServerConfig, ModApiServerPlugin};
 

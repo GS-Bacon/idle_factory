@@ -1,0 +1,13 @@
+[mod]
+id = "base_mechanics"
+name = "Base Mechanics"
+version = "0.1.0"
+author = "Game Dev"
+description = "Core game mechanics including delivery platform and quest progression"
+type = "core"
+
+[mod.dependencies]
+base = ">=0.3.0"
+
+[mod.provides]
+features = ["delivery_platform", "quest_progression"]

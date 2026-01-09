@@ -371,7 +371,13 @@
       "Bash(# ゲームをバックグラウンドで起動 DISPLAY=:10 cargo run --bin idle_factory 2>&1 & GAME_PID=$! echo \"\"Game PID: $GAME_PID\"\" # ポート待機 for i in {1..30}; do if ss -tlnp)",
       "Bash(# バックグラウンドのゲームを終了 pkill -f idle_factory || true sleep 2 # 再起動してテスト DISPLAY=:10 cargo run --bin idle_factory 2>&1 & GAME_PID=$! echo \"\"Game PID: $GAME_PID\"\" # ポート待機 for i in {1..30}; do if ss -tlnp)",
       "Bash(# ゲームを起動して直接ログ取得 DISPLAY=:10 timeout 45 cargo run --bin idle_factory 2>&1 & sleep 20 # ポート確認 ss -tlnp)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(rustup target list:*)",
+      "Bash(./scripts/build_mod.sh:*)",
+      "Bash(CARGO_TARGET_DIR=/home/bacon/idle_factory/target cargo build:*)",
+      "Bash(CARGO_INCREMENTAL=0 cargo build:*)",
+      "Bash(cargo update:*)",
+      "Bash(/home/bacon/idle_factory/scripts/build_mod.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

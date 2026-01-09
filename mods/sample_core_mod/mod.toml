@@ -1,0 +1,10 @@
+[mod]
+id = "sample_core_mod"
+name = "Sample Core Mod"
+version = "0.1.0"
+author = "Test Author"
+description = "A sample WASM mod for testing the Core Mod system"
+type = "core"
+
+[mod.dependencies]
+base = ">=0.3.0"
