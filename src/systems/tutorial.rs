@@ -179,11 +179,8 @@ pub fn update_tutorial_ui(
     >,
     mut progress_bar_fill_query: Query<&mut Node, With<TutorialProgressBarFill>>,
 ) {
-    let Ok(mut panel_vis) = panel_query.get_single_mut() else {
-        return;
-    };
-
     // Quest UI visibility: only show when tutorial is completed
+    // Must run BEFORE early return to ensure QuestUI is controlled even if TutorialPanel is missing
     if let Ok(mut quest_vis) = quest_query.get_single_mut() {
         *quest_vis = if progress.completed {
             Visibility::Visible
@@ -191,6 +188,10 @@ pub fn update_tutorial_ui(
             Visibility::Hidden
         };
     }
+
+    let Ok(mut panel_vis) = panel_query.get_single_mut() else {
+        return;
+    };
 
     // Hide tutorial panel if tutorials completed or initial popup still showing
     if progress.completed || !tutorial_shown.0 {
