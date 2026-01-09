@@ -1,32 +1,42 @@
-# Getting Started / はじめに
+# Getting Started
 
 Create your first mod in 5 minutes.
+
 5分で最初のModを作成しましょう。
 
 ---
 
 ## Prerequisites / 必要なもの
 
-- Idle Factory game installed / Idle Factoryゲーム本体
-- Text editor (VS Code, Notepad++, etc.) / テキストエディタ
+- Idle Factory game installed
+- Text editor (VS Code, Notepad++, etc.)
+
+必要なもの：
+- Idle Factoryゲーム本体
+- テキストエディタ（VS Code、メモ帳など）
 
 ---
 
-## Tutorial: Add a Diamond Item / チュートリアル: ダイヤモンドを追加
+## Tutorial: Add a Diamond Item
 
-### Step 1: Create Mod Folder / Modフォルダを作成
+### Step 1: Create Mod Folder
+
+Create folder `mods/my_first_mod/` in the game directory.
+
+ゲームディレクトリに `mods/my_first_mod/` フォルダを作成します。
 
 ```
 mods/
 └── my_first_mod/
-    ├── mod.toml      ← Mod metadata / メタデータ
-    └── items.toml    ← Item definitions / アイテム定義
+    ├── mod.toml      ← Mod metadata
+    └── items.toml    ← Item definitions
 ```
 
-Create folder `mods/my_first_mod/` in the game directory.
-ゲームディレクトリに `mods/my_first_mod/` フォルダを作成。
+### Step 2: Create mod.toml
 
-### Step 2: Create mod.toml / mod.tomlを作成
+Create the mod metadata file.
+
+Modメタデータファイルを作成します。
 
 ```toml
 [mod]
@@ -42,15 +52,26 @@ base = ">=0.3.0"
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `id` | Yes | Unique identifier (lowercase, underscores OK) / 一意の識別子 |
-| `name` | Yes | Display name / 表示名 |
-| `version` | Yes | Semantic versioning / セマンティックバージョン |
-| `dependencies` | No | Required mods / 依存Mod |
+| `id` | Yes | Unique identifier (lowercase, underscores OK) |
+| `name` | Yes | Display name |
+| `version` | Yes | Semantic versioning (e.g., 1.0.0) |
+| `dependencies` | No | Required mods |
 
-### Step 3: Create items.toml / items.tomlを作成
+| フィールド | 必須 | 説明 |
+|-----------|------|------|
+| `id` | はい | 一意の識別子（小文字、アンダースコアOK） |
+| `name` | はい | 表示名 |
+| `version` | はい | セマンティックバージョン（例: 1.0.0） |
+| `dependencies` | いいえ | 依存Mod |
+
+### Step 3: Create items.toml
+
+Define your new items.
+
+新しいアイテムを定義します。
 
 ```toml
-# Diamond Ore / ダイヤモンド鉱石
+# Diamond Ore
 [[item]]
 id = "diamond_ore"
 name = "Diamond Ore"
@@ -63,7 +84,7 @@ hardness = 2.0
 color = [0.2, 0.8, 0.9]
 tags = ["ore", "rare", "crushable"]
 
-# Diamond / ダイヤモンド
+# Diamond
 [[item]]
 id = "diamond"
 name = "Diamond"
@@ -76,20 +97,31 @@ color = [0.6, 0.95, 1.0]
 tags = ["gem", "rare", "valuable"]
 ```
 
-### Step 4: Launch / ゲーム起動
+### Step 4: Launch the Game
 
-1. Start Idle Factory / Idle Factoryを起動
-2. Mod loads automatically / Modが自動読み込み
-3. Press E to open inventory / Eキーでインベントリを開く
+1. Start Idle Factory
+2. Mod loads automatically
+3. Press E to open inventory
 
-### Step 5: Verify / 確認
+手順：
+1. Idle Factoryを起動
+2. Modが自動で読み込まれる
+3. Eキーでインベントリを開く
 
-Open console (T key) and type: / コンソール（Tキー）で入力:
+### Step 5: Verify Your Mod
+
+Open console (T key) and type:
+
+コンソール（Tキー）を開いて入力：
+
 ```
 /item list my_first_mod
 ```
 
-Expected output / 期待される出力:
+Expected output:
+
+期待される出力：
+
 ```
 my_first_mod:diamond_ore - Diamond Ore
 my_first_mod:diamond - Diamond
@@ -97,7 +129,11 @@ my_first_mod:diamond - Diamond
 
 ---
 
-## Next: Add Recipe / 次: レシピ追加
+## Next Steps: Add a Recipe
+
+Want your diamond ore to be useful? Add a recipe!
+
+ダイヤモンド鉱石を活用したい？レシピを追加しましょう！
 
 Create `recipes.toml`:
 
@@ -114,9 +150,17 @@ diamond_ore = 1
 diamond = 2
 ```
 
+Now diamond ore can be crushed into diamonds!
+
+これでダイヤモンド鉱石を粉砕してダイヤモンドを入手できます！
+
 ---
 
-## Next: Add Machine / 次: 機械追加
+## Next Steps: Add a Machine
+
+Create a custom machine for your mod.
+
+Mod専用の機械を作成できます。
 
 Create `machines.toml`:
 
@@ -124,7 +168,6 @@ Create `machines.toml`:
 [[machine]]
 id = "gem_polisher"
 name = "Gem Polisher"
-name_en = "Gem Polisher"
 block_type = "custom"
 process_time = 5.0
 buffer_size = 32
@@ -139,36 +182,77 @@ outputs = [{ side = "front", slot_id = 0 }]
 
 ---
 
-## Troubleshooting / トラブルシューティング
+## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| Mod not loading / Modが読み込まれない | Check `mod.toml` syntax, ensure `id` is unique lowercase / 構文確認、idを一意の小文字に |
-| Items missing / アイテムがない | Verify `category` is valid: `terrain`, `ore`, `processed`, `machine`, `tool` |
-| Recipe not working / レシピが動かない | Ensure input/output items exist, machine type matches / 入出力アイテムと機械タイプを確認 |
+### Mod not loading
 
-Check logs: `logs/game.log` / ログ確認: `logs/game.log`
+- Check `mod.toml` syntax
+- Ensure `id` is unique and lowercase
+
+Modが読み込まれない場合：
+- `mod.toml` の構文を確認
+- `id` が一意の小文字であることを確認
+
+### Items not appearing
+
+- Verify `category` is valid: `terrain`, `ore`, `processed`, `machine`, `tool`
+
+アイテムが表示されない場合：
+- `category` が有効値か確認
+
+### Recipe not working
+
+- Ensure input/output items exist
+- Check machine type matches
+
+レシピが動作しない場合：
+- 入出力アイテムが存在するか確認
+- 機械タイプが一致しているか確認
+
+### Check Logs
+
+Look at `logs/game.log` for error details.
+
+エラーの詳細は `logs/game.log` を確認してください。
 
 ---
 
-## File Structure / ファイル構造
+## Complete File Structure
 
 ```
 mods/my_first_mod/
-├── mod.toml        # Required / 必須
-├── items.toml      # Optional / 任意
-├── machines.toml   # Optional / 任意
-├── recipes.toml    # Optional / 任意
-├── textures/       # Optional / 任意
-│   └── diamond.png
-└── models/         # Optional / 任意
+├── mod.toml        # Required
+│                   # 必須
+│
+├── items.toml      # Optional
+│                   # 任意
+│
+├── machines.toml   # Optional
+│                   # 任意
+│
+├── recipes.toml    # Optional
+│                   # 任意
+│
+├── textures/       # Optional: PNG files
+│   └── diamond.png # 任意: PNGファイル
+│
+└── models/         # Optional: GLB files
     └── gem_polisher.glb
+                    # 任意: GLBファイル
 ```
 
 ---
 
-## See Also / 関連
+## See Also / 関連ドキュメント
 
-- [Mod Structure](Mod-Structure) - mod.toml reference / mod.toml詳細
-- [Data Mod Guide](Data-Mod-Guide) - Complete TOML docs / TOML完全ガイド
-- [TOML Schema](TOML-Schema) - All fields / 全フィールド
+- **[Mod Structure](Mod-Structure)** - Detailed mod.toml reference
+
+  mod.tomlの詳細リファレンス
+
+- **[Data Mod Guide](Data-Mod-Guide)** - Complete TOML documentation
+
+  TOMLの完全ガイド
+
+- **[TOML Schema](TOML-Schema)** - All fields reference
+
+  全フィールドのリファレンス

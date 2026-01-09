@@ -1,109 +1,98 @@
 # Idle Factory Modding Wiki
 
 Welcome to the official Modding documentation.
+
 公式Moddingドキュメントへようこそ。
 
 ---
 
-## Quick Links / クイックリンク
+## What is Modding? / Moddingとは
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](Getting-Started) | Create your first mod in 5 minutes / 5分でMod作成 |
-| [Mod Structure](Mod-Structure) | mod.toml format and folder organization / mod.tomlとフォルダ構成 |
-| [Data Mod Guide](Data-Mod-Guide) | Add items, machines, recipes via TOML / TOMLでアイテム追加 |
-| [Script Mod Guide](Script-Mod-Guide) | External tools via WebSocket API / WebSocketで外部ツール |
-| [Core Mod Guide](Core-Mod-Guide) | Advanced mods via WASM / WASMで高度なMod |
+Idle Factory supports three types of mods that extend the game in different ways.
 
-## API Reference / APIリファレンス
+Idle Factoryは3種類のModに対応しており、それぞれ異なる方法でゲームを拡張できます。
 
-| Reference | Description |
-|-----------|-------------|
-| [WebSocket API](WebSocket-API) | JSON-RPC 2.0 methods for Script Mods |
-| [WASM Host Functions](WASM-Host-Functions) | Host functions for Core Mods |
-| [TOML Schema](TOML-Schema) | Item, machine, recipe field reference |
+| Type | Difficulty | What You Can Do |
+|------|------------|-----------------|
+| **Data Mod** | Easy | Add items, machines, recipes |
+| **Script Mod** | Medium | Build external tools, overlays |
+| **Core Mod** | Advanced | Change game behavior |
 
----
-
-## Mod Types / Modの種類
-
-| Type | Language | Use Case | Complexity |
-|------|----------|----------|------------|
-| **Data Mod** | TOML | Add items, machines, recipes / アイテム追加 | Easy / 簡単 |
-| **Script Mod** | JS, Python, etc. | External tools, overlays / 外部ツール | Medium / 中級 |
-| **Core Mod** | Rust (WASM) | Custom game logic / ゲームロジック変更 | Advanced / 上級 |
-
-### Which should I use? / どれを使うべき？
-
-```
-Want to add new items/machines/recipes?
-新しいアイテム・機械・レシピを追加したい
-  → Data Mod (TOML only, no code / TOMLだけ、コード不要)
-
-Want to build external tools (map viewer, statistics)?
-外部ツールを作りたい（マップビューア、統計等）
-  → Script Mod (WebSocket API)
-
-Want to change game behavior?
-ゲームの動作を変えたい
-  → Core Mod (WASM)
-```
+| 種類 | 難易度 | できること |
+|------|--------|-----------|
+| **Data Mod** | 簡単 | アイテム・機械・レシピの追加 |
+| **Script Mod** | 中級 | 外部ツール・オーバーレイの作成 |
+| **Core Mod** | 上級 | ゲーム動作の変更 |
 
 ---
 
-## Example Mods / サンプル
+## Quick Start / クイックスタート
 
-### Data Mod: Add a new item / 新アイテム追加
+### Step 1: Choose Your Mod Type
 
-```toml
-# mods/mymod/items.toml
-[[item]]
-id = "diamond"
-name = "Diamond"
-description = "A rare gem"
-stack_size = 999
-category = "ore"
-is_placeable = true
-hardness = 2.0
-color = [0.6, 0.95, 1.0]
-tags = ["gem", "rare"]
-```
+**Want to add new content?**
+→ Start with [Data Mod Guide](Data-Mod-Guide)
 
-### Script Mod: Get game version / ゲームバージョン取得
+**Want to build external tools?**
+→ See [Script Mod Guide](Script-Mod-Guide)
 
-```javascript
-const ws = new WebSocket("ws://127.0.0.1:9877");
-ws.onopen = () => {
-  ws.send(JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "game.version",
-    params: {}
-  }));
-};
-ws.onmessage = (e) => {
-  const result = JSON.parse(e.data).result;
-  console.log("Version:", result.version);
-};
-```
+**Want to change game logic?**
+→ Read [Core Mod Guide](Core-Mod-Guide)
+
+### Step 1: Modの種類を選ぶ
+
+**新しいコンテンツを追加したい**
+→ [Data Mod Guide](Data-Mod-Guide) から始める
+
+**外部ツールを作りたい**
+→ [Script Mod Guide](Script-Mod-Guide) を参照
+
+**ゲームロジックを変えたい**
+→ [Core Mod Guide](Core-Mod-Guide) を読む
 
 ---
 
-## File Structure Overview / ファイル構造概要
+## Learning Path / 学習パス
 
-```
-mods/
-└── my_mod/
-    ├── mod.toml        # Required: Metadata / 必須
-    ├── items.toml      # Optional: Items / 任意
-    ├── machines.toml   # Optional: Machines / 任意
-    ├── recipes.toml    # Optional: Recipes / 任意
-    ├── textures/       # Optional: PNG files / 任意
-    └── models/         # Optional: GLB files / 任意
-```
+### Beginner / 初心者
 
-### Minimal mod.toml / 最小のmod.toml
+1. **[Getting Started](Getting-Started)** - Create your first mod in 5 minutes
 
+   5分で最初のModを作成
+
+2. **[Mod Structure](Mod-Structure)** - Understand mod.toml and folder layout
+
+   mod.tomlとフォルダ構成を理解
+
+### Intermediate / 中級者
+
+3. **[Data Mod Guide](Data-Mod-Guide)** - Complete guide to items, machines, recipes
+
+   アイテム・機械・レシピの完全ガイド
+
+4. **[TOML Schema](TOML-Schema)** - All configuration fields reference
+
+   全設定フィールドのリファレンス
+
+### Advanced / 上級者
+
+5. **[Script Mod Guide](Script-Mod-Guide)** - WebSocket API for external tools
+
+   外部ツール用WebSocket API
+
+6. **[Core Mod Guide](Core-Mod-Guide)** - WASM mods for game logic changes
+
+   ゲームロジック変更用WASM Mod
+
+---
+
+## Example: Your First Data Mod
+
+Create a new item in just 2 files:
+
+たった2ファイルで新アイテムを作成:
+
+**mods/my_mod/mod.toml**
 ```toml
 [mod]
 id = "my_mod"
@@ -114,9 +103,70 @@ version = "1.0.0"
 base = ">=0.3.0"
 ```
 
+**mods/my_mod/items.toml**
+```toml
+[[item]]
+id = "diamond"
+name = "Diamond"
+description = "A rare gem"
+stack_size = 999
+category = "ore"
+```
+
+Launch the game, and your diamond item appears automatically!
+
+ゲームを起動すると、ダイヤモンドアイテムが自動的に追加されます！
+
+---
+
+## File Structure Overview / ファイル構成
+
+```
+mods/
+└── my_mod/
+    ├── mod.toml        # Required: Mod metadata
+    │                   # 必須: Modメタデータ
+    │
+    ├── items.toml      # Optional: Item definitions
+    │                   # 任意: アイテム定義
+    │
+    ├── machines.toml   # Optional: Machine definitions
+    │                   # 任意: 機械定義
+    │
+    ├── recipes.toml    # Optional: Recipe definitions
+    │                   # 任意: レシピ定義
+    │
+    ├── textures/       # Optional: PNG texture files
+    │                   # 任意: PNGテクスチャ
+    │
+    └── models/         # Optional: GLB/GLTF 3D models
+                        # 任意: GLB/GLTF 3Dモデル
+```
+
+---
+
+## API Reference / APIリファレンス
+
+| Document | Description |
+|----------|-------------|
+| [TOML Schema](TOML-Schema) | All item, machine, recipe fields |
+| [WebSocket API](WebSocket-API) | JSON-RPC 2.0 methods for Script Mods |
+| [WASM Host Functions](WASM-Host-Functions) | Host functions for Core Mods |
+
+| ドキュメント | 説明 |
+|-------------|------|
+| [TOML Schema](TOML-Schema) | アイテム・機械・レシピの全フィールド |
+| [WebSocket API](WebSocket-API) | Script Mod用JSON-RPC 2.0メソッド |
+| [WASM Host Functions](WASM-Host-Functions) | Core Mod用ホスト関数 |
+
 ---
 
 ## Community / コミュニティ
 
-- [GitHub Issues](https://github.com/user/idle_factory/issues) - Bug reports, feature requests / バグ報告・機能要望
-- [Discussions](https://github.com/user/idle_factory/discussions) - Questions, mod showcase / 質問・Mod紹介
+- **[GitHub Issues](https://github.com/GS-Bacon/idle_factory/issues)** - Bug reports, feature requests
+
+  バグ報告・機能要望
+
+- **[Discussions](https://github.com/GS-Bacon/idle_factory/discussions)** - Questions, mod showcase
+
+  質問・Mod紹介

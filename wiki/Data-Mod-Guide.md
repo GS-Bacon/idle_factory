@@ -1,26 +1,38 @@
-# Data Mod Guide / Data Modガイド
+# Data Mod Guide
 
 Complete guide to adding items, machines, and recipes via TOML.
+
 TOMLでアイテム・機械・レシピを追加する完全ガイド。
 
 ---
 
-## Overview / 概要
+## Overview
 
-Data Mods use TOML files to extend the game without code.
-Data ModはTOMLファイルでコードなしにゲームを拡張。
+Data Mods use TOML files to extend the game without writing any code.
+
+Data ModはTOMLファイルでコードを書かずにゲームを拡張できます。
 
 | File | Purpose |
 |------|---------|
-| `items.toml` | Define new items / 新アイテム定義 |
-| `machines.toml` | Define new machines / 新機械定義 |
-| `recipes.toml` | Define crafting recipes / クラフトレシピ定義 |
+| `items.toml` | Define new items |
+| `machines.toml` | Define new machines |
+| `recipes.toml` | Define crafting recipes |
+
+| ファイル | 用途 |
+|---------|------|
+| `items.toml` | 新アイテムの定義 |
+| `machines.toml` | 新機械の定義 |
+| `recipes.toml` | クラフトレシピの定義 |
 
 ---
 
-## Items / アイテム
+## Items
 
-### Basic Item / 基本アイテム
+### Basic Item
+
+A simple non-placeable item.
+
+シンプルな設置不可アイテム。
 
 ```toml
 [[item]]
@@ -31,7 +43,11 @@ stack_size = 999
 category = "processed"
 ```
 
-### Placeable Block / 設置可能ブロック
+### Placeable Block
+
+An item that can be placed in the world.
+
+ワールドに設置できるアイテム。
 
 ```toml
 [[item]]
@@ -45,7 +61,11 @@ hardness = 2.0
 color = [0.4, 0.4, 0.5]
 ```
 
-### Item with Tags / タグ付きアイテム
+### Item with Tags
+
+Tags enable filtering and processing hints.
+
+タグでフィルタリングや加工ヒントを設定。
 
 ```toml
 [[item]]
@@ -60,52 +80,80 @@ color = [0.9, 0.8, 0.2]
 tags = ["ore", "ore/gold", "smeltable", "crushable", "rare"]
 ```
 
-### All Item Fields / アイテム全フィールド
+### All Item Fields
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `id` | string | Yes | - | Unique ID within mod / Mod内で一意のID |
-| `name` | string | Yes | - | Display name / 表示名 |
-| `short_name` | string | No | First 4 chars | Short display (max 4) / 短縮表示 |
-| `description` | string | No | "" | Tooltip text / ツールチップ |
-| `stack_size` | int | No | 999 | Max stack amount / 最大スタック数 |
-| `category` | string | Yes | - | See categories below / 下記カテゴリ参照 |
-| `is_placeable` | bool | No | false | Can be placed in world / ワールドに設置可能か |
-| `hardness` | float | No | 1.0 | Mining time multiplier / 採掘時間係数 |
-| `color` | [f32;3] | No | [1,1,1] | RGB color [0-1] / RGB色 |
-| `tags` | [string] | No | [] | Searchable tags / 検索用タグ |
+| `id` | string | Yes | - | Unique ID within mod |
+| `name` | string | Yes | - | Display name |
+| `short_name` | string | No | First 4 chars | Short display (max 4) |
+| `description` | string | No | "" | Tooltip text |
+| `stack_size` | int | No | 999 | Max stack amount |
+| `category` | string | Yes | - | See categories below |
+| `is_placeable` | bool | No | false | Can be placed in world |
+| `hardness` | float | No | 1.0 | Mining time multiplier |
+| `color` | [f32;3] | No | [1,1,1] | RGB color [0-1] |
+| `tags` | [string] | No | [] | Searchable tags |
 
-### Categories / カテゴリ
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-----------|-----|------|-----------|------|
+| `id` | string | はい | - | Mod内で一意のID |
+| `name` | string | はい | - | 表示名 |
+| `short_name` | string | いいえ | 最初の4文字 | 短縮表示（最大4文字） |
+| `description` | string | いいえ | "" | ツールチップ |
+| `stack_size` | int | いいえ | 999 | 最大スタック数 |
+| `category` | string | はい | - | 下記カテゴリ参照 |
+| `is_placeable` | bool | いいえ | false | 設置可能か |
+| `hardness` | float | いいえ | 1.0 | 採掘時間係数 |
+| `color` | [f32;3] | いいえ | [1,1,1] | RGB色 [0-1] |
+| `tags` | [string] | いいえ | [] | 検索用タグ |
+
+### Categories
 
 | Category | Description | Example |
 |----------|-------------|---------|
-| `terrain` | Natural blocks / 自然ブロック | stone, grass, dirt |
-| `ore` | Mineable resources / 採掘資源 | iron_ore, coal |
-| `processed` | Crafted materials / 加工素材 | iron_ingot, copper_wire |
-| `machine` | Placeable machines / 設置機械 | furnace_block, miner_block |
-| `tool` | Player tools / プレイヤーツール | pickaxe |
+| `terrain` | Natural blocks | stone, grass, dirt |
+| `ore` | Mineable resources | iron_ore, coal |
+| `processed` | Crafted materials | iron_ingot, copper_wire |
+| `machine` | Placeable machines | furnace_block, miner_block |
+| `tool` | Player tools | pickaxe |
 
-### Tag Conventions / タグ規約
+| カテゴリ | 説明 | 例 |
+|---------|------|-----|
+| `terrain` | 自然ブロック | stone, grass, dirt |
+| `ore` | 採掘資源 | iron_ore, coal |
+| `processed` | 加工素材 | iron_ingot, copper_wire |
+| `machine` | 設置機械 | furnace_block, miner_block |
+| `tool` | プレイヤーツール | pickaxe |
+
+### Tag Conventions
 
 ```toml
-# Hierarchy with / / 階層は/で
+# Hierarchy with /
+# 階層は/で表現
 tags = ["ore", "ore/iron"]           # Iron ore
 tags = ["ingot", "ingot/iron"]       # Iron ingot
 
-# Processing hints / 加工ヒント
+# Processing hints
+# 加工ヒント
 tags = ["smeltable"]                 # Can be smelted / 精錬可能
 tags = ["crushable"]                 # Can be crushed / 粉砕可能
-tags = ["fuel"]                      # Can be used as fuel / 燃料として使用可能
+tags = ["fuel"]                      # Can be used as fuel / 燃料使用可能
 
-# Custom mod tags / カスタムModタグ
+# Custom mod tags
+# カスタムModタグ
 tags = ["mymod/special", "mymod/tier2"]
 ```
 
 ---
 
-## Machines / 機械
+## Machines
 
-### Basic Machine / 基本機械
+### Basic Machine
+
+A processing machine that uses recipes.
+
+レシピを使用する加工機械。
 
 ```toml
 [[machine]]
@@ -128,7 +176,11 @@ input = { slot_id = 0, label = "入力" }
 output = { slot_id = 0, label = "出力" }
 ```
 
-### Machine with Fuel / 燃料が必要な機械
+### Machine with Fuel
+
+A machine that requires fuel to operate.
+
+燃料が必要な機械。
 
 ```toml
 [[machine]]
@@ -156,7 +208,11 @@ fuel = { slot_id = 1, label = "燃料" }
 output = { slot_id = 0, label = "出力" }
 ```
 
-### Auto-Generate Machine / 自動生成機械
+### Auto-Generate Machine
+
+A machine that produces output without input.
+
+入力なしで出力を生産する機械。
 
 ```toml
 [[machine]]
@@ -167,7 +223,7 @@ block_type = "custom"
 process_time = 2.0
 buffer_size = 100
 requires_fuel = false
-auto_generate = true          # Generates without input / 入力なしで生成
+auto_generate = true
 process_type = "auto_generate"
 
 [machine.ports]
@@ -177,37 +233,63 @@ outputs = [{ side = "front", slot_id = 0 }]
 output = { slot_id = 0, label = "出力" }
 ```
 
-### All Machine Fields / 機械全フィールド
+### All Machine Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | Yes | Unique ID / 一意のID |
-| `name` | string | Yes | Display name (Japanese) / 表示名（日本語） |
-| `name_en` | string | No | English name / 英語名 |
-| `block_type` | string | Yes | Associated block type / 関連ブロックタイプ |
-| `process_time` | float | Yes | Seconds per operation / 1操作の秒数 |
-| `buffer_size` | int | No | Internal buffer capacity / 内部バッファ容量 |
-| `requires_fuel` | bool | No | Needs fuel to operate / 燃料が必要か |
-| `auto_generate` | bool | No | Produces without input / 入力なしで生産 |
+| `id` | string | Yes | Unique ID |
+| `name` | string | Yes | Display name (Japanese) |
+| `name_en` | string | No | English name |
+| `block_type` | string | Yes | Associated block type |
+| `process_time` | float | Yes | Seconds per operation |
+| `buffer_size` | int | No | Internal buffer capacity |
+| `requires_fuel` | bool | No | Needs fuel to operate |
+| `auto_generate` | bool | No | Produces without input |
 | `process_type` | string | Yes | `"recipe"` or `"auto_generate"` |
-| `machine_type` | string | No | Recipe filter / レシピフィルタ |
+| `machine_type` | string | No | Recipe filter |
 
-### Port Sides / ポート方向
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `id` | string | はい | 一意のID |
+| `name` | string | はい | 表示名（日本語） |
+| `name_en` | string | いいえ | 英語名 |
+| `block_type` | string | はい | 関連ブロックタイプ |
+| `process_time` | float | はい | 1操作の秒数 |
+| `buffer_size` | int | いいえ | 内部バッファ容量 |
+| `requires_fuel` | bool | いいえ | 燃料が必要か |
+| `auto_generate` | bool | いいえ | 入力なしで生産 |
+| `process_type` | string | はい | `"recipe"` or `"auto_generate"` |
+| `machine_type` | string | いいえ | レシピフィルタ |
+
+### Port Sides
 
 | Side | Description |
 |------|-------------|
-| `front` | Output direction (machine facing) / 出力方向（機械の向き） |
-| `back` | Behind machine / 機械の後ろ |
-| `left` | Left side / 左側 |
-| `right` | Right side / 右側 |
-| `top` | Above / 上 |
-| `bottom` | Below / 下 |
+| `front` | Output direction (machine facing) |
+| `back` | Behind machine |
+| `left` | Left side |
+| `right` | Right side |
+| `top` | Above |
+| `bottom` | Below |
+
+| 方向 | 説明 |
+|------|------|
+| `front` | 出力方向（機械の向き） |
+| `back` | 機械の後ろ |
+| `left` | 左側 |
+| `right` | 右側 |
+| `top` | 上 |
+| `bottom` | 下 |
 
 ---
 
-## Recipes / レシピ
+## Recipes
 
-### Basic Recipe / 基本レシピ
+### Basic Recipe
+
+A simple single-input, single-output recipe.
+
+シンプルな単一入力・単一出力レシピ。
 
 ```toml
 [[recipe]]
@@ -225,7 +307,11 @@ gold_ingot = 1
 coal = 1
 ```
 
-### Multi-Input Recipe / 複数入力レシピ
+### Multi-Input Recipe
+
+A recipe requiring multiple different inputs.
+
+複数の異なる入力が必要なレシピ。
 
 ```toml
 [[recipe]]
@@ -241,7 +327,11 @@ iron_ingot = 2
 circuit_board = 1
 ```
 
-### Multi-Output Recipe / 複数出力レシピ
+### Multi-Output Recipe
+
+A recipe producing multiple outputs (byproducts).
+
+複数出力（副産物）を生産するレシピ。
 
 ```toml
 [[recipe]]
@@ -257,7 +347,11 @@ iron_dust = 2
 stone = 1        # Byproduct / 副産物
 ```
 
-### Cross-Mod Recipe / Mod間レシピ
+### Cross-Mod Recipe
+
+A recipe using items from other mods.
+
+他のModのアイテムを使用するレシピ。
 
 ```toml
 [[recipe]]
@@ -274,26 +368,37 @@ my_item = 1                   # From this mod / このModから
 advanced_circuit = 1
 ```
 
-### All Recipe Fields / レシピ全フィールド
+### All Recipe Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | Yes | Unique ID / 一意のID |
-| `machine` | string | Yes | Machine type that processes this / 処理する機械タイプ |
-| `craft_time` | float | Yes | Seconds to complete / 完了までの秒数 |
-| `inputs` | table | Yes | Input items {id = count} / 入力アイテム |
-| `outputs` | table | Yes | Output items {id = count} / 出力アイテム |
-| `fuel` | table | No | Fuel items {id = count} / 燃料アイテム |
+| `id` | string | Yes | Unique ID |
+| `machine` | string | Yes | Machine type that processes this |
+| `craft_time` | float | Yes | Seconds to complete |
+| `inputs` | table | Yes | Input items {id = count} |
+| `outputs` | table | Yes | Output items {id = count} |
+| `fuel` | table | No | Fuel items {id = count} |
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `id` | string | はい | 一意のID |
+| `machine` | string | はい | 処理する機械タイプ |
+| `craft_time` | float | はい | 完了までの秒数 |
+| `inputs` | table | はい | 入力アイテム {id = count} |
+| `outputs` | table | はい | 出力アイテム {id = count} |
+| `fuel` | table | いいえ | 燃料アイテム {id = count} |
 
 ---
 
-## Examples / 例
+## Complete Example: New Ore Chain
 
-### Complete Mod: New Ore Chain / 完全なMod: 新しい鉱石チェーン
+A full example adding titanium ore processing.
+
+チタン鉱石の加工を追加する完全な例。
+
+**items.toml**
 
 ```toml
-# items.toml
-
 [[item]]
 id = "titanium_ore"
 name = "Titanium Ore"
@@ -324,9 +429,9 @@ color = [0.8, 0.85, 0.9]
 tags = ["ingot", "ingot/titanium", "metal"]
 ```
 
-```toml
-# recipes.toml
+**recipes.toml**
 
+```toml
 [[recipe]]
 id = "crush_titanium"
 machine = "crusher"
@@ -355,28 +460,40 @@ coal = 2
 
 ---
 
-## Validation / バリデーション
+## Validation
 
-The game validates TOML on load. Check logs for errors:
-ゲームは読み込み時にTOMLを検証。エラーはログを確認:
+The game validates TOML on load. Check `logs/game.log` for errors.
 
-```
-logs/game.log
-```
+ゲームは読み込み時にTOMLを検証します。エラーは `logs/game.log` を確認。
 
-Common errors / よくあるエラー:
+### Common Errors
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `duplicate id` | Same ID used twice / 同じIDを2回使用 | Use unique IDs / 一意のIDを使用 |
-| `unknown category` | Invalid category / 無効なカテゴリ | Use valid category / 有効なカテゴリを使用 |
-| `missing field` | Required field absent / 必須フィールドがない | Add the field / フィールドを追加 |
-| `item not found` | Recipe references missing item / レシピが存在しないアイテムを参照 | Check item ID / アイテムIDを確認 |
+| `duplicate id` | Same ID used twice | Use unique IDs |
+| `unknown category` | Invalid category | Use valid category |
+| `missing field` | Required field absent | Add the field |
+| `item not found` | Recipe references missing item | Check item ID |
+
+| エラー | 原因 | 修正方法 |
+|--------|------|---------|
+| `duplicate id` | 同じIDを2回使用 | 一意のIDを使用 |
+| `unknown category` | 無効なカテゴリ | 有効なカテゴリを使用 |
+| `missing field` | 必須フィールドがない | フィールドを追加 |
+| `item not found` | レシピが存在しないアイテムを参照 | アイテムIDを確認 |
 
 ---
 
-## See Also / 関連
+## See Also
 
-- [Getting Started](Getting-Started) - Quick tutorial / クイックチュートリアル
-- [Mod Structure](Mod-Structure) - mod.toml reference / mod.toml詳細
-- [TOML Schema](TOML-Schema) - Complete field reference / 完全フィールドリファレンス
+- **[Getting Started](Getting-Started)** - Quick tutorial
+
+  クイックチュートリアル
+
+- **[Mod Structure](Mod-Structure)** - mod.toml reference
+
+  mod.toml詳細
+
+- **[TOML Schema](TOML-Schema)** - Complete field reference
+
+  完全フィールドリファレンス
