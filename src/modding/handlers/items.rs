@@ -68,6 +68,9 @@ pub const INVALID_ITEM_ID: i32 = -32011;
 ///
 /// Returns a list of all registered items, optionally filtered by namespace.
 ///
+/// # ja
+/// 登録済みアイテム一覧を取得（namespace指定でフィルタ可能）
+///
 /// # Response
 /// ```json
 /// { "items": [{ "id": "base:iron_ore", "name": "Iron Ore", "stack_size": 999 }] }
@@ -112,6 +115,9 @@ pub fn handle_item_list(request: &JsonRpcRequest) -> JsonRpcResponse {
 ///
 /// Currently a stub - logs the request but does not actually add items.
 /// Dynamic item addition will be implemented in a future version.
+///
+/// # ja
+/// 新しいアイテムを登録（現在はスタブ実装）
 ///
 /// # Response
 /// ```json

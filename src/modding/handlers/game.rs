@@ -14,6 +14,9 @@ pub const API_VERSION: &str = "1.0.0";
 ///
 /// Returns the game version and API version.
 ///
+/// # ja
+/// ゲームバージョンとAPIバージョンを取得
+///
 /// # Response
 /// ```json
 /// {
@@ -54,6 +57,9 @@ impl Default for GameStateInfo {
 /// Handle `game.state` request
 ///
 /// Returns the current game state.
+///
+/// # ja
+/// 現在のゲーム状態を取得
 ///
 /// # Response
 /// ```json

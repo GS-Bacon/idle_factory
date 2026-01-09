@@ -60,6 +60,9 @@ pub struct MachineAddResponse {
 ///
 /// Returns a list of all registered machines with their slot configurations.
 ///
+/// # ja
+/// 登録済み機械の一覧を取得
+///
 /// # Response
 /// ```json
 /// { "machines": [{ "id": "furnace", "name": "精錬炉", "input_slots": 1, "output_slots": 1, "requires_fuel": true }] }
@@ -97,6 +100,9 @@ pub fn handle_machine_list(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// Handle machine.add request
 ///
 /// Registers a new machine type (stub implementation).
+///
+/// # ja
+/// 新しい機械タイプを登録（スタブ実装）
 ///
 /// # Response
 /// ```json

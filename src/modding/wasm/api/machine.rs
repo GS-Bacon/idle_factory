@@ -18,6 +18,9 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
 
 /// Get machine state by entity ID
 ///
+/// # ja
+/// Entity IDで機械の状態を取得
+///
 /// # Returns
 /// - 0: Idle
 /// - 1: Processing
@@ -31,6 +34,9 @@ fn host_get_machine_state(_caller: Caller<'_, ModState>, entity_id: u64) -> i32 
 }
 
 /// Enable or disable a machine
+///
+/// # ja
+/// 機械の有効/無効を設定
 ///
 /// # Returns
 /// - 0: Success

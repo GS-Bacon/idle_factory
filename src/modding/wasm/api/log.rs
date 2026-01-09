@@ -18,6 +18,9 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
 
 /// Log an info message from WASM mod
 ///
+/// # ja
+/// WASM Modからの情報ログを出力
+///
 /// # Returns
 /// Nothing (void function)
 fn host_log_info(mut caller: Caller<'_, ModState>, ptr: u32, len: u32) {
@@ -28,6 +31,9 @@ fn host_log_info(mut caller: Caller<'_, ModState>, ptr: u32, len: u32) {
 }
 
 /// Log an error message from WASM mod
+///
+/// # ja
+/// WASM Modからのエラーログを出力
 ///
 /// # Returns
 /// Nothing (void function)

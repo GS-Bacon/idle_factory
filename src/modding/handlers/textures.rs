@@ -80,6 +80,9 @@ pub struct AtlasInfo {
 ///
 /// Returns a list of all registered textures with their UV coordinates.
 ///
+/// # ja
+/// 登録済みテクスチャ一覧を取得（UV座標付き）
+///
 /// # Response
 /// ```json
 /// { "textures": [{ "name": "stone", "uv": [0.0, 0.0, 0.0625, 0.0625], "is_mod": false }], "atlas_size": [256, 256] }
@@ -126,6 +129,9 @@ pub fn handle_texture_list(request: &JsonRpcRequest) -> JsonRpcResponse {
 ///
 /// Returns information about the texture atlas.
 ///
+/// # ja
+/// テクスチャアトラス情報を取得
+///
 /// # Response
 /// ```json
 /// { "size": [256, 256], "tile_size": 16, "texture_count": 12, "generation": 1 }
@@ -145,6 +151,9 @@ pub fn handle_get_atlas_info(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// Handle texture.register_resolver request
 ///
 /// Registers a custom texture resolver for connected textures, etc.
+///
+/// # ja
+/// カスタムテクスチャリゾルバを登録（接続テクスチャ等用）
 ///
 /// # Response
 /// ```json

@@ -2,6 +2,8 @@
 
 Welcome to the Mod API documentation for the game.
 
+**English** | [日本語](Home-ja)
+
 ## API Types
 
 | Type | Description | Link |

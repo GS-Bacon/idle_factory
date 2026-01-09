@@ -50,6 +50,9 @@ pub struct ModInfoResponse {
 /// # Parameters
 /// None
 ///
+/// # ja
+/// 登録済みMod一覧を取得
+///
 /// # Returns
 /// ```json
 /// { "mods": [{ "id": "base", "name": "Base Game", "version": "0.3.78", "enabled": true }] }
@@ -75,6 +78,9 @@ pub fn handle_mod_list(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRp
 ///
 /// # Parameters
 /// - `mod_id` (required): The mod ID to query
+///
+/// # ja
+/// 指定Modの詳細情報を取得
 ///
 /// # Returns
 /// ```json
@@ -120,6 +126,9 @@ pub fn handle_mod_info(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRp
 /// # Parameters
 /// - `mod_id` (required): The mod ID to enable
 ///
+/// # ja
+/// 無効化されたModを有効化
+///
 /// # Returns
 /// ```json
 /// { "success": true }
@@ -155,6 +164,9 @@ pub fn handle_mod_enable(request: &JsonRpcRequest, ctx: &mut HandlerContextMut) 
 ///
 /// # Parameters
 /// - `mod_id` (required): The mod ID to disable
+///
+/// # ja
+/// 有効なModを無効化
 ///
 /// # Returns
 /// ```json

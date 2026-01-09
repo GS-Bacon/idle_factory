@@ -130,6 +130,9 @@ fn recipe_to_info(recipe: &Recipe) -> RecipeInfo {
 /// Parameters:
 /// - `machine_type` (optional): Filter by machine type ("furnace", "crusher", "assembler")
 ///
+/// # ja
+/// レシピ一覧を取得（machine_typeでフィルタ可能）
+///
 /// # Response
 /// ```json
 /// { "recipes": [{ "id": "smelt_iron", "machine_type": "furnace", "inputs": [{ "item": "iron_ore", "count": 1 }], "outputs": [{ "item": "iron_ingot", "count": 1 }], "time": 2.0 }] }
@@ -195,6 +198,9 @@ pub fn handle_recipe_list(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// - `inputs`: Array of input item IDs
 /// - `outputs`: Array of output item IDs
 /// - `time`: Processing time in seconds
+///
+/// # ja
+/// 新しいレシピを登録（現在はスタブ実装）
 ///
 /// # Response
 /// ```json

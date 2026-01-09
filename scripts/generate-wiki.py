@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-API Wiki Generator
+API Wiki Generator (Bilingual: English/Japanese)
 
 Extracts /// doc comments from Rust source files and generates Markdown
-for GitHub Wiki. Validates that all APIs have required documentation.
+for GitHub Wiki. Supports `# ja` section for Japanese translations.
 
 Usage:
-    python scripts/generate-wiki.py [--check-only]
+    python scripts/generate-wiki.py [--check-only] [--lang=en|ja|all]
 
 Options:
     --check-only    Only check for missing documentation, don't generate files
+    --lang=LANG     Generate only specified language (en, ja, or all). Default: all
 """
 
 import os
@@ -32,9 +33,12 @@ class ApiDoc:
     """Documentation for a single API method/function"""
     name: str
     description: str = ""
+    description_ja: str = ""
     params: list[str] = field(default_factory=list)
     response: str = ""
+    response_ja: str = ""
     returns: str = ""
+    returns_ja: str = ""
     file: str = ""
     line: int = 0
 
@@ -55,9 +59,16 @@ class ApiDoc:
 
         return len(missing) == 0, missing
 
-    def get_response_json(self) -> str:
+    def get_response_json(self, lang: str = "en") -> str:
         """Get response JSON from either response or returns field"""
-        content = self.response.strip() or self.returns.strip()
+        if lang == "ja":
+            content = self.response_ja.strip() or self.returns_ja.strip()
+            # Fall back to English if no Japanese
+            if not content:
+                content = self.response.strip() or self.returns.strip()
+        else:
+            content = self.response.strip() or self.returns.strip()
+
         # Remove markdown code fence if present
         lines = content.split("\n")
         result_lines = []
@@ -69,16 +80,42 @@ class ApiDoc:
             result_lines.append(line)
         return "\n".join(result_lines).strip()
 
+    def get_description(self, lang: str = "en") -> str:
+        """Get description for specified language"""
+        if lang == "ja":
+            return self.description_ja.strip() or self.description.strip()
+        return self.description.strip()
 
-def parse_doc_comment(lines: list[str], start_idx: int) -> tuple[str, dict[str, str]]:
+    def get_returns(self, lang: str = "en") -> str:
+        """Get returns for specified language"""
+        if lang == "ja":
+            return self.returns_ja.strip() or self.returns.strip()
+        return self.returns.strip()
+
+
+def parse_doc_comment(lines: list[str], start_idx: int) -> tuple[str, str, dict[str, str]]:
     """
     Parse a Rust doc comment starting at start_idx.
-    Returns (description, sections) where sections is a dict of section_name -> content
+    Returns (description_en, description_ja, sections) where sections is a dict of section_name -> content
+
+    Format:
+        /// English description
+        ///
+        /// # ja
+        /// Japanese description
+        ///
+        /// # Response
+        /// JSON example
+        ///
+        /// # ja Response
+        /// Japanese JSON example
     """
-    description_lines = []
+    description_en_lines = []
+    description_ja_lines = []
     sections: dict[str, str] = {}
     current_section: Optional[str] = None
     section_lines: list[str] = []
+    in_ja_description = False
 
     idx = start_idx
     while idx < len(lines):
@@ -94,12 +131,24 @@ def parse_doc_comment(lines: list[str], start_idx: int) -> tuple[str, dict[str, 
                 # Save previous section
                 if current_section:
                     sections[current_section] = "\n".join(section_lines).strip()
-                current_section = content[2:].strip()
-                section_lines = []
+
+                section_name = content[2:].strip()
+
+                # Check if this is the `# ja` marker for Japanese description
+                if section_name == "ja":
+                    in_ja_description = True
+                    current_section = None
+                    section_lines = []
+                else:
+                    in_ja_description = False
+                    current_section = section_name
+                    section_lines = []
             elif current_section:
                 section_lines.append(content)
+            elif in_ja_description:
+                description_ja_lines.append(content)
             else:
-                description_lines.append(content)
+                description_en_lines.append(content)
 
             idx += 1
         elif stripped.startswith("//!"):
@@ -114,8 +163,9 @@ def parse_doc_comment(lines: list[str], start_idx: int) -> tuple[str, dict[str, 
     if current_section:
         sections[current_section] = "\n".join(section_lines).strip()
 
-    description = "\n".join(description_lines).strip()
-    return description, sections
+    description_en = "\n".join(description_en_lines).strip()
+    description_ja = "\n".join(description_ja_lines).strip()
+    return description_en, description_ja, sections
 
 
 def extract_websocket_apis() -> list[ApiDoc]:
@@ -173,13 +223,16 @@ def extract_websocket_apis() -> list[ApiDoc]:
                         doc_start -= 1
                     doc_start += 1
 
-                    description, sections = parse_doc_comment(lines, doc_start)
+                    desc_en, desc_ja, sections = parse_doc_comment(lines, doc_start)
 
                     api = ApiDoc(
                         name=method_name,
-                        description=description.split("\n")[0] if description else "",
+                        description=desc_en.split("\n")[0] if desc_en else "",
+                        description_ja=desc_ja.split("\n")[0] if desc_ja else "",
                         response=sections.get("Response", ""),
+                        response_ja=sections.get("ja Response", ""),
                         returns=sections.get("Returns", ""),
+                        returns_ja=sections.get("ja Returns", ""),
                         file=str(file_path.relative_to(PROJECT_ROOT)),
                         line=i + 1,
                     )
@@ -223,13 +276,15 @@ def extract_wasm_apis() -> list[ApiDoc]:
                     doc_start -= 1
                 doc_start += 1
 
-                description, sections = parse_doc_comment(lines, doc_start)
+                desc_en, desc_ja, sections = parse_doc_comment(lines, doc_start)
 
                 api = ApiDoc(
                     name=func_name,
-                    description=description.split("\n")[0] if description else "",
+                    description=desc_en.split("\n")[0] if desc_en else "",
+                    description_ja=desc_ja.split("\n")[0] if desc_ja else "",
                     params=[p.strip() for p in params.split(",") if p.strip()],
                     returns=sections.get("Returns", ""),
+                    returns_ja=sections.get("ja Returns", ""),
                     file=str(rs_file.relative_to(PROJECT_ROOT)),
                     line=i + 1,
                 )
@@ -255,18 +310,30 @@ def validate_docs(websocket_apis: list[ApiDoc], wasm_apis: list[ApiDoc]) -> list
     return errors
 
 
-def generate_websocket_md(apis: list[ApiDoc]) -> str:
+def generate_websocket_md(apis: list[ApiDoc], lang: str = "en") -> str:
     """Generate WebSocket-API.md content"""
-    lines = [
-        "# WebSocket API Reference",
-        "",
-        "JSON-RPC 2.0 API for Mod integration.",
-        "",
-        "**Connection**: `ws://127.0.0.1:9877`",
-        "",
-        "## Methods",
-        "",
-    ]
+    if lang == "ja":
+        lines = [
+            "# WebSocket API リファレンス",
+            "",
+            "Mod連携用 JSON-RPC 2.0 API",
+            "",
+            "**接続先**: `ws://127.0.0.1:9877`",
+            "",
+            "## メソッド一覧",
+            "",
+        ]
+    else:
+        lines = [
+            "# WebSocket API Reference",
+            "",
+            "JSON-RPC 2.0 API for Mod integration.",
+            "",
+            "**Connection**: `ws://127.0.0.1:9877`",
+            "",
+            "## Methods",
+            "",
+        ]
 
     # Deduplicate by method name (keep first occurrence)
     seen_names: set[str] = set()
@@ -291,13 +358,17 @@ def generate_websocket_md(apis: list[ApiDoc]) -> str:
         for api in cat_apis:
             lines.append(f"#### `{api.name}`")
             lines.append("")
-            if api.description:
-                lines.append(api.description)
+            description = api.get_description(lang)
+            if description:
+                lines.append(description)
                 lines.append("")
 
-            response_json = api.get_response_json()
+            response_json = api.get_response_json(lang)
             if response_json:
-                lines.append("**Response:**")
+                if lang == "ja":
+                    lines.append("**レスポンス:**")
+                else:
+                    lines.append("**Response:**")
                 lines.append("```json")
                 lines.append(response_json)
                 lines.append("```")
@@ -306,53 +377,122 @@ def generate_websocket_md(apis: list[ApiDoc]) -> str:
     return "\n".join(lines)
 
 
-def generate_wasm_md(apis: list[ApiDoc]) -> str:
+def generate_wasm_md(apis: list[ApiDoc], lang: str = "en") -> str:
     """Generate WASM-Host-Functions.md content"""
-    lines = [
-        "# WASM Host Functions Reference",
-        "",
-        "Host functions available to Core Mods (WASM).",
-        "",
-        "## Functions",
-        "",
-        "| Function | Parameters | Returns | Description |",
-        "|----------|------------|---------|-------------|",
-    ]
+    if lang == "ja":
+        lines = [
+            "# WASMホスト関数リファレンス",
+            "",
+            "Core Mod (WASM) で使用可能なホスト関数",
+            "",
+            "## 関数一覧",
+            "",
+            "| 関数 | パラメータ | 戻り値 | 説明 |",
+            "|------|------------|--------|------|",
+        ]
+    else:
+        lines = [
+            "# WASM Host Functions Reference",
+            "",
+            "Host functions available to Core Mods (WASM).",
+            "",
+            "## Functions",
+            "",
+            "| Function | Parameters | Returns | Description |",
+            "|----------|------------|---------|-------------|",
+        ]
 
     for api in sorted(apis, key=lambda x: x.name):
         params = ", ".join(api.params) if api.params else "-"
-        returns = api.returns.split("\n")[0] if api.returns else "-"
-        desc = api.description or "-"
+        returns = api.get_returns(lang).split("\n")[0] if api.get_returns(lang) else "-"
+        desc = api.get_description(lang) or "-"
         lines.append(f"| `{api.name}` | `{params}` | {returns} | {desc} |")
 
     lines.append("")
-    lines.append("## Details")
+    if lang == "ja":
+        lines.append("## 詳細")
+    else:
+        lines.append("## Details")
     lines.append("")
 
     for api in sorted(apis, key=lambda x: x.name):
         lines.append(f"### `{api.name}`")
         lines.append("")
-        if api.description:
-            lines.append(api.description)
+        description = api.get_description(lang)
+        if description:
+            lines.append(description)
             lines.append("")
         if api.params:
-            lines.append("**Parameters:**")
+            if lang == "ja":
+                lines.append("**パラメータ:**")
+            else:
+                lines.append("**Parameters:**")
             for param in api.params:
                 lines.append(f"- `{param}`")
             lines.append("")
-        if api.returns:
-            lines.append("**Returns:**")
-            lines.append(api.returns)
+        returns = api.get_returns(lang)
+        if returns:
+            if lang == "ja":
+                lines.append("**戻り値:**")
+            else:
+                lines.append("**Returns:**")
+            lines.append(returns)
             lines.append("")
 
     return "\n".join(lines)
 
 
-def generate_home_md() -> str:
+def generate_home_md(lang: str = "en") -> str:
     """Generate Home.md content"""
-    return """# Mod API Documentation
+    if lang == "ja":
+        return """# Mod API ドキュメント
+
+ゲームのMod API ドキュメントへようこそ。
+
+[English](Home) | **日本語**
+
+## API種別
+
+| 種別 | 説明 | リンク |
+|------|------|--------|
+| **WebSocket API** | Script Mod用 JSON-RPC 2.0 API | [WebSocket API](WebSocket-API-ja) |
+| **WASMホスト関数** | Core Mod用ホスト関数 | [WASMホスト関数](WASM-Host-Functions-ja) |
+
+## はじめに
+
+### Script Mod (WebSocket)
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:9877");
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "game.version",
+    params: {}
+  }));
+};
+
+ws.onmessage = (event) => {
+  console.log(JSON.parse(event.data));
+};
+```
+
+### Core Mod (WASM)
+
+利用可能な関数は [WASMホスト関数](WASM-Host-Functions-ja) を参照してください。
+
+---
+
+*ソースコードから自動生成*
+"""
+    else:
+        return """# Mod API Documentation
 
 Welcome to the Mod API documentation for the game.
+
+**English** | [日本語](Home-ja)
 
 ## API Types
 
@@ -395,6 +535,12 @@ See [WASM Host Functions](WASM-Host-Functions) for available functions.
 def main():
     check_only = "--check-only" in sys.argv
 
+    # Parse --lang option
+    lang_option = "all"
+    for arg in sys.argv:
+        if arg.startswith("--lang="):
+            lang_option = arg.split("=")[1]
+
     print("Extracting API documentation...")
 
     websocket_apis = extract_websocket_apis()
@@ -421,26 +567,31 @@ def main():
         return
 
     # Generate output
-    print("\nGenerating Wiki pages...")
+    print(f"\nGenerating Wiki pages (lang={lang_option})...")
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    # Home.md
-    home_path = OUTPUT_DIR / "Home.md"
-    with open(home_path, "w") as f:
-        f.write(generate_home_md())
-    print(f"  Generated {home_path}")
+    languages = ["en", "ja"] if lang_option == "all" else [lang_option]
 
-    # WebSocket-API.md
-    ws_path = OUTPUT_DIR / "WebSocket-API.md"
-    with open(ws_path, "w") as f:
-        f.write(generate_websocket_md(websocket_apis))
-    print(f"  Generated {ws_path}")
+    for lang in languages:
+        suffix = "-ja" if lang == "ja" else ""
 
-    # WASM-Host-Functions.md
-    wasm_path = OUTPUT_DIR / "WASM-Host-Functions.md"
-    with open(wasm_path, "w") as f:
-        f.write(generate_wasm_md(wasm_apis))
-    print(f"  Generated {wasm_path}")
+        # Home.md
+        home_path = OUTPUT_DIR / f"Home{suffix}.md"
+        with open(home_path, "w") as f:
+            f.write(generate_home_md(lang))
+        print(f"  Generated {home_path}")
+
+        # WebSocket-API.md
+        ws_path = OUTPUT_DIR / f"WebSocket-API{suffix}.md"
+        with open(ws_path, "w") as f:
+            f.write(generate_websocket_md(websocket_apis, lang))
+        print(f"  Generated {ws_path}")
+
+        # WASM-Host-Functions.md
+        wasm_path = OUTPUT_DIR / f"WASM-Host-Functions{suffix}.md"
+        with open(wasm_path, "w") as f:
+            f.write(generate_wasm_md(wasm_apis, lang))
+        print(f"  Generated {wasm_path}")
 
     print("\n✅ Done!")
 

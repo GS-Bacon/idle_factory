@@ -25,6 +25,9 @@ pub struct GameStateResult {
 ///
 /// Returns current game state for E2E testing.
 ///
+/// # ja
+/// E2Eテスト用に現在のゲーム状態を取得
+///
 /// # Response
 /// ```json
 /// { "ui_state": "Gameplay", "player_position": [0.0, 10.0, 0.0], "cursor_locked": true }
@@ -53,6 +56,9 @@ pub struct SendInputParams {
 /// Handle test.send_input request
 ///
 /// Injects virtual input for E2E testing.
+///
+/// # ja
+/// E2Eテスト用に仮想入力を注入
 ///
 /// # Response
 /// ```json
@@ -92,6 +98,9 @@ pub struct AssertParams {
 /// Handle test.assert request
 ///
 /// Evaluates a condition against game state for E2E testing.
+///
+/// # ja
+/// E2Eテスト用に条件をゲーム状態と照合
 ///
 /// # Response
 /// ```json

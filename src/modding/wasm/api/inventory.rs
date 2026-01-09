@@ -18,6 +18,9 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
 
 /// Get inventory slot contents
 ///
+/// # ja
+/// インベントリスロットの内容を取得
+///
 /// # Returns
 /// Upper 32 bits: item_id, Lower 32 bits: count (0 = empty slot)
 fn host_get_inventory_slot(_caller: Caller<'_, ModState>, entity_id: u64, slot: u32) -> u64 {
@@ -31,6 +34,9 @@ fn host_get_inventory_slot(_caller: Caller<'_, ModState>, entity_id: u64, slot: 
 }
 
 /// Transfer items between entities
+///
+/// # ja
+/// エンティティ間でアイテムを転送
 ///
 /// # Returns
 /// - 0: Success

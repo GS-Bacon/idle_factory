@@ -20,6 +20,9 @@ pub fn register(linker: &mut Linker<ModState>) -> Result<(), WasmError> {
 ///
 /// Event types: 0=BlockPlace, 1=BlockBreak, 2=ItemDeliver, 3=MachineComplete
 ///
+/// # ja
+/// ゲームイベントを購読
+///
 /// # Returns
 /// Subscription ID (>= 0 on success, negative on error)
 fn host_subscribe_event(_caller: Caller<'_, ModState>, event_type: u32) -> i32 {
@@ -29,6 +32,9 @@ fn host_subscribe_event(_caller: Caller<'_, ModState>, event_type: u32) -> i32 {
 }
 
 /// Emit a custom event
+///
+/// # ja
+/// カスタムイベントを発火
 ///
 /// # Returns
 /// Nothing (void function)
