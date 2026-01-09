@@ -53,6 +53,12 @@ done
 # distディレクトリ作成
 mkdir -p "$DIST_DIR"
 
+# ビルド前にソースの必須ファイルを確認
+info "=== ソースの必須ファイルを確認中 ==="
+if ! "$PROJECT_ROOT/scripts/verify-package.sh" --check-source "$PROJECT_ROOT"; then
+    error "必須ファイルが不足しています。ビルドを中止します。"
+fi
+
 # アセットをコピーする関数
 copy_assets() {
     local dest="$1"
@@ -66,6 +72,10 @@ copy_assets() {
     cp -r assets/shaders "$dest/assets/" 2>/dev/null || true
     cp -r assets/sounds "$dest/assets/" 2>/dev/null || true
     cp -r assets/textures "$dest/assets/" 2>/dev/null || true
+
+    # modsディレクトリをコピー（base modは必須）
+    mkdir -p "$dest/mods"
+    cp -r mods/base "$dest/mods/" 2>/dev/null || warn "mods/base not found"
 
     # 不要ファイルを除外
     find "$dest/assets" -name "*.vox" -delete 2>/dev/null || true
@@ -97,6 +107,12 @@ EOF
     chmod +x "$LINUX_DIR/idle_factory"
     chmod +x "$LINUX_DIR/updater"
 
+    # パッケージ検証
+    info "Linux パッケージを検証中..."
+    if ! "$PROJECT_ROOT/scripts/verify-package.sh" "$LINUX_DIR"; then
+        error "Linux パッケージの検証に失敗しました"
+    fi
+
     # tarball作成
     (cd "$DIST_DIR" && tar -czvf "idle_factory_${VERSION}_linux.tar.gz" "idle_factory_${VERSION}_linux")
     rm -rf "$LINUX_DIR"
@@ -119,6 +135,12 @@ if [ "$BUILD_WINDOWS" = true ]; then
     cp "$TARGET_DIR/x86_64-pc-windows-gnu/release/idle_factory.exe" "$WINDOWS_DIR/"
     cp "$TARGET_DIR/x86_64-pc-windows-gnu/release/updater.exe" "$WINDOWS_DIR/"
     copy_assets "$WINDOWS_DIR"
+
+    # パッケージ検証
+    info "Windows パッケージを検証中..."
+    if ! "$PROJECT_ROOT/scripts/verify-package.sh" "$WINDOWS_DIR"; then
+        error "Windows パッケージの検証に失敗しました"
+    fi
 
     # zip作成
     (cd "$DIST_DIR" && zip -r "idle_factory_${VERSION}_windows.zip" "idle_factory_${VERSION}_windows")

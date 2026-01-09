@@ -314,7 +314,28 @@ pub(crate) fn load_base_mod(
     let base_path = mods_paths.iter().find(|p| p.exists());
 
     let Some(base_path) = base_path else {
-        warn!("Base mod not found in any expected location");
+        // Base Modが見つからない場合は致命的エラー
+        // 配布パッケージにmods/base/が含まれていない可能性が高い
+        let cwd = std::env::current_dir().unwrap_or_default();
+        tracing::error!(
+            "=== FATAL ERROR ===\n\
+             Base mod not found!\n\
+             \n\
+             Searched locations:\n\
+             - mods/base\n\
+             - ../mods/base\n\
+             - ../../mods/base\n\
+             \n\
+             Current directory: {:?}\n\
+             \n\
+             Solution:\n\
+             1. Ensure 'mods/base/' folder exists next to the executable\n\
+             2. Re-download the game from the official release\n\
+             ===================",
+            cwd
+        );
+        // パニックせずにreturnするが、後続処理でアイテムがないためクラッシュする可能性あり
+        // TODO: AppExitイベントを送ってgracefulに終了する方法を検討
         return;
     };
 
