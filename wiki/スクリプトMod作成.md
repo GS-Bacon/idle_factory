@@ -1,36 +1,36 @@
-[日本語版はこちら](スクリプトMod作成)
+# Script Modガイド
 
-# Script Mod Guide
+[English version](Script-Mod-Guide)
 
-Build external tools that communicate with the game via WebSocket.
-
----
-
-## Overview
-
-Script Mods are external programs that:
-
-- Connect to the game via WebSocket
-- Query game state (items, machines, recipes)
-- Optionally modify data at runtime
-
-**Use cases:**
-- Map viewers
-- Statistics dashboards
-- Item databases
-- Automation scripts
+WebSocketでゲームと通信する外部ツールを作成するガイドです。
 
 ---
 
-## Quick Start
+## 概要
 
-### 1. Start the game
+Script Modは外部プログラムで、以下のことができます:
 
-WebSocket server runs on `ws://127.0.0.1:9877`.
+- WebSocketでゲームに接続
+- ゲーム状態を照会（アイテム、機械、レシピ）
+- 実行時にデータを変更可能
 
-### 2. Connect and query
+**ユースケース:**
+- マップビューア
+- 統計ダッシュボード
+- アイテムデータベース
+- 自動化スクリプト
 
-**JavaScript (Node.js or browser):**
+---
+
+## クイックスタート
+
+### 1. ゲームを起動
+
+WebSocketサーバーは `ws://127.0.0.1:9877` で動作します。
+
+### 2. 接続して照会
+
+**JavaScript (Node.js またはブラウザ):**
 
 ```javascript
 const WebSocket = require('ws'); // Node.js only
@@ -81,9 +81,9 @@ asyncio.run(main())
 
 ---
 
-## Helper Library
+## ヘルパーライブラリ
 
-### JavaScript async wrapper
+### JavaScript非同期ラッパー
 
 ```javascript
 class GameClient {
@@ -137,7 +137,7 @@ const items = await client.call('item.list');
 
 ---
 
-## Example: Item Database
+## 例: アイテムデータベース
 
 ```javascript
 const client = new GameClient();
@@ -181,7 +181,7 @@ console.log('Smeltable:', db.byTag['smeltable']);
 
 ---
 
-## Example: Recipe Analyzer
+## 例: レシピ分析
 
 ```javascript
 async function analyzeRecipes() {
@@ -202,7 +202,7 @@ async function analyzeRecipes() {
 
 ---
 
-## Example: Live Statistics
+## 例: リアルタイム統計
 
 ```javascript
 async function monitorGame() {
@@ -216,9 +216,9 @@ async function monitorGame() {
 
 ---
 
-## Best Practices
+## ベストプラクティス
 
-### 1. Handle disconnection
+### 1. 切断を処理
 
 ```javascript
 ws.on('close', () => {
@@ -231,7 +231,7 @@ ws.on('error', (err) => {
 });
 ```
 
-### 2. Batch requests
+### 2. リクエストをバッチ処理
 
 ```javascript
 // Bad: Many sequential requests
@@ -244,7 +244,7 @@ const { items } = await client.call('item.list');
 const filtered = items.filter(i => itemIds.includes(i.id));
 ```
 
-### 3. Cache data
+### 3. データをキャッシュ
 
 ```javascript
 let cachedItems = null;
@@ -261,47 +261,47 @@ async function getItems() {
 
 ---
 
-## Available Methods
+## 利用可能なメソッド
 
-See [WebSocket API](WebSocket-API) for full reference.
+完全なリファレンスは[WebSocket API](WebSocket-API-ja)を参照してください。
 
-| Method | Description |
+| メソッド | 説明 |
 |--------|-------------|
-| `game.version` | Get game/API version |
-| `game.state` | Get current game state |
-| `item.list` | List all items |
-| `item.add` | Register new item |
-| `machine.list` | List all machines |
-| `machine.add` | Register new machine |
-| `recipe.list` | List all recipes |
-| `recipe.add` | Register new recipe |
-| `mod.list` | List loaded mods |
-| `mod.info` | Get mod details |
-| `mod.enable/disable` | Toggle mod state |
-| `texture.list` | List textures |
+| `game.version` | ゲーム/APIバージョンを取得 |
+| `game.state` | 現在のゲーム状態を取得 |
+| `item.list` | 全アイテムを一覧 |
+| `item.add` | 新しいアイテムを登録 |
+| `machine.list` | 全機械を一覧 |
+| `machine.add` | 新しい機械を登録 |
+| `recipe.list` | 全レシピを一覧 |
+| `recipe.add` | 新しいレシピを登録 |
+| `mod.list` | ロード済みModを一覧 |
+| `mod.info` | Mod詳細を取得 |
+| `mod.enable/disable` | Modの有効/無効を切替 |
+| `texture.list` | テクスチャを一覧 |
 
 ---
 
-## Debugging
+## デバッグ
 
-### Check connection
+### 接続確認
 
 ```bash
 # Using websocat (install: cargo install websocat)
 echo '{"jsonrpc":"2.0","id":1,"method":"game.version","params":{}}' | websocat ws://127.0.0.1:9877
 ```
 
-### Check game logs
+### ゲームログ確認
 
 ```
 logs/game.log
 ```
 
-WebSocket errors are logged with `[WebSocket]` prefix.
+WebSocketエラーは `[WebSocket]` プレフィックスでログ出力されます。
 
 ---
 
-## See Also
+## 関連
 
-- [WebSocket API](WebSocket-API) - Complete method reference
-- [Getting Started](Getting-Started) - Quick tutorial
+- [WebSocket API](WebSocket-API-ja) - メソッドリファレンス
+- [Getting Started](Getting-Started) - クイックチュートリアル

@@ -1,7 +1,8 @@
-# TOML Schema / TOMLスキーマ
+[日本語版はこちら](TOMLスキーマ)
+
+# TOML Schema
 
 Complete field reference for all TOML files.
-全TOMLファイルの完全フィールドリファレンス。
 
 ---
 
@@ -28,7 +29,7 @@ mod_id = "version_constraint"
 mod_id = "version_constraint"
 ```
 
-### Version Constraints / バージョン制約
+### Version Constraints
 
 | Pattern | Meaning |
 |---------|---------|
@@ -56,17 +57,17 @@ color = [1.0, 1.0, 1.0]    # Optional: RGB [0-1]
 tags = ["string"]          # Optional: searchable tags
 ```
 
-### Category Values / カテゴリ値
+### Category Values
 
 | Value | Use Case |
 |-------|----------|
-| `terrain` | Natural blocks (stone, grass) / 自然ブロック |
-| `ore` | Mineable resources (iron_ore, coal) / 採掘資源 |
-| `processed` | Crafted items (ingots, dust) / 加工アイテム |
-| `machine` | Placeable machines / 設置機械 |
-| `tool` | Player equipment / プレイヤー装備 |
+| `terrain` | Natural blocks (stone, grass) |
+| `ore` | Mineable resources (iron_ore, coal) |
+| `processed` | Crafted items (ingots, dust) |
+| `machine` | Placeable machines |
+| `tool` | Player equipment |
 
-### Common Tags / よく使うタグ
+### Common Tags
 
 | Tag | Meaning |
 |-----|---------|
@@ -86,7 +87,7 @@ tags = ["string"]          # Optional: searchable tags
 ```toml
 [[machine]]
 id = "string"              # Required: unique within mod
-name = "string"            # Required: display name (Japanese)
+name = "string"            # Required: display name
 name_en = "string"         # Optional: English name
 block_type = "string"      # Required: associated block type
 process_time = 1.0         # Required: seconds per operation
@@ -106,28 +107,28 @@ outputs = [
 ]
 
 [machine.ui_slots]
-input = { slot_id = 0, label = "入力" }
-fuel = { slot_id = 1, label = "燃料" }
-output = { slot_id = 0, label = "出力" }
+input = { slot_id = 0, label = "Input" }
+fuel = { slot_id = 1, label = "Fuel" }
+output = { slot_id = 0, label = "Output" }
 ```
 
-### Port Side Values / ポート方向値
+### Port Side Values
 
 | Value | Direction |
 |-------|-----------|
-| `front` | Machine facing direction / 機械の向き |
-| `back` | Opposite of front / 正面の反対 |
-| `left` | Left when facing front / 正面を向いて左 |
-| `right` | Right when facing front / 正面を向いて右 |
-| `top` | Above machine / 機械の上 |
-| `bottom` | Below machine / 機械の下 |
+| `front` | Machine facing direction |
+| `back` | Opposite of front |
+| `left` | Left when facing front |
+| `right` | Right when facing front |
+| `top` | Above machine |
+| `bottom` | Below machine |
 
-### Process Type Values / 処理タイプ値
+### Process Type Values
 
 | Value | Behavior |
 |-------|----------|
-| `recipe` | Processes items according to recipes / レシピに従って処理 |
-| `auto_generate` | Produces output without input / 入力なしで出力を生成 |
+| `recipe` | Processes items according to recipes |
+| `auto_generate` | Produces output without input |
 
 ---
 
@@ -151,7 +152,7 @@ byproduct = 1              # Can have multiple outputs
 coal = 1                   # fuel_item_id = count
 ```
 
-### Item ID Resolution / アイテムID解決
+### Item ID Resolution
 
 | Format | Resolution |
 |--------|------------|
@@ -161,7 +162,7 @@ coal = 1                   # fuel_item_id = count
 
 ---
 
-## Type Reference / 型リファレンス
+## Type Reference
 
 | Type | Format | Example |
 |------|--------|---------|
@@ -175,15 +176,15 @@ coal = 1                   # fuel_item_id = count
 
 ---
 
-## Validation Rules / バリデーションルール
+## Validation Rules
 
 ### IDs
 
-- Lowercase only / 小文字のみ
-- Underscores allowed / アンダースコア可
-- No hyphens / ハイフン不可
-- Cannot start with number / 数字始まり不可
-- Must be unique within scope / スコープ内で一意
+- Lowercase only
+- Underscores allowed
+- No hyphens
+- Cannot start with number
+- Must be unique within scope
 
 ### Values
 
@@ -201,7 +202,7 @@ coal = 1                   # fuel_item_id = count
 
 ---
 
-## See Also / 関連
+## See Also
 
-- [Data Mod Guide](Data-Mod-Guide) - Usage examples / 使用例
-- [Mod Structure](Mod-Structure) - File organization / ファイル構成
+- [Data Mod Guide](Data-Mod-Guide) - Usage examples
+- [Mod Structure](Mod-Structure) - File organization

@@ -1,31 +1,31 @@
-[日本語版はこちら](コアMod作成)
+# Core Modガイド
 
-# Core Mod Guide
+[English version](Core-Mod-Guide)
 
-Create advanced mods using Rust compiled to WASM.
-
----
-
-## Overview
-
-Core Mods are WebAssembly modules that:
-
-- Run inside the game process
-- Access game state via host functions
-- Subscribe to game events
-- Modify game behavior
-
-**Use cases:**
-- Custom machine logic
-- Event-driven automation
-- Performance-critical mods
+RustをWASMにコンパイルして高度なModを作成するガイドです。
 
 ---
 
-## Prerequisites
+## 概要
+
+Core ModはWebAssemblyモジュールで、以下のことができます:
+
+- ゲームプロセス内で実行
+- ホスト関数でゲーム状態にアクセス
+- ゲームイベントを購読
+- ゲーム動作を変更
+
+**ユースケース:**
+- カスタム機械ロジック
+- イベント駆動の自動化
+- パフォーマンス重視のMod
+
+---
+
+## 前提条件
 
 - Rust toolchain with `wasm32-unknown-unknown` target
-- Basic understanding of Rust
+- Rustの基本的な理解
 
 ```bash
 # Install WASM target
@@ -34,9 +34,9 @@ rustup target add wasm32-unknown-unknown
 
 ---
 
-## Quick Start
+## クイックスタート
 
-### 1. Create project structure
+### 1. プロジェクト構造を作成
 
 ```
 mods/my_core_mod/
@@ -45,10 +45,10 @@ mods/my_core_mod/
 │   └── lib.rs
 ├── Cargo.toml
 └── scripts/
-    └── main.wasm    ← Built output
+    └── main.wasm    ← ビルド出力
 ```
 
-### 2. Create mod.toml
+### 2. mod.tomlを作成
 
 ```toml
 [mod]
@@ -63,7 +63,7 @@ type = "core"
 base = ">=0.3.0"
 ```
 
-### 3. Create Cargo.toml
+### 3. Cargo.tomlを作成
 
 ```toml
 [package]
@@ -78,7 +78,7 @@ crate-type = ["cdylib"]
 # No dependencies required for basic mods
 ```
 
-### 4. Create src/lib.rs
+### 4. src/lib.rsを作成
 
 ```rust
 //! My Core Mod
@@ -126,7 +126,7 @@ pub extern "C" fn on_shutdown() {
 }
 ```
 
-### 5. Build
+### 5. ビルド
 
 ```bash
 cd mods/my_core_mod
@@ -137,9 +137,9 @@ mkdir -p scripts
 cp target/wasm32-unknown-unknown/release/my_core_mod.wasm scripts/main.wasm
 ```
 
-### 6. Test
+### 6. テスト
 
-Launch the game. Check `logs/game.log` for:
+ゲームを起動し、`logs/game.log` で以下を確認:
 
 ```
 [CoreMod] Loading: my_core_mod
@@ -148,9 +148,9 @@ Launch the game. Check `logs/game.log` for:
 
 ---
 
-## Host Functions
+## ホスト関数
 
-### Logging
+### ログ出力
 
 ```rust
 extern "C" {
@@ -162,7 +162,7 @@ extern "C" {
 }
 ```
 
-### Events
+### イベント
 
 ```rust
 extern "C" {
@@ -178,7 +178,7 @@ const EVENT_BLOCK_PLACED: u32 = 3;
 const EVENT_BLOCK_REMOVED: u32 = 4;
 ```
 
-### Machine Control
+### 機械制御
 
 ```rust
 extern "C" {
@@ -192,7 +192,7 @@ extern "C" {
 }
 ```
 
-### Inventory
+### インベントリ
 
 ```rust
 extern "C" {
@@ -211,7 +211,7 @@ fn get_slot_contents(entity_id: u64, slot: u32) -> (u32, u32) {
 
 ---
 
-## Lifecycle
+## ライフサイクル
 
 ```rust
 /// Called once when mod loads
@@ -241,9 +241,9 @@ pub extern "C" fn on_event(event_type: u32, data: u64) {
 
 ---
 
-## Example: Auto-Pause
+## 例: 自動一時停止
 
-Pause machines when output is full:
+出力が満杯になったら機械を一時停止:
 
 ```rust
 static mut MONITORED_MACHINES: Vec<u64> = Vec::new();
@@ -282,9 +282,9 @@ pub extern "C" fn register_machine(entity_id: u64) {
 
 ---
 
-## Best Practices
+## ベストプラクティス
 
-### 1. Keep on_tick() fast
+### 1. on_tick()を軽く
 
 ```rust
 // Bad: Heavy computation every tick
@@ -309,7 +309,7 @@ pub extern "C" fn on_tick() {
 }
 ```
 
-### 2. Use events instead of polling
+### 2. ポーリングよりイベント
 
 ```rust
 // Bad: Check every tick
@@ -334,7 +334,7 @@ pub extern "C" fn on_event(event_type: u32, data: u64) {
 }
 ```
 
-### 3. Handle errors gracefully
+### 3. エラーを適切に処理
 
 ```rust
 fn get_machine_state_safe(entity_id: u64) -> Option<MachineState> {
@@ -350,9 +350,9 @@ fn get_machine_state_safe(entity_id: u64) -> Option<MachineState> {
 
 ---
 
-## Debugging
+## デバッグ
 
-### Use log functions
+### ログ関数を使用
 
 ```rust
 fn debug_machine(entity_id: u64) {
@@ -361,29 +361,29 @@ fn debug_machine(entity_id: u64) {
 }
 ```
 
-### Check game logs
+### ゲームログ確認
 
 ```
 logs/game.log
 ```
 
-Core Mod output is prefixed with `[CoreMod]`.
+Core Mod出力は `[CoreMod]` プレフィックス付きで出力されます。
 
 ---
 
-## Limitations
+## 制限
 
-| Limitation | Reason |
+| 制限 | 理由 |
 |------------|--------|
-| No file I/O | Security sandbox |
-| No networking | Security sandbox |
-| Limited memory | 16MB default |
-| No threading | WASM single-threaded |
+| ファイルI/O不可 | セキュリティサンドボックス |
+| ネットワーク不可 | セキュリティサンドボックス |
+| メモリ制限 | デフォルト16MB |
+| スレッド不可 | WASMシングルスレッド |
 
 ---
 
-## See Also
+## 関連
 
-- [WASM Host Functions](WASM-Host-Functions) - Full function reference
-- [Mod Structure](Mod-Structure) - mod.toml format
-- [Getting Started](Getting-Started) - Data Mod basics
+- [WASM Host Functions](WASM-Host-Functions) - 関数リファレンス
+- [Mod Structure](Mod-Structure) - mod.toml形式
+- [Getting Started](Getting-Started) - Data Modの基本

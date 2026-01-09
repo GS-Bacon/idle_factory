@@ -1,14 +1,14 @@
-# WASM Host Functions Reference / WASMホスト関数リファレンス
+[日本語版はこちら](WASMホスト関数)
+
+# WASM Host Functions Reference
 
 Host functions available to Core Mods (WASM).
-Core Mod (WASM) で使用可能なホスト関数。
 
 ---
 
-## Overview / 概要
+## Overview
 
 Host functions are the bridge between your WASM mod and the game.
-ホスト関数はWASM Modとゲームの橋渡し。
 
 ```rust
 // Declare host functions
@@ -27,25 +27,24 @@ unsafe {
 
 ---
 
-## Function Summary / 関数一覧
+## Function Summary
 
 | Function | Description |
 |----------|-------------|
-| [`host_log_info`](#host_log_info) | Log info message / 情報ログ |
-| [`host_log_error`](#host_log_error) | Log error message / エラーログ |
-| [`host_subscribe_event`](#host_subscribe_event) | Subscribe to events / イベント購読 |
-| [`host_get_machine_state`](#host_get_machine_state) | Get machine state / 機械状態取得 |
-| [`host_set_machine_enabled`](#host_set_machine_enabled) | Enable/disable machine / 機械有効化/無効化 |
-| [`host_get_inventory_slot`](#host_get_inventory_slot) | Get inventory slot / インベントリスロット取得 |
+| [`host_log_info`](#host_log_info) | Log info message |
+| [`host_log_error`](#host_log_error) | Log error message |
+| [`host_subscribe_event`](#host_subscribe_event) | Subscribe to events |
+| [`host_get_machine_state`](#host_get_machine_state) | Get machine state |
+| [`host_set_machine_enabled`](#host_set_machine_enabled) | Enable/disable machine |
+| [`host_get_inventory_slot`](#host_get_inventory_slot) | Get inventory slot |
 
 ---
 
-## Logging / ログ出力
+## Logging
 
 ### host_log_info
 
 Log an info message. Appears in `logs/game.log` with `[CoreMod]` prefix.
-情報メッセージをログ出力。`logs/game.log` に `[CoreMod]` プレフィックス付きで出力。
 
 ```rust
 extern "C" {
@@ -55,8 +54,8 @@ extern "C" {
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `ptr` | `*const u8` | Pointer to UTF-8 string / UTF-8文字列へのポインタ |
-| `len` | `usize` | String length in bytes / バイト長 |
+| `ptr` | `*const u8` | Pointer to UTF-8 string |
+| `len` | `usize` | String length in bytes |
 
 **Returns:** Nothing (void)
 
@@ -74,7 +73,6 @@ log_info("Machine processed item");
 ### host_log_error
 
 Log an error message.
-エラーメッセージをログ出力。
 
 ```rust
 extern "C" {
@@ -100,12 +98,11 @@ log_error("Failed to find machine");
 
 ---
 
-## Events / イベント
+## Events
 
 ### host_subscribe_event
 
 Subscribe to game events. When the event fires, `on_event()` is called.
-ゲームイベントを購読。イベント発火時に `on_event()` が呼ばれる。
 
 ```rust
 extern "C" {
@@ -126,10 +123,10 @@ extern "C" {
 **Event Types:**
 | ID | Constant | Description |
 |----|----------|-------------|
-| `1` | `EVENT_MACHINE_COMPLETE` | Machine finished processing / 機械処理完了 |
-| `2` | `EVENT_ITEM_CRAFTED` | Item was crafted / アイテム作成 |
-| `3` | `EVENT_BLOCK_PLACED` | Block placed in world / ブロック設置 |
-| `4` | `EVENT_BLOCK_REMOVED` | Block removed from world / ブロック削除 |
+| `1` | `EVENT_MACHINE_COMPLETE` | Machine finished processing |
+| `2` | `EVENT_ITEM_CRAFTED` | Item was crafted |
+| `3` | `EVENT_BLOCK_PLACED` | Block placed in world |
+| `4` | `EVENT_BLOCK_REMOVED` | Block removed from world |
 
 **Example:**
 ```rust
@@ -154,12 +151,11 @@ pub extern "C" fn on_event(event_type: u32, data: u64) {
 
 ---
 
-## Machines / 機械
+## Machines
 
 ### host_get_machine_state
 
 Get the current state of a machine.
-機械の現在の状態を取得。
 
 ```rust
 extern "C" {
@@ -174,10 +170,10 @@ extern "C" {
 **Returns:**
 | Value | State | Description |
 |-------|-------|-------------|
-| `0` | Idle | Not processing / 処理中でない |
-| `1` | Processing | Working on recipe / レシピ処理中 |
-| `2` | WaitingInput | Needs items/fuel / アイテム・燃料待ち |
-| `-1` | Error | Entity not found / エンティティ未発見 |
+| `0` | Idle | Not processing |
+| `1` | Processing | Working on recipe |
+| `2` | WaitingInput | Needs items/fuel |
+| `-1` | Error | Entity not found |
 
 **Example:**
 ```rust
@@ -203,7 +199,6 @@ fn get_state(entity_id: u64) -> MachineState {
 ### host_set_machine_enabled
 
 Enable or disable a machine.
-機械を有効化または無効化。
 
 ```rust
 extern "C" {
@@ -236,12 +231,11 @@ fn resume_machine(entity_id: u64) -> bool {
 
 ---
 
-## Inventory / インベントリ
+## Inventory
 
 ### host_get_inventory_slot
 
 Get contents of an inventory slot.
-インベントリスロットの内容を取得。
 
 ```rust
 extern "C" {
@@ -276,10 +270,9 @@ if item_id > 0 {
 
 ---
 
-## Lifecycle Callbacks / ライフサイクルコールバック
+## Lifecycle Callbacks
 
 Your mod must export these functions:
-Modはこれらの関数をエクスポートする必要がある:
 
 ```rust
 /// Called when mod loads
@@ -309,10 +302,9 @@ pub extern "C" fn on_shutdown() {
 
 ---
 
-## Error Handling / エラーハンドリング
+## Error Handling
 
 All host functions that can fail return negative values on error.
-失敗可能なホスト関数はエラー時に負の値を返す。
 
 ```rust
 fn safe_get_state(entity_id: u64) -> Option<MachineState> {
@@ -332,7 +324,7 @@ fn safe_get_state(entity_id: u64) -> Option<MachineState> {
 
 ---
 
-## See Also / 関連
+## See Also
 
-- [Core Mod Guide](Core-Mod-Guide) - Complete WASM tutorial / WASMチュートリアル
-- [Getting Started](Getting-Started) - Data Mod basics / Data Modの基本
+- [Core Mod Guide](Core-Mod-Guide) - Complete WASM tutorial
+- [Getting Started](Getting-Started) - Data Mod basics

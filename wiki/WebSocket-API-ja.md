@@ -1,24 +1,24 @@
-[日本語版はこちら](WebSocket-API-ja)
+# WebSocket APIリファレンス
 
-# WebSocket API Reference
+[English version](WebSocket-API)
 
-JSON-RPC 2.0 API for Script Mods.
+Script Mod用のJSON-RPC 2.0 APIリファレンスです。
 
 ---
 
-## Connection
+## 接続
 
 ```
 ws://127.0.0.1:9877
 ```
 
-The WebSocket server starts automatically when the game runs.
+ゲーム起動時にWebSocketサーバーが自動的に開始されます。
 
 ---
 
-## Protocol
+## プロトコル
 
-### Request Format
+### リクエスト形式
 
 ```json
 {
@@ -29,16 +29,16 @@ The WebSocket server starts automatically when the game runs.
 }
 ```
 
-| Field | Type | Description |
+| フィールド | 型 | 説明 |
 |-------|------|-------------|
-| `jsonrpc` | string | Always `"2.0"` |
-| `id` | int | Request ID, returned in response |
-| `method` | string | Method name |
-| `params` | object | Method parameters |
+| `jsonrpc` | string | 常に`"2.0"` |
+| `id` | int | リクエストID、レスポンスで返却 |
+| `method` | string | メソッド名 |
+| `params` | object | パラメータ |
 
-### Response Format
+### レスポンス形式
 
-**Success:**
+**成功:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -47,7 +47,7 @@ The WebSocket server starts automatically when the game runs.
 }
 ```
 
-**Error:**
+**エラー:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -59,21 +59,21 @@ The WebSocket server starts automatically when the game runs.
 }
 ```
 
-### Error Codes
+### エラーコード
 
-| Code | Meaning |
+| コード | 意味 |
 |------|---------|
-| `-32700` | Parse error (invalid JSON) |
-| `-32600` | Invalid request |
-| `-32601` | Method not found |
-| `-32602` | Invalid params |
-| `-32603` | Internal error |
-| `-32001` | Item already exists |
-| `-32002` | Invalid item ID |
+| `-32700` | パースエラー（無効なJSON） |
+| `-32600` | 無効なリクエスト |
+| `-32601` | メソッドが見つからない |
+| `-32602` | 無効なパラメータ |
+| `-32603` | 内部エラー |
+| `-32001` | アイテムが既に存在 |
+| `-32002` | 無効なアイテムID |
 
 ---
 
-## Quick Start
+## クイックスタート
 
 ### JavaScript
 
@@ -129,20 +129,20 @@ asyncio.run(main())
 
 ---
 
-## Methods
+## メソッド
 
-### Game
+### ゲーム
 
 #### `game.version`
 
-Get game and API version.
+ゲームとAPIのバージョンを取得。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "game.version", "params": {} }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "version": "0.3.136",
@@ -154,14 +154,14 @@ Get game and API version.
 
 #### `game.state`
 
-Get current game state.
+現在のゲーム状態を取得。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "game.state", "params": {} }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "paused": false,
@@ -170,31 +170,31 @@ Get current game state.
 }
 ```
 
-| Field | Type | Description |
+| フィールド | 型 | 説明 |
 |-------|------|-------------|
-| `paused` | bool | Game is paused |
-| `tick` | int | Current game tick |
-| `player_count` | int | Number of players |
+| `paused` | bool | 一時停止中 |
+| `tick` | int | ゲームtick |
+| `player_count` | int | プレイヤー数 |
 
 ---
 
-### Items
+### アイテム
 
 #### `item.list`
 
-List all registered items.
+全アイテムを一覧。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "item.list", "params": {} }
 ```
 
-**Optional: Filter by mod:**
+**オプション: Modでフィルタ:**
 ```json
 { "method": "item.list", "params": { "mod_id": "base" } }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "items": [
@@ -212,9 +212,9 @@ List all registered items.
 
 #### `item.add`
 
-Register a new item.
+新しいアイテムを登録。
 
-**Request:**
+**リクエスト:**
 ```json
 {
   "method": "item.add",
@@ -228,36 +228,36 @@ Register a new item.
 }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 { "success": true, "id": "mymod:super_ore" }
 ```
 
-**Error (duplicate):**
+**エラー（重複）:**
 ```json
 { "error": { "code": -32001, "message": "Item already exists" } }
 ```
 
 ---
 
-### Machines
+### 機械
 
 #### `machine.list`
 
-List all machines.
+全機械を一覧。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "machine.list", "params": {} }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "machines": [
     {
       "id": "furnace",
-      "name": "Furnace",
+      "name": "精錬炉",
       "input_slots": 2,
       "output_slots": 1,
       "requires_fuel": true
@@ -270,9 +270,9 @@ List all machines.
 
 #### `machine.add`
 
-Register a new machine type.
+新しい機械タイプを登録。
 
-**Request:**
+**リクエスト:**
 ```json
 {
   "method": "machine.add",
@@ -283,25 +283,25 @@ Register a new machine type.
 }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 { "success": true, "id": "mymod:super_furnace" }
 ```
 
 ---
 
-### Recipes
+### レシピ
 
 #### `recipe.list`
 
-List all recipes.
+全レシピを一覧。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "recipe.list", "params": {} }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "recipes": [
@@ -320,9 +320,9 @@ List all recipes.
 
 #### `recipe.add`
 
-Register a new recipe.
+新しいレシピを登録。
 
-**Request:**
+**リクエスト:**
 ```json
 {
   "method": "recipe.add",
@@ -336,25 +336,25 @@ Register a new recipe.
 }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 { "success": true, "id": "mymod:super_smelt" }
 ```
 
 ---
 
-### Mods
+### Mod管理
 
 #### `mod.list`
 
-List all mods.
+全Modを一覧。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "mod.list", "params": {} }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "mods": [
@@ -367,14 +367,14 @@ List all mods.
 
 #### `mod.info`
 
-Get mod details.
+Mod詳細を取得。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "mod.info", "params": { "id": "base" } }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "id": "base",
@@ -390,28 +390,28 @@ Get mod details.
 
 #### `mod.enable` / `mod.disable`
 
-Enable or disable a mod.
+Modを有効化/無効化。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "mod.enable", "params": { "id": "my_mod" } }
 { "method": "mod.disable", "params": { "id": "my_mod" } }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 { "success": true }
 ```
 
 ---
 
-### Textures
+### テクスチャ
 
 #### `texture.list`
 
-List all textures.
+全テクスチャを一覧。
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "textures": [
@@ -425,9 +425,9 @@ List all textures.
 
 #### `texture.get_atlas_info`
 
-Get texture atlas info.
+テクスチャアトラス情報を取得。
 
-**Response:**
+**レスポンス:**
 ```json
 {
   "size": [256, 256],
@@ -441,23 +441,23 @@ Get texture atlas info.
 
 #### `texture.register_resolver`
 
-Register custom texture resolver.
+カスタムテクスチャリゾルバを登録。
 
-**Request:**
+**リクエスト:**
 ```json
 { "method": "texture.register_resolver", "params": { "pattern": "mymod:*" } }
 ```
 
-**Response:**
+**レスポンス:**
 ```json
 { "success": true, "resolver_id": 1 }
 ```
 
 ---
 
-### Test (E2E)
+### テスト (E2E用)
 
-For automated testing, not mods.
+自動テスト用であり、Mod向けではありません。
 
 #### `test.get_state`
 
@@ -471,7 +471,7 @@ For automated testing, not mods.
 { "method": "test.send_input", "params": { "action": "ToggleInventory" } }
 ```
 
-Available actions: `MoveForward`, `MoveBackward`, `MoveLeft`, `MoveRight`, `Jump`, `ToggleInventory`, `TogglePause`, `ToggleQuest`, `OpenCommand`, `CloseUI`, `PrimaryAction`, `SecondaryAction`, `RotateBlock`, `Hotbar1`-`Hotbar9`
+利用可能なアクション: `MoveForward`, `MoveBackward`, `MoveLeft`, `MoveRight`, `Jump`, `ToggleInventory`, `TogglePause`, `ToggleQuest`, `OpenCommand`, `CloseUI`, `PrimaryAction`, `SecondaryAction`, `RotateBlock`, `Hotbar1`-`Hotbar9`
 
 #### `test.assert`
 
@@ -481,7 +481,7 @@ Available actions: `MoveForward`, `MoveBackward`, `MoveLeft`, `MoveRight`, `Jump
 
 ---
 
-## See Also
+## 関連
 
-- [Script Mod Guide](Script-Mod-Guide) - External tool development
-- [Getting Started](Getting-Started) - Quick tutorial
+- [Script Modガイド](スクリプトMod作成) - 外部ツール開発
+- [Getting Started](Getting-Started) - クイックチュートリアル
