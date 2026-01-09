@@ -87,8 +87,8 @@ pub fn check_for_update() -> UpdateCheckResult {
     if latest_semver > current {
         tracing::info!("Update available: v{} -> v{}", current, latest_semver);
 
-        // Get download URL for current platform
-        let download_url = get_platform_download_url(&json);
+        // Get download URL for current platform and the specific version
+        let download_url = get_platform_download_url(&json, &latest_version);
         let release_notes = json["body"].as_str().unwrap_or("").to_string();
 
         UpdateCheckResult::Available {
@@ -102,8 +102,8 @@ pub fn check_for_update() -> UpdateCheckResult {
     }
 }
 
-/// Get the download URL for the current platform.
-fn get_platform_download_url(release_json: &serde_json::Value) -> String {
+/// Get the download URL for the current platform and specified version.
+fn get_platform_download_url(release_json: &serde_json::Value, version: &str) -> String {
     let platform_suffix = if cfg!(target_os = "linux") {
         "_linux.tar.gz"
     } else if cfg!(target_os = "windows") {
@@ -112,11 +112,14 @@ fn get_platform_download_url(release_json: &serde_json::Value) -> String {
         return String::new();
     };
 
-    // Find matching asset
+    // Build expected asset name for this version
+    let expected_name = format!("idle_factory_{}{}", version, platform_suffix);
+
+    // Find matching asset for the specific version
     if let Some(assets) = release_json["assets"].as_array() {
         for asset in assets {
             if let Some(name) = asset["name"].as_str() {
-                if name.ends_with(platform_suffix) {
+                if name == expected_name {
                     if let Some(url) = asset["browser_download_url"].as_str() {
                         return url.to_string();
                     }
