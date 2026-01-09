@@ -3,10 +3,21 @@
 //! ## ItemId Support
 //!
 //! For ItemId-based APIs, use `get_block_id()`, `set_block_by_id()`.
+//!
+//! ## Section-based Storage
+//!
+//! Chunks are internally divided into 16x16x16 sections for memory optimization.
+//! Empty sections (all air) and uniform sections (all same block) are stored efficiently.
 
 pub mod biome;
+pub mod palette;
+pub mod section;
+pub mod visibility;
 
 pub use biome::{mining_random, BiomeMap};
+pub use palette::{PackedArray, PalettedSection};
+pub use section::{ChunkSection, SectionData, SECTION_SIZE};
+pub use visibility::{ChunkVisibility, SectionFaces, SectionVisibility};
 
 use crate::constants::*;
 use crate::core::{items, ItemId};
@@ -135,12 +146,20 @@ impl DirtyChunks {
     }
 }
 
-/// Single chunk data - blocks stored in a flat array for fast access
-/// Array index = x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE
+/// Single chunk data - stored in 16x16x16 sections for memory efficiency
+///
+/// Empty sections (all air) and uniform sections (all same block) are stored
+/// compactly, significantly reducing memory usage for typical terrain.
 #[derive(Clone)]
 pub struct ChunkData {
-    /// Flat array of blocks. None = air
-    pub blocks: Vec<Option<ItemId>>,
+    /// Sections indexed by Y / SECTION_HEIGHT (0 = bottom, 1 = top for 32-height chunks)
+    sections: Vec<ChunkSection>,
+}
+
+impl Default for ChunkData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ChunkData {
@@ -201,10 +220,45 @@ impl ChunkData {
             && (PLATFORM_Z_MIN..=PLATFORM_Z_MAX).contains(&world_z)
     }
 
+    /// Create a new empty chunk with all sections empty
+    pub fn new() -> Self {
+        Self {
+            sections: (0..SECTIONS_PER_CHUNK)
+                .map(|_| ChunkSection::Empty)
+                .collect(),
+        }
+    }
+
+    /// Create a chunk from a flat block array (for compatibility)
+    pub fn from_blocks(blocks: Vec<Option<ItemId>>) -> Self {
+        debug_assert_eq!(blocks.len(), Self::ARRAY_SIZE);
+        let mut sections = Vec::with_capacity(SECTIONS_PER_CHUNK);
+
+        for section_idx in 0..SECTIONS_PER_CHUNK {
+            let start_y = (section_idx as i32) * SECTION_HEIGHT;
+            let mut section_blocks = vec![None; section::SECTION_SIZE];
+
+            for local_y in 0..SECTION_HEIGHT {
+                for z in 0..CHUNK_SIZE {
+                    for x in 0..CHUNK_SIZE {
+                        let chunk_y = start_y + local_y;
+                        let chunk_idx = Self::pos_to_index(x, chunk_y, z);
+                        let section_idx = SectionData::pos_to_index(x, local_y, z);
+                        section_blocks[section_idx] = blocks[chunk_idx];
+                    }
+                }
+            }
+
+            sections.push(ChunkSection::from_blocks(section_blocks));
+        }
+
+        Self { sections }
+    }
+
     /// Generate a chunk at the given chunk coordinate
     pub fn generate(chunk_coord: IVec2) -> Self {
         tracing::debug!("Generating chunk at {:?}", chunk_coord);
-        let mut blocks = vec![None; Self::ARRAY_SIZE];
+        let mut chunk = Self::new();
         let mut block_count = 0usize;
 
         // Generate a 16x16x8 chunk of blocks
@@ -289,8 +343,7 @@ impl ChunkData {
                             }
                         }
                     };
-                    let idx = Self::pos_to_index(x, y, z);
-                    blocks[idx] = Some(item_id);
+                    chunk.set_block(x, y, z, Some(item_id));
                     block_count += 1;
                 }
             }
@@ -300,7 +353,7 @@ impl ChunkData {
             chunk_coord,
             block_count
         );
-        Self { blocks }
+        chunk
     }
 
     /// Simple hash function for deterministic ore generation
@@ -341,7 +394,7 @@ impl ChunkData {
         patch_hash.is_multiple_of(8)
     }
 
-    /// Get block at local position (fast array access)
+    /// Get block at local position
     #[inline(always)]
     pub fn get_block(&self, x: i32, y: i32, z: i32) -> Option<ItemId> {
         if !(0..CHUNK_SIZE).contains(&x)
@@ -350,7 +403,26 @@ impl ChunkData {
         {
             return None;
         }
-        self.blocks[Self::pos_to_index(x, y, z)]
+        let section_idx = (y / SECTION_HEIGHT) as usize;
+        let local_y = y % SECTION_HEIGHT;
+        self.sections
+            .get(section_idx)
+            .and_then(|s| s.get_block(x, local_y, z))
+    }
+
+    /// Set block at local position
+    pub fn set_block(&mut self, x: i32, y: i32, z: i32, item_id: Option<ItemId>) {
+        if !(0..CHUNK_SIZE).contains(&x)
+            || !(0..CHUNK_HEIGHT).contains(&y)
+            || !(0..CHUNK_SIZE).contains(&z)
+        {
+            return;
+        }
+        let section_idx = (y / SECTION_HEIGHT) as usize;
+        let local_y = y % SECTION_HEIGHT;
+        if let Some(section) = self.sections.get_mut(section_idx) {
+            section.set_block(x, local_y, z, item_id);
+        }
     }
 
     /// Check if a block exists at local position
@@ -359,6 +431,38 @@ impl ChunkData {
     pub fn has_block_at(&self, local_pos: IVec3) -> bool {
         self.get_block(local_pos.x, local_pos.y, local_pos.z)
             .is_some()
+    }
+
+    /// Iterate over all non-air blocks in this chunk
+    /// Returns (local_pos, item_id) pairs
+    pub fn iter_blocks(&self) -> impl Iterator<Item = (IVec3, ItemId)> + '_ {
+        self.sections
+            .iter()
+            .enumerate()
+            .flat_map(move |(section_idx, section)| {
+                let section_y_offset = (section_idx as i32) * SECTION_HEIGHT;
+                section.iter_blocks().map(move |(local_pos, item_id)| {
+                    (
+                        IVec3::new(local_pos.x, section_y_offset + local_pos.y, local_pos.z),
+                        item_id,
+                    )
+                })
+            })
+    }
+
+    /// Get approximate memory usage in bytes
+    pub fn memory_usage(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self
+                .sections
+                .iter()
+                .map(|s| s.memory_usage())
+                .sum::<usize>()
+    }
+
+    /// Get a reference to the sections (for inspection/debugging)
+    pub fn sections(&self) -> &[ChunkSection] {
+        &self.sections
     }
 
     /// Generate a combined mesh for the entire chunk with face culling using greedy meshing
@@ -395,7 +499,7 @@ impl ChunkData {
                 && (0..CHUNK_HEIGHT).contains(&ny)
                 && (0..CHUNK_SIZE).contains(&nz)
             {
-                self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
+                self.get_block(nx, ny, nz).is_some()
             } else if !(0..CHUNK_HEIGHT).contains(&ny) {
                 false
             } else {
@@ -701,7 +805,7 @@ impl ChunkData {
                 && (0..CHUNK_HEIGHT).contains(&ny)
                 && (0..CHUNK_SIZE).contains(&nz)
             {
-                self.blocks[Self::pos_to_index(nx, ny, nz)].is_some()
+                self.get_block(nx, ny, nz).is_some()
             } else if !(0..CHUNK_HEIGHT).contains(&ny) {
                 false
             } else {
@@ -1008,12 +1112,7 @@ impl WorldData {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
         if let Some(chunk) = self.chunks.get_mut(&chunk_coord) {
-            // Bounds check for y coordinate
-            if local_pos.y < 0 || local_pos.y >= CHUNK_HEIGHT {
-                return;
-            }
-            let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
-            chunk.blocks[idx] = Some(item_id);
+            chunk.set_block(local_pos.x, local_pos.y, local_pos.z, Some(item_id));
         }
         // Persist player modification for chunk reload
         self.modified_blocks.insert(world_pos, Some(item_id));
@@ -1024,13 +1123,9 @@ impl WorldData {
     pub fn remove_block(&mut self, world_pos: IVec3) -> Option<ItemId> {
         let chunk_coord = Self::world_to_chunk(world_pos);
         let local_pos = Self::world_to_local(world_pos);
-        // Bounds check for y coordinate
-        if local_pos.y < 0 || local_pos.y >= CHUNK_HEIGHT {
-            return None;
-        }
         let chunk = self.chunks.get_mut(&chunk_coord)?;
-        let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
-        let block = chunk.blocks[idx].take();
+        let block = chunk.get_block(local_pos.x, local_pos.y, local_pos.z);
+        chunk.set_block(local_pos.x, local_pos.y, local_pos.z, None);
         // Persist player modification for chunk reload (None = air/removed)
         self.modified_blocks.insert(world_pos, None);
         block

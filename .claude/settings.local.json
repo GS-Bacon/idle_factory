@@ -389,7 +389,9 @@
       "Bash(cargo search:*)",
       "Bash(gh run:*)",
       "Bash(gh workflow run:*)",
-      "Bash(python scripts/generate-wiki.py:*)"
+      "Bash(python scripts/generate-wiki.py:*)",
+      "Bash(gh cache list:*)",
+      "Bash(gh api:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

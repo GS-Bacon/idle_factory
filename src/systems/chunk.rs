@@ -37,14 +37,11 @@ fn generate_chunk_sync(chunk_coord: IVec2, uv_cache: UVCache) -> ChunkMeshData {
         chunk_data.generate_mesh_textured(chunk_coord, |_| false, ChunkLod::Full, &uv_cache)
     };
 
-    // Convert flat array to world positions HashMap for ChunkMeshData
+    // Convert to world positions HashMap for ChunkMeshData using iter_blocks
     let mut world_blocks = HashMap::new();
-    for idx in 0..ChunkData::ARRAY_SIZE {
-        if let Some(block_type) = chunk_data.blocks[idx] {
-            let local_pos = ChunkData::index_to_pos(idx);
-            let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
-            world_blocks.insert(world_pos, block_type);
-        }
+    for (local_pos, block_type) in chunk_data.iter_blocks() {
+        let world_pos = WorldData::local_to_world(chunk_coord, local_pos);
+        world_blocks.insert(world_pos, block_type);
     }
 
     ChunkMeshData {
@@ -226,7 +223,7 @@ pub fn receive_chunk_meshes(
             }
         }
 
-        let chunk_data = ChunkData { blocks };
+        let chunk_data = ChunkData::from_blocks(blocks);
 
         world_data.chunks.insert(coord, chunk_data);
         coords_needing_neighbor_update.insert(coord);

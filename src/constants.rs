@@ -2,8 +2,12 @@
 
 /// Chunk dimensions
 pub const CHUNK_SIZE: i32 = 16;
-pub const CHUNK_HEIGHT: i32 = 32;
-pub const GROUND_LEVEL: i32 = 7; // Y coordinate of ground surface
+pub const CHUNK_HEIGHT: i32 = 64; // 4 sections (expandable to 128 = 8 sections)
+pub const SECTION_HEIGHT: i32 = 16; // Height of each section within a chunk
+pub const GROUND_LEVEL: i32 = 32; // Y coordinate of ground surface (Minecraft-style)
+
+/// Number of sections per chunk (CHUNK_HEIGHT / SECTION_HEIGHT)
+pub const SECTIONS_PER_CHUNK: usize = (CHUNK_HEIGHT / SECTION_HEIGHT) as usize;
 
 /// Block size in world units
 pub const BLOCK_SIZE: f32 = 1.0;

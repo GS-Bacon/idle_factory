@@ -68,17 +68,22 @@ mod tests {
 
     #[test]
     fn test_chunk_generation() {
+        use idle_factory::constants::GROUND_LEVEL;
+
         let chunk = ChunkData::generate(IVec2::ZERO);
         // Check that blocks array has some blocks
-        let block_count = chunk.blocks.iter().filter(|b| b.is_some()).count();
+        let block_count = chunk.iter_blocks().count();
         assert!(block_count > 0);
-        // Check surface block at (0, 7, 0)
-        let surface_block = chunk.get_block(0, 7, 0);
+        // Check surface block at GROUND_LEVEL
+        let surface_block = chunk.get_block(0, GROUND_LEVEL, 0);
         assert!(
             surface_block == Some(items::grass())
                 || surface_block == Some(items::iron_ore())
                 || surface_block == Some(items::copper_ore())
-                || surface_block == Some(items::coal())
+                || surface_block == Some(items::coal()),
+            "Expected surface block at y={}, got {:?}",
+            GROUND_LEVEL,
+            surface_block
         );
     }
 
@@ -100,12 +105,20 @@ mod tests {
 
     #[test]
     fn test_world_data_block_operations() {
+        use idle_factory::constants::GROUND_LEVEL;
+
         let mut world = WorldData::default();
         world
             .chunks
             .insert(IVec2::new(0, 0), ChunkData::generate(IVec2::ZERO));
+        // There should be a block at y=0 (underground)
         assert!(world.has_block(IVec3::new(0, 0, 0)));
-        assert!(!world.has_block(IVec3::new(0, 10, 0)));
+        // There should be no block above ground level
+        assert!(
+            !world.has_block(IVec3::new(0, GROUND_LEVEL + 5, 0)),
+            "Expected no block above ground at y={}",
+            GROUND_LEVEL + 5
+        );
     }
 
     #[test]
