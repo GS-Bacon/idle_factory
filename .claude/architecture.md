@@ -1,6 +1,17 @@
 # アーキテクチャ設計
 
-> **このファイルの役割**: AIが機能追加時に参照する設計ガイド。コード読めない時でもこれで設計判断できる。
+> **対象**: AI・人間（両方）
+> **役割**: 機能追加時の設計ガイド、拡張ポイントの参照
+> **タスク詳細**: `.claude/implementation-plan.md`
+> **進捗確認**: `.specify/roadmap.md`
+
+## ドキュメント役割分担
+
+| ファイル | 対象 | 内容 |
+|----------|------|------|
+| `.specify/roadmap.md` | 人間 | マイルストーン概要、完了条件 |
+| `.claude/implementation-plan.md` | AI | タスク詳細、シナリオテスト例 |
+| **このファイル** | 両方 | 機能設計骨格、拡張ポイント |
 
 ## 目次
 
@@ -319,15 +330,15 @@ pub struct SignalWire {
 ```rust
 // components/crafting.rs
 pub struct CraftingGrid {
-    pub slots: [Option<(BlockType, u32)>; 9],  // 3x3
-    pub result: Option<(BlockType, u32)>,
+    pub slots: [Option<(ItemId, u32)>; 9],  // 3x3
+    pub result: Option<(ItemId, u32)>,
 }
 
 // game_spec/recipes.rs に追加
 pub struct CraftingRecipe {
-    pub pattern: &'static [&'static str],  // "III", " S ", " S " など
-    pub ingredients: &'static [(char, BlockType)],
-    pub result: (BlockType, u32),
+    pub pattern: Vec<String>,  // ["III", " S ", " S "]
+    pub ingredients: HashMap<char, ItemId>,
+    pub result: (ItemId, u32),
     pub unlocked: bool,  // デフォルトtrue、任意ロック可能
 }
 ```
@@ -377,7 +388,7 @@ pub struct TrainStation {
 pub struct StorageBlock {
     pub capacity: u32,
     pub slots: Vec<MachineSlot>,
-    pub filter: Option<Vec<BlockType>>,  // 許可アイテムリスト
+    pub filter: Option<Vec<ItemId>>,  // 許可アイテムリスト（動的ID）
     pub priority: i32,  // 入出力優先度
 }
 
@@ -537,11 +548,11 @@ pub enum AIState {
 
 // game_spec/mobs.rs
 pub struct MobSpec {
-    pub id: &'static str,
+    pub id: String,  // 動的ID（例: "base:zombie"）
     pub max_health: f32,
     pub speed: f32,
     pub hostile: bool,
-    pub drops: &'static [(BlockType, u32, f32)], // item, count, probability
+    pub drops: Vec<(ItemId, u32, f32)>, // item, count, probability（動的ID）
 }
 ```
 
@@ -564,7 +575,7 @@ pub struct MapMarker {
 }
 
 pub enum MarkerType {
-    Machine(BlockType),
+    Machine(ItemId),
     Player,
     Custom,
 }
@@ -596,7 +607,7 @@ pub struct Blueprint {
 
 pub struct BlueprintBlock {
     pub offset: IVec3,
-    pub block_type: BlockType,
+    pub block_type: ItemId,
     pub rotation: u8,
     pub machine_config: Option<MachineConfig>,
 }
@@ -615,8 +626,8 @@ pub struct BlueprintBlock {
 ```rust
 // components/statistics.rs
 pub struct ProductionStats {
-    pub item_produced: HashMap<BlockType, TimeSeries>,
-    pub item_consumed: HashMap<BlockType, TimeSeries>,
+    pub item_produced: HashMap<ItemId, TimeSeries>,  // 動的ID対応
+    pub item_consumed: HashMap<ItemId, TimeSeries>,  // 動的ID対応
     pub power_usage: TimeSeries,
 }
 
@@ -680,7 +691,7 @@ pub struct Achievement {
 }
 
 pub enum AchievementCondition {
-    ProduceItem { item: BlockType, count: u32 },
+    ProduceItem { item: ItemId, count: u32 },
     PlaceMachines { count: u32 },
     CompleteQuest { quest_id: &'static str },
     PlayTime { minutes: u32 },
@@ -981,3 +992,7 @@ pub enum WeatherType {
 | WorldCommands | 直接操作禁止、安全なAPIのみ |
 | newtype | ItemId/MachineId で型混同防止 |
 | フォールバック | 不明IDは警告＋デフォルト値 |
+
+---
+
+*最終更新: 2026-01-11*
