@@ -7,7 +7,6 @@ use crate::player::{LocalPlayer, PlayerInventory};
 use crate::setup::ui::{
     SLOT_BG, SLOT_BORDER_COLOR, SLOT_HOVER_BG, SLOT_HOVER_BORDER, SLOT_SELECTED_BORDER,
 };
-use crate::systems::cursor;
 use crate::{HOTBAR_SLOTS, MAX_STACK_SIZE, NUM_SLOTS};
 use bevy::color::Srgba;
 use bevy::prelude::*;
@@ -58,7 +57,7 @@ pub fn update_inventory_visibility(
             Without<InventoryBackgroundOverlay>,
         ),
     >,
-    mut windows: Query<&mut Window>,
+    windows: Query<&Window>,
 ) {
     // Only update when InventoryOpen changes
     if !inventory_open.is_changed() {
@@ -116,14 +115,9 @@ pub fn update_inventory_visibility(
         }
     }
 
-    // Unlock/lock cursor
-    if let Ok(mut window) = windows.get_single_mut() {
-        if inventory_open.0 {
-            cursor::unlock_cursor(&mut window);
-        } else {
-            cursor::lock_cursor(&mut window);
-        }
-    }
+    // Note: Cursor control removed - UIState is the single source of truth
+    // Cursor is now controlled by update_pause_ui in player.rs
+    let _ = windows; // Suppress unused warning
 }
 
 /// Handle creative inventory item button clicks (only in creative mode)

@@ -22,6 +22,7 @@
 
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
+use tracing::debug;
 
 use crate::systems::inventory_ui::set_ui_open_state;
 
@@ -36,6 +37,7 @@ use crate::systems::inventory_ui::set_ui_open_state;
 /// See: https://bevy-cheatbook.github.io/window/mouse-grab.html
 #[inline]
 pub fn lock_cursor(window: &mut Window) {
+    debug!("[Cursor] lock_cursor called");
     // Windows doesn't support Locked mode, use Confined instead
     // Confined keeps cursor within window bounds, which works well for FPS-style games
     #[cfg(target_os = "windows")]
@@ -57,6 +59,7 @@ pub fn lock_cursor(window: &mut Window) {
 /// - Pausing the game with ESC
 #[inline]
 pub fn unlock_cursor(window: &mut Window) {
+    debug!("[Cursor] unlock_cursor called");
     window.cursor_options.grab_mode = CursorGrabMode::None;
     window.cursor_options.visible = true;
     set_ui_open_state(true);
@@ -69,6 +72,7 @@ pub fn unlock_cursor(window: &mut Window) {
 /// - Releasing cursor but not opening a UI
 #[inline]
 pub fn release_cursor(window: &mut Window) {
+    debug!("[Cursor] release_cursor called");
     window.cursor_options.grab_mode = CursorGrabMode::None;
     window.cursor_options.visible = true;
     // Note: does NOT call set_ui_open_state
