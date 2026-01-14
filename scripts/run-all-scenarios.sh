@@ -108,7 +108,13 @@ echo "=============================================="
 if [ "$STARTED_GAME" = true ] && [ "$KEEP_GAME" = false ]; then
     echo ""
     echo "Stopping game..."
-    pkill -f "idle_factory" 2>/dev/null || true
+    # Use saved PID instead of pkill to avoid killing other sessions
+    if [ -n "$GAME_PID" ]; then
+        kill $GAME_PID 2>/dev/null || true
+        # Wait a moment and force kill if still running
+        sleep 1
+        kill -9 $GAME_PID 2>/dev/null || true
+    fi
 fi
 
 exit $FAILED
