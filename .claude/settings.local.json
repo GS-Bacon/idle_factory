@@ -419,7 +419,9 @@
       "Bash(node -e:*)",
       "Bash(if [ -f ./scripts/run-all-scenarios.sh ])",
       "Bash(then ./scripts/run-all-scenarios.sh)",
-      "Bash(else for f in tests/scenarios/*.toml)"
+      "Bash(else for f in tests/scenarios/*.toml)",
+      "Bash(node scripts/run-all-scenarios.js:*)",
+      "Bash(git rev-parse:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

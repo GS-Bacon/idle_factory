@@ -502,7 +502,9 @@ fn process_server_messages(
     let test_state = TestStateInfo {
         ui_state: ui_state_str,
         player_position,
-        cursor_locked: cursor_lock.as_ref().is_some_and(|c| !c.paused),
+        // Use UIState as single source of truth (not CursorLockState.paused)
+        // Cursor is locked only when in Gameplay mode
+        cursor_locked: ui_state.as_ref().is_some_and(|s| s.is_gameplay()),
         target_block: target_block_pos,
         breaking_progress: breaking_prog,
         input_flags,

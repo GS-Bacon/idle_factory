@@ -1,0 +1,31 @@
+name = "バグ再現: ESCでカーソルが解放される"
+description = "Gameplay中にESCを押すとカーソルがアンロックされることを確認"
+
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == true" }
+
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+# このアサートが失敗する = バグ確認
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }

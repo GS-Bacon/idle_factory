@@ -28,8 +28,8 @@ use crate::storage::StoragePlugin;
 use crate::systems::{
     block_break, block_place, handle_assert_machine_event, handle_debug_event, handle_look_event,
     handle_pause_menu_buttons, handle_screenshot_event, handle_setblock_event,
-    handle_spawn_machine_event, handle_teleport_event, load_machine_models, player_look,
-    player_move, process_dirty_chunks, quest_claim_rewards, quest_deliver_button,
+    handle_spawn_machine_event, handle_teleport_event, initialize_cursor, load_machine_models,
+    player_look, player_move, process_dirty_chunks, quest_claim_rewards, quest_deliver_button,
     quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement, select_block_type,
     setup_highlight_cache, spawn_chunk_tasks, sync_legacy_ui_state, tick_action_timers,
     toggle_cursor_lock, tutorial_dismiss, ui_action_handler, ui_escape_handler,
@@ -166,11 +166,15 @@ impl GamePlugin {
             ),
         );
 
-        // Pause UI must run AFTER sync_legacy_ui_state to react to CursorLockState changes
+        // Pause UI and cursor control use UIState as single source of truth
+        // Must run AFTER sync_legacy_ui_state to ensure UIState is updated first
         app.add_systems(
             Update,
             (update_pause_ui, handle_pause_menu_buttons).after(sync_legacy_ui_state),
         );
+
+        // Initialize cursor state on first frame (runs once)
+        app.add_systems(Update, initialize_cursor);
 
         app.add_systems(Update, tutorial_dismiss);
 

@@ -67,6 +67,7 @@ mkdir -p "$TEMP_DIR/idle_factory"
 
 cp "$BINARY" "$TEMP_DIR/idle_factory/"
 cp -r assets "$TEMP_DIR/idle_factory/"
+cp -r mods "$TEMP_DIR/idle_factory/"
 
 cd "$TEMP_DIR"
 zip -rq "$ZIP_NAME" idle_factory

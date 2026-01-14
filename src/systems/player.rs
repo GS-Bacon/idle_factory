@@ -18,30 +18,26 @@ use bevy::prelude::*;
 use tracing::info;
 
 /// Handle cursor lock on click (ESC handling moved to ui_navigation.rs)
+/// Uses UIState as single source of truth for whether cursor should be locked
 pub fn toggle_cursor_lock(
     input: Res<InputManager>,
     mut windows: Query<&mut Window>,
-    interacting_machine: Res<InteractingMachine>,
-    creative_inv_open: Res<InventoryOpen>,
+    ui_state: Res<UIState>,
     mut cursor_state: ResMut<CursorLockState>,
 ) {
     let mut window = windows.single_mut();
 
-    // Check if any UI is open
-    let any_ui_open = interacting_machine.0.is_some() || creative_inv_open.0;
-
-    // Click to lock cursor (when not locked or paused, and no UI open)
-    // Also handle case where cursor may have been released
+    // Only allow locking cursor when in Gameplay mode (no UI open)
+    // Click to lock cursor when it's unlocked and we're in gameplay
     if input.just_pressed(GameAction::PrimaryAction)
-        && (cursor::is_unlocked(&window) || cursor_state.paused)
-        && !any_ui_open
+        && cursor::is_unlocked(&window)
+        && ui_state.is_gameplay()
     {
         // Use Locked mode - it properly captures relative mouse motion
         // Confined mode causes issues where mouse hits window edge and spins
         cursor::lock_cursor(&mut window);
         // Mark that we just locked - skip next block break to avoid accidental destruction
         cursor_state.just_locked = true;
-        cursor_state.paused = false;
     }
 }
 
@@ -432,6 +428,30 @@ pub fn update_pause_ui(
             cursor::lock_cursor(&mut window);
         } else {
             cursor::release_cursor(&mut window);
+        }
+    }
+}
+
+/// Initialize cursor state at startup based on UIState
+/// Runs once on first frame to ensure cursor matches initial UI state
+pub fn initialize_cursor(
+    ui_state: Res<UIState>,
+    mut windows: Query<&mut Window>,
+    mut ran: Local<bool>,
+) {
+    // Run only once
+    if *ran {
+        return;
+    }
+    *ran = true;
+
+    if let Ok(mut window) = windows.get_single_mut() {
+        if ui_state.is_gameplay() {
+            cursor::lock_cursor(&mut window);
+            info!("[CURSOR] Initialized: locked (Gameplay)");
+        } else {
+            cursor::release_cursor(&mut window);
+            info!("[CURSOR] Initialized: released ({:?})", ui_state.current());
         }
     }
 }
