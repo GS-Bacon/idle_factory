@@ -31,8 +31,8 @@ use crate::systems::{
     handle_spawn_machine_event, handle_teleport_event, initialize_cursor, load_machine_models,
     player_look, player_move, process_dirty_chunks, quest_claim_rewards, quest_deliver_button,
     quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement, select_block_type,
-    setup_highlight_cache, spawn_chunk_tasks, sync_legacy_ui_state, tick_action_timers,
-    toggle_cursor_lock, tutorial_dismiss, ui_action_handler, ui_escape_handler,
+    setup_highlight_cache, spawn_chunk_tasks, sync_cursor_to_ui_state, sync_legacy_ui_state,
+    tick_action_timers, toggle_cursor_lock, tutorial_dismiss, ui_action_handler, ui_escape_handler,
     ui_global_inventory_handler, ui_inventory_handler, unload_distant_chunks,
     update_conveyor_shapes, update_delivery_ui, update_guide_markers, update_pause_ui,
     update_quest_ui, update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent,
@@ -272,5 +272,10 @@ impl GamePlugin {
                 handle_settings_back,
             ),
         );
+
+        // Cursor sync system runs in PostUpdate to ensure it's the LAST word on cursor state
+        // This is the best practice: UIState is the single source of truth for cursor
+        // See: https://bevy-cheatbook.github.io/window/mouse-grab.html
+        app.add_systems(PostUpdate, sync_cursor_to_ui_state);
     }
 }

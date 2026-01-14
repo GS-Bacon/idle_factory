@@ -399,11 +399,11 @@ pub fn tick_action_timers(time: Res<Time>, mut action_timer: ResMut<ContinuousAc
     action_timer.inventory_timer.tick(time.delta());
 }
 
-/// Update pause UI visibility and cursor state based on UIState
+/// Update pause UI visibility based on UIState
+/// Note: Cursor control moved to sync_cursor_to_ui_state (PostUpdate)
 pub fn update_pause_ui(
     ui_state: Res<UIState>,
     mut pause_query: Query<&mut Visibility, With<PauseUI>>,
-    mut windows: Query<&mut Window>,
 ) {
     // Only update when ui_state changes
     if !ui_state.is_changed() {
@@ -421,15 +421,6 @@ pub fn update_pause_ui(
     } else {
         Visibility::Hidden
     };
-
-    // Cursor is locked only when in Gameplay (no UI open)
-    if let Ok(mut window) = windows.get_single_mut() {
-        if ui_state.is_gameplay() {
-            cursor::lock_cursor(&mut window);
-        } else {
-            cursor::release_cursor(&mut window);
-        }
-    }
 }
 
 /// Initialize cursor state at startup based on UIState

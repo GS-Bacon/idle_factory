@@ -1,5 +1,57 @@
 # 作業ログ
 
+## 2026-01-14: BUG-17修正 - カーソル制御の競合問題
+
+### 概要
+
+ESCやEキーでUIを開いてもカーソルが表示されない問題を修正。Bevyのベストプラクティスに従いカーソル制御を一元化。
+
+### 原因
+
+複数のシステムが同時にカーソル制御していた：
+- `update_pause_ui` (player.rs)
+- `update_inventory_visibility` (inventory_ui.rs)
+- `machines/generic.rs`
+- その他
+
+ログ確認で`release_cursor`直後に`lock_cursor`が呼ばれる競合を検出。
+
+### 解決策（ベストプラクティス）
+
+| 変更 | 内容 |
+|------|------|
+| 新システム追加 | `sync_cursor_to_ui_state` をPostUpdateで実行 |
+| 原則 | UIStateを**唯一の真実のソース**として使用 |
+| 削除 | 他のシステムからカーソル直接制御を削除 |
+
+### 変更ファイル
+
+- `src/systems/cursor.rs` - `sync_cursor_to_ui_state`追加
+- `src/plugins/game.rs` - PostUpdateで登録
+- `src/systems/player.rs` - `update_pause_ui`からカーソル制御削除
+- `src/systems/inventory_ui.rs` - カーソル制御削除
+- `scripts/cursor-log.sh` - デバッグ用ログフィルタ
+
+### テスト結果
+
+| 項目 | 結果 |
+|------|------|
+| シナリオテスト | 35/35パス |
+| Windows動作確認 | ✅ 正常動作 |
+
+### 学び
+
+1. **カーソル制御は単一システムで行う** - 複数システムが制御すると実行順序で競合
+2. **PostUpdateで最終状態を設定** - 他のすべてのシステムの後に実行
+3. **UIStateを唯一の真実のソースに** - 状態を一元管理
+4. **デバッグログが重要** - 競合検出に`cursor-log.sh`が有効
+
+### 参考
+
+- [Bevy Cheatbook - Mouse Grab](https://bevy-cheatbook.github.io/window/mouse-grab.html)
+
+---
+
 ## 2026-01-14: BUG-16修正 - LocalPlayer/PlayerInventory未初期化
 
 ### 概要

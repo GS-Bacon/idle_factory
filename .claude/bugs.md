@@ -89,6 +89,12 @@ node capture-wasm-logs.js   # 30秒キャプチャ
 - **原因**: チャンクアンロード時にデータ削除
 - **対策**: modified_blocksで変更を永続化
 
+### 15. カーソル制御の競合（複数システム問題）
+- **原因**: 複数のシステムが同時にカーソル制御、実行順序で競合
+- **検出**: `./scripts/cursor-log.sh --filter`で`release_cursor`直後に`lock_cursor`
+- **対策**: PostUpdateで実行する専用システム`sync_cursor_to_ui_state`で一元管理
+- **参考**: [Bevy Cheatbook](https://bevy-cheatbook.github.io/window/mouse-grab.html)
+
 ## 実装時チェックリスト
 
 - [ ] メッシュ変更 → ワインディング順序テスト
@@ -99,6 +105,7 @@ node capture-wasm-logs.js   # 30秒キャプチャ
 - [ ] UI追加 → `set_ui_open_state`呼び出し
 - [ ] ESCで閉じるUI → JS側で自動再ロック確認
 - [ ] 毎フレーム処理 → バッチ処理に制限
+- [ ] カーソル制御 → **絶対に直接制御しない**。UIStateを変更すれば`sync_cursor_to_ui_state`が自動制御
 
 ## 未修正バグ（インベントリUI関連）
 
@@ -195,7 +202,7 @@ commands.insert_resource(LocalPlayer(player_entity));  // 追加
 ---
 
 ### BUG-10: Windows起動時カーソル制御問題
-**状態**: 修正中（コード変更済み、テスト未確認）
+**状態**: ✅ 修正済み
 
 **症状**: 起動時にいきなりカーソルを吸収してしまう
 
@@ -212,9 +219,37 @@ commands.insert_resource(LocalPlayer(player_entity));  // 追加
 
 **テストファイル**: `tests/scenarios/startup_pause_menu.toml`
 
-**残作業**:
-1. ゲームを再ビルドして実行
-2. テスト実行で確認
+---
+
+### BUG-17: カーソル制御の競合（複数システム問題）
+**状態**: ✅ 修正済み
+
+**症状**: ESCやEでUI開いてもカーソルが表示されない（Windowsで顕著）
+
+**原因**:
+- 複数のシステムが同時にカーソル制御していた
+- `update_pause_ui`、`update_inventory_visibility`、`machines/generic.rs`等
+- 実行順序が不定で、`release_cursor()`直後に`lock_cursor()`が呼ばれる競合
+
+**ログでの確認方法**:
+```bash
+./scripts/cursor-log.sh --filter
+# release_cursor直後にlock_cursorが呼ばれていたら競合
+```
+
+**対策（ベストプラクティス）**:
+1. **PostUpdate**で実行される専用システム`sync_cursor_to_ui_state`を作成
+2. UIStateを**唯一の真実のソース**として使用
+3. 他のシステムからカーソル直接制御を削除
+
+**変更ファイル**:
+- `src/systems/cursor.rs` - `sync_cursor_to_ui_state`追加
+- `src/plugins/game.rs` - PostUpdateで登録
+- `src/systems/player.rs` - `update_pause_ui`からカーソル制御削除
+
+**テストファイル**: `tests/scenarios/bug_esc_cursor_release.toml`, `tests/scenarios/ui_cursor_lock.toml`
+
+**参考**: [Bevy Cheatbook - Mouse Grab](https://bevy-cheatbook.github.io/window/mouse-grab.html)
 
 ---
 

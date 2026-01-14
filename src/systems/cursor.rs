@@ -90,6 +90,39 @@ pub fn is_unlocked(window: &Window) -> bool {
     window.cursor_options.grab_mode == CursorGrabMode::None
 }
 
+// =============================================================================
+// Cursor Sync System (Best Practice: Single Source of Truth)
+// =============================================================================
+
+use crate::components::UIState;
+
+/// Synchronize cursor state based on UIState
+///
+/// This system runs in PostUpdate to ensure it executes AFTER all other systems
+/// that might change cursor state. UIState is the single source of truth for
+/// whether cursor should be locked or unlocked.
+///
+/// Best Practice (Bevy Cheatbook):
+/// - Lock cursor during active gameplay
+/// - Unlock cursor when UI is open or game is paused
+pub fn sync_cursor_to_ui_state(ui_state: Res<UIState>, mut windows: Query<&mut Window>) {
+    let Ok(mut window) = windows.get_single_mut() else {
+        return;
+    };
+
+    let should_lock = ui_state.is_gameplay();
+    let currently_locked = is_locked(&window);
+
+    // Only change if state differs (avoid unnecessary changes)
+    if should_lock && !currently_locked {
+        debug!("[Cursor] sync: locking (Gameplay)");
+        lock_cursor(&mut window);
+    } else if !should_lock && currently_locked {
+        debug!("[Cursor] sync: releasing ({:?})", ui_state.current());
+        release_cursor(&mut window);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Note: Window cannot be easily unit tested without Bevy app context
