@@ -434,24 +434,42 @@ pub fn update_pause_ui(
 
 /// Initialize cursor state at startup based on UIState
 /// Runs once on first frame to ensure cursor matches initial UI state
+/// Initialize cursor state after window is ready
+///
+/// Bevy/winit has timing issues where cursor grab mode changes don't work
+/// during the first few frames after startup. We wait 5 frames before
+/// setting the initial cursor state.
+///
+/// See: https://github.com/bevyengine/bevy/issues/16237
 pub fn initialize_cursor(
     ui_state: Res<UIState>,
     mut windows: Query<&mut Window>,
-    mut ran: Local<bool>,
+    mut frame_count: Local<u32>,
 ) {
-    // Run only once
-    if *ran {
+    // Wait until window is ready (5 frames after startup)
+    // This is a workaround for Bevy/winit timing issues
+    *frame_count += 1;
+    if *frame_count < 5 {
         return;
     }
-    *ran = true;
+    if *frame_count > 5 {
+        return; // Only run once on frame 5
+    }
 
     if let Ok(mut window) = windows.get_single_mut() {
         if ui_state.is_gameplay() {
             cursor::lock_cursor(&mut window);
-            info!("[CURSOR] Initialized: locked (Gameplay)");
+            info!(
+                "[CURSOR] Initialized (frame {}): locked (Gameplay)",
+                *frame_count
+            );
         } else {
             cursor::release_cursor(&mut window);
-            info!("[CURSOR] Initialized: released ({:?})", ui_state.current());
+            info!(
+                "[CURSOR] Initialized (frame {}): released ({:?})",
+                *frame_count,
+                ui_state.current()
+            );
         }
     }
 }

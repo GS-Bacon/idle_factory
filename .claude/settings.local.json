@@ -421,7 +421,8 @@
       "Bash(then ./scripts/run-all-scenarios.sh)",
       "Bash(else for f in tests/scenarios/*.toml)",
       "Bash(node scripts/run-all-scenarios.js:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "WebFetch(domain:bevy-cheatbook.github.io)"
     ]
   },
   "enableAllProjectMcpServers": true,

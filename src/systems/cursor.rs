@@ -31,9 +31,21 @@ use crate::systems::inventory_ui::set_ui_open_state;
 /// - Closing a UI with E key (return to game)
 /// - Player clicks to resume game from pause
 /// - Command execution complete
+///
+/// Note: Windows does not support `CursorGrabMode::Locked`, so we use `Confined` instead.
+/// See: https://bevy-cheatbook.github.io/window/mouse-grab.html
 #[inline]
 pub fn lock_cursor(window: &mut Window) {
-    window.cursor_options.grab_mode = CursorGrabMode::Locked;
+    // Windows doesn't support Locked mode, use Confined instead
+    // Confined keeps cursor within window bounds, which works well for FPS-style games
+    #[cfg(target_os = "windows")]
+    {
+        window.cursor_options.grab_mode = CursorGrabMode::Confined;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        window.cursor_options.grab_mode = CursorGrabMode::Locked;
+    }
     window.cursor_options.visible = false;
     set_ui_open_state(false);
 }

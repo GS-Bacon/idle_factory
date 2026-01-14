@@ -155,17 +155,6 @@ impl GamePlugin {
                 .chain(),
         );
 
-        // Player systems: look → move (camera affects movement direction)
-        app.add_systems(
-            Update,
-            (
-                toggle_cursor_lock,
-                player_look,
-                player_move,
-                tick_action_timers,
-            ),
-        );
-
         // Pause UI and cursor control use UIState as single source of truth
         // Must run AFTER sync_legacy_ui_state to ensure UIState is updated first
         app.add_systems(
@@ -173,7 +162,21 @@ impl GamePlugin {
             (update_pause_ui, handle_pause_menu_buttons).after(sync_legacy_ui_state),
         );
 
-        // Initialize cursor state on first frame (runs once)
+        // Player systems must run AFTER update_pause_ui to avoid cursor race conditions
+        // toggle_cursor_lock checks UIState, so it needs to see the latest state
+        app.add_systems(
+            Update,
+            (
+                toggle_cursor_lock,
+                player_look,
+                player_move,
+                tick_action_timers,
+            )
+                .after(update_pause_ui),
+        );
+
+        // Initialize cursor state after window is ready (waits 5 frames)
+        // See: https://github.com/bevyengine/bevy/issues/16237
         app.add_systems(Update, initialize_cursor);
 
         app.add_systems(Update, tutorial_dismiss);
