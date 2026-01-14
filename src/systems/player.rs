@@ -3,7 +3,7 @@
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
     InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialPopup,
-    TutorialShown, UIAction, UIContext,
+    TutorialShown, UIAction, UIContext, UIState,
 };
 use crate::input::{GameAction, InputManager};
 use crate::settings::GameSettings;
@@ -403,14 +403,14 @@ pub fn tick_action_timers(time: Res<Time>, mut action_timer: ResMut<ContinuousAc
     action_timer.inventory_timer.tick(time.delta());
 }
 
-/// Update pause UI visibility and cursor state based on CursorLockState
+/// Update pause UI visibility and cursor state based on UIState
 pub fn update_pause_ui(
-    cursor_state: Res<CursorLockState>,
+    ui_state: Res<UIState>,
     mut pause_query: Query<&mut Visibility, With<PauseUI>>,
     mut windows: Query<&mut Window>,
 ) {
-    // Only update when cursor_state changes
-    if !cursor_state.is_changed() {
+    // Only update when ui_state changes
+    if !ui_state.is_changed() {
         return;
     }
 
@@ -418,18 +418,20 @@ pub fn update_pause_ui(
         return;
     };
 
-    *visibility = if cursor_state.paused {
+    // PauseUI is visible only when PauseMenu is active
+    let show_pause = ui_state.is_active(&UIContext::PauseMenu);
+    *visibility = if show_pause {
         Visibility::Visible
     } else {
         Visibility::Hidden
     };
 
-    // Handle cursor release/lock when entering/leaving pause
+    // Cursor is locked only when in Gameplay (no UI open)
     if let Ok(mut window) = windows.get_single_mut() {
-        if cursor_state.paused {
-            cursor::release_cursor(&mut window);
-        } else {
+        if ui_state.is_gameplay() {
             cursor::lock_cursor(&mut window);
+        } else {
+            cursor::release_cursor(&mut window);
         }
     }
 }
