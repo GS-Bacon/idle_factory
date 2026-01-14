@@ -1,0 +1,27 @@
+# Cursor State: CommandInput
+name = "cursor_commandinput"
+description = "Cursor should be unlocked in CommandInput"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "OpenCommand" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == CommandInput" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_visible == true" }

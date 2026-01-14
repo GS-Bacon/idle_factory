@@ -1,0 +1,13 @@
+# Settings Slider: Fov
+name = "settings_slider_fov"
+description = "Verify settings slider Fov exists"
+
+# Note: Requires Settings screen to be open manually
+
+[[steps]]
+action = "get_state"
+
+# If in Settings, verify slider exists
+[[steps]]
+action = "assert"
+params = { condition = "has_ui_element == Slider_Fov" }

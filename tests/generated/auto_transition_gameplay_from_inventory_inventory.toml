@@ -1,0 +1,27 @@
+# Auto-generated: Gameplay -> Inventory via from_Inventory
+name = "auto_transition_gameplay_from_inventory_inventory"
+description = "Extracted from src/systems/ui_navigation.rs"
+
+# Setup
+[[steps]]
+action = "get_state"
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "from_Inventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Inventory" }

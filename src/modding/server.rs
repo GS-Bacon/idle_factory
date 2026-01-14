@@ -7,13 +7,26 @@ use bevy::prelude::*;
 use crossbeam_channel::{Receiver, Sender};
 
 use super::connection::ConnectionManager;
-use super::handlers::{route_request, GameStateInfo, HandlerContext, TestStateInfo};
+use super::handlers::{
+    route_request, GameStateInfo, HandlerContext, InputFlags, SlotInfo, TestStateInfo,
+};
 use super::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
 use super::ModManager;
 
-use crate::components::{CursorLockState, UIState};
+use crate::components::{
+    BreakingProgress, CommandInputState, CursorLockState, GlobalInventoryOpen, InputState,
+    InteractingMachine, InventoryOpen, TargetBlock, UIContext, UIState,
+};
+use crate::events::TestEventBuffer;
 use crate::input::{GameAction, TestInputEvent};
-use crate::player::LocalPlayer;
+use crate::modding::handlers::UIElementInfo;
+use crate::player::{LocalPlayer, PlayerInventory};
+
+/// Cached UI element states for test API
+#[derive(Resource, Default)]
+pub struct UIElementCache {
+    pub elements: Vec<UIElementInfo>,
+}
 
 /// Server configuration
 #[derive(Resource, Clone)]
@@ -321,9 +334,37 @@ pub struct ModApiServerPlugin;
 impl Plugin for ModApiServerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ModApiServerConfig>()
+            .init_resource::<UIElementCache>()
             .add_systems(Startup, setup_mod_api_server)
-            .add_systems(Update, process_server_messages);
+            .add_systems(
+                Update,
+                (update_ui_element_cache, process_server_messages).chain(),
+            );
     }
+}
+
+/// Update the cached UI element states
+fn update_ui_element_cache(
+    mut cache: ResMut<UIElementCache>,
+    registry: Option<Res<crate::game_spec::UIElementRegistry>>,
+    query: Query<(
+        &crate::game_spec::UIElementTag,
+        &Visibility,
+        Option<&Interaction>,
+    )>,
+) {
+    let Some(registry) = registry else {
+        return;
+    };
+
+    cache.elements = crate::systems::ui_visibility::collect_ui_element_states(&registry, &query)
+        .into_iter()
+        .map(|info| UIElementInfo {
+            id: info.id,
+            visible: info.visible,
+            interactable: info.interactable,
+        })
+        .collect();
 }
 
 fn setup_mod_api_server(mut commands: Commands, config: Res<ModApiServerConfig>) {
@@ -344,12 +385,20 @@ fn setup_mod_api_server(mut commands: Commands, config: Res<ModApiServerConfig>)
 fn process_server_messages(
     server: Option<ResMut<ModApiServer>>,
     mod_manager: Res<ModManager>,
-    cursor_lock: Option<Res<CursorLockState>>,
+    mut cursor_lock: Option<ResMut<CursorLockState>>,
     time: Res<Time>,
-    ui_state: Option<Res<UIState>>,
+    mut ui_state: Option<ResMut<UIState>>,
+    mut inventory_open: Option<ResMut<InventoryOpen>>,
+    mut interacting_machine: Option<ResMut<InteractingMachine>>,
     local_player: Option<Res<LocalPlayer>>,
-    transforms: Query<&Transform>,
+    player_query: Query<(&Transform, &PlayerInventory)>,
     mut test_input_writer: EventWriter<TestInputEvent>,
+    mut command_state: Option<ResMut<CommandInputState>>,
+    mut global_inv_open: Option<ResMut<GlobalInventoryOpen>>,
+    target_block: Option<Res<TargetBlock>>,
+    breaking_progress: Option<Res<BreakingProgress>>,
+    mut test_event_buffer: Option<ResMut<TestEventBuffer>>,
+    ui_element_cache: Option<Res<UIElementCache>>,
 ) {
     let Some(mut server) = server else { return };
 
@@ -361,18 +410,113 @@ fn process_server_messages(
     };
 
     // Build test state info
-    let test_state = TestStateInfo {
-        ui_state: ui_state
-            .as_ref()
-            .map(|s| format!("{:?}", s.current()))
-            .unwrap_or_default(),
-        player_position: local_player
-            .as_ref()
-            .and_then(|lp| transforms.get(lp.0).ok())
-            .map(|t| [t.translation.x, t.translation.y, t.translation.z])
-            .unwrap_or_default(),
-        cursor_locked: cursor_lock.as_ref().is_some_and(|c| !c.paused),
+    // Check both UIState and legacy resources for compatibility
+    let ui_state_str = if let Some(ref s) = ui_state {
+        let current = s.current();
+        bevy::log::info!(
+            "[WS] UIState.current() = {:?}, stack_depth = {}",
+            current,
+            s.stack_depth()
+        );
+        // If UIState says Gameplay, check legacy resources
+        if current == UIContext::Gameplay {
+            if command_state.as_ref().is_some_and(|c| c.open) {
+                "Command".to_string()
+            } else if global_inv_open.as_ref().is_some_and(|g| g.0) {
+                "GlobalInventory".to_string()
+            } else {
+                ui_context_to_string(&current)
+            }
+        } else {
+            ui_context_to_string(&current)
+        }
+    } else {
+        String::new()
     };
+
+    // Get input state flags
+    let input_state = match (
+        inventory_open.as_ref(),
+        interacting_machine.as_ref(),
+        command_state.as_ref(),
+        cursor_lock.as_ref(),
+    ) {
+        (Some(inv), Some(machine), Some(cmd), Some(cursor)) => {
+            InputState::current(inv, machine, cmd, cursor)
+        }
+        _ => InputState::Gameplay,
+    };
+    let input_flags = InputFlags {
+        allows_block_actions: input_state.allows_block_actions(),
+        allows_movement: input_state.allows_movement(),
+        allows_camera: input_state.allows_camera(),
+        allows_hotbar: input_state.allows_hotbar(),
+    };
+
+    // Get target block info
+    let target_block_pos = target_block
+        .as_ref()
+        .and_then(|t| t.break_target)
+        .map(|pos| [pos.x, pos.y, pos.z]);
+
+    // Get breaking progress
+    let breaking_prog = breaking_progress
+        .as_ref()
+        .map(|b| b.progress)
+        .unwrap_or(0.0);
+
+    // Get UI stack info
+    let (ui_stack, stack_depth) = if let Some(ref s) = ui_state {
+        (s.stack_as_strings(), s.stack_depth())
+    } else {
+        (vec![], 0)
+    };
+
+    // Get player data (position, inventory)
+    let (player_position, hotbar, selected_slot) = local_player
+        .as_ref()
+        .and_then(|lp| player_query.get(lp.0).ok())
+        .map(|(transform, inventory)| {
+            let pos = [
+                transform.translation.x,
+                transform.translation.y,
+                transform.translation.z,
+            ];
+            // Build hotbar slots (first 9 slots)
+            let hotbar: Vec<SlotInfo> = (0..9)
+                .map(|i| {
+                    if let Some((item_id, count)) = inventory.slots.get(i).and_then(|s| *s) {
+                        SlotInfo {
+                            item_id: Some(item_id.name().unwrap_or("base:unknown").to_string()),
+                            count,
+                        }
+                    } else {
+                        SlotInfo::default()
+                    }
+                })
+                .collect();
+            (pos, hotbar, inventory.selected_slot)
+        })
+        .unwrap_or_default();
+
+    let test_state = TestStateInfo {
+        ui_state: ui_state_str,
+        player_position,
+        cursor_locked: cursor_lock.as_ref().is_some_and(|c| !c.paused),
+        target_block: target_block_pos,
+        breaking_progress: breaking_prog,
+        input_flags,
+        ui_stack,
+        stack_depth,
+        hotbar,
+        selected_slot,
+    };
+
+    // Clone events for context (we'll handle clear_events specially)
+    let test_events = test_event_buffer
+        .as_ref()
+        .map(|b| b.events.clone())
+        .unwrap_or_default();
 
     // Process received messages (non-blocking)
     while let Ok(msg) = server.rx.try_recv() {
@@ -410,11 +554,42 @@ fn process_server_messages(
                     }
                 }
 
+                // Handle test.set_ui_state specially to change UI state
+                if request.method == "test.set_ui_state" {
+                    if let Some(state_str) = request.params.get("state").and_then(|v| v.as_str()) {
+                        apply_ui_state_change(
+                            state_str,
+                            &mut ui_state,
+                            &mut inventory_open,
+                            &mut interacting_machine,
+                            &mut cursor_lock,
+                            &mut command_state,
+                            &mut global_inv_open,
+                        );
+                    }
+                }
+
+                // Handle test.clear_events specially to clear the buffer
+                let cleared_count = if request.method == "test.clear_events" {
+                    test_event_buffer.as_mut().map(|b| b.clear()).unwrap_or(0)
+                } else {
+                    0
+                };
+
                 // Route to appropriate handler
+                // Get cached UI element states
+                let ui_elements = ui_element_cache
+                    .as_ref()
+                    .map(|c| c.elements.clone())
+                    .unwrap_or_default();
+
                 let ctx = HandlerContext {
                     mod_manager: &mod_manager,
                     game_state: game_state.clone(),
                     test_state: test_state.clone(),
+                    test_events: test_events.clone(),
+                    cleared_events_count: cleared_count,
+                    ui_elements,
                 };
                 let response = route_request(&request, &ctx);
                 tracing::info!("Sending response for conn {}: {:?}", conn_id, response.id);
@@ -428,6 +603,115 @@ fn process_server_messages(
             }
         }
     }
+}
+
+/// Convert UIContext to string for test API
+fn ui_context_to_string(ctx: &UIContext) -> String {
+    match ctx {
+        UIContext::Gameplay => "Gameplay".to_string(),
+        UIContext::Inventory => "Inventory".to_string(),
+        UIContext::GlobalInventory => "GlobalInventory".to_string(),
+        UIContext::CommandInput => "Command".to_string(),
+        UIContext::PauseMenu => "PauseMenu".to_string(),
+        UIContext::Settings => "Settings".to_string(),
+        UIContext::Machine(_) => "MachineUI".to_string(),
+    }
+}
+
+/// Apply UI state change for test.set_ui_state API
+fn apply_ui_state_change(
+    state_str: &str,
+    ui_state: &mut Option<ResMut<UIState>>,
+    inventory_open: &mut Option<ResMut<InventoryOpen>>,
+    interacting_machine: &mut Option<ResMut<InteractingMachine>>,
+    cursor_lock: &mut Option<ResMut<CursorLockState>>,
+    command_state: &mut Option<ResMut<CommandInputState>>,
+    global_inv_open: &mut Option<ResMut<GlobalInventoryOpen>>,
+) {
+    // Get mutable references to all resources
+    let (Some(ui), Some(inv), Some(machine), Some(cursor)) = (
+        ui_state.as_mut(),
+        inventory_open.as_mut(),
+        interacting_machine.as_mut(),
+        cursor_lock.as_mut(),
+    ) else {
+        tracing::warn!("Cannot apply UI state change: missing resources");
+        return;
+    };
+
+    // Helper to reset legacy resources
+    let reset_legacy = |inv: &mut InventoryOpen,
+                        machine: &mut InteractingMachine,
+                        cmd: &mut Option<ResMut<CommandInputState>>,
+                        global: &mut Option<ResMut<GlobalInventoryOpen>>| {
+        inv.0 = false;
+        machine.0 = None;
+        if let Some(c) = cmd.as_mut() {
+            c.open = false;
+        }
+        if let Some(g) = global.as_mut() {
+            g.0 = false;
+        }
+    };
+
+    match state_str {
+        "Gameplay" => {
+            ui.clear();
+            reset_legacy(inv, machine, command_state, global_inv_open);
+            cursor.paused = false;
+        }
+        "Inventory" => {
+            ui.clear();
+            ui.push(UIContext::Inventory);
+            reset_legacy(inv, machine, command_state, global_inv_open);
+            inv.0 = true;
+            cursor.paused = false;
+        }
+        "MachineUI" => {
+            ui.clear();
+            // Use a dummy entity for test purposes
+            let dummy_entity = Entity::from_raw(999999);
+            ui.push(UIContext::Machine(dummy_entity));
+            reset_legacy(inv, machine, command_state, global_inv_open);
+            machine.0 = Some(dummy_entity);
+            cursor.paused = false;
+        }
+        "PauseMenu" => {
+            ui.clear();
+            ui.push(UIContext::PauseMenu);
+            reset_legacy(inv, machine, command_state, global_inv_open);
+            cursor.paused = true;
+        }
+        "GlobalInventory" => {
+            ui.clear();
+            ui.push(UIContext::GlobalInventory);
+            reset_legacy(inv, machine, command_state, global_inv_open);
+            if let Some(g) = global_inv_open.as_mut() {
+                g.0 = true;
+            }
+            cursor.paused = false;
+        }
+        "Command" => {
+            ui.clear();
+            ui.push(UIContext::CommandInput);
+            reset_legacy(inv, machine, command_state, global_inv_open);
+            if let Some(c) = command_state.as_mut() {
+                c.open = true;
+            }
+            cursor.paused = true; // Unlock cursor when command input is open
+        }
+        "Settings" => {
+            ui.clear();
+            ui.push(UIContext::Settings);
+            reset_legacy(inv, machine, command_state, global_inv_open);
+            cursor.paused = true;
+        }
+        _ => {
+            tracing::warn!("Unknown UI state: {}", state_str);
+        }
+    }
+
+    tracing::info!("UI state changed to: {}", state_str);
 }
 
 /// Parse GameAction from string

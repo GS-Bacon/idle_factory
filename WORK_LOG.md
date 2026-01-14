@@ -1,5 +1,53 @@
 # 作業ログ
 
+## 2026-01-14: BUG-16修正 - LocalPlayer/PlayerInventory未初期化
+
+### 概要
+
+シナリオテスト拡充中に発見したBUG-16（ホットバー選択が動作しない問題）を修正。
+
+### 完了タスク
+
+| タスク | 詳細 |
+|--------|------|
+| バグ発見 | ホットバーテストで入力注入が効かない原因を調査 |
+| 原因特定 | `setup_player()`でLocalPlayerリソースとPlayerInventoryコンポーネントが未設定 |
+| 修正 | `src/setup/player.rs`に2行追加 |
+| テスト追加 | 3つのシナリオテストを追加 |
+
+### 修正内容
+
+**ファイル**: `src/setup/player.rs`
+
+```rust
+// 追加1: PlayerInventoryコンポーネント
+let player_entity = commands.spawn((
+    Player,
+    PlayerPhysics::default(),
+    PlayerInventory::default(),  // 追加
+    // ...
+)).id();
+
+// 追加2: LocalPlayerリソース
+commands.insert_resource(LocalPlayer(player_entity));
+```
+
+### テスト結果
+
+| 項目 | 結果 |
+|------|------|
+| ユニットテスト | 613件パス |
+| シナリオテスト | 33/33パス |
+| Clippy警告 | 0件 |
+
+### 学び
+
+- テストAPIでホットバー情報（`selected_slot`）を取得できるよう拡張したことで問題発見
+- 入力注入テストは状態初期化の問題を検出するのに有効
+- `TogglePause` vs `Cancel`: 同じESCキーでも実装が異なる場合がある
+
+---
+
 ## 2026-01-08: 設計議論セッション
 
 ### 概要
@@ -475,3 +523,72 @@ D.15-D.20（高度機能）は以下の順序で実装予定:
 ### テスト結果
 - 全280件のテストがパス
 - Clippy警告: 0件（許容範囲の警告のみ）
+
+---
+
+## 2026-01-14: M2.5 I/Q/T 実装完了
+
+### 概要
+
+入力隔離（I）、テストAPI拡張（Q）、UI要素検証基盤（T）を実装。Geminiとの設計レビューを経て、T→Q→Iの順序で実装。
+
+### 完了タスク
+
+| タスク | 内容 |
+|--------|------|
+| 失敗テスト修正 | `InputState::current()` の優先度バグ修正（MachineUIがPausedより優先されるべき） |
+| T.1 | `UIElementId` 型定義（`Id<UIElementCategory>`） |
+| T.2 | `UIElementSpec` + `UIElementRegistry` 実装 |
+| T.3 | `mods/base/ui_elements.toml` 作成（30+要素定義） |
+| T.4 | `update_ui_visibility` システム実装 |
+| Q.1 | `test.get_ui_elements` JSON-RPC API追加 |
+| I | 入力隔離シナリオテスト全パス（i1-i5 + input_isolation_*） |
+
+### 新規作成ファイル
+
+| ファイル | 内容 |
+|----------|------|
+| `src/game_spec/ui_elements.rs` | UIElementSpec、UIElementRegistry、UIElementTag |
+| `src/systems/ui_visibility.rs` | 可視性システム、collect_ui_element_states |
+| `mods/base/ui_elements.toml` | UI要素定義（hotbar、inventory、pause_menu等） |
+| `tests/scenarios/i5_machine_despawn_ui.toml` | 機械削除時UI復帰テスト |
+
+### 技術的判断
+
+| 判断 | 理由 |
+|------|------|
+| T→Q→Iの順序 | UIElementIdが基盤として必要（Gemini推奨） |
+| UIElementTagの段階的追加 | 既存の手動Visibility制御と並行動作可能 |
+| InputState::current()の優先度修正 | MachineUI→Paused順（cursor_state.pausedはUI全般で使用） |
+
+### テスト結果
+
+```
+シナリオテスト（入力隔離）:
+  i1_inventory_move_isolation    ✓ 4 passed
+  i2_pause_input_isolation       ✓ 5 passed
+  i3_machine_ui_isolation        ✓ 4 passed
+  i4_hotkey_conflict             ✓ 6 passed
+  i5_machine_despawn_ui          ✓ 6 passed
+  input_isolation_gameplay       ✓ 5 passed
+  input_isolation_inventory      ✓ 5 passed
+  input_isolation_machineui      ✓ 5 passed
+  input_isolation_pause          ✓ 5 passed
+  input_isolation_settings       ✓ 5 passed
+
+ユニットテスト: 430件 全パス
+Clippy: 警告 0件
+```
+
+### 残タスク（将来作業）
+
+| タスク | 内容 | 優先度 |
+|--------|------|--------|
+| Q.2 | UIスポーンにUIElementTag付与 | 低（自動可視性管理用） |
+| Q.3 | assert_uiシナリオアクション | 低（必要時追加） |
+
+### 学び
+
+- `CursorLockState.paused` はポーズ専用ではなく「UIが開いている状態」を示す
+- InputState優先度: 具体的UI状態 > 汎用状態（Paused）
+- UIElementIdパターンはMod拡張を見据えた設計として有効

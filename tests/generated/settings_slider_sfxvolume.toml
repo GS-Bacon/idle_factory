@@ -1,0 +1,13 @@
+# Settings Slider: SfxVolume
+name = "settings_slider_sfxvolume"
+description = "Verify settings slider SfxVolume exists"
+
+# Note: Requires Settings screen to be open manually
+
+[[steps]]
+action = "get_state"
+
+# If in Settings, verify slider exists
+[[steps]]
+action = "assert"
+params = { condition = "has_ui_element == Slider_SfxVolume" }

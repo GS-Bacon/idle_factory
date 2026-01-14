@@ -6,6 +6,7 @@
 pub mod machines;
 pub mod recipes;
 pub mod registry;
+pub mod ui_elements;
 
 // Re-exports for convenience
 pub use machines::{
@@ -17,7 +18,11 @@ pub use recipes::{
     MachineType, Recipe, RecipeInput, RecipeOutput,
 };
 pub use registry::{
-    get_item_descriptor, item_descriptors, GameRegistry, ItemDescriptor, RegistryPlugin,
+    get_item_descriptor, item_descriptors, load_ui_elements, GameRegistry, ItemDescriptor,
+    RegistryPlugin,
+};
+pub use ui_elements::{
+    load_ui_elements_from_toml, UIElementRegistry, UIElementSpec, UIElementTag, UIElementToml,
 };
 
 use crate::core::{items, ItemId};

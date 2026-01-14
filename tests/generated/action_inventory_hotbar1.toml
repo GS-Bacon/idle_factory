@@ -1,0 +1,31 @@
+# Action: Hotbar1 in Inventory
+name = "action_inventory_hotbar1"
+description = "Hotbar1 should work in Inventory"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Inventory" }
+
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar1" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# Action executed without error
+[[steps]]
+action = "get_state"

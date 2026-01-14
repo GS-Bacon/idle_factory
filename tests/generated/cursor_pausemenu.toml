@@ -1,0 +1,27 @@
+# Cursor State: PauseMenu
+name = "cursor_pausemenu"
+description = "Cursor should be unlocked in PauseMenu"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_visible == true" }

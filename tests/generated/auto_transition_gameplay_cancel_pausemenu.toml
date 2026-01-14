@@ -1,0 +1,27 @@
+# Auto-generated: Gameplay -> PauseMenu via Cancel
+name = "auto_transition_gameplay_cancel_pausemenu"
+description = "Extracted from src/systems/ui_navigation.rs"
+
+# Setup
+[[steps]]
+action = "get_state"
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }

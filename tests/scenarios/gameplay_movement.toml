@@ -1,0 +1,28 @@
+name = "Gameplay移動入力"
+description = "Gameplay状態で移動キーが受け付けられることを確認"
+
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# 前進入力を送信（入力自体が受け付けられることを確認）
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# UI状態が変わらないことを確認（移動中もGameplay）
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

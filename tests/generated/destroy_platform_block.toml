@@ -1,0 +1,41 @@
+# Destroy Item: Platform
+name = "destroy_platform_block"
+description = "Place and destroy Platform block"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "player_teleport"
+params = { x = 60.0, y = 60.0, z = 60.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Place block
+[[steps]]
+action = "world_place_block"
+params = { x = 60, y = 59, z = 62, item_id = "base:platform_block" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Destroy block
+[[steps]]
+action = "world_break_block"
+params = { x = 60, y = 59, z = 62 }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Verify destroyed
+[[steps]]
+action = "world_get_block"
+params = { x = 60, y = 59, z = 62 }

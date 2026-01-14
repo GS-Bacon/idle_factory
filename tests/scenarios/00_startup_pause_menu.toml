@@ -1,0 +1,14 @@
+name = "BUG-10: 起動時に一時停止メニュー表示"
+description = "起動時にいきなりカーソルを吸収せず、一時停止メニューから始まることを確認"
+skip_reset = true
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }

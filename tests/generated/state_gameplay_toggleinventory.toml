@@ -1,0 +1,27 @@
+# State Transition: Gameplay -> Inventory via ToggleInventory
+name = "state_gameplay_toggleinventory"
+description = "Gameplay + ToggleInventory -> Inventory"
+
+# Setup: reach Gameplay
+[[steps]]
+action = "get_state"
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Inventory" }

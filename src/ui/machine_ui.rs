@@ -3,7 +3,7 @@
 //! Follows design rules from .specify/memory/ui-design-rules.md
 
 use crate::components::*;
-use crate::game_spec::{MachineSpec, UiSlotDef, UiSlotType};
+use crate::game_spec::{MachineSpec, UIElementRegistry, UIElementTag, UiSlotDef, UiSlotType};
 use crate::setup::ui::{
     text_font, QUEST_BORDER_COLOR, QUEST_PROGRESS_COLOR, QUEST_RADIUS, SLOT_BG, SLOT_BORDER,
     SLOT_BORDER_COLOR, SLOT_RADIUS, SLOT_SIZE,
@@ -80,6 +80,7 @@ pub fn setup_generic_machine_ui(
     commands: &mut Commands,
     spec: &'static MachineSpec,
     font: &Handle<Font>,
+    ui_registry: &UIElementRegistry,
 ) {
     let font = font.clone();
     let panel_width = calculate_panel_width(spec);
@@ -89,6 +90,10 @@ pub fn setup_generic_machine_ui(
             GenericMachineUI {
                 machine_id: spec.id,
             },
+            ui_registry
+                .get_id("base:machine_ui")
+                .map(UIElementTag::new)
+                .unwrap_or_else(|| UIElementTag::new(Default::default())),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(25.0),

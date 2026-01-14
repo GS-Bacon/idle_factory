@@ -1,0 +1,27 @@
+# State Transition: Gameplay -> GlobalInventory via ToggleGlobalInventory
+name = "state_gameplay_toggleglobalinventory"
+description = "Gameplay + ToggleGlobalInventory -> GlobalInventory"
+
+# Setup: reach Gameplay
+[[steps]]
+action = "get_state"
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "ToggleGlobalInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == GlobalInventory" }

@@ -1,0 +1,519 @@
+{
+  "gameActions": [
+    "MoveForward",
+    "MoveBackward",
+    "MoveLeft",
+    "MoveRight",
+    "Jump",
+    "Descend",
+    "LookUp",
+    "LookDown",
+    "LookLeft",
+    "LookRight",
+    "ToggleInventory",
+    "TogglePause",
+    "ToggleGlobalInventory",
+    "ToggleQuest",
+    "OpenCommand",
+    "CloseUI",
+    "Confirm",
+    "Cancel",
+    "Hotbar1",
+    "Hotbar2",
+    "Hotbar3",
+    "Hotbar4",
+    "Hotbar5",
+    "Hotbar6",
+    "Hotbar7",
+    "Hotbar8",
+    "Hotbar9",
+    "PrimaryAction",
+    "SecondaryAction",
+    "RotateBlock",
+    "ModifierShift",
+    "ToggleDebug",
+    "DeleteChar"
+  ],
+  "uiContexts": [
+    "Gameplay",
+    "Inventory",
+    "GlobalInventory",
+    "CommandInput",
+    "PauseMenu",
+    "Settings",
+    "Machine"
+  ],
+  "transitions": {
+    "Gameplay": {
+      "ToggleInventory": {
+        "to": "Inventory",
+        "cursor": "unlocked"
+      },
+      "ToggleGlobalInventory": {
+        "to": "GlobalInventory",
+        "cursor": "unlocked"
+      },
+      "OpenCommand": {
+        "to": "CommandInput",
+        "cursor": "unlocked"
+      },
+      "CloseUI": {
+        "to": "PauseMenu",
+        "cursor": "unlocked"
+      },
+      "MoveForward": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "MoveBackward": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "MoveLeft": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "MoveRight": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Jump": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "PrimaryAction": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "SecondaryAction": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "RotateBlock": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar1": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar2": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar3": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar4": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar5": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar6": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar7": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar8": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "Hotbar9": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      }
+    },
+    "Inventory": {
+      "ToggleInventory": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "CloseUI": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      }
+    },
+    "GlobalInventory": {
+      "ToggleGlobalInventory": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "CloseUI": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      }
+    },
+    "CommandInput": {
+      "CloseUI": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      }
+    },
+    "PauseMenu": {
+      "CloseUI": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      }
+    },
+    "Settings": {
+      "CloseUI": {
+        "to": "PauseMenu",
+        "cursor": "unlocked"
+      }
+    },
+    "Machine": {
+      "CloseUI": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      },
+      "ToggleInventory": {
+        "to": "Gameplay",
+        "cursor": "locked"
+      }
+    }
+  },
+  "uiElements": {
+    "Gameplay": {
+      "visible": [
+        "Hotbar",
+        "Crosshair"
+      ],
+      "notVisible": [
+        "InventoryPanel",
+        "PauseMenuPanel",
+        "SettingsPanel",
+        "MachineUIPanel",
+        "CommandInputField"
+      ]
+    },
+    "Inventory": {
+      "visible": [
+        "InventoryPanel",
+        "EquipmentSlots",
+        "CraftingList"
+      ],
+      "notVisible": [
+        "Crosshair",
+        "PauseMenuPanel",
+        "CommandInputField"
+      ]
+    },
+    "GlobalInventory": {
+      "visible": [
+        "GlobalInventoryPanel"
+      ],
+      "notVisible": [
+        "Crosshair",
+        "PauseMenuPanel"
+      ]
+    },
+    "PauseMenu": {
+      "visible": [
+        "PauseMenuPanel",
+        "ResumeButton",
+        "SettingsButton",
+        "QuitButton"
+      ],
+      "notVisible": [
+        "Crosshair",
+        "InventoryPanel"
+      ]
+    },
+    "Settings": {
+      "visible": [
+        "SettingsPanel",
+        "BackButton"
+      ],
+      "notVisible": [
+        "PauseMenuPanel",
+        "Crosshair"
+      ]
+    },
+    "CommandInput": {
+      "visible": [
+        "CommandInputField"
+      ],
+      "notVisible": [
+        "InventoryPanel",
+        "PauseMenuPanel"
+      ]
+    },
+    "Machine": {
+      "visible": [
+        "MachineUIPanel",
+        "InputSlots",
+        "OutputSlots"
+      ],
+      "notVisible": [
+        "Crosshair",
+        "InventoryPanel"
+      ]
+    }
+  },
+  "cursorBehavior": {
+    "Gameplay": {
+      "locked": true,
+      "visible": false,
+      "inWindow": true
+    },
+    "Inventory": {
+      "locked": false,
+      "visible": true,
+      "inWindow": true
+    },
+    "GlobalInventory": {
+      "locked": false,
+      "visible": true,
+      "inWindow": true
+    },
+    "PauseMenu": {
+      "locked": false,
+      "visible": true,
+      "inWindow": true
+    },
+    "Settings": {
+      "locked": false,
+      "visible": true,
+      "inWindow": true
+    },
+    "CommandInput": {
+      "locked": false,
+      "visible": true,
+      "inWindow": true
+    },
+    "Machine": {
+      "locked": false,
+      "visible": true,
+      "inWindow": true
+    }
+  },
+  "scenarios": [
+    {
+      "type": "transition",
+      "name": "transition_gameplay_toggleinventory_to_inventory",
+      "description": "Gameplay + ToggleInventory → Inventory"
+    },
+    {
+      "type": "transition",
+      "name": "transition_gameplay_toggleglobalinventory_to_globalinventory",
+      "description": "Gameplay + ToggleGlobalInventory → GlobalInventory"
+    },
+    {
+      "type": "transition",
+      "name": "transition_gameplay_opencommand_to_commandinput",
+      "description": "Gameplay + OpenCommand → CommandInput"
+    },
+    {
+      "type": "transition",
+      "name": "transition_gameplay_closeui_to_pausemenu",
+      "description": "Gameplay + CloseUI → PauseMenu"
+    },
+    {
+      "type": "transition",
+      "name": "transition_inventory_toggleinventory_to_gameplay",
+      "description": "Inventory + ToggleInventory → Gameplay"
+    },
+    {
+      "type": "transition",
+      "name": "transition_inventory_closeui_to_gameplay",
+      "description": "Inventory + CloseUI → Gameplay"
+    },
+    {
+      "type": "transition",
+      "name": "transition_globalinventory_toggleglobalinventory_to_gameplay",
+      "description": "GlobalInventory + ToggleGlobalInventory → Gameplay"
+    },
+    {
+      "type": "transition",
+      "name": "transition_globalinventory_closeui_to_gameplay",
+      "description": "GlobalInventory + CloseUI → Gameplay"
+    },
+    {
+      "type": "transition",
+      "name": "transition_commandinput_closeui_to_gameplay",
+      "description": "CommandInput + CloseUI → Gameplay"
+    },
+    {
+      "type": "transition",
+      "name": "transition_pausemenu_closeui_to_gameplay",
+      "description": "PauseMenu + CloseUI → Gameplay"
+    },
+    {
+      "type": "transition",
+      "name": "transition_settings_closeui_to_pausemenu",
+      "description": "Settings + CloseUI → PauseMenu"
+    },
+    {
+      "type": "transition",
+      "name": "transition_machine_closeui_to_gameplay",
+      "description": "Machine + CloseUI → Gameplay"
+    },
+    {
+      "type": "transition",
+      "name": "transition_machine_toggleinventory_to_gameplay",
+      "description": "Machine + ToggleInventory → Gameplay"
+    },
+    {
+      "type": "ui_visibility",
+      "name": "ui_visibility_gameplay",
+      "description": "Verify UI elements in Gameplay state"
+    },
+    {
+      "type": "ui_visibility",
+      "name": "ui_visibility_inventory",
+      "description": "Verify UI elements in Inventory state"
+    },
+    {
+      "type": "ui_visibility",
+      "name": "ui_visibility_globalinventory",
+      "description": "Verify UI elements in GlobalInventory state"
+    },
+    {
+      "type": "ui_visibility",
+      "name": "ui_visibility_pausemenu",
+      "description": "Verify UI elements in PauseMenu state"
+    },
+    {
+      "type": "ui_visibility",
+      "name": "ui_visibility_settings",
+      "description": "Verify UI elements in Settings state"
+    },
+    {
+      "type": "ui_visibility",
+      "name": "ui_visibility_commandinput",
+      "description": "Verify UI elements in CommandInput state"
+    },
+    {
+      "type": "ui_visibility",
+      "name": "ui_visibility_machine",
+      "description": "Verify UI elements in Machine state"
+    },
+    {
+      "type": "cursor",
+      "name": "cursor_gameplay",
+      "description": "Verify cursor behavior in Gameplay state"
+    },
+    {
+      "type": "cursor",
+      "name": "cursor_inventory",
+      "description": "Verify cursor behavior in Inventory state"
+    },
+    {
+      "type": "cursor",
+      "name": "cursor_globalinventory",
+      "description": "Verify cursor behavior in GlobalInventory state"
+    },
+    {
+      "type": "cursor",
+      "name": "cursor_pausemenu",
+      "description": "Verify cursor behavior in PauseMenu state"
+    },
+    {
+      "type": "cursor",
+      "name": "cursor_settings",
+      "description": "Verify cursor behavior in Settings state"
+    },
+    {
+      "type": "cursor",
+      "name": "cursor_commandinput",
+      "description": "Verify cursor behavior in CommandInput state"
+    },
+    {
+      "type": "cursor",
+      "name": "cursor_machine",
+      "description": "Verify cursor behavior in Machine state"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_moveforward",
+      "description": "MoveForward works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_movebackward",
+      "description": "MoveBackward works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_moveleft",
+      "description": "MoveLeft works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_moveright",
+      "description": "MoveRight works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_jump",
+      "description": "Jump works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_primaryaction",
+      "description": "PrimaryAction works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_secondaryaction",
+      "description": "SecondaryAction works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_rotateblock",
+      "description": "RotateBlock works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar1",
+      "description": "Hotbar1 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar2",
+      "description": "Hotbar2 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar3",
+      "description": "Hotbar3 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar4",
+      "description": "Hotbar4 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar5",
+      "description": "Hotbar5 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar6",
+      "description": "Hotbar6 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar7",
+      "description": "Hotbar7 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar8",
+      "description": "Hotbar8 works in Gameplay"
+    },
+    {
+      "type": "action_coverage",
+      "name": "action_gameplay_hotbar9",
+      "description": "Hotbar9 works in Gameplay"
+    }
+  ]
+}

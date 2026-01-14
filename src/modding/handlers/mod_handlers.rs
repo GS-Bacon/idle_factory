@@ -257,6 +257,9 @@ mod tests {
             mod_manager: manager,
             game_state: GameStateInfo::default(),
             test_state: TestStateInfo::default(),
+            test_events: vec![],
+            cleared_events_count: 0,
+            ui_elements: vec![],
         }
     }
 

@@ -10,8 +10,8 @@ use bevy::prelude::*;
 
 use crate::components::{ConveyorRotationOffset, InteractingMachine, MachineModels};
 use crate::machines::{
-    generic_machine_interact, generic_machine_tick, generic_machine_ui_input,
-    machine_visual_feedback, update_generic_machine_ui,
+    cleanup_invalid_interacting_machine, generic_machine_interact, generic_machine_tick,
+    generic_machine_ui_input, machine_visual_feedback, update_generic_machine_ui,
 };
 use crate::systems::{conveyor_transfer, update_conveyor_item_visuals};
 
@@ -26,7 +26,14 @@ impl Plugin for MachineSystemsPlugin {
             .init_resource::<ConveyorRotationOffset>();
 
         // Machine interaction systems (Phase C: generic)
-        app.add_systems(Update, (generic_machine_interact, generic_machine_ui_input));
+        app.add_systems(
+            Update,
+            (
+                generic_machine_interact,
+                generic_machine_ui_input,
+                cleanup_invalid_interacting_machine,
+            ),
+        );
 
         // Machine processing systems - fixed timestep for deterministic logic
         // FixedUpdate runs at 20 ticks/second for consistent game simulation

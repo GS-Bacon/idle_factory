@@ -1,0 +1,38 @@
+name = "Inventory状態の入力隔離"
+description = "Inventory画面ではブロック操作/移動/カメラ/ホットバーがブロックされる"
+
+# Inventoryに設定
+[[steps]]
+action = "set_ui_state"
+params = { state = "Inventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# UI状態確認
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Inventory" }
+
+# 全ての入力がブロックされることを確認
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_block_actions", expect = false }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_movement", expect = false }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_camera", expect = false }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_hotbar", expect = false }
+
+# 後片付け
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }

@@ -15,6 +15,7 @@ pub use settings_ui::{
 pub use crate::ui::machine_ui::setup_generic_machine_ui;
 
 use crate::components::*;
+use crate::game_spec::{UIElementRegistry, UIElementTag};
 use bevy::prelude::*;
 
 /// Helper to create TextFont with the game font
@@ -107,7 +108,11 @@ pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize, font: &H
         });
 }
 
-pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
+pub fn setup_ui(
+    mut commands: Commands,
+    game_font: Res<GameFont>,
+    ui_registry: Res<UIElementRegistry>,
+) {
     let font = &game_font.0;
 
     // Hotbar UI - centered at bottom (Factory theme)
@@ -116,6 +121,10 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     commands
         .spawn((
             HotbarUI,
+            ui_registry
+                .get_id("base:hotbar")
+                .map(UIElementTag::new)
+                .unwrap_or_else(|| UIElementTag::new(Default::default())),
             Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(20.0),
@@ -206,6 +215,10 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
 
     // Crosshair
     commands.spawn((
+        ui_registry
+            .get_id("base:crosshair")
+            .map(UIElementTag::new)
+            .unwrap_or_else(|| UIElementTag::new(Default::default())),
         Node {
             position_type: PositionType::Absolute,
             left: Val::Percent(50.0),
@@ -224,12 +237,12 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
 
     // Machine UI panels (hidden by default, data-driven from MachineSpec)
     use crate::game_spec::{CRUSHER, FURNACE, MINER};
-    setup_generic_machine_ui(&mut commands, &FURNACE, font);
-    setup_generic_machine_ui(&mut commands, &CRUSHER, font);
-    setup_generic_machine_ui(&mut commands, &MINER, font);
+    setup_generic_machine_ui(&mut commands, &FURNACE, font, &ui_registry);
+    setup_generic_machine_ui(&mut commands, &CRUSHER, font, &ui_registry);
+    setup_generic_machine_ui(&mut commands, &MINER, font, &ui_registry);
 
     // Inventory UI panel (hidden by default)
-    setup_inventory_ui(&mut commands, font);
+    setup_inventory_ui(&mut commands, font, &ui_registry);
 
     // Inventory tooltip (hidden by default, shown on hover)
     commands.spawn((
@@ -299,6 +312,10 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     commands
         .spawn((
             QuestUI,
+            ui_registry
+                .get_id("base:quest_tracker")
+                .map(UIElementTag::new)
+                .unwrap_or_else(|| UIElementTag::new(Default::default())),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(10.0),
@@ -436,6 +453,10 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     commands
         .spawn((
             CommandInputUI,
+            ui_registry
+                .get_id("base:command_input")
+                .map(UIElementTag::new)
+                .unwrap_or_else(|| UIElementTag::new(Default::default())),
             Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(80.0),
@@ -618,13 +639,17 @@ pub fn setup_ui(mut commands: Commands, game_font: Res<GameFont>) {
     ));
 
     // Settings UI panel (hidden by default)
-    setup_settings_ui(&mut commands, font);
+    setup_settings_ui(&mut commands, font, &ui_registry);
 
     // Pause overlay - shown when ESC pressed
     let font_pause = font.clone();
     commands
         .spawn((
             PauseUI,
+            ui_registry
+                .get_id("base:pause_menu")
+                .map(UIElementTag::new)
+                .unwrap_or_else(|| UIElementTag::new(Default::default())),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),

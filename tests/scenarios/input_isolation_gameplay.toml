@@ -1,0 +1,33 @@
+name = "Gameplay状態の入力許可"
+description = "Gameplay状態では全ての入力が許可される"
+
+# Gameplayに設定
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# UI状態確認
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# 入力状態を取得して確認
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_block_actions", expect = true }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_movement", expect = true }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_camera", expect = true }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_hotbar", expect = true }

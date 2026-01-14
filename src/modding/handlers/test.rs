@@ -4,10 +4,41 @@
 //! - Query game state
 //! - Inject virtual input
 //! - Run assertions
+//! - Check input permissions per UI state
+//! - Get/clear event history
 
 use super::super::protocol::{JsonRpcRequest, JsonRpcResponse, INVALID_PARAMS};
-use super::TestStateInfo;
+use super::{InputFlags, TestStateInfo};
+use crate::events::TestEvent;
 use serde::{Deserialize, Serialize};
+
+// === test.get_ui_elements ===
+
+/// Information about a single UI element
+#[derive(Debug, Clone, Serialize)]
+pub struct UIElementInfo {
+    /// Element ID string (e.g., "base:hotbar")
+    pub id: String,
+    /// Whether the element is currently visible
+    pub visible: bool,
+    /// Whether the element can be interacted with
+    pub interactable: bool,
+}
+
+/// Handle test.get_ui_elements request
+///
+/// Returns a list of all UI elements with their current visibility and interactability.
+pub fn handle_test_get_ui_elements(
+    request: &JsonRpcRequest,
+    elements: &[UIElementInfo],
+) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "elements": elements,
+        }),
+    )
+}
 
 // === test.get_state ===
 
@@ -23,12 +54,76 @@ pub fn handle_test_get_state(
     request: &JsonRpcRequest,
     test_state: &TestStateInfo,
 ) -> JsonRpcResponse {
+    // Build hotbar JSON
+    let hotbar_json: Vec<_> = test_state
+        .hotbar
+        .iter()
+        .map(|slot| {
+            serde_json::json!({
+                "item_id": slot.item_id,
+                "count": slot.count,
+            })
+        })
+        .collect();
+
     JsonRpcResponse::success(
         request.id,
         serde_json::json!({
             "ui_state": test_state.ui_state,
             "player_position": test_state.player_position,
             "cursor_locked": test_state.cursor_locked,
+            "target_block": test_state.target_block,
+            "breaking_progress": test_state.breaking_progress,
+            "input_flags": {
+                "allows_block_actions": test_state.input_flags.allows_block_actions,
+                "allows_movement": test_state.input_flags.allows_movement,
+                "allows_camera": test_state.input_flags.allows_camera,
+                "allows_hotbar": test_state.input_flags.allows_hotbar,
+            },
+            "ui_stack": test_state.ui_stack,
+            "stack_depth": test_state.stack_depth,
+            "hotbar": hotbar_json,
+            "selected_slot": test_state.selected_slot,
+        }),
+    )
+}
+
+// === test.get_input_state ===
+
+/// Returns input permission flags for the current UI state
+pub fn handle_test_get_input_state(
+    request: &JsonRpcRequest,
+    input_flags: &InputFlags,
+) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "allows_block_actions": input_flags.allows_block_actions,
+            "allows_movement": input_flags.allows_movement,
+            "allows_camera": input_flags.allows_camera,
+            "allows_hotbar": input_flags.allows_hotbar,
+        }),
+    )
+}
+
+// === test.get_events / test.clear_events ===
+
+/// Returns recorded test events
+pub fn handle_test_get_events(request: &JsonRpcRequest, events: &[TestEvent]) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "events": events,
+        }),
+    )
+}
+
+/// Returns the count of cleared events (actual clearing done in server.rs)
+pub fn handle_test_clear_events(request: &JsonRpcRequest, cleared_count: usize) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "cleared": cleared_count,
         }),
     )
 }
@@ -38,6 +133,59 @@ pub fn handle_test_get_state(
 #[derive(Deserialize)]
 pub struct SendInputParams {
     pub action: String, // "ToggleInventory", "MoveForward", etc.
+}
+
+// === test.set_ui_state ===
+
+#[derive(Deserialize)]
+pub struct SetUiStateParams {
+    pub state: String, // "Gameplay", "Inventory", "MachineUI", "PauseMenu"
+}
+
+/// Valid UI states for test.set_ui_state
+pub const VALID_UI_STATES: &[&str] = &[
+    "Gameplay",
+    "Inventory",
+    "MachineUI",
+    "PauseMenu",
+    "GlobalInventory",
+    "Command",
+    "Settings",
+];
+
+pub fn handle_test_set_ui_state(request: &JsonRpcRequest) -> JsonRpcResponse {
+    // Parse params
+    let params: SetUiStateParams = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    // Validate state string
+    if !VALID_UI_STATES.contains(&params.state.as_str()) {
+        return JsonRpcResponse::error(
+            request.id,
+            INVALID_PARAMS,
+            format!(
+                "Invalid state: {}. Valid states: {:?}",
+                params.state, VALID_UI_STATES
+            ),
+        );
+    }
+
+    // Return success - actual state change happens in process_server_messages
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "state": params.state,
+        }),
+    )
 }
 
 pub fn handle_test_send_input(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -95,22 +243,28 @@ pub fn handle_test_assert(request: &JsonRpcRequest, test_state: &TestStateInfo) 
 }
 
 /// 条件文字列を評価
-/// "field == value" 形式の条件をパースして、状態と比較する
+/// "field op value" 形式の条件をパースして、状態と比較する
+/// 対応演算子: ==, !=, contains, not_contains
 fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, String) {
-    // パース: "field == value"
-    let parts: Vec<&str> = condition.split(" == ").collect();
-    if parts.len() != 2 {
+    // Try different operators
+    let (field, op, expected) = if let Some((f, v)) = condition.split_once(" == ") {
+        (f.trim(), "==", v.trim())
+    } else if let Some((f, v)) = condition.split_once(" != ") {
+        (f.trim(), "!=", v.trim())
+    } else if let Some((f, v)) = condition.split_once(" contains ") {
+        (f.trim(), "contains", v.trim())
+    } else if let Some((f, v)) = condition.split_once(" not_contains ") {
+        (f.trim(), "not_contains", v.trim())
+    } else {
         return (
             false,
-            "valid condition (field == value)".into(),
+            "valid condition (field op value)".into(),
             format!("invalid: {}", condition),
         );
-    }
-
-    let (field, expected) = (parts[0].trim(), parts[1].trim());
+    };
 
     // player_position の特別処理: JSON形式の配列と比較
-    if field == "player_position" {
+    if field == "player_position" && op == "==" {
         let actual_json = serde_json::to_string(&state.player_position).unwrap_or_default();
 
         // 両方をJSON配列としてパースして比較
@@ -131,6 +285,42 @@ fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, 
         }
     }
 
+    // ui_stack の特別処理: 配列として contains/not_contains をチェック
+    if field == "ui_stack" {
+        let actual_str = format!("{:?}", state.ui_stack);
+        let contains = state.ui_stack.iter().any(|s| s == expected);
+        let success = match op {
+            "contains" => contains,
+            "not_contains" => !contains,
+            "==" => actual_str == expected,
+            "!=" => actual_str != expected,
+            _ => false,
+        };
+        return (success, expected.to_string(), actual_str);
+    }
+
+    // stack_depth の特別処理: 数値比較
+    if field == "stack_depth" {
+        let actual = state.stack_depth.to_string();
+        let success = match op {
+            "==" => actual == expected,
+            "!=" => actual != expected,
+            _ => false,
+        };
+        return (success, expected.to_string(), actual);
+    }
+
+    // selected_slot の特別処理: 数値比較
+    if field == "selected_slot" {
+        let actual = state.selected_slot.to_string();
+        let success = match op {
+            "==" => actual == expected,
+            "!=" => actual != expected,
+            _ => false,
+        };
+        return (success, expected.to_string(), actual);
+    }
+
     let actual = match field {
         "ui_state" => state.ui_state.clone(),
         "cursor_locked" => state.cursor_locked.to_string(),
@@ -143,7 +333,11 @@ fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, 
         }
     };
 
-    let success = actual == expected;
+    let success = match op {
+        "==" => actual == expected,
+        "!=" => actual != expected,
+        _ => false,
+    };
     (success, expected.to_string(), actual)
 }
 
@@ -151,13 +345,29 @@ fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, 
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_handle_test_get_state() {
-        let test_state = TestStateInfo {
+    fn make_test_state() -> TestStateInfo {
+        TestStateInfo {
             ui_state: "Gameplay".to_string(),
             player_position: [1.0, 2.0, 3.0],
             cursor_locked: true,
-        };
+            target_block: None,
+            breaking_progress: 0.0,
+            input_flags: InputFlags {
+                allows_block_actions: true,
+                allows_movement: true,
+                allows_camera: true,
+                allows_hotbar: true,
+            },
+            ui_stack: vec![],
+            stack_depth: 0,
+            hotbar: vec![],
+            selected_slot: 0,
+        }
+    }
+
+    #[test]
+    fn test_handle_test_get_state() {
+        let test_state = make_test_state();
         let request = JsonRpcRequest::new(1, "test.get_state", serde_json::Value::Null);
         let response = handle_test_get_state(&request, &test_state);
         assert!(response.is_success());
@@ -165,6 +375,62 @@ mod tests {
         let result = response.result.unwrap();
         assert_eq!(result["ui_state"], "Gameplay");
         assert_eq!(result["cursor_locked"], true);
+        assert!(result["input_flags"]["allows_block_actions"]
+            .as_bool()
+            .unwrap());
+    }
+
+    #[test]
+    fn test_handle_test_get_input_state() {
+        let input_flags = InputFlags {
+            allows_block_actions: true,
+            allows_movement: false,
+            allows_camera: true,
+            allows_hotbar: false,
+        };
+        let request = JsonRpcRequest::new(1, "test.get_input_state", serde_json::Value::Null);
+        let response = handle_test_get_input_state(&request, &input_flags);
+        assert!(response.is_success());
+
+        let result = response.result.unwrap();
+        assert_eq!(result["allows_block_actions"], true);
+        assert_eq!(result["allows_movement"], false);
+        assert_eq!(result["allows_camera"], true);
+        assert_eq!(result["allows_hotbar"], false);
+    }
+
+    #[test]
+    fn test_handle_test_get_events() {
+        let events = vec![
+            TestEvent {
+                event_type: "BlockBroken".to_string(),
+                position: Some([1, 2, 3]),
+                item_id: Some("stone".to_string()),
+            },
+            TestEvent {
+                event_type: "BlockPlaced".to_string(),
+                position: Some([4, 5, 6]),
+                item_id: Some("conveyor".to_string()),
+            },
+        ];
+        let request = JsonRpcRequest::new(1, "test.get_events", serde_json::Value::Null);
+        let response = handle_test_get_events(&request, &events);
+        assert!(response.is_success());
+
+        let result = response.result.unwrap();
+        let events_arr = result["events"].as_array().unwrap();
+        assert_eq!(events_arr.len(), 2);
+        assert_eq!(events_arr[0]["type"], "BlockBroken");
+    }
+
+    #[test]
+    fn test_handle_test_clear_events() {
+        let request = JsonRpcRequest::new(1, "test.clear_events", serde_json::Value::Null);
+        let response = handle_test_clear_events(&request, 5);
+        assert!(response.is_success());
+
+        let result = response.result.unwrap();
+        assert_eq!(result["cleared"], 5);
     }
 
     #[test]
@@ -188,11 +454,9 @@ mod tests {
 
     #[test]
     fn test_handle_test_assert_success() {
-        let test_state = TestStateInfo {
-            ui_state: "Inventory".to_string(),
-            player_position: [0.0, 0.0, 0.0],
-            cursor_locked: false,
-        };
+        let mut test_state = make_test_state();
+        test_state.ui_state = "Inventory".to_string();
+        test_state.cursor_locked = false;
         let request = JsonRpcRequest::new(
             1,
             "test.assert",
@@ -209,11 +473,7 @@ mod tests {
 
     #[test]
     fn test_handle_test_assert_failure() {
-        let test_state = TestStateInfo {
-            ui_state: "Gameplay".to_string(),
-            player_position: [0.0, 0.0, 0.0],
-            cursor_locked: false,
-        };
+        let test_state = make_test_state();
         let request = JsonRpcRequest::new(
             1,
             "test.assert",
@@ -230,7 +490,7 @@ mod tests {
 
     #[test]
     fn test_handle_test_assert_invalid_params() {
-        let test_state = TestStateInfo::default();
+        let test_state = make_test_state();
         let request = JsonRpcRequest::new(1, "test.assert", serde_json::json!({}));
         let response = handle_test_assert(&request, &test_state);
         assert!(response.is_error());
@@ -239,11 +499,7 @@ mod tests {
 
     #[test]
     fn test_evaluate_condition() {
-        let state = TestStateInfo {
-            ui_state: "Gameplay".to_string(),
-            player_position: [1.0, 2.0, 3.0],
-            cursor_locked: true,
-        };
+        let state = make_test_state();
 
         // Test ui_state
         let (success, _, _) = evaluate_condition("ui_state == Gameplay", &state);
@@ -260,5 +516,53 @@ mod tests {
         // Test unknown field
         let (success, _, _) = evaluate_condition("unknown == value", &state);
         assert!(!success);
+    }
+
+    #[test]
+    fn test_handle_test_set_ui_state_valid() {
+        let request = JsonRpcRequest::new(
+            1,
+            "test.set_ui_state",
+            serde_json::json!({ "state": "Inventory" }),
+        );
+        let response = handle_test_set_ui_state(&request);
+        assert!(response.is_success());
+
+        let result = response.result.unwrap();
+        assert_eq!(result["success"], true);
+        assert_eq!(result["state"], "Inventory");
+    }
+
+    #[test]
+    fn test_handle_test_set_ui_state_all_valid_states() {
+        for state in VALID_UI_STATES {
+            let request = JsonRpcRequest::new(
+                1,
+                "test.set_ui_state",
+                serde_json::json!({ "state": state }),
+            );
+            let response = handle_test_set_ui_state(&request);
+            assert!(response.is_success(), "State {} should be valid", state);
+        }
+    }
+
+    #[test]
+    fn test_handle_test_set_ui_state_invalid_state() {
+        let request = JsonRpcRequest::new(
+            1,
+            "test.set_ui_state",
+            serde_json::json!({ "state": "InvalidState" }),
+        );
+        let response = handle_test_set_ui_state(&request);
+        assert!(response.is_error());
+        assert_eq!(response.error.unwrap().code, INVALID_PARAMS);
+    }
+
+    #[test]
+    fn test_handle_test_set_ui_state_missing_params() {
+        let request = JsonRpcRequest::new(1, "test.set_ui_state", serde_json::json!({}));
+        let response = handle_test_set_ui_state(&request);
+        assert!(response.is_error());
+        assert_eq!(response.error.unwrap().code, INVALID_PARAMS);
     }
 }

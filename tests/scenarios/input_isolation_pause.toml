@@ -1,0 +1,38 @@
+name = "Pause状態の入力隔離"
+description = "ポーズ中は全ての入力がブロックされる"
+
+# PauseMenuに設定
+[[steps]]
+action = "set_ui_state"
+params = { state = "PauseMenu" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# UI状態確認
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+# 全ての入力がブロックされることを確認
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_block_actions", expect = false }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_movement", expect = false }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_camera", expect = false }
+
+[[steps]]
+action = "assert_input"
+params = { flag = "allows_hotbar", expect = false }
+
+# 後片付け
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }

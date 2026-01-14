@@ -1,0 +1,33 @@
+name = "クエストUI開閉"
+description = "Jキーでクエストパネルの表示/非表示が切り替わることを確認"
+
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleQuest" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+# ToggleQuestはGameplayのままクエストパネルを表示するだけ（UI状態は変わらない）
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

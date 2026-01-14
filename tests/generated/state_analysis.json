@@ -1,0 +1,161 @@
+{
+  "generated_at": "2026-01-09T10:11:44.292Z",
+  "contexts": [
+    "Gameplay",
+    "Inventory",
+    "GlobalInventory",
+    "CommandInput",
+    "PauseMenu",
+    "Settings",
+    "Machine"
+  ],
+  "actions": [
+    "MoveForward",
+    "MoveBackward",
+    "MoveLeft",
+    "MoveRight",
+    "Jump",
+    "Descend",
+    "LookUp",
+    "LookDown",
+    "LookLeft",
+    "LookRight",
+    "ToggleInventory",
+    "TogglePause",
+    "ToggleGlobalInventory",
+    "ToggleQuest",
+    "OpenCommand",
+    "CloseUI",
+    "Confirm",
+    "Cancel",
+    "Hotbar1",
+    "Hotbar2",
+    "Hotbar3",
+    "Hotbar4",
+    "Hotbar5",
+    "Hotbar6",
+    "Hotbar7",
+    "Hotbar8",
+    "Hotbar9",
+    "PrimaryAction",
+    "SecondaryAction",
+    "RotateBlock",
+    "ModifierShift",
+    "ToggleDebug",
+    "DeleteChar"
+  ],
+  "transitions": [
+    {
+      "action": "Cancel",
+      "transition": "push",
+      "target": "PauseMenu",
+      "file": "src/systems/ui_navigation.rs"
+    },
+    {
+      "action": "ToggleInventory",
+      "transition": "push",
+      "target": "Inventory",
+      "file": "src/systems/ui_navigation.rs"
+    },
+    {
+      "action": "from_Gameplay",
+      "transition": "push",
+      "target": "Inventory",
+      "file": "src/systems/ui_navigation.rs",
+      "fromContext": "Gameplay"
+    },
+    {
+      "action": "ToggleGlobalInventory",
+      "transition": "push",
+      "target": "GlobalInventory",
+      "file": "src/systems/ui_navigation.rs"
+    },
+    {
+      "action": "from_Gameplay",
+      "transition": "push",
+      "target": "GlobalInventory",
+      "file": "src/systems/ui_navigation.rs",
+      "fromContext": "Gameplay"
+    },
+    {
+      "action": "Cancel",
+      "transition": "pop",
+      "target": "previous",
+      "file": "src/systems/ui_navigation.rs"
+    },
+    {
+      "action": "ToggleInventory",
+      "transition": "pop",
+      "target": "previous",
+      "file": "src/systems/ui_navigation.rs"
+    },
+    {
+      "action": "from_Gameplay",
+      "transition": "pop",
+      "target": "Gameplay",
+      "file": "src/systems/ui_navigation.rs",
+      "fromContext": "Gameplay"
+    },
+    {
+      "action": "from_Inventory",
+      "transition": "pop",
+      "target": "Gameplay",
+      "file": "src/systems/ui_navigation.rs",
+      "fromContext": "Inventory"
+    },
+    {
+      "action": "ToggleGlobalInventory",
+      "transition": "pop",
+      "target": "previous",
+      "file": "src/systems/ui_navigation.rs"
+    },
+    {
+      "action": "from_GlobalInventory",
+      "transition": "pop",
+      "target": "Gameplay",
+      "file": "src/systems/ui_navigation.rs",
+      "fromContext": "GlobalInventory"
+    },
+    {
+      "action": "from_Inventory",
+      "transition": "replace",
+      "target": "Inventory",
+      "file": "src/systems/ui_navigation.rs",
+      "fromContext": "Inventory"
+    }
+  ],
+  "issues": [
+    {
+      "type": "unreachable",
+      "context": "CommandInput",
+      "message": "CommandInput has no incoming transitions"
+    },
+    {
+      "type": "unreachable",
+      "context": "Settings",
+      "message": "Settings has no incoming transitions"
+    },
+    {
+      "type": "unreachable",
+      "context": "Machine",
+      "message": "Machine has no incoming transitions"
+    }
+  ],
+  "tests": [
+    "auto_transition_gameplay_cancel_pausemenu",
+    "auto_transition_gameplay_toggleinventory_inventory",
+    "auto_transition_gameplay_from_gameplay_inventory",
+    "auto_transition_gameplay_toggleglobalinventory_globalinventory",
+    "auto_transition_gameplay_from_gameplay_globalinventory",
+    "auto_transition_gameplay_from_gameplay_gameplay",
+    "auto_transition_gameplay_from_inventory_gameplay",
+    "auto_transition_gameplay_from_globalinventory_gameplay",
+    "auto_transition_gameplay_from_inventory_inventory",
+    "auto_return_inventory_to_gameplay",
+    "auto_return_globalinventory_to_gameplay",
+    "auto_return_commandinput_to_gameplay",
+    "auto_return_pausemenu_to_gameplay",
+    "auto_return_settings_to_gameplay",
+    "auto_return_machine_to_gameplay"
+  ]
+}

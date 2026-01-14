@@ -122,6 +122,17 @@ async function runScenario(scenarioPath) {
 
     console.log('Connected to game');
 
+    // Reset game state to Gameplay before running scenario (unless skip_reset is set)
+    if (!scenario.skip_reset) {
+        try {
+            await send('test.set_ui_state', { state: 'Gameplay' });
+            // Wait for state to settle
+            await new Promise(r => setTimeout(r, 100));
+        } catch (e) {
+            console.log(`Warning: Could not reset state: ${e.message}`);
+        }
+    }
+
     let passed = 0;
     let failed = 0;
 
@@ -169,6 +180,98 @@ async function runScenario(scenarioPath) {
                     }
                     break;
 
+                case 'compare_position':
+                    const current = await send('test.get_state', {});
+                    const initial = variables._lastState;
+                    if (!initial) {
+                        console.log(`Compare position: no saved state (call get_state first) ✗`);
+                        failed++;
+                        break;
+                    }
+                    const tolerance = params.tolerance || 0.1;
+                    const unchanged =
+                        Math.abs(current.player_position[0] - initial.player_position[0]) < tolerance &&
+                        Math.abs(current.player_position[1] - initial.player_position[1]) < tolerance &&
+                        Math.abs(current.player_position[2] - initial.player_position[2]) < tolerance;
+                    if (unchanged === (params.expect === 'unchanged')) {
+                        console.log(`Position check: ${params.expect} ✓`);
+                        passed++;
+                    } else {
+                        console.log(`Position check: expected ${params.expect}, got ${unchanged ? 'unchanged' : 'changed'} ✗`);
+                        failed++;
+                    }
+                    break;
+
+                case 'set_ui_state':
+                    await send('test.set_ui_state', { state: params.state });
+                    console.log(`Set UI state: ${params.state} ✓`);
+                    break;
+
+                case 'get_input_state':
+                    const inputState = await send('test.get_input_state', {});
+                    variables._lastInputState = inputState;
+                    console.log(`Get input state: block=${inputState.allows_block_actions} move=${inputState.allows_movement} cam=${inputState.allows_camera} hotbar=${inputState.allows_hotbar} ✓`);
+                    break;
+
+                case 'get_events':
+                    const eventsResult = await send('test.get_events', {});
+                    variables._lastEvents = eventsResult.events;
+                    console.log(`Get events: ${eventsResult.events.length} recorded ✓`);
+                    break;
+
+                case 'clear_events':
+                    const clearResult = await send('test.clear_events', {});
+                    console.log(`Clear events: ${clearResult.cleared} cleared ✓`);
+                    break;
+
+                case 'assert_input':
+                    // Assert on input state flags
+                    // params: { flag: "allows_block_actions", expect: true }
+                    const is = await send('test.get_input_state', {});
+                    const flagVal = is[params.flag];
+                    // Convert params.expect to boolean if it's a string
+                    const expectBool = typeof params.expect === 'string'
+                        ? params.expect === 'true'
+                        : params.expect;
+                    if (flagVal === expectBool) {
+                        console.log(`Assert input: ${params.flag} == ${expectBool} ✓`);
+                        passed++;
+                    } else {
+                        console.log(`Assert input: ${params.flag} == ${expectBool} ✗`);
+                        console.log(`    Expected: ${expectBool}`);
+                        console.log(`    Actual: ${flagVal}`);
+                        failed++;
+                    }
+                    break;
+
+                case 'assert_events':
+                    // Assert on event count or latest event type
+                    // params: { count: 2 } or { latest_type: "BlockBroken" }
+                    const evts = await send('test.get_events', {});
+                    if (params.count !== undefined) {
+                        if (evts.events.length === params.count) {
+                            console.log(`Assert events: count == ${params.count} ✓`);
+                            passed++;
+                        } else {
+                            console.log(`Assert events: count == ${params.count} ✗`);
+                            console.log(`    Expected: ${params.count}`);
+                            console.log(`    Actual: ${evts.events.length}`);
+                            failed++;
+                        }
+                    } else if (params.latest_type) {
+                        const latest = evts.events[evts.events.length - 1];
+                        if (latest && latest.type === params.latest_type) {
+                            console.log(`Assert events: latest == ${params.latest_type} ✓`);
+                            passed++;
+                        } else {
+                            console.log(`Assert events: latest == ${params.latest_type} ✗`);
+                            console.log(`    Expected: ${params.latest_type}`);
+                            console.log(`    Actual: ${latest ? latest.type : 'none'}`);
+                            failed++;
+                        }
+                    }
+                    break;
+
                 // Legacy format support
                 case 'input':
                     await send('test.send_input', { action: step.key });
@@ -179,6 +282,25 @@ async function runScenario(scenarioPath) {
                     const savedState = await send('test.get_state', {});
                     variables[step.variable] = savedState[step.field];
                     console.log(`Save: ${step.variable} = ${JSON.stringify(variables[step.variable])} ✓`);
+                    break;
+
+                case 'assert_ui':
+                    const uiResult = await send('test.get_ui_elements', {});
+                    const element = uiResult.elements.find(e => e.id === params.element_id);
+                    const actualValue = element ? element[params.property] : undefined;
+                    const expectValue = typeof params.expect === 'string'
+                        ? params.expect === 'true'
+                        : params.expect;
+
+                    if (element && actualValue === expectValue) {
+                        console.log(`  Assert UI: ${params.element_id}.${params.property} == ${expectValue} ✓`);
+                        passed++;
+                    } else {
+                        console.log(`  Assert UI: ${params.element_id}.${params.property} == ${expectValue} ✗`);
+                        console.log(`      Expected: ${expectValue}`);
+                        console.log(`      Actual: ${actualValue !== undefined ? actualValue : 'element not found'}`);
+                        failed++;
+                    }
                     break;
 
                 default:

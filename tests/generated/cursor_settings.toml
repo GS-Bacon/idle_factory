@@ -1,0 +1,27 @@
+# Cursor State: Settings
+name = "cursor_settings"
+description = "Cursor should be unlocked in Settings"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Settings" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_visible == true" }

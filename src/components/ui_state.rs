@@ -26,14 +26,30 @@ pub enum UIContext {
 
 /// UIの状態を管理するリソース
 /// スタック構造により「戻る」動作を自然に表現
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Debug)]
 pub struct UIState {
     /// 画面のスタック。末尾が現在アクティブな画面。
     /// 空の場合は Gameplay 状態とみなす。
     stack: Vec<UIContext>,
 }
 
+impl Default for UIState {
+    fn default() -> Self {
+        // 起動時はポーズメニューから始まる
+        bevy::log::info!("[UIState] Creating default with PauseMenu stack");
+        Self {
+            stack: vec![UIContext::PauseMenu],
+        }
+    }
+}
+
 impl UIState {
+    /// Create an empty UIState (for testing)
+    #[cfg(test)]
+    pub fn new_empty() -> Self {
+        Self { stack: vec![] }
+    }
+
     /// Get current UI context (top of stack, or Gameplay if empty)
     pub fn current(&self) -> UIContext {
         self.stack.last().cloned().unwrap_or(UIContext::Gameplay)
@@ -93,6 +109,32 @@ impl UIState {
             _ => None,
         }
     }
+
+    /// Get stack depth (for testing)
+    pub fn stack_depth(&self) -> usize {
+        self.stack.len()
+    }
+
+    /// Get stack as string slice (for testing)
+    pub fn stack_as_strings(&self) -> Vec<String> {
+        self.stack
+            .iter()
+            .map(|ctx| match ctx {
+                UIContext::Gameplay => "Gameplay".to_string(),
+                UIContext::Inventory => "Inventory".to_string(),
+                UIContext::GlobalInventory => "GlobalInventory".to_string(),
+                UIContext::CommandInput => "Command".to_string(),
+                UIContext::PauseMenu => "PauseMenu".to_string(),
+                UIContext::Settings => "Settings".to_string(),
+                UIContext::Machine(_) => "MachineUI".to_string(),
+            })
+            .collect()
+    }
+
+    /// Check if stack contains a specific context string (for testing)
+    pub fn stack_contains(&self, ctx_str: &str) -> bool {
+        self.stack_as_strings().iter().any(|s| s == ctx_str)
+    }
 }
 
 /// UI操作イベント
@@ -148,14 +190,15 @@ mod tests {
 
     #[test]
     fn test_ui_state_default() {
+        // 起動時はPauseMenuから始まる
         let state = UIState::default();
-        assert!(state.is_gameplay());
-        assert_eq!(state.current(), UIContext::Gameplay);
+        assert!(!state.is_gameplay());
+        assert_eq!(state.current(), UIContext::PauseMenu);
     }
 
     #[test]
     fn test_ui_state_push_pop() {
-        let mut state = UIState::default();
+        let mut state = UIState::new_empty();
 
         state.push(UIContext::Inventory);
         assert!(!state.is_gameplay());
@@ -174,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_ui_state_clear() {
-        let mut state = UIState::default();
+        let mut state = UIState::new_empty();
         state.push(UIContext::Inventory);
         state.push(UIContext::PauseMenu);
 
@@ -184,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_ui_state_replace() {
-        let mut state = UIState::default();
+        let mut state = UIState::new_empty();
         state.push(UIContext::Inventory);
         state.replace(UIContext::GlobalInventory);
 
@@ -194,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_ui_state_machine() {
-        let mut state = UIState::default();
+        let mut state = UIState::new_empty();
         let entity = Entity::from_raw(42);
 
         state.push(UIContext::Machine(entity));
@@ -207,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_ui_state_no_duplicate_push() {
-        let mut state = UIState::default();
+        let mut state = UIState::new_empty();
         state.push(UIContext::Inventory);
         state.push(UIContext::Inventory); // Should not add duplicate
 

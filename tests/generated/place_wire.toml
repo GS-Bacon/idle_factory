@@ -1,0 +1,35 @@
+# Place Item: Wire
+name = "place_wire"
+description = "Place Wire block"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "player_teleport"
+params = { x = 50.0, y = 60.0, z = 50.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+[[steps]]
+action = "world_place_block"
+params = { x = 50, y = 59, z = 52, item_id = "base:wire" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "world_get_block"
+params = { x = 50, y = 59, z = 52 }
+
+# Cleanup
+[[steps]]
+action = "world_break_block"
+params = { x = 50, y = 59, z = 52 }

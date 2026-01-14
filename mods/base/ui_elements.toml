@@ -1,0 +1,189 @@
+# Base UI Elements
+# Defines when each UI element should be visible based on UIState
+
+# =============================================================================
+# Panels (主要UIパネル)
+# =============================================================================
+
+[[ui_elements]]
+id = "base:hotbar"
+name = "Hotbar"
+show_in = ["Gameplay", "Inventory", "GlobalInventory", "MachineUI"]
+
+[[ui_elements]]
+id = "base:inventory_panel"
+name = "Inventory Panel"
+show_in = ["Inventory"]
+
+[[ui_elements]]
+id = "base:global_inventory_panel"
+name = "Global Inventory Panel"
+show_in = ["GlobalInventory"]
+
+[[ui_elements]]
+id = "base:pause_menu"
+name = "Pause Menu"
+show_in = ["PauseMenu"]
+
+[[ui_elements]]
+id = "base:settings_menu"
+name = "Settings Menu"
+show_in = ["Settings"]
+
+[[ui_elements]]
+id = "base:machine_ui"
+name = "Machine UI"
+show_in = ["MachineUI"]
+
+[[ui_elements]]
+id = "base:command_input"
+name = "Command Input"
+show_in = ["CommandInput"]
+
+# =============================================================================
+# HUD Elements (常時表示系)
+# =============================================================================
+
+[[ui_elements]]
+id = "base:crosshair"
+name = "Crosshair"
+show_in = ["Gameplay"]
+
+[[ui_elements]]
+id = "base:quest_tracker"
+name = "Quest Tracker"
+show_in = ["Gameplay"]
+
+[[ui_elements]]
+id = "base:breaking_progress"
+name = "Breaking Progress Bar"
+show_in = ["Gameplay"]
+
+[[ui_elements]]
+id = "base:debug_info"
+name = "Debug Info"
+show_in = ["Gameplay", "Inventory", "MachineUI", "PauseMenu", "Settings", "GlobalInventory", "CommandInput"]
+
+# =============================================================================
+# Pause Menu Buttons
+# =============================================================================
+
+[[ui_elements]]
+id = "base:pause_resume_btn"
+name = "Resume Button"
+show_in = ["PauseMenu"]
+interactable = true
+
+[[ui_elements]]
+id = "base:pause_settings_btn"
+name = "Settings Button"
+show_in = ["PauseMenu"]
+interactable = true
+
+[[ui_elements]]
+id = "base:pause_quit_btn"
+name = "Quit Button"
+show_in = ["PauseMenu"]
+interactable = true
+
+# =============================================================================
+# Inventory Elements
+# =============================================================================
+
+[[ui_elements]]
+id = "base:inventory_slot"
+name = "Inventory Slot"
+show_in = ["Inventory"]
+interactable = true
+dynamic = true
+
+[[ui_elements]]
+id = "base:inventory_category_tabs"
+name = "Category Tabs"
+show_in = ["Inventory"]
+interactable = true
+
+[[ui_elements]]
+id = "base:inventory_page_controls"
+name = "Page Controls"
+show_in = ["Inventory"]
+interactable = true
+
+# =============================================================================
+# Hotbar Elements
+# =============================================================================
+
+[[ui_elements]]
+id = "base:hotbar_slot"
+name = "Hotbar Slot"
+show_in = ["Gameplay", "Inventory", "GlobalInventory", "MachineUI"]
+interactable = true
+dynamic = true
+
+[[ui_elements]]
+id = "base:hotbar_selection"
+name = "Hotbar Selection Indicator"
+show_in = ["Gameplay", "Inventory", "GlobalInventory", "MachineUI"]
+
+# =============================================================================
+# Machine UI Elements
+# =============================================================================
+
+[[ui_elements]]
+id = "base:machine_input_slot"
+name = "Machine Input Slot"
+show_in = ["MachineUI"]
+interactable = true
+dynamic = true
+
+[[ui_elements]]
+id = "base:machine_output_slot"
+name = "Machine Output Slot"
+show_in = ["MachineUI"]
+interactable = true
+dynamic = true
+
+[[ui_elements]]
+id = "base:machine_fuel_slot"
+name = "Machine Fuel Slot"
+show_in = ["MachineUI"]
+interactable = true
+dynamic = true
+
+[[ui_elements]]
+id = "base:machine_progress_bar"
+name = "Machine Progress Bar"
+show_in = ["MachineUI"]
+
+# =============================================================================
+# Global Inventory Elements
+# =============================================================================
+
+[[ui_elements]]
+id = "base:global_inventory_slot"
+name = "Global Inventory Slot"
+show_in = ["GlobalInventory"]
+interactable = true
+dynamic = true
+
+# =============================================================================
+# Settings Menu Elements
+# =============================================================================
+
+[[ui_elements]]
+id = "base:settings_back_btn"
+name = "Settings Back Button"
+show_in = ["Settings"]
+interactable = true
+
+[[ui_elements]]
+id = "base:settings_volume_slider"
+name = "Volume Slider"
+show_in = ["Settings"]
+interactable = true
+
+[[ui_elements]]
+id = "base:settings_fov_slider"
+name = "FOV Slider"
+show_in = ["Settings"]
+interactable = true

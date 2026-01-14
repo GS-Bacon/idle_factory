@@ -1,0 +1,27 @@
+# State Transition: Gameplay -> PauseMenu via CloseUI
+name = "state_gameplay_closeui"
+description = "Gameplay + CloseUI -> PauseMenu"
+
+# Setup: reach Gameplay
+[[steps]]
+action = "get_state"
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }

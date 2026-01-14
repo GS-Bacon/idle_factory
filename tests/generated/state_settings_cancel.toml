@@ -1,0 +1,35 @@
+# State Transition: Settings -> PauseMenu via Cancel
+name = "state_settings_cancel"
+description = "Settings + Cancel -> PauseMenu"
+
+# Setup: reach Settings
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Settings" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }

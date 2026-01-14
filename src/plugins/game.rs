@@ -11,7 +11,7 @@ use crate::blueprint::BlueprintPlugin;
 use crate::components::*;
 use crate::craft::CraftPlugin;
 use crate::events::GameEventsPlugin;
-use crate::game_spec::RegistryPlugin;
+use crate::game_spec::{load_ui_elements, RegistryPlugin};
 use crate::input::InputManagerPlugin;
 use crate::map::MapPlugin;
 use crate::modding::ModdingPlugin;
@@ -127,7 +127,7 @@ impl Plugin for GamePlugin {
             (
                 setup_lighting,
                 setup_player,
-                setup_ui,
+                setup_ui.after(load_ui_elements),
                 setup_initial_items,
                 // setup_delivery_platform removed - now a tutorial reward
                 load_machine_models,

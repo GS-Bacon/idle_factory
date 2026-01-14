@@ -1,0 +1,47 @@
+# Auto-generated: Verify UI elements in Settings state
+name = "ui_visibility_settings"
+description = "Verify UI elements in Settings state"
+
+# Initial state check
+[[steps]]
+action = "get_state"
+
+# Setup: Navigate to Settings
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify state is Settings
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Settings" }
+
+# Take screenshot for visual verification
+[[steps]]
+action = "screenshot"
+params = { name = "ui_visibility_settings" }
+
+# Verify SettingsPanel is visible
+[[steps]]
+action = "assert"
+params = { condition = "has_ui_element == SettingsPanel" }
+
+# Verify BackButton is visible
+[[steps]]
+action = "assert"
+params = { condition = "has_ui_element == BackButton" }
+
+# Verify PauseMenuPanel is NOT visible
+[[steps]]
+action = "assert"
+params = { condition = "no_ui_element == PauseMenuPanel" }
+
+# Verify Crosshair is NOT visible
+[[steps]]
+action = "assert"
+params = { condition = "no_ui_element == Crosshair" }
+

@@ -1,0 +1,54 @@
+# Machine Interact: 発電機
+name = "machine_interact_generator"
+description = "Place 発電機 and open its UI"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "player_teleport"
+params = { x = 70.0, y = 60.0, z = 70.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Place machine
+[[steps]]
+action = "world_place_block"
+params = { x = 70, y = 59, z = 72, item_id = "base:generator_block" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Interact (right click)
+[[steps]]
+action = "send_input"
+params = { action = "SecondaryAction" }
+
+[[steps]]
+action = "wait"
+params = { ms = 300 }
+
+# Get state (may be Machine if targeting worked)
+[[steps]]
+action = "get_state"
+
+# Close UI
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Cleanup
+[[steps]]
+action = "world_break_block"
+params = { x = 70, y = 59, z = 72 }

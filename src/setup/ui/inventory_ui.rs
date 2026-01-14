@@ -1,6 +1,7 @@
 //! Inventory UI setup
 
 use crate::components::*;
+use crate::game_spec::{UIElementRegistry, UIElementTag};
 use bevy::prelude::*;
 
 use super::{
@@ -14,7 +15,11 @@ fn inventory_ui_width() -> f32 {
     SLOT_SIZE * 9.0 + SLOT_GAP * 8.0 + 16.0
 }
 
-pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
+pub fn setup_inventory_ui(
+    commands: &mut Commands,
+    font: &Handle<Font>,
+    ui_registry: &UIElementRegistry,
+) {
     let ui_width = inventory_ui_width();
 
     // Background overlay (darkens the screen when inventory is open)
@@ -36,6 +41,10 @@ pub fn setup_inventory_ui(commands: &mut Commands, font: &Handle<Font>) {
     commands
         .spawn((
             InventoryUI,
+            ui_registry
+                .get_id("base:inventory_panel")
+                .map(UIElementTag::new)
+                .unwrap_or_else(|| UIElementTag::new(Default::default())),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(15.0),

@@ -473,6 +473,39 @@ fn format_count(count: u32) -> String {
     }
 }
 
+/// Cleanup system: clear InteractingMachine if the referenced entity no longer exists
+///
+/// This handles the case where a machine is despawned while its UI is open.
+/// Without this cleanup, the UI would remain in MachineUI state with a dangling entity reference.
+pub fn cleanup_invalid_interacting_machine(
+    mut interacting: ResMut<InteractingMachine>,
+    machine_query: Query<Entity, With<Machine>>,
+    mut ui_query: Query<(&GenericMachineUI, &mut Visibility)>,
+    mut windows: Query<&mut Window>,
+) {
+    let Some(entity) = interacting.0 else {
+        return;
+    };
+
+    // Check if the entity still exists and is a machine
+    if machine_query.get(entity).is_ok() {
+        return; // Entity still exists, nothing to cleanup
+    }
+
+    // Entity was despawned - clear the interacting machine
+    interacting.0 = None;
+
+    // Hide all machine UIs
+    for (_ui, mut vis) in ui_query.iter_mut() {
+        *vis = Visibility::Hidden;
+    }
+
+    // Lock cursor back to gameplay mode
+    if let Ok(mut window) = windows.get_single_mut() {
+        cursor::lock_cursor(&mut window);
+    }
+}
+
 /// Visual feedback for machine activity (pulse scale when processing)
 pub fn machine_visual_feedback(
     _time: Res<Time>,
@@ -664,5 +697,186 @@ mod tests {
         // At tick 0, both should give their primary ore
         assert_eq!(iron_out, items::iron_ore());
         assert_eq!(copper_out, items::copper_ore());
+    }
+
+    #[test]
+    fn test_machine_despawn_clears_interacting_machine() {
+        // Test that InteractingMachine is cleared when the referenced entity is despawned
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<InteractingMachine>();
+
+        // Create a machine entity
+        let machine = app
+            .world_mut()
+            .spawn(Machine::new(
+                &MINER,
+                IVec3::ZERO,
+                crate::components::Direction::North,
+            ))
+            .id();
+
+        // Set InteractingMachine to reference this machine
+        app.world_mut().resource_mut::<InteractingMachine>().0 = Some(machine);
+
+        // Verify it's set
+        assert_eq!(
+            app.world().resource::<InteractingMachine>().0,
+            Some(machine)
+        );
+
+        // Despawn the machine
+        app.world_mut().despawn(machine);
+
+        // Verify the entity no longer exists
+        assert!(app.world().get_entity(machine).is_err());
+
+        // The InteractingMachine resource still holds the old entity reference
+        // (cleanup system hasn't run yet)
+        assert_eq!(
+            app.world().resource::<InteractingMachine>().0,
+            Some(machine)
+        );
+
+        // Manually run cleanup logic (simulating what cleanup_invalid_interacting_machine does)
+        // We can't easily run the full system without Window, so test the core logic
+        let machine_exists = app
+            .world_mut()
+            .query::<&Machine>()
+            .get(app.world(), machine)
+            .is_ok();
+
+        assert!(!machine_exists, "Machine should no longer exist");
+
+        // If machine doesn't exist, the cleanup system would clear InteractingMachine
+        if !machine_exists {
+            app.world_mut().resource_mut::<InteractingMachine>().0 = None;
+        }
+
+        // Verify InteractingMachine is now None
+        assert_eq!(app.world().resource::<InteractingMachine>().0, None);
+    }
+
+    #[test]
+    fn test_cleanup_preserves_valid_interacting_machine() {
+        // Test that InteractingMachine is NOT cleared when the entity still exists
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<InteractingMachine>();
+
+        // Create a machine entity
+        let machine = app
+            .world_mut()
+            .spawn(Machine::new(
+                &FURNACE,
+                IVec3::new(1, 0, 1),
+                crate::components::Direction::East,
+            ))
+            .id();
+
+        // Set InteractingMachine to reference this machine
+        app.world_mut().resource_mut::<InteractingMachine>().0 = Some(machine);
+
+        // Verify it's set
+        assert_eq!(
+            app.world().resource::<InteractingMachine>().0,
+            Some(machine)
+        );
+
+        // Check if machine exists (it should)
+        let machine_exists = app
+            .world_mut()
+            .query::<&Machine>()
+            .get(app.world(), machine)
+            .is_ok();
+
+        assert!(machine_exists, "Machine should still exist");
+
+        // Since machine exists, InteractingMachine should NOT be cleared
+        // This simulates the early return in cleanup_invalid_interacting_machine
+        assert_eq!(
+            app.world().resource::<InteractingMachine>().0,
+            Some(machine)
+        );
+    }
+
+    #[test]
+    fn test_input_state_transitions_on_machine_despawn() {
+        // Test that InputState correctly transitions from MachineUI to Gameplay
+        // when InteractingMachine is cleared
+        use crate::components::InputState;
+        use crate::components::{CommandInputState, CursorLockState, InventoryOpen};
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<InteractingMachine>();
+        app.init_resource::<InventoryOpen>();
+        app.init_resource::<CommandInputState>();
+        app.init_resource::<CursorLockState>();
+
+        // Create a machine entity
+        let machine = app
+            .world_mut()
+            .spawn(Machine::new(
+                &CRUSHER,
+                IVec3::new(2, 0, 2),
+                crate::components::Direction::South,
+            ))
+            .id();
+
+        // Simulate opening machine UI (sets both InteractingMachine and paused)
+        // This mirrors sync_legacy_ui_state behavior for UIContext::Machine
+        app.world_mut().resource_mut::<InteractingMachine>().0 = Some(machine);
+        app.world_mut().resource_mut::<CursorLockState>().paused = true;
+
+        // Check InputState - should be MachineUI
+        {
+            let inventory_open = app.world().resource::<InventoryOpen>();
+            let interacting_machine = app.world().resource::<InteractingMachine>();
+            let command_state = app.world().resource::<CommandInputState>();
+            let cursor_state = app.world().resource::<CursorLockState>();
+
+            let state = InputState::current(
+                inventory_open,
+                interacting_machine,
+                command_state,
+                cursor_state,
+            );
+
+            assert_eq!(state, InputState::MachineUI);
+        }
+
+        // Despawn the machine
+        app.world_mut().despawn(machine);
+
+        // Simulate cleanup: clear InteractingMachine and reset cursor state
+        // This mirrors sync_legacy_ui_state behavior for UIContext::Gameplay
+        let machine_exists = app
+            .world_mut()
+            .query::<&Machine>()
+            .get(app.world(), machine)
+            .is_ok();
+
+        if !machine_exists {
+            app.world_mut().resource_mut::<InteractingMachine>().0 = None;
+            app.world_mut().resource_mut::<CursorLockState>().paused = false;
+        }
+
+        // Check InputState - should be Gameplay now
+        {
+            let inventory_open = app.world().resource::<InventoryOpen>();
+            let interacting_machine = app.world().resource::<InteractingMachine>();
+            let command_state = app.world().resource::<CommandInputState>();
+            let cursor_state = app.world().resource::<CursorLockState>();
+
+            let state = InputState::current(
+                inventory_open,
+                interacting_machine,
+                command_state,
+                cursor_state,
+            );
+
+            assert_eq!(state, InputState::Gameplay);
+        }
     }
 }

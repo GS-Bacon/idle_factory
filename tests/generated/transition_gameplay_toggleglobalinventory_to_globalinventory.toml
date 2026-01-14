@@ -1,0 +1,33 @@
+# Auto-generated: Gameplay + ToggleGlobalInventory → GlobalInventory
+name = "transition_gameplay_toggleglobalinventory_to_globalinventory"
+description = "Gameplay + ToggleGlobalInventory → GlobalInventory"
+
+# Start in Gameplay
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action: ToggleGlobalInventory
+[[steps]]
+action = "send_input"
+params = { action = "ToggleGlobalInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify transition to GlobalInventory
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == GlobalInventory" }
+
+# Verify cursor state
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }

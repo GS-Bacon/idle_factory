@@ -1,0 +1,23 @@
+# Action: CloseUI in Machine
+name = "action_machine_closeui"
+description = "CloseUI should work in Machine"
+
+[[steps]]
+action = "get_state"
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Machine" }
+
+[[steps]]
+action = "send_input"
+params = { action = "CloseUI" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# Action executed without error
+[[steps]]
+action = "get_state"

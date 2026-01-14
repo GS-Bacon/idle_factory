@@ -228,12 +228,28 @@ mod tests {
             &InventoryOpen(false),
             &InteractingMachine(None),
             &CommandInputState::default(),
-            &CursorLockState::default(),
+            &CursorLockState {
+                paused: false,
+                ..default()
+            },
         );
         assert!(matches!(state, InputState::Gameplay));
 
+        // Inventory takes priority over paused
         let state = InputState::current(
             &InventoryOpen(true),
+            &InteractingMachine(None),
+            &CommandInputState::default(),
+            &CursorLockState {
+                paused: true,
+                ..default()
+            },
+        );
+        assert!(matches!(state, InputState::Inventory));
+
+        // When no UI is open but paused=true, should be Paused
+        let state = InputState::current(
+            &InventoryOpen(false),
             &InteractingMachine(None),
             &CommandInputState::default(),
             &CursorLockState {

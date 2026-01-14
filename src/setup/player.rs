@@ -2,6 +2,7 @@
 
 use crate::components::*;
 use crate::core::items;
+use crate::player::{LocalPlayer, PlayerInventory};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
@@ -28,10 +29,11 @@ pub fn setup_player(
     });
 
     // Player entity with camera
-    commands
+    let player_entity = commands
         .spawn((
             Player,
             PlayerPhysics::default(),
+            PlayerInventory::default(),
             Transform::from_xyz(8.0, 12.0, 20.0),
             Visibility::default(),
         ))
@@ -64,5 +66,7 @@ pub fn setup_player(
                         Visibility::Hidden, // Hidden until item selected
                     ));
                 });
-        });
+        })
+        .id();
+    commands.insert_resource(LocalPlayer(player_entity));
 }

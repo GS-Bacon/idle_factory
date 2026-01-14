@@ -13,6 +13,11 @@ use crate::input::{GameAction, InputManager};
 /// Handle UIAction events and update UIState
 pub fn ui_action_handler(mut ui_state: ResMut<UIState>, mut action_events: EventReader<UIAction>) {
     for action in action_events.read() {
+        bevy::log::info!(
+            "[UI] Action: {:?}, current: {:?}",
+            action,
+            ui_state.current()
+        );
         match action {
             UIAction::Push(context) => {
                 ui_state.push(context.clone());
@@ -120,9 +125,15 @@ pub fn ui_escape_handler(
 pub fn ui_inventory_handler(
     input: Res<InputManager>,
     ui_state: Res<UIState>,
+    command_state: Res<CommandInputState>,
     mut action_writer: EventWriter<UIAction>,
 ) {
     if !input.just_pressed(GameAction::ToggleInventory) {
+        return;
+    }
+
+    // Don't handle E if command input is open (it handles its own text input)
+    if command_state.open {
         return;
     }
 
@@ -175,14 +186,14 @@ mod tests {
 
     #[test]
     fn test_ui_action_push() {
-        let mut ui_state = UIState::default();
+        let mut ui_state = UIState::new_empty();
         ui_state.push(UIContext::Inventory);
         assert_eq!(ui_state.current(), UIContext::Inventory);
     }
 
     #[test]
     fn test_ui_action_toggle() {
-        let mut ui_state = UIState::default();
+        let mut ui_state = UIState::new_empty();
 
         // Toggle on
         if !ui_state.is_active(&UIContext::Inventory) {

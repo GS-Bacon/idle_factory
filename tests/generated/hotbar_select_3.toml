@@ -1,0 +1,21 @@
+# Hotbar Select: Slot 3
+name = "hotbar_select_3"
+description = "Select hotbar slot 3"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar3" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "inventory_get_hotbar"

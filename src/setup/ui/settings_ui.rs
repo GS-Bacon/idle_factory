@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 
 use crate::components::UIContext;
+use crate::game_spec::{UIElementRegistry, UIElementTag};
 use crate::settings::GameSettings;
 use crate::setup::ui::{text_font, SLOT_BORDER_COLOR, SLOT_RADIUS};
 
@@ -50,10 +51,18 @@ pub enum SettingType {
 pub struct SettingsBackButton;
 
 /// Setup the settings UI panel
-pub fn setup_settings_ui(commands: &mut Commands, font: &Handle<Font>) {
+pub fn setup_settings_ui(
+    commands: &mut Commands,
+    font: &Handle<Font>,
+    ui_registry: &UIElementRegistry,
+) {
     commands
         .spawn((
             SettingsPanel,
+            ui_registry
+                .get_id("base:settings_menu")
+                .map(UIElementTag::new)
+                .unwrap_or_else(|| UIElementTag::new(Default::default())),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),

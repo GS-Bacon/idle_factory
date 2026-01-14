@@ -1,0 +1,27 @@
+# Cursor State: GlobalInventory
+name = "cursor_globalinventory"
+description = "Cursor should be unlocked in GlobalInventory"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleGlobalInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == GlobalInventory" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_visible == true" }

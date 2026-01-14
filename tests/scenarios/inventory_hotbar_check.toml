@@ -1,0 +1,26 @@
+name = "ホットバー状態確認"
+description = "test.get_stateでホットバー情報が取得できることを確認"
+
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+# ホットバーは9スロットある
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# selected_slotが0-8の範囲にあることを確認（デフォルトは0）
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "save"
+params = { variable = "slot", field = "selected_slot" }

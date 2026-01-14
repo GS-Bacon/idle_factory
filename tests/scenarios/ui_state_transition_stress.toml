@@ -1,0 +1,85 @@
+name = "UI状態遷移ストレステスト"
+description = "高速なUI開閉でクラッシュしない"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# 高速で開閉を繰り返す
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleGlobalInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# コマンド入力も試す
+[[steps]]
+action = "send_input"
+params = { action = "OpenCommand" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# コマンドUIはKeyCode::Escapeを直接使うためCancel入力が効かない
+# set_ui_stateでリセット
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# 最終的にGameplayに戻れる
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

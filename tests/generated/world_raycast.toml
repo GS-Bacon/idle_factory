@@ -1,0 +1,21 @@
+# World Operation: raycast
+name = "world_raycast"
+description = "Test world.raycast"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "world_get_block"
+params = { x = 0, y = 50, z = 0 }
+
+[[steps]]
+action = "world_raycast"
+params = { origin = [0.0, 60.0, 0.0], direction = [0.0, -1.0, 0.0], max_distance = 50.0 }
+
+[[steps]]
+action = "player_get_looking_at"

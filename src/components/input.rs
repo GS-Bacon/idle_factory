@@ -23,20 +23,28 @@ pub enum InputState {
 
 impl InputState {
     /// Determine current input state from all UI resources
+    ///
+    /// Priority: Command > Inventory > MachineUI > Paused > Gameplay
+    ///
+    /// Note: `cursor_state.paused` is true for ALL UI states (not just PauseMenu).
+    /// So we check specific UI states first, and only fall back to Paused
+    /// when no other UI is active.
     pub fn current(
         inventory_open: &InventoryOpen,
         interacting_machine: &InteractingMachine,
         command_state: &CommandInputState,
         cursor_state: &CursorLockState,
     ) -> Self {
-        if cursor_state.paused {
-            InputState::Paused
-        } else if command_state.open {
+        // Check specific UI states first (they all set paused=true)
+        if command_state.open {
             InputState::Command
         } else if inventory_open.0 {
             InputState::Inventory
         } else if interacting_machine.0.is_some() {
             InputState::MachineUI
+        } else if cursor_state.paused {
+            // paused=true with no other UI = PauseMenu or Settings
+            InputState::Paused
         } else {
             InputState::Gameplay
         }

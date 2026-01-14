@@ -1,0 +1,45 @@
+name = "コマンド入力開閉"
+description = "Tキーでコマンド入力を開く（ESCはキーボード入力のみ対応）"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "OpenCommand" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Command" }
+
+# Note: cursor_locked は cursor_lock.paused から計算されるが、
+# コマンドUIは直接 cursor::unlock_cursor を呼んでいるため、フラグは更新されない
+# 実際のカーソルはアンロックされるが、テストAPIでは検出できない
+
+# ESCキーはKeyCode::Escapeを直接使うためテストAPIからは閉じられない
+# 代わりにset_ui_stateでリセット
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

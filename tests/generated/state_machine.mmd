@@ -1,0 +1,14 @@
+stateDiagram-v2
+    [*] --> Gameplay
+    Gameplay --> PauseMenu: Cancel
+    Gameplay --> Inventory: ToggleInventory
+    Gameplay --> GlobalInventory: ToggleGlobalInventory
+    Gameplay --> Gameplay: from_Gameplay
+
+    %% Pop transitions
+    Inventory --> Gameplay: CloseUI/ESC
+    GlobalInventory --> Gameplay: CloseUI/ESC
+    CommandInput --> Gameplay: CloseUI/ESC
+    PauseMenu --> Gameplay: CloseUI/ESC
+    Settings --> Gameplay: CloseUI/ESC
+    Machine --> Gameplay: CloseUI/ESC

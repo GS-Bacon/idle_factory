@@ -62,9 +62,9 @@ echo "Logging to $LOG_FILE"
 # Run the game and capture all output to log file
 # Use unbuffer or stdbuf to prevent buffering issues
 if command -v stdbuf &> /dev/null; then
-    DISPLAY=$DISPLAY_FOUND stdbuf -oL -eL cargo run --release "$@" 2>&1 | tee "$LOG_FILE"
+    DISPLAY=$DISPLAY_FOUND stdbuf -oL -eL cargo run --release --bin idle_factory "$@" 2>&1 | tee "$LOG_FILE"
 else
-    DISPLAY=$DISPLAY_FOUND cargo run --release "$@" 2>&1 | tee "$LOG_FILE"
+    DISPLAY=$DISPLAY_FOUND cargo run --release --bin idle_factory "$@" 2>&1 | tee "$LOG_FILE"
 fi
 
 # Update latest log symlink

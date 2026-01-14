@@ -1,0 +1,27 @@
+# Auto-generated: Gameplay -> GlobalInventory via from_Gameplay
+name = "auto_transition_gameplay_from_gameplay_globalinventory"
+description = "Extracted from src/systems/ui_navigation.rs"
+
+# Setup
+[[steps]]
+action = "get_state"
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "from_Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == GlobalInventory" }

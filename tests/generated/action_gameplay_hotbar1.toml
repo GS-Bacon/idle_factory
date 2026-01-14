@@ -1,0 +1,23 @@
+# Action: Hotbar1 in Gameplay
+name = "action_gameplay_hotbar1"
+description = "Hotbar1 should work in Gameplay"
+
+[[steps]]
+action = "get_state"
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar1" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# Action executed without error
+[[steps]]
+action = "get_state"

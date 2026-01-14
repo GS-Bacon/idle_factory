@@ -466,10 +466,34 @@ pub struct RegistryPlugin;
 
 impl Plugin for RegistryPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameRegistry>().add_systems(
-            Startup,
-            integrate_mod_items.after(crate::modding::load_base_mod),
-        );
+        app.init_resource::<GameRegistry>()
+            .init_resource::<super::UIElementRegistry>()
+            .add_systems(
+                Startup,
+                (
+                    integrate_mod_items.after(crate::modding::load_base_mod),
+                    load_ui_elements.after(crate::modding::load_base_mod),
+                ),
+            );
+    }
+}
+
+/// Load UI elements from mods/base/ui_elements.toml
+pub fn load_ui_elements(mut registry: ResMut<super::UIElementRegistry>) {
+    use bevy::log::{info, warn};
+
+    let path = "mods/base/ui_elements.toml";
+    match std::fs::read_to_string(path) {
+        Ok(content) => match super::load_ui_elements_from_toml(&content) {
+            Ok(elements) => {
+                for elem in elements {
+                    registry.register(elem);
+                }
+                info!("Loaded {} UI elements from {}", registry.len(), path);
+            }
+            Err(e) => warn!("Failed to parse {}: {}", path, e),
+        },
+        Err(e) => warn!("Failed to read {}: {}", path, e),
     }
 }
 

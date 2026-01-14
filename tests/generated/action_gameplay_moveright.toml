@@ -1,0 +1,23 @@
+# Action: MoveRight in Gameplay
+name = "action_gameplay_moveright"
+description = "MoveRight should work in Gameplay"
+
+[[steps]]
+action = "get_state"
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "MoveRight" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# Action executed without error
+[[steps]]
+action = "get_state"

@@ -1,0 +1,46 @@
+# Block Rotation Cycle
+name = "block_rotation_cycle"
+description = "Rotate block through all 4 directions"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Rotate 4 times (full cycle)
+[[steps]]
+action = "send_input"
+params = { action = "RotateBlock" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "RotateBlock" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "RotateBlock" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "send_input"
+params = { action = "RotateBlock" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+[[steps]]
+action = "get_state"

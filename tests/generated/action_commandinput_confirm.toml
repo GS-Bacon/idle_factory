@@ -1,0 +1,31 @@
+# Action: Confirm in CommandInput
+name = "action_commandinput_confirm"
+description = "Confirm should work in CommandInput"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "OpenCommand" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == CommandInput" }
+
+[[steps]]
+action = "send_input"
+params = { action = "Confirm" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# Action executed without error
+[[steps]]
+action = "get_state"

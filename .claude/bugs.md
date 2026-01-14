@@ -156,6 +156,85 @@ node capture-wasm-logs.js   # 30秒キャプチャ
 
 ---
 
+## 作業中バグ
+
+### BUG-16: LocalPlayerとPlayerInventory未初期化
+**状態**: ✅ 修正済み
+
+**症状**:
+- ホットバー選択（数字キー1-9）が機能しない
+- テスト入力注入（Hotbar1-9等）が失敗する
+- セーブ/ロードが正しく動作しない可能性
+
+**原因**:
+`src/setup/player.rs`の`setup_player()`でプレイヤーエンティティは作成されるが:
+- `LocalPlayer`リソースが設定されていない
+- `PlayerInventory`コンポーネントが追加されていない
+
+**影響範囲**:
+- `select_block_type()` - ホットバー選択
+- `update_hotbar_ui()` - ホットバーUI更新
+- `handle_load_event()` - セーブデータロード
+- すべてのインベントリ関連システム
+
+**対策**:
+```rust
+// setup_player() で以下を追加
+let player_entity = commands.spawn((
+    Player,
+    PlayerPhysics::default(),
+    PlayerInventory::default(),  // 追加
+    Transform::from_xyz(8.0, 12.0, 20.0),
+    Visibility::default(),
+)).id();
+commands.insert_resource(LocalPlayer(player_entity));  // 追加
+```
+
+**テストファイル**: `tests/scenarios/hotbar_select.toml`
+
+---
+
+### BUG-10: Windows起動時カーソル制御問題
+**状態**: 修正中（コード変更済み、テスト未確認）
+
+**症状**: 起動時にいきなりカーソルを吸収してしまう
+
+**期待動作**: 一時停止メニューから始め、Resumeでゲーム開始
+
+**原因**:
+- `UIState::default()` がスタック空（Gameplay状態）で初期化されていた
+- `CursorLockState::default()` が `paused: false` で初期化されていた
+
+**対策**:
+- `src/components/ui_state.rs`: `default()` が `vec![UIContext::PauseMenu]` で初期化するように変更
+- `src/components/player.rs`: `CursorLockState::default()` が `paused: true` で初期化するように変更
+- テスト用に `UIState::new_empty()` メソッドを追加
+
+**テストファイル**: `tests/scenarios/startup_pause_menu.toml`
+
+**残作業**:
+1. ゲームを再ビルドして実行
+2. テスト実行で確認
+
+---
+
+### BUG-11: EキーでインベントリとポーズメニューUIが両方表示
+**状態**: テスト作成済み、追加検証不要かも
+
+**症状**: Eキーを押すとインベントリと一時停止メニューが同時に表示される
+
+**調査結果**:
+- `ui_inventory_handler` はPauseMenu中にEキーを無視するコードがある（正常）
+- テスト `tests/scenarios/pause_inventory_exclusive.toml` でPauseMenu中にEキーが効かないことを確認済み
+- Windows固有の問題か、BUG-10が原因でUI状態が乱れている可能性あり
+
+**テストファイル**: `tests/scenarios/pause_inventory_exclusive.toml`
+
+**残作業**:
+1. BUG-10修正後にWindowsで再確認
+
+---
+
 ## 修正済みバグ詳細
 
 ### BUG-15: コンベアcorner_left/corner_rightモデルの左右逆問題（再発3回）

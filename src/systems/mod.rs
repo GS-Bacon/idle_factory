@@ -15,6 +15,7 @@ pub mod quest;
 pub mod targeting;
 pub mod tutorial;
 pub mod ui_navigation;
+pub mod ui_visibility;
 
 pub use block_operations::*;
 pub use chunk::*;
@@ -29,6 +30,7 @@ pub use quest::*;
 pub use targeting::*;
 pub use tutorial::*;
 pub use ui_navigation::*;
+pub use ui_visibility::*;
 
 // Re-export conveyor systems from logistics module
 pub use crate::logistics::conveyor::*;

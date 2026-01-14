@@ -1,0 +1,27 @@
+# State Transition: Gameplay -> PauseMenu via TogglePause
+name = "state_gameplay_togglepause"
+description = "Gameplay + TogglePause -> PauseMenu"
+
+# Setup: reach Gameplay
+[[steps]]
+action = "get_state"
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "TogglePause" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }

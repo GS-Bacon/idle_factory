@@ -594,6 +594,78 @@ pub struct MapData {
 
 ---
 
+### UI状態管理（ハイブリッド方式）
+
+**設計方針（2026-01-11 確定）**:
+- **排他グループ**: 同時に1つだけ表示（インベントリ、機械UI、設定等）
+- **オーバーレイ**: 排他グループと同時表示可能（ミニマップ、統計、クエスト進捗等）
+
+**理由**: 工場ゲームでは「コンベア配置しながらインベントリ確認」「マップ見ながら計画」が自然。
+ただし「インベントリと機械UI同時」は混乱するので排他。
+
+**データ構造**
+```rust
+// components/ui_state.rs
+pub struct UIState {
+    /// 排他的UIスタック（ESCで戻る）
+    stack: Vec<UIContext>,
+    /// オーバーレイUI（トグルで表示/非表示）
+    overlays: HashSet<OverlayType>,
+}
+
+pub enum UIContext {
+    Gameplay,
+    Inventory,
+    MachineUI(Entity),
+    PauseMenu,
+    Settings,
+    // ...
+}
+
+pub enum OverlayType {
+    Minimap,
+    ProductionStats,
+    QuestProgress,
+    // ...
+}
+
+impl UIState {
+    /// オーバーレイをトグル
+    pub fn toggle_overlay(&mut self, overlay: OverlayType) {
+        if self.overlays.contains(&overlay) {
+            self.overlays.remove(&overlay);
+        } else {
+            self.overlays.insert(overlay);
+        }
+    }
+
+    /// オーバーレイが表示中か
+    pub fn is_overlay_visible(&self, overlay: &OverlayType) -> bool {
+        self.overlays.contains(overlay)
+    }
+}
+```
+
+**グループ分け**
+| グループ | UI | 操作 |
+|----------|-----|------|
+| **排他** | インベントリ、機械UI、設定、ポーズ、クラフト | E/右クリック/ESC で切り替え |
+| **オーバーレイ** | ミニマップ、生産統計、クエスト進捗 | 専用キーでトグル |
+
+**入力制御**
+| 状態 | 移動 | カメラ | ブロック操作 | ホットバー |
+|------|------|--------|--------------|----------|
+| Gameplay | ✓ | ✓ | ✓ | ✓ |
+| Gameplay + オーバーレイ | ✓ | ✓ | ✓ | ✓ |
+| 排他UI | ✗ | ✗ | ✗ | ✗ |
+
+**実装時の注意**
+- オーバーレイはZオーダー管理が必要
+- フォーカスは常に排他UIが優先
+- ESCは排他UIを閉じる（オーバーレイは閉じない）
+
+---
+
 ### 10. ブループリント
 
 **データ構造**

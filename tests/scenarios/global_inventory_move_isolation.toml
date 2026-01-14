@@ -1,0 +1,51 @@
+name = "グローバルインベントリ中の移動無効"
+description = "グローバルインベントリ中WASDで移動しない"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleGlobalInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == GlobalInventory" }
+
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+[[steps]]
+action = "compare_position"
+params = { expect = "unchanged", tolerance = 0.1 }
+
+[[steps]]
+action = "send_input"
+params = { action = "ToggleGlobalInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

@@ -1,0 +1,33 @@
+# Auto-generated: Machine + ToggleInventory → Gameplay
+name = "transition_machine_toggleinventory_to_gameplay"
+description = "Machine + ToggleInventory → Gameplay"
+
+# Start in Machine
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Machine" }
+
+# Perform action: ToggleInventory
+[[steps]]
+action = "send_input"
+params = { action = "ToggleInventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify transition to Gameplay
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# Verify cursor state
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == true" }

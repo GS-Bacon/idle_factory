@@ -1,0 +1,23 @@
+# Action: Hotbar8 in Gameplay
+name = "action_gameplay_hotbar8"
+description = "Hotbar8 should work in Gameplay"
+
+[[steps]]
+action = "get_state"
+
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar8" }
+
+[[steps]]
+action = "wait"
+params = { ms = 50 }
+
+# Action executed without error
+[[steps]]
+action = "get_state"

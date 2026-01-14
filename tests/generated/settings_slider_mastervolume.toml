@@ -1,0 +1,13 @@
+# Settings Slider: MasterVolume
+name = "settings_slider_mastervolume"
+description = "Verify settings slider MasterVolume exists"
+
+# Note: Requires Settings screen to be open manually
+
+[[steps]]
+action = "get_state"
+
+# If in Settings, verify slider exists
+[[steps]]
+action = "assert"
+params = { condition = "has_ui_element == Slider_MasterVolume" }

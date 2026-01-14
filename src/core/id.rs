@@ -77,6 +77,13 @@ impl<C> Id<C> {
         }
     }
 
+    /// Create an ID from a raw u32 value
+    ///
+    /// Use with caution - prefer from_string() for type safety.
+    pub fn from_raw(raw: u32) -> Self {
+        Self::new(raw)
+    }
+
     pub fn raw(&self) -> u32 {
         self.raw
     }
@@ -144,12 +151,15 @@ pub struct MachineCategory;
 pub struct RecipeCategory;
 #[derive(Copy, Clone)]
 pub struct FluidCategory;
+#[derive(Copy, Clone)]
+pub struct UIElementCategory;
 
 // 型エイリアス
 pub type ItemId = Id<ItemCategory>;
 pub type MachineId = Id<MachineCategory>;
 pub type RecipeId = Id<RecipeCategory>;
 pub type FluidId = Id<FluidCategory>;
+pub type UIElementId = Id<UIElementCategory>;
 
 // =============================================================================
 // ValidItemId - Type-safe validated ItemId

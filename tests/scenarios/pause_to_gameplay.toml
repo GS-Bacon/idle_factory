@@ -1,0 +1,32 @@
+name = "PauseMenu→Gameplay遷移"
+description = "PauseMenuからESCでGameplay状態に遷移できることを確認"
+
+[[steps]]
+action = "set_ui_state"
+params = { state = "PauseMenu" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == PauseMenu" }
+
+# ESCでポーズメニューを閉じる（Cancelアクションを使用）
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# カーソルがロックされることを確認
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == true" }

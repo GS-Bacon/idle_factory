@@ -1,0 +1,23 @@
+digraph UIStateMachine {
+    rankdir=TB;
+    node [shape=box, style=rounded];
+    Gameplay [style="rounded,filled", fillcolor="#90EE90"];
+
+    Gameplay -> PauseMenu [label="Cancel"];
+    Gameplay -> Inventory [label="ToggleInventory"];
+    Gameplay -> Inventory [label="from_Gameplay"];
+    Gameplay -> GlobalInventory [label="ToggleGlobalInventory"];
+    Gameplay -> GlobalInventory [label="from_Gameplay"];
+    Gameplay -> Gameplay [label="from_Gameplay"];
+    Gameplay -> Gameplay [label="from_Inventory"];
+    Gameplay -> Gameplay [label="from_GlobalInventory"];
+    Gameplay -> Inventory [label="from_Inventory"];
+
+    // Back transitions
+    Inventory -> Gameplay [label="CloseUI", style=dashed];
+    GlobalInventory -> Gameplay [label="CloseUI", style=dashed];
+    CommandInput -> Gameplay [label="CloseUI", style=dashed];
+    PauseMenu -> Gameplay [label="CloseUI", style=dashed];
+    Settings -> Gameplay [label="CloseUI", style=dashed];
+    Machine -> Gameplay [label="CloseUI", style=dashed];
+}

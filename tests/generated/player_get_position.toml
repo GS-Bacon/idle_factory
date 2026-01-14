@@ -1,0 +1,23 @@
+# Player Operation: get_position
+name = "player_get_position"
+description = "Test player.get_position"
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "player_get_state"
+
+[[steps]]
+action = "player_teleport"
+params = { x = 0.0, y = 60.0, z = 0.0 }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+[[steps]]
+action = "player_get_state"
+
+[[steps]]
+action = "player_get_looking_at"

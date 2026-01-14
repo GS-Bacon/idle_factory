@@ -1,0 +1,50 @@
+name = "ホットバー選択"
+description = "数字キー(1-9)でホットバースロットを選択できることを確認"
+
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# デフォルトはスロット0
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "selected_slot == 0" }
+
+# 3キーでスロット2に切り替え
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar3" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "selected_slot == 2" }
+
+# 1キーでスロット0に戻る
+[[steps]]
+action = "send_input"
+params = { action = "Hotbar1" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "assert"
+params = { condition = "selected_slot == 0" }

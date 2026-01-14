@@ -1,0 +1,35 @@
+# State Transition: CommandInput -> Gameplay via Cancel
+name = "state_commandinput_cancel"
+description = "CommandInput + Cancel -> Gameplay"
+
+# Setup: reach CommandInput
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "OpenCommand" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+
+# Verify starting state
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == CommandInput" }
+
+# Perform action
+[[steps]]
+action = "send_input"
+params = { action = "Cancel" }
+
+[[steps]]
+action = "wait"
+params = { ms = 150 }
+
+# Verify result
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }

@@ -12,8 +12,47 @@ pub use guarded_writer::*;
 
 use crate::core::ItemId;
 use bevy::prelude::*;
+use serde::Serialize;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicU8, Ordering};
+
+// ============================================================================
+// Test Event Buffer (for scenario testing)
+// ============================================================================
+
+/// Buffer for recording game events during tests
+#[derive(Resource, Default)]
+pub struct TestEventBuffer {
+    pub events: Vec<TestEvent>,
+}
+
+/// A recorded test event
+#[derive(Clone, Debug, Serialize)]
+pub struct TestEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<[i32; 3]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_id: Option<String>,
+}
+
+impl TestEventBuffer {
+    /// Push an event to the buffer (max 100 events)
+    pub fn push(&mut self, event: TestEvent) {
+        if self.events.len() >= 100 {
+            self.events.remove(0);
+        }
+        self.events.push(event);
+    }
+
+    /// Clear all events and return count
+    pub fn clear(&mut self) -> usize {
+        let count = self.events.len();
+        self.events.clear();
+        count
+    }
+}
 
 // ============================================================================
 // Event System Configuration
@@ -81,6 +120,7 @@ impl Plugin for EventsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EventSystemConfig>()
             .init_resource::<EventDepth>()
+            .init_resource::<TestEventBuffer>()
             .add_systems(First, reset_event_depth);
     }
 }
