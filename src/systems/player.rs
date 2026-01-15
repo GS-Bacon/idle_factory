@@ -2,8 +2,8 @@
 
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
-    InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialPopup,
-    TutorialShown, UIAction, UIContext, UIState,
+    InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialShown,
+    UIAction, UIContext, UIState,
 };
 use crate::input::{GameAction, InputManager};
 use crate::settings::GameSettings;
@@ -16,6 +16,40 @@ use crate::{
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use tracing::info;
+
+/// ファイルに衝突判定ログを出力（コンソールには出さない）
+#[allow(dead_code)]
+fn log_collision(action: &str, player_pos: Vec3, block_pos: IVec3, has_block: bool) {
+    use std::io::Write;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
+    static LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
+    let file = LOG_FILE.get_or_init(|| {
+        let _ = std::fs::create_dir_all("logs");
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("logs/collision.log")
+            .expect("Failed to open collision.log");
+        Mutex::new(file)
+    });
+    if let Ok(mut f) = file.lock() {
+        let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
+        let _ = writeln!(
+            f,
+            "{} {} player=({:.2},{:.2},{:.2}) block=({},{},{}) has_block={}",
+            timestamp,
+            action,
+            player_pos.x,
+            player_pos.y,
+            player_pos.z,
+            block_pos.x,
+            block_pos.y,
+            block_pos.z,
+            has_block
+        );
+    }
+}
 
 /// Handle cursor lock on click (ESC handling moved to ui_navigation.rs)
 /// Uses UIState as single source of truth for whether cursor should be locked
@@ -147,42 +181,6 @@ pub fn player_look(
     camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
 }
 
-/// Dismiss tutorial popup on any input
-pub fn tutorial_dismiss(
-    mut commands: Commands,
-    key_input: Res<ButtonInput<KeyCode>>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    mut tutorial_shown: ResMut<TutorialShown>,
-    popup_query: Query<Entity, With<TutorialPopup>>,
-    mut windows: Query<&mut Window>,
-) {
-    // Already dismissed
-    if tutorial_shown.0 {
-        return;
-    }
-
-    // Check for any key or mouse button press
-    let any_key = key_input.get_just_pressed().next().is_some();
-    let any_click = mouse_button.just_pressed(MouseButton::Left)
-        || mouse_button.just_pressed(MouseButton::Right);
-
-    if any_key || any_click {
-        tutorial_shown.0 = true;
-
-        // Despawn tutorial popup
-        for entity in popup_query.iter() {
-            commands.entity(entity).despawn_recursive();
-        }
-
-        // Lock cursor for gameplay
-        if let Ok(mut window) = windows.get_single_mut() {
-            cursor::lock_cursor(&mut window);
-        }
-
-        info!("[TUTORIAL] Dismissed, starting gameplay");
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn player_move(
     time: Res<Time>,
@@ -308,47 +306,33 @@ fn survival_movement(
 
     // Check collision and resolve
     let half_width = PLAYER_WIDTH / 2.0;
-
-    // Check ground collision (feet position)
-    let feet_y = new_pos.y - PLAYER_HEIGHT / 2.0;
-    let ground_check_y = (feet_y - 0.01) as i32;
-
-    // Check if player would be inside a block
-    let mut on_ground = false;
-
-    // Check 4 corners at feet level
-    for &(dx, dz) in &[
+    let corners = [
         (-half_width, -half_width),
         (half_width, -half_width),
         (-half_width, half_width),
         (half_width, half_width),
-    ] {
-        let check_x = (new_pos.x + dx) as i32;
-        let check_z = (new_pos.z + dz) as i32;
+    ];
 
-        // Check block below feet (Some = solid, None = air)
-        if world_data
-            .get_block(IVec3::new(check_x, ground_check_y, check_z))
-            .is_some()
-        {
-            // Standing on a block
-            on_ground = true;
-            let ground_top = (ground_check_y + 1) as f32;
-            if new_pos.y - PLAYER_HEIGHT / 2.0 < ground_top {
-                new_pos.y = ground_top + PLAYER_HEIGHT / 2.0;
-                physics.velocity.y = 0.0;
-            }
-        }
+    // === Phase 1: 壁衝突解決（先に実行） ===
+    // 壁に押し出してから地面判定を行うことで、壁登りバグを防止
+    for &(dx, dz) in &corners {
+        // .floor() を使用して負の座標でも正しくブロック座標に変換
+        let check_x = (new_pos.x + dx).floor() as i32;
+        let check_z = (new_pos.z + dz).floor() as i32;
 
         // Check horizontal collision at multiple heights
-        // Skip h=0.0 (feet level) as that's where ground blocks are - checking it causes
-        // false positives when standing on ground
-        for h in [0.3, PLAYER_HEIGHT / 2.0, PLAYER_HEIGHT - 0.1] {
-            let check_y = (new_pos.y - PLAYER_HEIGHT / 2.0 + h) as i32;
-            if world_data
-                .get_block(IVec3::new(check_x, check_y, check_z))
-                .is_some()
-            {
+        // h=0.1から1.9まで均等にチェックして壁すり抜けを防止
+        for h in [0.1, 0.5, 1.0, 1.5, 1.9] {
+            let check_y = (new_pos.y - PLAYER_HEIGHT / 2.0 + h).floor() as i32;
+            let block_pos = IVec3::new(check_x, check_y, check_z);
+            let has_block = world_data.get_block(block_pos).is_some();
+
+            // ログ出力（衝突チェック）
+            if has_block {
+                log_collision("COLLISION_HIT", new_pos, block_pos, true);
+            }
+
+            if has_block {
                 // Collision - push player out
                 let block_center_x = check_x as f32 + 0.5;
                 let block_center_z = check_z as f32 + 0.5;
@@ -372,9 +356,44 @@ fn survival_movement(
                 }
             }
         }
+    }
 
-        // Check ceiling collision
-        let head_y = (new_pos.y + PLAYER_HEIGHT / 2.0 + 0.01) as i32;
+    // === Phase 2: 地面判定（押し出し後の位置で、上昇中はスキップ） ===
+    // 上昇中（velocity.y > 0）は地面判定をスキップして壁登りを防止
+    let mut on_ground = false;
+
+    if physics.velocity.y <= 0.0 {
+        let feet_y = new_pos.y - PLAYER_HEIGHT / 2.0;
+        let ground_check_y = (feet_y - 0.01).floor() as i32;
+
+        for &(dx, dz) in &corners {
+            // .floor() を使用して負の座標でも正しくブロック座標に変換
+            let check_x = (new_pos.x + dx).floor() as i32;
+            let check_z = (new_pos.z + dz).floor() as i32;
+
+            // Check block below feet (Some = solid, None = air)
+            if world_data
+                .get_block(IVec3::new(check_x, ground_check_y, check_z))
+                .is_some()
+            {
+                // Standing on a block
+                on_ground = true;
+                let ground_top = (ground_check_y + 1) as f32;
+                if new_pos.y - PLAYER_HEIGHT / 2.0 < ground_top {
+                    new_pos.y = ground_top + PLAYER_HEIGHT / 2.0;
+                    physics.velocity.y = 0.0;
+                }
+            }
+        }
+    }
+
+    // === Phase 3: 天井判定 ===
+    for &(dx, dz) in &corners {
+        // .floor() を使用して負の座標でも正しくブロック座標に変換
+        let check_x = (new_pos.x + dx).floor() as i32;
+        let check_z = (new_pos.z + dz).floor() as i32;
+
+        let head_y = (new_pos.y + PLAYER_HEIGHT / 2.0 + 0.01).floor() as i32;
         if world_data
             .get_block(IVec3::new(check_x, head_y, check_z))
             .is_some()

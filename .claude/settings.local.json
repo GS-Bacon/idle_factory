@@ -422,7 +422,14 @@
       "Bash(else for f in tests/scenarios/*.toml)",
       "Bash(node scripts/run-all-scenarios.js:*)",
       "Bash(git rev-parse:*)",
-      "WebFetch(domain:bevy-cheatbook.github.io)"
+      "WebFetch(domain:bevy-cheatbook.github.io)",
+      "Bash(nc:*)",
+      "Bash(for test in ui_cursor_lock esc_pause_menu inventory_esc_close inventory_toggle pause_menu_cursor)",
+      "Bash(convert:*)",
+      "Bash(tailscale help:*)",
+      "Bash(tailscale:*)",
+      "Bash(# targetディレクトリの場所を確認 cargo metadata --format-version 1)",
+      "Bash(# targetディレクトリの場所を確認 cat .cargo/config.toml)"
     ]
   },
   "enableAllProjectMcpServers": true,

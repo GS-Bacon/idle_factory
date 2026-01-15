@@ -24,22 +24,7 @@ pub fn update_hotbar_ui(
         return;
     };
 
-    // Check if any sprite assets are still loading
-    let sprites_loading = item_sprites.textures.values().any(|h| {
-        !matches!(
-            asset_server.get_load_state(h),
-            Some(bevy::asset::LoadState::Loaded)
-        )
-    });
-
-    // Update when sprites resource changes or sprites are loading
-    // (need to keep checking while loading to catch when they finish)
-    // Note: is_changed() on Query component requires different approach
-    if !item_sprites.is_changed() && !sprites_loading {
-        return;
-    }
-
-    // Update slot backgrounds - use slot index for selection
+    // Update slot backgrounds - always run (for selection highlight)
     for (slot, mut bg, mut border) in slot_query.iter_mut() {
         let is_selected = inventory.selected_slot == slot.0;
         let has_item = inventory.get_slot_item_id(slot.0).is_some();
@@ -57,6 +42,20 @@ pub fn update_hotbar_ui(
             *bg = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8));
             *border = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
         }
+    }
+
+    // Check if any sprite assets are still loading
+    let sprites_loading = item_sprites.textures.values().any(|h| {
+        !matches!(
+            asset_server.get_load_state(h),
+            Some(bevy::asset::LoadState::Loaded)
+        )
+    });
+
+    // Update sprites only when resource changes or sprites are loading
+    // (need to keep checking while loading to catch when they finish)
+    if !item_sprites.is_changed() && !sprites_loading {
+        return;
     }
 
     // Update slot sprite images with visibility control

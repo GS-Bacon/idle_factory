@@ -53,6 +53,29 @@ Mod API設計について議論。カテゴリ別集約方式に決定。
 - API追加は簡単、変更は既存Modを壊す
 ```
 
+## Windowsへビルド送信（重要）
+
+**トリガー**: 「windowsに送信」「windowsに送って」「windowsにビルド送信」等
+
+**必ずこの手順を実行（他の方法は使わない）:**
+
+```bash
+# 1. Windowsパッケージをビルド（zip作成）
+./scripts/build-packages.sh --windows-only
+
+# 2. Tailscale経由でzipを送信
+tailscale file cp dist/idle_factory_*_windows.zip baconrogx13:
+```
+
+**禁止事項:**
+- ❌ exeだけ送る（assets/modsがないと動かない）
+- ❌ GitHub Releasesにアップロード（聞かれていない）
+- ❌ scp/rsync等の別手段（Tailscale file cpを使う）
+
+**注意:**
+- `baconrogx13` がオフラインなら `tailscale status` で確認
+- Windows側でTailscale通知から保存→展開
+
 ## UIプレビュー
 
 UIデザインの確認・やり取りには `UIプレビュー/` フォルダを使用。
@@ -206,7 +229,7 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 3. ログ出力で正常動作を確認
 
 **特にUI/ビジュアル系バグ**:
-- 必ず `./scripts/vlm_check.sh` またはスクショで確認
+- 必ずスクショで確認
 - 「見た目の問題」は目で見ないと確認できない
 
 **修正ループ検知**:
@@ -268,6 +291,44 @@ params = { condition = "ui_state == Inventory" }
 - 憶測での修正（ログ/スクリーンショットで確認してから）
 - ドキュメント整理・圧縮作業
 
+## UI実装ルール（必須）
+
+### テキスト作成
+
+| 禁止 | 必須 |
+|------|------|
+| `TextFont { font_size: X, ..default() }` | `text_font(font, size)` ヘルパー使用 |
+
+**理由**: フォント指定忘れで日本語が文字化けする
+
+### 設定画面への機能追加
+
+| 禁止 | 必須 |
+|------|------|
+| 新しいルートパネル（別ウィンドウ）を作成 | `settings_ui.rs` の既存ヘルパー使用 |
+
+**正しい追加方法** (`src/setup/ui/settings_ui.rs`):
+```rust
+spawn_section_header(panel, font, "セクション名");
+spawn_slider(panel, font, "ラベル", SettingType::Xxx, min, max);
+spawn_toggle(panel, font, "ラベル", SettingType::Xxx);
+```
+
+### UI階層ルール
+
+| 追加したい機能 | 追加先 | 方法 |
+|---------------|--------|------|
+| ゲーム設定 | 設定画面内 | `settings_ui.rs` のヘルパー |
+| システム通知 | 設定画面内 | `settings_ui.rs` に行追加 |
+| ゲームプレイUI | HUD | `setup/ui/mod.rs` の `setup_ui()` |
+| モーダルダイアログ | 独立パネル | `UIContext` 追加が必要（要相談） |
+
+### 参照実装
+
+- `src/setup/ui/mod.rs` - `text_font()`, `game_text()` ヘルパー
+- `src/setup/ui/settings_ui.rs` - 設定セクション追加パターン
+- `src/ui/machine_ui.rs` - 機械UIパターン
+
 ## 新機能実装
 
 **確認が必要**: 新ゲーム要素、UI/UX変更、ゲームバランス変更
@@ -323,7 +384,6 @@ params = { condition = "ui_state == Inventory" }
 | ツール | 用途 | ヘルプ |
 |--------|------|--------|
 | `gemini <cmd>` | Gemini連携（アーキ設計、レビュー、数学検証） | `gemini --help` |
-| `./scripts/vlm_check.sh` | VLMビジュアルチェック | `scripts/vlm_check/README.md` |
 | `./scripts/parallel-run.sh` | 並列タスク実行 | `--help` |
 | `node scripts/run-scenario.js <file>` | シナリオテスト実行 | 上記「バグ修正ルール」参照 |
 

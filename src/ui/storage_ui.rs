@@ -8,8 +8,8 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    GlobalInventoryCategory, GlobalInventoryCategoryTab, GlobalInventoryOpen, GlobalInventoryPage,
-    GlobalInventoryPageButton, GlobalInventoryPageText, GlobalInventorySearch,
+    GameFont, GlobalInventoryCategory, GlobalInventoryCategoryTab, GlobalInventoryOpen,
+    GlobalInventoryPage, GlobalInventoryPageButton, GlobalInventoryPageText, GlobalInventorySearch,
     GlobalInventorySearchInput, GlobalInventorySlot, GlobalInventorySlotCount,
     GlobalInventorySlotImage, GlobalInventoryUI, ItemCategory, ItemSprites,
 };
@@ -17,6 +17,7 @@ use crate::constants::ui_colors;
 use crate::core::ItemId;
 use crate::input::{GameAction, InputManager};
 use crate::player::LocalPlatformInventory;
+use crate::setup::ui::{text_font, TEXT_BODY, TEXT_BUTTON, TEXT_TITLE};
 use crate::systems::cursor;
 
 /// Slots per page (8 columns x 4 rows)
@@ -312,7 +313,8 @@ pub fn global_inventory_search_input(
 }
 
 /// Setup the global inventory UI (call in Startup)
-pub fn setup_global_inventory_ui(mut commands: Commands) {
+pub fn setup_global_inventory_ui(mut commands: Commands, game_font: Res<GameFont>) {
+    let font = &game_font.0;
     let panel_width = (SLOT_SIZE + SLOT_GAP) * GRID_COLUMNS as f32 + 40.0;
 
     // Main panel (hidden by default)
@@ -338,10 +340,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
             // Title
             parent.spawn((
                 Text::new("Storage"),
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
+                text_font(font, TEXT_TITLE),
                 TextColor(Color::srgb(0.9, 0.9, 0.95)), // Slightly off-white
                 Node {
                     margin: UiRect::bottom(Val::Px(8.0)),
@@ -387,10 +386,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new(cat.label()),
-                                TextFont {
-                                    font_size: 14.0,
-                                    ..default()
-                                },
+                                text_font(font, TEXT_BODY),
                                 TextColor(Color::srgb(0.85, 0.85, 0.9)),
                             ));
                         });
@@ -416,10 +412,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                 .with_children(|search_box| {
                     search_box.spawn((
                         Text::new("Search..."),
-                        TextFont {
-                            font_size: 14.0,
-                            ..default()
-                        },
+                        text_font(font, TEXT_BODY),
                         TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
                         GlobalInventorySearchInput,
                     ));
@@ -468,10 +461,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                             // Count text
                             slot.spawn((
                                 Text::new(""),
-                                TextFont {
-                                    font_size: 14.0,
-                                    ..default()
-                                },
+                                text_font(font, TEXT_BODY),
                                 TextColor(Color::WHITE),
                                 Node {
                                     position_type: PositionType::Absolute,
@@ -513,10 +503,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                     .with_children(|btn| {
                         btn.spawn((
                             Text::new("<"),
-                            TextFont {
-                                font_size: 16.0,
-                                ..default()
-                            },
+                            text_font(font, TEXT_BUTTON),
                             TextColor(Color::WHITE),
                         ));
                     });
@@ -524,10 +511,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                     // Page indicator
                     nav.spawn((
                         Text::new("1/1"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
+                        text_font(font, TEXT_BUTTON),
                         TextColor(Color::WHITE),
                         GlobalInventoryPageText,
                     ));
@@ -550,10 +534,7 @@ pub fn setup_global_inventory_ui(mut commands: Commands) {
                     .with_children(|btn| {
                         btn.spawn((
                             Text::new(">"),
-                            TextFont {
-                                font_size: 16.0,
-                                ..default()
-                            },
+                            text_font(font, TEXT_BUTTON),
                             TextColor(Color::WHITE),
                         ));
                     });

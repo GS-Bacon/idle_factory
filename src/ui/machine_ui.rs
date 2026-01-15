@@ -6,7 +6,8 @@ use crate::components::*;
 use crate::game_spec::{MachineSpec, UIElementRegistry, UIElementTag, UiSlotDef, UiSlotType};
 use crate::setup::ui::{
     text_font, QUEST_BORDER_COLOR, QUEST_PROGRESS_COLOR, QUEST_RADIUS, SLOT_BG, SLOT_BORDER,
-    SLOT_BORDER_COLOR, SLOT_RADIUS, SLOT_SIZE,
+    SLOT_BORDER_COLOR, SLOT_RADIUS, SLOT_SIZE, TEXT_BODY, TEXT_BUTTON, TEXT_MINI, TEXT_SMALL,
+    TEXT_TITLE,
 };
 use bevy::prelude::*;
 
@@ -60,7 +61,7 @@ fn spawn_generic_slot(parent: &mut ChildBuilder, slot_def: &UiSlotDef, font: &Ha
                     is_fuel,
                 },
                 Text::new(""),
-                text_font(font, 14.0),
+                text_font(font, TEXT_BODY),
                 TextColor(TEXT_PRIMARY),
             ));
         });
@@ -139,7 +140,7 @@ pub fn setup_generic_machine_ui(
                     // Instructions
                     content.spawn((
                         Text::new("E/ESC で閉じる"),
-                        text_font(&font_content, 11.0),
+                        text_font(&font_content, TEXT_MINI),
                         TextColor(TEXT_SECONDARY),
                     ));
                 });
@@ -183,7 +184,7 @@ fn spawn_header(panel: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Font
             header.spawn((
                 GenericMachineHeaderText,
                 Text::new(spec.name),
-                text_font(font, 16.0),
+                text_font(font, TEXT_BUTTON),
                 TextColor(HEADER_COLOR),
             ));
         });
@@ -219,7 +220,7 @@ fn spawn_io_row(content: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Fo
             if !output_slots.is_empty() {
                 row.spawn((
                     Text::new("→"),
-                    text_font(font, 20.0),
+                    text_font(font, TEXT_TITLE),
                     TextColor(TEXT_SECONDARY),
                 ));
             }
@@ -270,7 +271,7 @@ fn spawn_fuel_row(content: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<
     // Fire icon
     content.spawn((
         Text::new("▼"),
-        text_font(font, 20.0),
+        text_font(font, TEXT_TITLE),
         TextColor(Color::srgba(1.0, 0.5, 0.0, 0.8)),
     ));
 
@@ -286,7 +287,7 @@ fn spawn_fuel_row(content: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<
                 spawn_generic_slot(row, slot_def, font);
                 row.spawn((
                     Text::new(slot_def.label),
-                    text_font(font, 12.0),
+                    text_font(font, TEXT_SMALL),
                     TextColor(TEXT_SECONDARY),
                 ));
             }

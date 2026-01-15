@@ -19,8 +19,9 @@ use crate::plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
 use crate::robot::RobotPlugin;
 use crate::settings::SettingsPlugin;
 use crate::setup::{
-    handle_settings_back, handle_settings_sliders, handle_settings_toggles, setup_initial_items,
-    setup_lighting, setup_player, setup_ui, update_settings_ui, update_settings_visibility,
+    handle_settings_back, handle_settings_sliders, handle_settings_toggles,
+    handle_slider_drag_state, setup_initial_items, setup_lighting, setup_player, setup_ui,
+    update_settings_ui, update_settings_visibility, SliderDragState,
 };
 use crate::skin::SkinPlugin;
 use crate::statistics::StatisticsPlugin;
@@ -32,7 +33,7 @@ use crate::systems::{
     player_look, player_move, process_dirty_chunks, quest_claim_rewards, quest_deliver_button,
     quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement, select_block_type,
     setup_highlight_cache, spawn_chunk_tasks, sync_cursor_to_ui_state, sync_legacy_ui_state,
-    tick_action_timers, toggle_cursor_lock, tutorial_dismiss, ui_action_handler, ui_escape_handler,
+    tick_action_timers, toggle_cursor_lock, ui_action_handler, ui_escape_handler,
     ui_global_inventory_handler, ui_inventory_handler, unload_distant_chunks,
     update_conveyor_shapes, update_delivery_ui, update_guide_markers, update_pause_ui,
     update_quest_ui, update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent,
@@ -106,6 +107,7 @@ impl Plugin for GamePlugin {
             .init_resource::<GlobalInventoryCategory>()
             .init_resource::<GlobalInventorySearch>()
             .init_resource::<BreakingProgress>()
+            .init_resource::<SliderDragState>()
             // Sky blue background color (simple skybox)
             .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)));
 
@@ -178,8 +180,6 @@ impl GamePlugin {
         // Initialize cursor state after window is ready (waits 5 frames)
         // See: https://github.com/bevyengine/bevy/issues/16237
         app.add_systems(Update, initialize_cursor);
-
-        app.add_systems(Update, tutorial_dismiss);
 
         // Targeting must run before block operations
         app.add_systems(Update, update_target_block);
@@ -267,6 +267,7 @@ impl GamePlugin {
             (
                 update_settings_visibility,
                 update_settings_ui,
+                handle_slider_drag_state,
                 handle_settings_sliders,
                 handle_settings_toggles,
                 handle_settings_back,

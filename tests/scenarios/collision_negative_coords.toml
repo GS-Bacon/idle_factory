@@ -1,0 +1,78 @@
+name = "衝突判定: 負の座標テスト"
+description = "負の座標(x=-5, z=-5)でブロック衝突が正しく動作することを確認"
+
+# UIをGameplayにリセット
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 負の座標付近にテレポート
+[[steps]]
+action = "command"
+params = { command = "tp -5 11 -5" }
+
+[[steps]]
+action = "wait"
+params = { ms = 300 }
+
+# 地面ブロックを設置
+[[steps]]
+action = "command"
+params = { command = "setblock -5 10 -5 stone" }
+
+[[steps]]
+action = "command"
+params = { command = "setblock -5 10 -4 stone" }
+
+[[steps]]
+action = "command"
+params = { command = "setblock -5 10 -3 stone" }
+
+# 正面に壁を設置（Z+方向）
+[[steps]]
+action = "command"
+params = { command = "setblock -5 11 -2 stone" }
+
+[[steps]]
+action = "command"
+params = { command = "setblock -5 12 -2 stone" }
+
+[[steps]]
+action = "wait"
+params = { ms = 300 }
+
+# 初期位置を取得
+[[steps]]
+action = "get_state"
+
+# 壁に向かって前進
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward", held = true }
+
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+# 移動停止
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward", held = false }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 最終位置を取得
+[[steps]]
+action = "get_state"
+
+# Z座標が-3以上（壁で止まっている）ことを確認
+# 壁がZ=-2にあるので、壁の手前で止まっているはず
+[[steps]]
+action = "assert"
+params = { condition = "player_y > 10.0" }

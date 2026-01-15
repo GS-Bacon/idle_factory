@@ -143,12 +143,15 @@ pub struct CreativeMode {
 }
 
 /// Tutorial shown state (prevents showing again)
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct TutorialShown(pub bool);
 
-/// Marker for tutorial popup UI
-#[derive(Component)]
-pub struct TutorialPopup;
+impl Default for TutorialShown {
+    fn default() -> Self {
+        // Start with tutorial already "shown" (no welcome popup)
+        Self(true)
+    }
+}
 
 // =============================================================================
 // Tutorial Quest System

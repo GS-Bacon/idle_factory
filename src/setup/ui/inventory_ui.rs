@@ -6,7 +6,8 @@ use bevy::prelude::*;
 
 use super::{
     spawn_inventory_slot, text_font, QUEST_BG, QUEST_BORDER_COLOR, QUEST_RADIUS, SLOT_BG,
-    SLOT_BORDER, SLOT_BORDER_COLOR, SLOT_GAP, SLOT_RADIUS, SLOT_SIZE, SPRITE_SIZE,
+    SLOT_BORDER, SLOT_BORDER_COLOR, SLOT_GAP, SLOT_RADIUS, SLOT_SIZE, SPRITE_SIZE, TEXT_BUTTON,
+    TEXT_TINY,
 };
 
 /// Calculate inventory UI width based on slot size
@@ -127,7 +128,7 @@ pub fn setup_inventory_ui(
                                         // Text fallback
                                         btn.spawn((
                                             Text::new(item_id.short_name()),
-                                            text_font(font, 10.0),
+                                            text_font(font, TEXT_TINY),
                                             TextColor(Color::WHITE),
                                         ));
                                     });
@@ -222,7 +223,7 @@ pub fn setup_inventory_ui(
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("X"),
-                                text_font(font, 16.0),
+                                text_font(font, TEXT_BUTTON),
                                 TextColor(Color::srgb(1.0, 0.5, 0.4)),
                             ));
                         });

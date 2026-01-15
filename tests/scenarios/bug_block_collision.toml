@@ -1,0 +1,31 @@
+name = "バグ再現: ブロック当たり判定"
+description = "ブロック設置後の当たり判定確認"
+
+# 初期状態を確認
+[[steps]]
+action = "get_state"
+
+# クリエイティブモードを有効化（ブロックを持つため）
+[[steps]]
+action = "command"
+params = { command = "creative on" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# プレイヤー位置を確認
+[[steps]]
+action = "get_state"
+
+# テスト用の位置に移動（地面の上）
+[[steps]]
+action = "command"
+params = { command = "tp 0 10 0" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+[[steps]]
+action = "get_state"

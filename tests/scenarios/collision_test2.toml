@@ -1,0 +1,58 @@
+# Collision detection test - closer position
+# Teleport player very close to placed block and check collision
+
+name = "Collision Test 2: Close Position"
+description = "Teleport player close to block and verify collision detection"
+
+# First reset to Gameplay state
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Dismiss tutorial via command
+[[steps]]
+action = "command"
+params = { command = "/dismiss_tutorial" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Place iron ore block first
+[[steps]]
+action = "command"
+params = { command = "/setblock 10 20 10 base:iron_ore" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Teleport player right next to the block (should trigger collision)
+[[steps]]
+action = "command"
+params = { command = "/tp 10 20 9.3" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Get state to see position
+[[steps]]
+action = "get_state"
+
+# Try to move forward into the block
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Get state again
+[[steps]]
+action = "get_state"

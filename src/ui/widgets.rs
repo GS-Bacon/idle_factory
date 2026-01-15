@@ -6,7 +6,10 @@
 use bevy::prelude::*;
 
 // Import theme constants from setup/ui
-use crate::setup::ui::{SLOT_BG, SLOT_BORDER_COLOR, SLOT_GAP, SLOT_RADIUS, SLOT_SIZE, SPRITE_SIZE};
+use crate::setup::ui::{
+    text_font, SLOT_BG, SLOT_BORDER_COLOR, SLOT_GAP, SLOT_RADIUS, SLOT_SIZE, SPRITE_SIZE,
+    TEXT_SMALL,
+};
 
 /// Configuration for spawning a slot widget
 #[derive(Clone, Debug)]
@@ -95,11 +98,7 @@ pub fn spawn_slot(commands: &mut Commands, config: SlotConfig, font: Handle<Font
                 slot.spawn((
                     SlotCountText { index },
                     Text::new(""),
-                    TextFont {
-                        font,
-                        font_size: 12.0,
-                        ..default()
-                    },
+                    text_font(&font, TEXT_SMALL),
                     TextColor(Color::WHITE),
                     Node {
                         position_type: PositionType::Absolute,
@@ -169,11 +168,7 @@ pub fn spawn_button(commands: &mut Commands, config: ButtonConfig, font: Handle<
         .with_children(|btn| {
             btn.spawn((
                 Text::new(config.text),
-                TextFont {
-                    font,
-                    font_size: config.font_size,
-                    ..default()
-                },
+                text_font(&font, config.font_size),
                 TextColor(Color::WHITE),
             ));
         })
@@ -250,11 +245,7 @@ fn spawn_slot_child(parent: &mut ChildBuilder, config: SlotConfig, font: Handle<
                 slot.spawn((
                     SlotCountText { index },
                     Text::new(""),
-                    TextFont {
-                        font,
-                        font_size: 12.0,
-                        ..default()
-                    },
+                    text_font(&font, TEXT_SMALL),
                     TextColor(Color::WHITE),
                     Node {
                         position_type: PositionType::Absolute,

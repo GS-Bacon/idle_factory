@@ -1,8 +1,9 @@
 //! Debug HUD systems
 
-use crate::components::{BiomeHudText, PlayerPhysics, *};
+use crate::components::{BiomeHudText, GameFont, PlayerPhysics, *};
 use crate::core::items;
 use crate::input::{GameAction, InputManager};
+use crate::setup::ui::{text_font, TEXT_BODY};
 use crate::world::{BiomeMap, WorldData};
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::prelude::*;
@@ -28,6 +29,7 @@ pub fn toggle_debug_hud(
     input: Res<InputManager>,
     mut debug_state: ResMut<DebugHudState>,
     debug_query: Query<Entity, With<DebugHudText>>,
+    game_font: Res<GameFont>,
 ) {
     if input.just_pressed(GameAction::ToggleDebug) {
         debug_state.visible = !debug_state.visible;
@@ -36,10 +38,7 @@ pub fn toggle_debug_hud(
             // Spawn debug HUD
             commands.spawn((
                 Text::new("Debug Info"),
-                TextFont {
-                    font_size: 14.0,
-                    ..default()
-                },
+                text_font(&game_font.0, TEXT_BODY),
                 TextColor(Color::srgb(0.0, 1.0, 0.0)),
                 Node {
                     position_type: PositionType::Absolute,
@@ -118,7 +117,7 @@ pub fn update_debug_hud(
     let block_type_str = if let Some(break_pos) = target_block.break_target {
         world_data
             .get_block(break_pos)
-            .map(|b| format!("{:?}", b))
+            .map(|b| b.display_name().to_string())
             .unwrap_or_else(|| "Air".to_string())
     } else {
         "N/A".to_string()
@@ -337,7 +336,7 @@ pub fn export_e2e_state(
     let target_block_type = if let Some(break_pos) = target_block.break_target {
         world_data
             .get_block(break_pos)
-            .map(|b| format!("{:?}", b))
+            .map(|b| b.display_name().to_string())
             .unwrap_or_else(|| "Air".to_string())
     } else {
         "None".to_string()

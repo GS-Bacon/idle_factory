@@ -187,3 +187,9 @@ id = "base:settings_fov_slider"
 name = "FOV Slider"
 show_in = ["Settings"]
 interactable = true
+
+[[ui_elements]]
+id = "base:settings_update_button"
+name = "Update Button"
+show_in = ["Settings"]
+interactable = true

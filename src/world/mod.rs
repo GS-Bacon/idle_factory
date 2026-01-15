@@ -684,6 +684,36 @@ pub struct WorldData {
 }
 
 impl WorldData {
+    /// Log block operation to file (logs/block_ops.log)
+    /// Does not print to console to avoid noise
+    fn log_block_op(op: &str, status: &str, world_pos: IVec3, item: Option<ItemId>) {
+        use std::io::Write;
+        use std::sync::Mutex;
+        use std::sync::OnceLock;
+
+        static LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
+
+        let file = LOG_FILE.get_or_init(|| {
+            let _ = std::fs::create_dir_all("logs");
+            let file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("logs/block_ops.log")
+                .expect("Failed to open block_ops.log");
+            Mutex::new(file)
+        });
+
+        if let Ok(mut f) = file.lock() {
+            let item_name = item.and_then(|id| id.name()).unwrap_or("-");
+            let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
+            let _ = writeln!(
+                f,
+                "{} {} {} pos=({},{},{}) item={}",
+                timestamp, op, status, world_pos.x, world_pos.y, world_pos.z, item_name
+            );
+        }
+    }
+
     /// Convert world position to chunk coordinate
     pub fn world_to_chunk(world_pos: IVec3) -> IVec2 {
         IVec2::new(
@@ -725,10 +755,14 @@ impl WorldData {
         if let Some(chunk) = self.chunks.get_mut(&chunk_coord) {
             // Bounds check for y coordinate
             if local_pos.y < 0 || local_pos.y >= CHUNK_HEIGHT {
+                Self::log_block_op("set_block", "Y_OUT_OF_BOUNDS", world_pos, Some(item_id));
                 return;
             }
             let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
             chunk.blocks[idx] = Some(item_id);
+            Self::log_block_op("set_block", "SUCCESS", world_pos, Some(item_id));
+        } else {
+            Self::log_block_op("set_block", "CHUNK_NOT_LOADED", world_pos, Some(item_id));
         }
         // Persist player modification for chunk reload
         self.modified_blocks.insert(world_pos, Some(item_id));
@@ -741,11 +775,18 @@ impl WorldData {
         let local_pos = Self::world_to_local(world_pos);
         // Bounds check for y coordinate
         if local_pos.y < 0 || local_pos.y >= CHUNK_HEIGHT {
+            Self::log_block_op("remove_block", "Y_OUT_OF_BOUNDS", world_pos, None);
             return None;
         }
         let chunk = self.chunks.get_mut(&chunk_coord)?;
         let idx = ChunkData::pos_to_index(local_pos.x, local_pos.y, local_pos.z);
         let block = chunk.blocks[idx].take();
+        let status = if block.is_some() {
+            "SUCCESS"
+        } else {
+            "NO_BLOCK"
+        };
+        Self::log_block_op("remove_block", status, world_pos, block);
         // Persist player modification for chunk reload (None = air/removed)
         self.modified_blocks.insert(world_pos, None);
         block

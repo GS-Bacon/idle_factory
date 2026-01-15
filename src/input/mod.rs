@@ -133,6 +133,17 @@ impl InputManager {
     /// Clear all virtual input state
     pub fn clear_virtual(&mut self) {
         self.virtual_just_pressed.clear();
+        self.virtual_pressed.clear();
+    }
+
+    /// Check if there are any virtual inputs
+    pub fn has_virtual_input(&self) -> bool {
+        !self.virtual_pressed.is_empty()
+    }
+
+    /// Get debug info about virtual pressed actions
+    pub fn virtual_pressed_debug(&self) -> String {
+        format!("{:?}", self.virtual_pressed)
     }
 
     /// Get the bindings for an action
@@ -417,10 +428,14 @@ mod tests {
         assert!(manager.just_pressed(GameAction::Jump));
         assert!(manager.pressed(GameAction::Jump));
 
-        // Clear virtual just_pressed
+        // Clear virtual - both just_pressed and pressed are cleared
         manager.clear_virtual();
         assert!(!manager.just_pressed(GameAction::Jump));
-        assert!(manager.pressed(GameAction::Jump)); // Still pressed
+        assert!(!manager.pressed(GameAction::Jump)); // Also cleared now
+
+        // Inject press again
+        manager.inject_press(GameAction::Jump);
+        assert!(manager.pressed(GameAction::Jump));
 
         // Inject release
         manager.inject_release(GameAction::Jump);

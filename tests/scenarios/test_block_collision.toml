@@ -1,0 +1,63 @@
+name = "ブロック当たり判定テスト"
+description = "ブロック設置後に当たり判定が機能するか検証"
+
+# UIをGameplayにリセット
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 初期位置を取得
+[[steps]]
+action = "get_state"
+
+# テスト用の空中位置にテレポート（地面から離れる）
+[[steps]]
+action = "command"
+params = { command = "tp 100 15 100" }
+
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+# テレポート後の位置確認
+[[steps]]
+action = "get_state"
+
+# プレイヤーの正面（Z+方向）にブロックを設置
+[[steps]]
+action = "command"
+params = { command = "setblock 100 15 102 stone" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 前進入力（ブロックに向かって）
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+# 位置確認（ブロックで止まっているはず）
+[[steps]]
+action = "get_state"
+
+# 更に前進を試みる
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+# 最終位置確認
+[[steps]]
+action = "get_state"

@@ -20,6 +20,7 @@ use bevy::tasks::IoTaskPool;
 use crossbeam_channel::{Receiver, Sender};
 
 use self::state::UpdateCheckCompleteEvent;
+use crate::setup::ui::settings_ui::{handle_settings_update_button, update_settings_update_ui};
 
 /// Plugin for automatic updates.
 ///
@@ -36,7 +37,6 @@ impl Plugin for UpdaterPlugin {
             .add_event::<RestartAppEvent>()
             .add_event::<UpdateCheckCompleteEvent>()
             .add_systems(Startup, setup_updater)
-            .add_systems(Startup, ui::spawn_update_ui)
             .add_systems(
                 Update,
                 (
@@ -44,10 +44,9 @@ impl Plugin for UpdaterPlugin {
                     handle_check_event,
                     poll_check_result,
                     handle_start_update,
-                    handle_dismiss_button,
-                    handle_update_button,
-                    ui::update_notification_ui,
-                    ui::handle_button_hover,
+                    // Update UI is now in settings panel
+                    update_settings_update_ui,
+                    handle_settings_update_button,
                 ),
             );
     }
@@ -251,28 +250,4 @@ fn handle_start_update(
     }
 }
 
-/// Handle dismiss button clicks.
-fn handle_dismiss_button(
-    query: Query<&Interaction, (Changed<Interaction>, With<ui::DismissButton>)>,
-    mut state: ResMut<UpdateState>,
-) {
-    for interaction in query.iter() {
-        if *interaction == Interaction::Pressed {
-            tracing::info!("Update dismissed by user");
-            state.phase = UpdatePhase::Idle;
-        }
-    }
-}
-
-/// Handle update button clicks.
-fn handle_update_button(
-    query: Query<&Interaction, (Changed<Interaction>, With<ui::UpdateButton>)>,
-    mut events: EventWriter<StartUpdateEvent>,
-) {
-    for interaction in query.iter() {
-        if *interaction == Interaction::Pressed {
-            tracing::info!("Update button clicked");
-            events.send(StartUpdateEvent);
-        }
-    }
-}
+// Note: Dismiss and update button handlers are now in settings_ui.rs

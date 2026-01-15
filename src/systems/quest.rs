@@ -479,4 +479,25 @@ pub fn load_machine_models(
         items::crusher_block(),
         asset_server.load("textures/items/crusher.png"),
     );
+    // Additional items
+    item_sprites.insert_id(
+        items::grass(),
+        asset_server.load("textures/items/grass.png"),
+    );
+    item_sprites.insert_id(
+        items::iron_dust(),
+        asset_server.load("textures/items/iron_dust.png"),
+    );
+    item_sprites.insert_id(
+        items::copper_dust(),
+        asset_server.load("textures/items/copper_dust.png"),
+    );
+    item_sprites.insert_id(
+        items::assembler_block(),
+        asset_server.load("textures/items/assembler.png"),
+    );
+    item_sprites.insert_id(
+        items::platform_block(),
+        asset_server.load("textures/items/platform.png"),
+    );
 }

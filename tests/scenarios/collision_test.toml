@@ -1,0 +1,64 @@
+# Collision detection test scenario
+# Tests that player cannot walk through placed blocks
+
+name = "Collision Test: Iron Ore"
+description = "Place iron ore and verify collision detection"
+
+# Start from Gameplay state
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Get initial player position
+[[steps]]
+action = "get_state"
+
+# Teleport player to known position
+[[steps]]
+action = "command"
+params = { command = "/tp 0 20 0" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Place iron ore block in front of player (at x=0, y=20, z=2)
+[[steps]]
+action = "command"
+params = { command = "/setblock 0 20 2 base:iron_ore" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Place another block on top (at x=0, y=21, z=2)
+[[steps]]
+action = "command"
+params = { command = "/setblock 0 21 2 base:iron_ore" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# Try to move forward (toward the block)
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+# Get position after movement attempt
+[[steps]]
+action = "get_state"
+
+# Player should not have moved past z=1.5 or so due to collision
+# (Initial position z=0, block at z=2)
+[[steps]]
+action = "compare_position"
+params = { expect = "unchanged", tolerance = 1.5 }

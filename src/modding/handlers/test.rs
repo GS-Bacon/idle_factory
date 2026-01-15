@@ -212,6 +212,37 @@ pub fn handle_test_send_input(request: &JsonRpcRequest) -> JsonRpcResponse {
     )
 }
 
+// === test.send_command ===
+
+#[derive(Deserialize)]
+pub struct SendCommandParams {
+    pub command: String, // "/setblock 0 10 0 base:iron_ore", "/tp 0 10 0"
+}
+
+/// Handle test.send_command request
+/// Queues a command for execution. Actual execution happens in process_test_command_queue.
+pub fn handle_test_send_command(request: &JsonRpcRequest) -> JsonRpcResponse {
+    let params: SendCommandParams = match serde_json::from_value(request.params.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            return JsonRpcResponse::error(
+                request.id,
+                INVALID_PARAMS,
+                format!("Invalid params: {}", e),
+            );
+        }
+    };
+
+    // Note: 実際のコマンド実行はprocess_test_command_queueで行う
+    JsonRpcResponse::success(
+        request.id,
+        serde_json::json!({
+            "success": true,
+            "command": params.command,
+        }),
+    )
+}
+
 // === test.assert ===
 
 #[derive(Deserialize)]
@@ -244,13 +275,21 @@ pub fn handle_test_assert(request: &JsonRpcRequest, test_state: &TestStateInfo) 
 
 /// 条件文字列を評価
 /// "field op value" 形式の条件をパースして、状態と比較する
-/// 対応演算子: ==, !=, contains, not_contains
+/// 対応演算子: ==, !=, <, >, <=, >=, contains, not_contains
 fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, String) {
-    // Try different operators
+    // Try different operators (order matters: longer operators first)
     let (field, op, expected) = if let Some((f, v)) = condition.split_once(" == ") {
         (f.trim(), "==", v.trim())
     } else if let Some((f, v)) = condition.split_once(" != ") {
         (f.trim(), "!=", v.trim())
+    } else if let Some((f, v)) = condition.split_once(" <= ") {
+        (f.trim(), "<=", v.trim())
+    } else if let Some((f, v)) = condition.split_once(" >= ") {
+        (f.trim(), ">=", v.trim())
+    } else if let Some((f, v)) = condition.split_once(" < ") {
+        (f.trim(), "<", v.trim())
+    } else if let Some((f, v)) = condition.split_once(" > ") {
+        (f.trim(), ">", v.trim())
     } else if let Some((f, v)) = condition.split_once(" contains ") {
         (f.trim(), "contains", v.trim())
     } else if let Some((f, v)) = condition.split_once(" not_contains ") {
@@ -319,6 +358,26 @@ fn evaluate_condition(condition: &str, state: &TestStateInfo) -> (bool, String, 
             _ => false,
         };
         return (success, expected.to_string(), actual);
+    }
+
+    // player_y の特別処理: Y座標の数値比較
+    if field == "player_y" {
+        let actual_y = state.player_position[1];
+        let actual_str = format!("{:.2}", actual_y);
+        if let Ok(expected_f) = expected.parse::<f32>() {
+            let success = match op {
+                "==" => (actual_y - expected_f).abs() < 0.01,
+                "!=" => (actual_y - expected_f).abs() >= 0.01,
+                "<" => actual_y < expected_f,
+                ">" => actual_y > expected_f,
+                "<=" => actual_y <= expected_f,
+                ">=" => actual_y >= expected_f,
+                _ => false,
+            };
+            return (success, expected.to_string(), actual_str);
+        } else {
+            return (false, expected.to_string(), actual_str);
+        }
     }
 
     let actual = match field {

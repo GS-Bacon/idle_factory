@@ -1,0 +1,77 @@
+# Collision detection test - on ground
+# Place block on ground and try to walk into it
+
+name = "Collision Test: Ground Level"
+description = "Place block on ground and verify collision detection"
+
+# First reset to Gameplay state
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Dismiss tutorial via command
+[[steps]]
+action = "command"
+params = { command = "/dismiss_tutorial" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Teleport player to ground level (Y=1 is typical ground level)
+# The player will land on ground and be stable
+[[steps]]
+action = "command"
+params = { command = "/tp 0 2 0" }
+
+[[steps]]
+action = "wait"
+params = { ms = 500 }
+
+# Get initial position
+[[steps]]
+action = "get_state"
+
+# Place iron ore block in front of player at ground level (Z=2)
+# Player is at Z=0, so Z=2 is 2 blocks in front
+[[steps]]
+action = "command"
+params = { command = "/setblock 0 1 2 base:iron_ore" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Place another block on top for full collision wall
+[[steps]]
+action = "command"
+params = { command = "/setblock 0 2 2 base:iron_ore" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Try to move forward (toward the block)
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+# Get final position
+[[steps]]
+action = "get_state"

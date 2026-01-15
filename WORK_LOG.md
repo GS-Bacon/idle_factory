@@ -1,5 +1,53 @@
 # 作業ログ
 
+## 2026-01-15: コードベース整理・UI改善
+
+### 概要
+
+不要なスクリプト削除、設定UIへの更新機能統合、クエストUI改善など、コードベースの整理と品質向上を実施。
+
+### 完了タスク
+
+| タスク | 内容 |
+|--------|------|
+| vlm_check削除 | VLMベース画像比較スクリプト群を削除（約1,600行）- 使用していないため |
+| 更新UI統合 | `updater/ui.rs` から `settings_ui.rs` に更新機能を統合 |
+| クエストUI改善 | `src/systems/quest.rs` に納品ボタン情報を追加 |
+| ストレージUI改善 | `src/ui/storage_ui.rs` のリファクタリング |
+| 入力隔離改善 | `src/input/mod.rs` のInputState処理改善 |
+| WebSocket API拡張 | `src/modding/server.rs` にテスト用API追加 |
+
+### 削除したファイル
+
+| ファイル | 行数 | 理由 |
+|----------|------|------|
+| `scripts/vlm_check.sh` | 350行 | 未使用 |
+| `scripts/vlm_check/README.md` | 203行 | 未使用 |
+| `scripts/vlm_check/pixel_compare.py` | 152行 | 未使用 |
+| `scripts/vlm_check/smart_compare.py` | 253行 | 未使用 |
+| `scripts/vlm_check/visual_checker.py` | 476行 | 未使用 |
+| `scripts/vlm_check/vlm_compare.py` | 193行 | 未使用 |
+
+### 変更ファイル（主要）
+
+| ファイル | 変更 |
+|----------|------|
+| `src/setup/ui/settings_ui.rs` | +261行（更新機能を統合） |
+| `src/modding/server.rs` | +115行（テストAPI拡張） |
+| `src/updater/ui.rs` | -224行（settings_uiに移動） |
+| `src/setup/ui/mod.rs` | リファクタリング |
+
+### 現在の状態
+
+| 項目 | 値 |
+|------|-----|
+| バージョン | 0.3.136 |
+| コード行数 | 29,253行 |
+| 削除行数 | 約1,600行（vlm_check） |
+| テスト | 613件パス |
+
+---
+
 ## 2026-01-14: BUG-17修正 - カーソル制御の競合問題
 
 ### 概要
@@ -644,3 +692,53 @@ Clippy: 警告 0件
 - `CursorLockState.paused` はポーズ専用ではなく「UIが開いている状態」を示す
 - InputState優先度: 具体的UI状態 > 汎用状態（Paused）
 - UIElementIdパターンはMod拡張を見据えた設計として有効
+
+---
+
+## 2026-01-14: 更新ボタン残留バグ修正 + テスト検出能力改善
+
+### 概要
+
+ESCでポーズメニュー開閉後、設定パネル内の「今すぐ更新」ボタンだけが画面に残るバグを修正。併せてテストで検出できなかった理由を分析し、テストシステムを改善。
+
+### 根本原因
+
+| 項目 | 内容 |
+|------|------|
+| Bevy 0.15の仕様 | `Visibility::Visible` は親が `Hidden` でも表示される |
+| 問題のコード | `update_settings_update_ui` が UIContext をチェックせず毎フレーム実行 |
+| 結果 | 設定パネル（親）が非表示でも、更新ボタン（子）が `Visible` のため表示 |
+
+### 修正内容
+
+| ファイル | 変更 |
+|----------|------|
+| `src/setup/ui/settings_ui.rs` | `update_settings_update_ui` に `UIContext::Settings` チェック追加 |
+| `src/setup/ui/settings_ui.rs` | `spawn_update_row` に `ui_registry` を渡し、更新ボタンに `UIElementTag` 追加 |
+| `mods/base/ui_elements.toml` | `base:settings_update_button` を登録 |
+| `tests/scenarios/bug_update_button_residue.toml` | 再現テストシナリオ作成 |
+
+### テスト検出能力の改善
+
+**問題**: `base:settings_menu.visible == false` だけでは、子要素が `Visibility::Visible` で表示されるバグを検出不可
+
+**解決**:
+- 更新ボタンに `UIElementTag` を追加
+- テストで `base:settings_update_button.visible == false` を直接検証
+- 将来同様のボタン追加時も同じパターンで検出可能
+
+### 学び
+
+| 学び | 詳細 |
+|------|------|
+| Bevy Visibility の仕様 | `Visible` = 親を無視して常に表示、`Inherited` = 親に従う |
+| UIコンテキスト連動 | 親のVisibilityに依存せず、明示的にUIContextチェックが必要 |
+| テスト可能性 | 重要なUI要素には `UIElementTag` を付けてテスト可能に |
+| 親子関係の罠 | 親が非表示でも子が `Visible` なら表示される点に注意 |
+
+### テストシステムの課題（別途対応）
+
+| 課題 | 内容 |
+|------|------|
+| 入力注入タイミング | `test.send_input` 後の状態変更に1-2フレームの遅延 |
+| 待ち時間 | 200msでは不足する場合がある（300-500ms推奨）|

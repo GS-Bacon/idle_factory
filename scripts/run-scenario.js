@@ -161,6 +161,11 @@ async function runScenario(scenarioPath) {
                     console.log(`Wait: ${ms}ms ✓`);
                     break;
 
+                case 'command':
+                    await send('test.send_command', { command: params.command });
+                    console.log(`Command: ${params.command} ✓`);
+                    break;
+
                 case 'assert':
                     // Replace variables in condition
                     let condition = params.condition;

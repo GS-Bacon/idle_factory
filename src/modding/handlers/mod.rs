@@ -121,6 +121,7 @@ pub fn route_request(request: &JsonRpcRequest, ctx: &HandlerContext) -> JsonRpcR
         "test.get_events" => test::handle_test_get_events(request, &ctx.test_events),
         "test.clear_events" => test::handle_test_clear_events(request, ctx.cleared_events_count),
         "test.send_input" => test::handle_test_send_input(request),
+        "test.send_command" => test::handle_test_send_command(request),
         "test.set_ui_state" => test::handle_test_set_ui_state(request),
         "test.assert" => test::handle_test_assert(request, &ctx.test_state),
         "test.get_ui_elements" => test::handle_test_get_ui_elements(request, &ctx.ui_elements),
