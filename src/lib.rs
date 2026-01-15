@@ -14,6 +14,7 @@ pub mod debug;
 pub mod events;
 pub mod game_data;
 pub mod game_spec;
+pub mod graphics;
 pub mod input;
 pub mod logging;
 pub mod logistics;
@@ -106,11 +107,14 @@ pub use modding::{
     ModdingPlugin,
 };
 
+// Re-export graphics types
+pub use graphics::VoxelMaterial;
+
 // Re-export plugins for testing
 pub use audio::{AudioPlugin, SoundCategory, SoundSettings};
 pub use blockbench::BlockbenchPlugin;
 pub use plugins::{DebugPlugin, MachineSystemsPlugin, SavePlugin, UIPlugin};
-pub use vox_loader::VoxLoaderPlugin;
+pub use vox_loader::{VoxLoaderPlugin, VoxelArrayTexture};
 
 // Re-export updater plugin
 #[cfg(feature = "updater")]

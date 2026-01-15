@@ -1,5 +1,78 @@
 # 作業ログ
 
+## 2026-01-15: ブロックテクスチャ Array Texture 実装
+
+### 概要
+
+グリーディメッシングを有効にしたまま、各ブロックに正しくテクスチャをタイリング表示するArray Textureシステムを実装。
+
+### 背景
+
+- 以前の実装：テクスチャアトラス + グリーディメッシング無効化 → 動作するがパフォーマンス低下
+- 問題：グリーディメッシングを有効にするとテクスチャが引き伸ばされる
+- 解決策：Array Texture（テクスチャ配列）を使用し、シェーダーで`fract()`によるタイリング
+
+### 実装内容
+
+| ファイル | 変更 |
+|----------|------|
+| `scripts/create_block_atlas.py` | 縦配列テクスチャ生成機能追加（16x128） |
+| `assets/textures/block_textures_array.png` | 新規：8層の縦配列テクスチャ |
+| `assets/shaders/voxel.wgsl` | 新規：Array Textureフラグメントシェーダー |
+| `src/graphics/mod.rs` | 新規：graphicsモジュール |
+| `src/graphics/voxel_material.rs` | 新規：VoxelMaterial（カスタムマテリアル） |
+| `src/lib.rs` | graphicsモジュール・エクスポート追加 |
+| `src/world/mod.rs` | UV座標を3D化、グリーディメッシング再有効化 |
+| `src/systems/chunk.rs` | StandardMaterial → VoxelMaterial |
+| `src/plugins/game.rs` | MaterialPlugin<VoxelMaterial>登録 |
+| `src/vox_loader.rs` | VoxelArrayTextureリソース追加 |
+
+### 技術的判断
+
+| 項目 | 決定 | 理由 |
+|------|------|------|
+| テクスチャ形式 | Array Texture | アトラスブリード問題を完全回避 |
+| UV構成 | UV_0(u,v) + UV_1(layer,0) | BevyのVertexOutput標準構造を活用 |
+| タイリング | `fract(uv)` | シェーダーでシームレスに繰り返し |
+| 変換タイミング | 読み込み後 | `reinterpret_stacked_2d_as_array()` |
+
+### Bevy 0.15 API メモ
+
+```rust
+// Array Texture読み込み
+let handle = asset_server.load("textures/block_textures_array.png");
+
+// 読み込み後に変換（Updateシステムで）
+if let Some(image) = images.get_mut(&handle) {
+    image.reinterpret_stacked_2d_as_array(8); // 8層
+}
+```
+
+### シェーダー構造
+
+```wgsl
+@group(2) @binding(0) var block_textures: texture_2d_array<f32>;
+@group(2) @binding(1) var block_sampler: sampler;
+
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let layer = u32(mesh.uv_b.x);      // UV_1からレイヤー取得
+    let tiled_uv = fract(mesh.uv);     // タイリング
+    return textureSample(block_textures, block_sampler, tiled_uv, layer);
+}
+```
+
+### 現在の状態
+
+| 項目 | 値 |
+|------|-----|
+| バージョン | 0.3.164 |
+| ブランチ | feature/block-textures |
+| テスト | 613件パス |
+| グリーディメッシング | ✅ 有効化 |
+
+---
+
 ## 2026-01-15: コードベース整理・UI改善
 
 ### 概要

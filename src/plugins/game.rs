@@ -12,6 +12,7 @@ use crate::components::*;
 use crate::craft::CraftPlugin;
 use crate::events::GameEventsPlugin;
 use crate::game_spec::{load_ui_elements, RegistryPlugin};
+use crate::graphics::VoxelMaterial;
 use crate::input::InputManagerPlugin;
 use crate::map::MapPlugin;
 use crate::modding::ModdingPlugin;
@@ -71,7 +72,9 @@ impl Plugin for GamePlugin {
             .add_plugins(AchievementsPlugin)
             .add_plugins(SkinPlugin)
             .add_plugins(RobotPlugin)
-            .add_plugins(ModdingPlugin);
+            .add_plugins(ModdingPlugin)
+            // VoxelMaterial for block textures
+            .add_plugins(MaterialPlugin::<VoxelMaterial>::default());
 
         // Mod API WebSocket server (non-WASM only)
         #[cfg(not(target_arch = "wasm32"))]

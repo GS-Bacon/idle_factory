@@ -258,6 +258,43 @@ impl ItemId {
             .unwrap_or_else(|| bevy::prelude::Color::srgb(0.5, 0.5, 0.5))
     }
 
+    /// Get the texture atlas index for this block type.
+    ///
+    /// Returns an index into the block texture atlas (8x8 grid).
+    /// Layout:
+    /// - 0: stone, 1: grass_top, 2: grass_side, 3: iron_ore
+    /// - 4: copper_ore, 5: coal, 6: dirt, 7: sand
+    pub fn texture_index(&self) -> u32 {
+        let interner = items::interner();
+        match self.local_name(interner) {
+            Some("stone") => 0,
+            Some("grass") => 1, // Top face uses grass_top
+            Some("iron_ore") => 3,
+            Some("copper_ore") => 4,
+            Some("coal") => 5,
+            Some("dirt") => 6,
+            Some("sand") => 7,
+            _ => 0, // Default: stone texture
+        }
+    }
+
+    /// Get the texture atlas index for a specific face direction.
+    ///
+    /// Grass blocks use different textures for top vs sides.
+    /// `is_top_face`: true for +Y faces, false for other faces.
+    pub fn texture_index_for_face(&self, is_top_face: bool) -> u32 {
+        let interner = items::interner();
+        if self.local_name(interner) == Some("grass") {
+            if is_top_face {
+                1 // grass_top
+            } else {
+                2 // grass_side
+            }
+        } else {
+            self.texture_index()
+        }
+    }
+
     /// Get a short display name for UI (e.g., "Fe" for iron_ore)
     ///
     /// Uses ItemDescriptor lookup from game_spec registry.

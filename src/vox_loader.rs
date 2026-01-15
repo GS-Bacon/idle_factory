@@ -33,6 +33,18 @@ pub struct BlockTextureAtlas {
     pub generation: u32,
 }
 
+/// Resource to store the voxel array texture for block rendering
+/// Uses 2D array texture for proper tiling with greedy meshing
+#[derive(Resource, Default)]
+pub struct VoxelArrayTexture {
+    /// Handle to the array texture image
+    pub texture: Handle<Image>,
+    /// Number of layers in the array texture
+    pub layer_count: u32,
+    /// Whether the texture has been loaded
+    pub is_loaded: bool,
+}
+
 /// Resource to track file changes
 #[derive(Resource)]
 pub struct VoxFileWatcher {
@@ -59,6 +71,7 @@ impl Plugin for VoxLoaderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<VoxMeshes>()
             .init_resource::<BlockTextureAtlas>()
+            .init_resource::<VoxelArrayTexture>()
             .add_event::<VoxFileChanged>()
             .add_event::<TextureAtlasChanged>()
             .add_systems(
@@ -67,6 +80,7 @@ impl Plugin for VoxLoaderPlugin {
                     setup_file_watcher,
                     load_initial_vox_models,
                     load_initial_texture_atlas,
+                    load_voxel_array_texture,
                 ),
             )
             .add_systems(
@@ -75,6 +89,7 @@ impl Plugin for VoxLoaderPlugin {
                     check_file_changes,
                     handle_vox_reload,
                     handle_texture_atlas_reload,
+                    configure_array_texture,
                 ),
             );
     }
@@ -199,6 +214,63 @@ fn handle_texture_atlas_reload(
                 atlas.generation
             );
         }
+    }
+}
+
+/// Number of texture layers in the block texture array
+const BLOCK_TEXTURE_LAYERS: u32 = 8;
+
+/// Load the voxel array texture at startup
+fn load_voxel_array_texture(
+    asset_server: Res<AssetServer>,
+    mut array_tex: ResMut<VoxelArrayTexture>,
+) {
+    let path = "textures/block_textures_array.png";
+
+    // Load as a normal image first, then convert to array texture
+    array_tex.texture = asset_server.load(path);
+    array_tex.layer_count = BLOCK_TEXTURE_LAYERS;
+
+    tracing::info!(
+        "Loading voxel array texture: {} ({} layers)",
+        path,
+        BLOCK_TEXTURE_LAYERS
+    );
+}
+
+/// Configure array texture after it's loaded
+/// Converts the stacked 2D image to a 2D array texture
+fn configure_array_texture(
+    mut array_tex: ResMut<VoxelArrayTexture>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    if array_tex.is_loaded {
+        return;
+    }
+
+    // Check if texture is loaded
+    if let Some(image) = images.get_mut(&array_tex.texture) {
+        // Convert stacked 2D image to 2D array texture
+        // The image is 16x128 (8 layers of 16x16 stacked vertically)
+        image.reinterpret_stacked_2d_as_array(BLOCK_TEXTURE_LAYERS);
+
+        // Set sampler to repeat for tiling
+        image.sampler =
+            bevy::image::ImageSampler::Descriptor(bevy::image::ImageSamplerDescriptor {
+                address_mode_u: bevy::image::ImageAddressMode::Repeat,
+                address_mode_v: bevy::image::ImageAddressMode::Repeat,
+                address_mode_w: bevy::image::ImageAddressMode::ClampToEdge,
+                mag_filter: bevy::image::ImageFilterMode::Nearest,
+                min_filter: bevy::image::ImageFilterMode::Nearest,
+                ..default()
+            });
+
+        array_tex.is_loaded = true;
+        tracing::info!(
+            "Voxel array texture configured: {:?}, size: {:?}",
+            image.texture_descriptor.dimension,
+            image.size()
+        );
     }
 }
 

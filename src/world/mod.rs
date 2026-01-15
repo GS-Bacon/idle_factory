@@ -378,6 +378,7 @@ impl ChunkData {
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(estimated_faces * 4);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(estimated_faces * 4);
+        let mut uv_layers: Vec<[f32; 2]> = Vec::with_capacity(estimated_faces * 4); // UV_1: texture layer index
         let mut colors: Vec<[f32; 4]> = Vec::with_capacity(estimated_faces * 4);
         let mut indices: Vec<u32> = Vec::with_capacity(estimated_faces * 6);
 
@@ -479,7 +480,7 @@ impl ChunkData {
 
                         let item_id = mask[u][v].unwrap();
 
-                        // Find width (extend in v direction)
+                        // Greedy meshing: expand quad in v direction (width)
                         let mut width = 1;
                         while v + width < axis_sizes[axis2] as usize
                             && !processed[u][v + width]
@@ -488,20 +489,20 @@ impl ChunkData {
                             width += 1;
                         }
 
-                        // Find height (extend in u direction)
+                        // Expand quad in u direction (height)
                         let mut height = 1;
-                        'outer: while u + height < axis_sizes[axis1] as usize {
-                            for w in 0..width {
-                                if processed[u + height][v + w]
-                                    || mask[u + height][v + w] != Some(item_id)
+                        'height: while u + height < axis_sizes[axis1] as usize {
+                            for dv in 0..width {
+                                if processed[u + height][v + dv]
+                                    || mask[u + height][v + dv] != Some(item_id)
                                 {
-                                    break 'outer;
+                                    break 'height;
                                 }
                             }
                             height += 1;
                         }
 
-                        // Mark as processed
+                        // Mark all cells in the quad as processed
                         for du in 0..height {
                             for dv in 0..width {
                                 processed[u + du][v + dv] = true;
@@ -509,13 +510,16 @@ impl ChunkData {
                         }
 
                         // Generate quad
-                        let color = item_id.color();
-                        let color_arr = [
-                            color.to_srgba().red,
-                            color.to_srgba().green,
-                            color.to_srgba().blue,
-                            1.0,
-                        ];
+                        // For Array Texture: UV coordinates are tile-based for proper tiling
+                        // UV_0: (u, v) where u,v can be > 1 for multi-block quads
+                        // UV_1: (texture_layer, 0) for shader to select texture layer
+
+                        // Get texture index based on face direction (grass has different top/side)
+                        let is_top_face = axis == 1 && positive;
+                        let tex_layer = item_id.texture_index_for_face(is_top_face) as f32;
+
+                        // Keep vertex colors for tinting/debugging (white = no tint)
+                        let color_arr = [1.0_f32, 1.0, 1.0, 1.0];
 
                         // Calculate corner positions in u-v space
                         let u0f = u as f32;
@@ -623,12 +627,17 @@ impl ChunkData {
                         for _ in 0..4 {
                             normals.push(normal);
                             colors.push(color_arr);
+                            uv_layers.push([tex_layer, 0.0]); // UV_1: texture layer index
                         }
 
+                        // UV coordinates for tiling (0 to width/height)
+                        // The shader uses fract() to tile the texture seamlessly
+                        let uv_width = width as f32;
+                        let uv_height = height as f32;
                         uvs.push([0.0, 0.0]);
-                        uvs.push([width as f32, 0.0]);
-                        uvs.push([width as f32, height as f32]);
-                        uvs.push([0.0, height as f32]);
+                        uvs.push([uv_height, 0.0]);
+                        uvs.push([uv_height, uv_width]);
+                        uvs.push([0.0, uv_width]);
 
                         indices.extend_from_slice(&[
                             base_idx,
@@ -654,6 +663,7 @@ impl ChunkData {
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_1, uv_layers); // Texture layer index for array texture
         mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
         mesh.insert_indices(Indices::U32(indices));
         mesh

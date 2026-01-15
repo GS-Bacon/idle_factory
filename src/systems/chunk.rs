@@ -1,7 +1,9 @@
 //! Chunk loading, unloading, and mesh generation systems
 
 use crate::components::Player;
+use crate::graphics::VoxelMaterial;
 use crate::settings::GameSettings;
+use crate::vox_loader::VoxelArrayTexture;
 use crate::world::{ChunkData, ChunkLod, ChunkMesh, ChunkMeshData, ChunkMeshTasks, WorldData};
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
@@ -87,10 +89,11 @@ pub fn spawn_chunk_tasks(
 pub fn receive_chunk_meshes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut voxel_materials: ResMut<Assets<VoxelMaterial>>,
     mut world_data: ResMut<WorldData>,
     mut tasks: ResMut<ChunkMeshTasks>,
     player_query: Query<&Transform, With<Player>>,
+    array_texture: Res<VoxelArrayTexture>,
 ) {
     // Get player chunk for LOD calculation
     let player_chunk = player_query
@@ -179,10 +182,8 @@ pub fn receive_chunk_meshes(
         // Regenerate this chunk's mesh with neighbor awareness and LOD
         if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(coord, lod) {
             let mesh_handle = meshes.add(new_mesh);
-            let material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                perceptual_roughness: 0.9,
-                ..default()
+            let material = voxel_materials.add(VoxelMaterial {
+                array_texture: array_texture.texture.clone(),
             });
 
             // Find and despawn old mesh entity if exists
@@ -226,10 +227,8 @@ pub fn receive_chunk_meshes(
                 world_data.generate_chunk_mesh_with_lod(neighbor_coord, neighbor_lod)
             {
                 let mesh_handle = meshes.add(new_mesh);
-                let material = materials.add(StandardMaterial {
-                    base_color: Color::WHITE,
-                    perceptual_roughness: 0.9,
-                    ..default()
+                let material = voxel_materials.add(VoxelMaterial {
+                    array_texture: array_texture.texture.clone(),
                 });
 
                 if let Some(entities) = world_data.chunk_entities.remove(&neighbor_coord) {
@@ -310,10 +309,11 @@ pub use crate::world::PendingChunk;
 pub fn update_chunk_lod(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut voxel_materials: ResMut<Assets<VoxelMaterial>>,
     mut world_data: ResMut<WorldData>,
     player_query: Query<&Transform, With<Player>>,
     chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
+    array_texture: Res<VoxelArrayTexture>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
         return;
@@ -352,10 +352,8 @@ pub fn update_chunk_lod(
             world_data.chunk_entities.remove(&chunk_mesh.coord);
 
             let mesh_handle = meshes.add(new_mesh);
-            let material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                perceptual_roughness: 0.9,
-                ..default()
+            let material = voxel_materials.add(VoxelMaterial {
+                array_texture: array_texture.texture.clone(),
             });
 
             let new_entity = commands
@@ -389,10 +387,11 @@ pub fn update_chunk_lod(
 pub fn process_dirty_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut voxel_materials: ResMut<Assets<VoxelMaterial>>,
     mut world_data: ResMut<WorldData>,
     mut dirty_chunks: ResMut<DirtyChunks>,
     player_query: Query<&Transform, With<Player>>,
+    array_texture: Res<VoxelArrayTexture>,
 ) {
     if dirty_chunks.is_empty() {
         return;
@@ -432,10 +431,8 @@ pub fn process_dirty_chunks(
             }
 
             let mesh_handle = meshes.add(new_mesh);
-            let material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                perceptual_roughness: 0.9,
-                ..default()
+            let material = voxel_materials.add(VoxelMaterial {
+                array_texture: array_texture.texture.clone(),
             });
 
             let entity = commands
