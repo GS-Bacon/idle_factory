@@ -75,6 +75,8 @@ pub fn update_inventory_visibility(
             With<UpperPanelTabs>,
             Without<UpperPanel>,
             Without<InventoryUI>,
+            Without<InventoryBackgroundOverlay>,
+            Without<CreativePanel>,
         ),
     >,
     windows: Query<&Window>,

@@ -450,6 +450,33 @@ params = { condition = "ui_state == Inventory" }
 
 ## タスク完了の定義（重要）
 
+### ドキュメント更新ルール
+
+**タスク完了時に必ず更新するファイル:**
+
+| 作業種類 | 更新対象 |
+|----------|----------|
+| バグ修正 | `.claude/bugs.md` → `.claude/implementation-plan.md` → `.specify/roadmap.md` |
+| 機能実装 | `.claude/implementation-plan.md` → `.specify/roadmap.md` |
+| マイルストーン完了 | 上記 + `CLAUDE.md` の「現在の状態」 |
+
+**チェックコマンド:**
+```bash
+./scripts/sync-check.sh
+```
+
+**よくある失敗:**
+- bugs.mdで「✅ 修正済み」にしたが、implementation-planは未更新
+- タスクを完了したが、roadmap.mdの状態が古いまま
+
+**齟齬修正時の記録（必須）:**
+```bash
+# 齟齬を修正したら必ず追記
+echo "$(date +%Y-%m-%d): 修正内容" >> .claude/doc-sync-fixes.log
+```
+
+**10回超えたら構造化データ管理へ移行検討** - `.claude/doc-sync-fixes.log` が10行を超えたら `tasks.toml` ベースの管理を提案すること
+
 ### 「基盤実装」と「移行完了」は別物
 
 | 状態 | マーク | 意味 | 例 |
@@ -547,7 +574,7 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 
 | 項目 | 値 |
 |------|-----|
-| バージョン | **0.3.167** |
+| バージョン | **0.3.184** |
 | コード行数 | **29,253行** |
 | テスト | **613件** 通過 |
 | Clippy警告 | **0件** |

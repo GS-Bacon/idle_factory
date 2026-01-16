@@ -1,6 +1,6 @@
 [package]
 name = "idle_factory"
-version = "0.3.184"
+version = "0.3.185"
 edition = "2021"
 
 [workspace]
