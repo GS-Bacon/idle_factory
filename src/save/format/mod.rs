@@ -3,10 +3,12 @@
 //! This module uses V2 format exclusively (string IDs like "base:iron_ore").
 //! BlockType::to_save_string_id() and from_save_string_id() are used for conversion.
 
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+mod common;
+pub mod native;
+mod timer;
+mod v2;
 
+// Re-export constants
 /// Save version with string ID format
 pub const SAVE_VERSION: &str = "0.2.0";
 
@@ -16,376 +18,21 @@ pub const AUTO_SAVE_INTERVAL: f32 = 60.0;
 /// Save directory name
 pub const SAVE_DIR: &str = "saves";
 
-// =============================================================================
-// Common Structures (used by all versions)
-// =============================================================================
+// Re-export common types
+pub use common::{
+    CameraRotation, ConveyorShapeSave, DirectionSave, GameModeSaveData, IVec3Save, PlayerSaveData,
+    Vec3Save,
+};
 
-/// Player position and rotation
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PlayerSaveData {
-    pub position: Vec3Save,
-    pub rotation: CameraRotation,
-}
+// Re-export timer types
+pub use timer::{AutoSaveTimer, SaveSlotInfo};
 
-/// Vec3 wrapper for serialization
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct Vec3Save {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-
-impl From<Vec3> for Vec3Save {
-    fn from(v: Vec3) -> Self {
-        Self {
-            x: v.x,
-            y: v.y,
-            z: v.z,
-        }
-    }
-}
-
-impl From<Vec3Save> for Vec3 {
-    fn from(v: Vec3Save) -> Self {
-        Vec3::new(v.x, v.y, v.z)
-    }
-}
-
-/// IVec3 wrapper for serialization
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct IVec3Save {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
-}
-
-impl From<IVec3> for IVec3Save {
-    fn from(v: IVec3) -> Self {
-        Self {
-            x: v.x,
-            y: v.y,
-            z: v.z,
-        }
-    }
-}
-
-impl From<IVec3Save> for IVec3 {
-    fn from(v: IVec3Save) -> Self {
-        IVec3::new(v.x, v.y, v.z)
-    }
-}
-
-/// Camera rotation (pitch/yaw)
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct CameraRotation {
-    pub pitch: f32,
-    pub yaw: f32,
-}
-
-/// Direction for conveyors
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DirectionSave {
-    North,
-    South,
-    East,
-    West,
-}
-
-/// Conveyor shape
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConveyorShapeSave {
-    Straight,
-    CornerLeft,
-    CornerRight,
-    TJunction,
-    Splitter,
-}
-
-/// Game mode save data
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GameModeSaveData {
-    pub creative: bool,
-}
-
-// =============================================================================
-// V2 Save Data Structures (String ID based)
-// =============================================================================
-
-/// Item stack using string IDs
-/// This allows for mod items and future extensibility
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct ItemStackV2 {
-    /// Item ID in "namespace:id" format (e.g., "base:iron_ore", "mymod:copper_plate")
-    pub item_id: String,
-    /// Number of items in this stack
-    pub count: u32,
-}
-
-impl ItemStackV2 {
-    /// Create a new item stack with the given ID and count
-    pub fn new(item_id: impl Into<String>, count: u32) -> Self {
-        Self {
-            item_id: item_id.into(),
-            count,
-        }
-    }
-}
-
-/// Inventory save data using string IDs
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct InventorySaveDataV2 {
-    pub selected_slot: usize,
-    pub slots: Vec<Option<ItemStackV2>>,
-}
-
-/// Platform inventory save data using string IDs
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct PlatformInventorySaveDataV2 {
-    /// Items stored: "namespace:id" -> count
-    pub items: HashMap<String, u32>,
-}
-
-/// World save data using string IDs
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WorldSaveDataV2 {
-    /// Modified blocks: "x,y,z" -> Some("namespace:id") for placed, None for removed
-    pub modified_blocks: HashMap<String, Option<String>>,
-}
-
-impl WorldSaveDataV2 {
-    /// Convert IVec3 to string key for JSON serialization
-    pub fn pos_to_key(pos: IVec3) -> String {
-        format!("{},{},{}", pos.x, pos.y, pos.z)
-    }
-
-    /// Parse string key back to IVec3
-    pub fn key_to_pos(key: &str) -> Option<IVec3> {
-        let parts: Vec<&str> = key.split(',').collect();
-        if parts.len() != 3 {
-            return None;
-        }
-        Some(IVec3::new(
-            parts[0].parse().ok()?,
-            parts[1].parse().ok()?,
-            parts[2].parse().ok()?,
-        ))
-    }
-}
-
-/// Single item on conveyor using string ID
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ConveyorItemSaveV2 {
-    pub item_id: String,
-    pub progress: f32,
-    pub lateral_offset: f32,
-}
-
-/// Miner save data
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MinerSaveDataV2 {
-    pub position: IVec3Save,
-    pub progress: f32,
-    pub buffer: Option<ItemStackV2>,
-}
-
-/// Conveyor save data
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ConveyorSaveDataV2 {
-    pub position: IVec3Save,
-    pub direction: DirectionSave,
-    pub shape: ConveyorShapeSave,
-    pub items: Vec<ConveyorItemSaveV2>,
-    pub last_output_index: usize,
-    pub last_input_source: usize,
-}
-
-/// Furnace save data
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FurnaceSaveDataV2 {
-    pub position: IVec3Save,
-    pub fuel: u32,
-    pub input: Option<ItemStackV2>,
-    pub output: Option<ItemStackV2>,
-    pub progress: f32,
-}
-
-/// Crusher save data
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CrusherSaveDataV2 {
-    pub position: IVec3Save,
-    pub input: Option<ItemStackV2>,
-    pub output: Option<ItemStackV2>,
-    pub progress: f32,
-}
-
-/// Machine save data (all machine types)
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type")]
-pub enum MachineSaveDataV2 {
-    Miner(MinerSaveDataV2),
-    Conveyor(ConveyorSaveDataV2),
-    Furnace(FurnaceSaveDataV2),
-    Crusher(CrusherSaveDataV2),
-}
-
-/// Quest save data using string IDs
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct QuestSaveDataV2 {
-    pub current_index: usize,
-    pub completed: bool,
-    pub rewards_claimed: bool,
-    /// Items delivered: "namespace:id" -> count
-    pub delivered: HashMap<String, u32>,
-}
-
-/// Main save data structure using string IDs throughout
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SaveDataV2 {
-    /// Save format version (should be "0.2.0" or later)
-    pub version: String,
-    /// Timestamp when saved (Unix milliseconds)
-    pub timestamp: u64,
-    /// Player state
-    pub player: PlayerSaveData,
-    /// Inventory state
-    pub inventory: InventorySaveDataV2,
-    /// Global inventory
-    #[serde(default)]
-    pub platform_inventory: PlatformInventorySaveDataV2,
-    /// World modifications
-    pub world: WorldSaveDataV2,
-    /// All machines in the world
-    pub machines: Vec<MachineSaveDataV2>,
-    /// Quest progress
-    pub quests: QuestSaveDataV2,
-    /// Game mode
-    pub mode: GameModeSaveData,
-}
-
-// =============================================================================
-// Utilities
-// =============================================================================
-
-/// Auto-save timer resource
-#[derive(Resource)]
-pub struct AutoSaveTimer {
-    pub timer: Timer,
-}
-
-impl Default for AutoSaveTimer {
-    fn default() -> Self {
-        Self {
-            timer: Timer::from_seconds(AUTO_SAVE_INTERVAL, TimerMode::Repeating),
-        }
-    }
-}
-
-/// Save slot info for listing saves
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct SaveSlotInfo {
-    pub filename: String,
-    pub timestamp: u64,
-}
-
-// =============================================================================
-// Native Save/Load Functions
-// =============================================================================
-
-pub mod native {
-    use super::*;
-    use std::fs;
-
-    /// Get the saves directory path
-    pub fn get_save_dir() -> std::path::PathBuf {
-        std::path::PathBuf::from(SAVE_DIR)
-    }
-
-    /// Ensure save directory exists
-    pub fn ensure_save_dir() -> std::io::Result<()> {
-        let dir = get_save_dir();
-        if !dir.exists() {
-            fs::create_dir_all(&dir)?;
-        }
-        Ok(())
-    }
-
-    /// Save game data in V2 format
-    pub fn save_game_v2(data: &SaveDataV2, filename: &str) -> Result<(), String> {
-        ensure_save_dir().map_err(|e| format!("Failed to create save directory: {}", e))?;
-
-        let path = get_save_dir().join(format!("{}.json", filename));
-        let json = serde_json::to_string_pretty(data)
-            .map_err(|e| format!("Failed to serialize save data: {}", e))?;
-
-        fs::write(&path, json).map_err(|e| format!("Failed to write save file: {}", e))?;
-
-        Ok(())
-    }
-
-    /// Load game data in V2 format
-    pub fn load_game_v2(filename: &str) -> Result<SaveDataV2, String> {
-        let path = get_save_dir().join(format!("{}.json", filename));
-
-        if !path.exists() {
-            return Err(format!("Save file not found: {}", filename));
-        }
-
-        let json =
-            fs::read_to_string(&path).map_err(|e| format!("Failed to read save file: {}", e))?;
-
-        serde_json::from_str(&json).map_err(|e| format!("Failed to parse save data: {}", e))
-    }
-
-    /// List all save files
-    #[allow(dead_code)]
-    pub fn list_saves() -> Result<Vec<SaveSlotInfo>, String> {
-        let dir = get_save_dir();
-        if !dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut saves = Vec::new();
-        let entries =
-            fs::read_dir(&dir).map_err(|e| format!("Failed to read save directory: {}", e))?;
-
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().is_some_and(|e| e == "json") {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    // Try to read timestamp from file
-                    if let Ok(json) = fs::read_to_string(&path) {
-                        if let Ok(data) = serde_json::from_str::<SaveDataV2>(&json) {
-                            saves.push(SaveSlotInfo {
-                                filename: stem.to_string(),
-                                timestamp: data.timestamp,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        // Sort by timestamp (newest first)
-        saves.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-
-        Ok(saves)
-    }
-
-    /// Delete a save file
-    #[allow(dead_code)]
-    pub fn delete_save(filename: &str) -> Result<(), String> {
-        let path = get_save_dir().join(format!("{}.json", filename));
-
-        if !path.exists() {
-            return Err(format!("Save file not found: {}", filename));
-        }
-
-        fs::remove_file(&path).map_err(|e| format!("Failed to delete save file: {}", e))?;
-
-        Ok(())
-    }
-}
+// Re-export V2 types
+pub use v2::{
+    ConveyorItemSaveV2, ConveyorSaveDataV2, CrusherSaveDataV2, FurnaceSaveDataV2,
+    InventorySaveDataV2, ItemStackV2, MachineSaveDataV2, MinerSaveDataV2,
+    PlatformInventorySaveDataV2, QuestSaveDataV2, SaveDataV2, WorldSaveDataV2,
+};
 
 /// List all save files
 #[allow(dead_code)]
@@ -393,13 +40,11 @@ pub fn list_saves() -> Result<Vec<SaveSlotInfo>, String> {
     native::list_saves()
 }
 
-// =============================================================================
-// Tests
-// =============================================================================
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::prelude::IVec3;
+    use std::collections::HashMap;
 
     #[test]
     fn test_pos_key_conversion() {
