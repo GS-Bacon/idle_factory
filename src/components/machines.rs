@@ -600,6 +600,22 @@ impl MachineModels {
             None // Other item types don't have item models
         }
     }
+
+    /// Get scene handle for held item display (machines)
+    pub fn get_held_item_scene(&self, item_id: ItemId) -> Option<Handle<Scene>> {
+        use crate::core::items;
+        if item_id == items::miner_block() {
+            self.miner.clone()
+        } else if item_id == items::furnace_block() {
+            self.furnace.clone()
+        } else if item_id == items::crusher_block() {
+            self.crusher.clone()
+        } else if item_id == items::conveyor_block() {
+            self.conveyor_straight.clone()
+        } else {
+            None
+        }
+    }
 }
 
 // =============================================================================

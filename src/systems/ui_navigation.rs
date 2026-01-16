@@ -5,8 +5,8 @@
 use bevy::prelude::*;
 
 use crate::components::{
-    CommandInputState, CursorLockState, GlobalInventoryOpen, InteractingMachine, InventoryOpen,
-    UIAction, UIContext, UIState,
+    CommandInputState, CursorLockState, InteractingMachine, InventoryOpen, UIAction, UIContext,
+    UIState,
 };
 use crate::input::{GameAction, InputManager};
 
@@ -47,7 +47,6 @@ pub fn ui_action_handler(mut ui_state: ResMut<UIState>, mut action_events: Event
 pub fn sync_legacy_ui_state(
     ui_state: Res<UIState>,
     mut inv_open: ResMut<InventoryOpen>,
-    mut global_inv_open: ResMut<GlobalInventoryOpen>,
     mut cmd_state: ResMut<CommandInputState>,
     mut machine_res: ResMut<InteractingMachine>,
     mut cursor_lock: ResMut<CursorLockState>,
@@ -61,7 +60,6 @@ pub fn sync_legacy_ui_state(
 
     // Reset all legacy states
     inv_open.0 = false;
-    global_inv_open.0 = false;
     cmd_state.open = false;
     machine_res.0 = None;
 
@@ -72,10 +70,6 @@ pub fn sync_legacy_ui_state(
         }
         UIContext::Inventory => {
             inv_open.0 = true;
-            cursor_lock.paused = true;
-        }
-        UIContext::GlobalInventory => {
-            global_inv_open.0 = true;
             cursor_lock.paused = true;
         }
         UIContext::CommandInput => {
@@ -150,33 +144,6 @@ pub fn ui_inventory_handler(
             action_writer.send(UIAction::Replace(UIContext::Inventory));
         }
         _ => {} // Ignore E in other contexts
-    }
-}
-
-/// Handle Tab key for global inventory toggle
-pub fn ui_global_inventory_handler(
-    input: Res<InputManager>,
-    ui_state: Res<UIState>,
-    command_state: Res<CommandInputState>,
-    mut action_writer: EventWriter<UIAction>,
-) {
-    if !input.just_pressed(GameAction::ToggleGlobalInventory) {
-        return;
-    }
-
-    // Don't handle Tab if command input is open (it handles Tab for autocomplete)
-    if command_state.open {
-        return;
-    }
-
-    match ui_state.current() {
-        UIContext::Gameplay => {
-            action_writer.send(UIAction::Push(UIContext::GlobalInventory));
-        }
-        UIContext::GlobalInventory => {
-            action_writer.send(UIAction::Pop);
-        }
-        _ => {} // Ignore Tab in other contexts
     }
 }
 

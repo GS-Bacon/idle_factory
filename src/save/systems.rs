@@ -219,7 +219,7 @@ pub fn collect_save_data(
     };
 
     // Save PlatformInventory items (V2 format with string IDs)
-    let global_inventory_data = GlobalInventorySaveDataV2 {
+    let platform_inventory_data = PlatformInventorySaveDataV2 {
         items: platform_inventory
             .items_by_id()
             .iter()
@@ -232,7 +232,7 @@ pub fn collect_save_data(
         timestamp,
         player: player_data,
         inventory: inventory_data,
-        global_inventory: global_inventory_data,
+        platform_inventory: platform_inventory_data,
         world: world_save,
         machines,
         quests: quest_data,
@@ -407,10 +407,10 @@ pub fn handle_load_event(
                     }
                 }
 
-                // Migrate global_inventory items into platform inventory
-                if !data.global_inventory.items.is_empty() {
-                    info!("[SAVE] Loading global_inventory items to platform inventory");
-                    for (item_id_str, count) in &data.global_inventory.items {
+                // Migrate platform_inventory items into platform inventory
+                if !data.platform_inventory.items.is_empty() {
+                    info!("[SAVE] Loading platform_inventory items to platform inventory");
+                    for (item_id_str, count) in &data.platform_inventory.items {
                         if let Some(item_id) = string_id_to_item_id(item_id_str) {
                             platform_inventory.add_item(item_id, *count);
                         } else {
@@ -593,7 +593,7 @@ pub fn handle_load_event(
                 current_quest.rewards_claimed = data.quests.rewards_claimed;
 
                 // Note: quests.delivered is now empty in V2 format
-                // PlatformInventory is loaded from global_inventory above
+                // PlatformInventory is loaded from platform_inventory above
 
                 // Apply game mode
                 creative_mode.enabled = data.mode.creative;

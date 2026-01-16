@@ -35,14 +35,10 @@ use crate::systems::{
     quest_progress_check, receive_chunk_meshes, rotate_conveyor_placement, select_block_type,
     setup_highlight_cache, spawn_chunk_tasks, sync_cursor_to_ui_state, sync_legacy_ui_state,
     tick_action_timers, toggle_cursor_lock, ui_action_handler, ui_escape_handler,
-    ui_global_inventory_handler, ui_inventory_handler, unload_distant_chunks,
-    update_conveyor_shapes, update_delivery_ui, update_guide_markers, update_pause_ui,
-    update_quest_ui, update_target_block, update_target_highlight, AssertMachineEvent, DebugEvent,
-    LookEvent, ScreenshotEvent, SetBlockEvent, TeleportEvent,
-};
-use crate::ui::{
-    global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
-    setup_global_inventory_ui, update_global_inventory_ui, update_global_inventory_visibility,
+    ui_inventory_handler, unload_distant_chunks, update_conveyor_shapes, update_delivery_ui,
+    update_guide_markers, update_pause_ui, update_quest_ui, update_target_block,
+    update_target_highlight, AssertMachineEvent, DebugEvent, LookEvent, ScreenshotEvent,
+    SetBlockEvent, TeleportEvent,
 };
 use crate::world::{BiomeMap, ChunkMeshTasks, DirtyChunks, WorldData};
 
@@ -105,7 +101,6 @@ impl Plugin for GamePlugin {
             .init_resource::<DirtyChunks>()
             .init_resource::<CreativeMode>()
             .init_resource::<ContinuousActionTimer>()
-            .init_resource::<GlobalInventoryOpen>()
             .init_resource::<GlobalInventoryPage>()
             .init_resource::<GlobalInventoryCategory>()
             .init_resource::<GlobalInventorySearch>()
@@ -137,7 +132,6 @@ impl Plugin for GamePlugin {
                 // setup_delivery_platform removed - now a tutorial reward
                 load_machine_models,
                 setup_highlight_cache,
-                setup_global_inventory_ui,
             ),
         );
 
@@ -212,18 +206,6 @@ impl GamePlugin {
             (update_delivery_ui, update_quest_ui, quest_deliver_button),
         );
 
-        // Global inventory UI systems
-        app.add_systems(
-            Update,
-            (
-                update_global_inventory_visibility,
-                global_inventory_page_nav,
-                global_inventory_category_click,
-                global_inventory_search_input,
-                update_global_inventory_ui,
-            ),
-        );
-
         // Targeting highlight (after target_block update)
         app.add_systems(
             Update,
@@ -257,7 +239,6 @@ impl GamePlugin {
             (
                 ui_escape_handler,
                 ui_inventory_handler,
-                ui_global_inventory_handler,
                 ui_action_handler,
                 sync_legacy_ui_state,
             )

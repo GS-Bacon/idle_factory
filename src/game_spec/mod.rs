@@ -7,6 +7,7 @@ pub mod machines;
 pub mod recipes;
 pub mod registry;
 pub mod ui_elements;
+pub mod ui_style;
 
 // Re-exports for convenience
 pub use machines::{
@@ -24,6 +25,7 @@ pub use registry::{
 pub use ui_elements::{
     load_ui_elements_from_toml, UIElementRegistry, UIElementSpec, UIElementTag, UIElementToml,
 };
+pub use ui_style::{load_styles_from_toml, BorderSpec, UIStyleSpec, UIStylesFile};
 
 use crate::core::{items, ItemId};
 use std::sync::LazyLock;
@@ -34,7 +36,7 @@ use std::sync::LazyLock;
 
 /// Global Inventory System
 #[allow(dead_code)]
-pub mod global_inventory_spec {
+pub mod platform_inventory_spec {
     pub const STORAGE_LIMIT: u32 = 0;
     pub const RETURN_ON_DEMOLISH: bool = true;
     pub const CAN_PICKUP_FROM_CONVEYOR: bool = false;
@@ -348,8 +350,8 @@ mod tests {
 
     #[test]
     fn test_spec_constants() {
-        assert_eq!(global_inventory_spec::STORAGE_LIMIT, 0);
-        assert!(global_inventory_spec::RETURN_ON_DEMOLISH);
+        assert_eq!(platform_inventory_spec::STORAGE_LIMIT, 0);
+        assert!(platform_inventory_spec::RETURN_ON_DEMOLISH);
         assert_eq!(delivery_platform_spec::INITIAL_COUNT, 1);
         assert!(quest_system_spec::MAX_ACTIVE_SUB_QUESTS >= 3);
     }

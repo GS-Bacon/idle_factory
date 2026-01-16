@@ -190,41 +190,163 @@ pub fn select_block_type(
     }
 }
 
+/// Track currently displayed held item to avoid unnecessary respawns
+#[derive(Resource, Default)]
+pub struct HeldItemDisplayState {
+    pub current_item: Option<crate::core::ItemId>,
+    pub scene_entity: Option<Entity>,
+}
+
 /// Update 3D held item display based on selected hotbar item
+/// Shows cube mesh for simple items, and 3D model scenes for machines
+#[allow(clippy::too_many_arguments)]
 pub fn update_held_item_3d(
+    mut commands: Commands,
     local_player: Option<Res<LocalPlayer>>,
     inventory_query: Query<&PlayerInventory>,
     cache: Option<Res<HeldItem3DCache>>,
-    mut query: Query<(&mut MeshMaterial3d<StandardMaterial>, &mut Visibility), With<HeldItem3D>>,
+    machine_models: Option<Res<MachineModels>>,
+    mut display_state: ResMut<HeldItemDisplayState>,
+    mut cube_query: Query<
+        (
+            Entity,
+            &mut MeshMaterial3d<StandardMaterial>,
+            &mut Visibility,
+        ),
+        With<HeldItem3D>,
+    >,
+    scene_query: Query<Entity, With<HeldItem3DScene>>,
 ) {
-    let Some(cache) = cache else {
-        return;
-    };
-
-    let Ok((mut material, mut visibility)) = query.get_single_mut() else {
-        return;
-    };
+    use bevy::render::view::RenderLayers;
 
     // Get local player's inventory
     let Some(local_player) = local_player else {
-        *visibility = Visibility::Hidden;
+        hide_all(
+            &mut cube_query,
+            &scene_query,
+            &mut commands,
+            &mut display_state,
+        );
         return;
     };
     let Ok(inventory) = inventory_query.get(local_player.0) else {
-        *visibility = Visibility::Hidden;
+        hide_all(
+            &mut cube_query,
+            &scene_query,
+            &mut commands,
+            &mut display_state,
+        );
         return;
     };
 
     // Get selected item
-    if let Some(item_id) = inventory.selected_item_id() {
-        if let Some(block_material) = cache.materials.get(&item_id) {
-            material.0 = block_material.clone();
-            *visibility = Visibility::Inherited;
-        } else {
+    let Some(item_id) = inventory.selected_item_id() else {
+        hide_all(
+            &mut cube_query,
+            &scene_query,
+            &mut commands,
+            &mut display_state,
+        );
+        return;
+    };
+
+    // Check if item changed
+    if display_state.current_item == Some(item_id) {
+        return; // No change, skip update
+    }
+
+    // Remove old scene entity if exists
+    if let Some(old_entity) = display_state.scene_entity.take() {
+        commands.entity(old_entity).despawn_recursive();
+    }
+
+    // Check if this item has a machine model
+    let has_machine_model = machine_models
+        .as_ref()
+        .map(|m| m.get_held_item_scene(item_id).is_some())
+        .unwrap_or(false);
+
+    if has_machine_model {
+        // Hide cube mesh
+        if let Ok((_, _, mut visibility)) = cube_query.get_single_mut() {
             *visibility = Visibility::Hidden;
         }
+
+        // Spawn scene for machine model
+        if let Some(models) = machine_models.as_ref() {
+            if let Some(scene_handle) = models.get_held_item_scene(item_id) {
+                // Get the parent (HeldItem3D) to spawn the scene as sibling
+                if let Ok((cube_entity, _, _)) = cube_query.get_single() {
+                    // Spawn scene as sibling of cube with same transform style
+                    let scene_entity = commands
+                        .spawn((
+                            HeldItem3DScene,
+                            SceneRoot(scene_handle),
+                            Transform::from_xyz(0.5, -0.4, -0.8)
+                                .with_rotation(Quat::from_euler(EulerRot::YXZ, -0.3, 0.2, 0.1))
+                                .with_scale(Vec3::splat(0.3)), // Smaller scale for hand display
+                            Visibility::Inherited,
+                            RenderLayers::layer(1), // Same overlay layer as cube
+                        ))
+                        .id();
+
+                    // Make scene a sibling of cube (same parent)
+                    if let Some(parent) = commands.get_entity(cube_entity).map(|_| {
+                        // Get parent by querying - we need to find the camera parent
+                        cube_entity
+                    }) {
+                        if let Some(mut entity_commands) = commands.get_entity(parent) {
+                            // Insert scene as sibling by adding to same parent
+                            // The cube is a child of the camera, so we need to add scene there too
+                            entity_commands.add_child(scene_entity);
+                        }
+                    }
+
+                    display_state.scene_entity = Some(scene_entity);
+                }
+            }
+        }
     } else {
-        // No item selected - hide
+        // Show cube mesh for non-machine items
+        if let Some(cache) = cache.as_ref() {
+            if let Ok((_, mut material, mut visibility)) = cube_query.get_single_mut() {
+                if let Some(block_material) = cache.materials.get(&item_id) {
+                    material.0 = block_material.clone();
+                    *visibility = Visibility::Inherited;
+                } else {
+                    *visibility = Visibility::Hidden;
+                }
+            }
+        }
+    }
+
+    display_state.current_item = Some(item_id);
+}
+
+/// Hide all held item displays
+fn hide_all(
+    cube_query: &mut Query<
+        (
+            Entity,
+            &mut MeshMaterial3d<StandardMaterial>,
+            &mut Visibility,
+        ),
+        With<HeldItem3D>,
+    >,
+    scene_query: &Query<Entity, With<HeldItem3DScene>>,
+    commands: &mut Commands,
+    display_state: &mut HeldItemDisplayState,
+) {
+    // Hide cube
+    if let Ok((_, _, mut visibility)) = cube_query.get_single_mut() {
         *visibility = Visibility::Hidden;
     }
+
+    // Despawn scene
+    for entity in scene_query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+
+    display_state.current_item = None;
+    display_state.scene_entity = None;
 }

@@ -55,6 +55,11 @@ name = "Quest Tracker"
 show_in = ["Gameplay"]
 
 [[ui_elements]]
+id = "base:quest_progress_container"
+name = "クエストプログレス"
+show_in = ["Gameplay"]
+
+[[ui_elements]]
 id = "base:breaking_progress"
 name = "Breaking Progress Bar"
 show_in = ["Gameplay"]

@@ -10,10 +10,8 @@ use bevy::prelude::*;
 pub enum UIContext {
     /// 通常のゲームプレイ（スタックが空の状態）
     Gameplay,
-    /// インベントリ画面 (E key)
+    /// インベントリ画面 (E key) - Upper panel included
     Inventory,
-    /// グローバルインベントリ / 倉庫 (Tab key)
-    GlobalInventory,
     /// コマンド入力 (T or / key)
     CommandInput,
     /// ポーズメニュー (ESC when stack is empty)
@@ -122,7 +120,6 @@ impl UIState {
             .map(|ctx| match ctx {
                 UIContext::Gameplay => "Gameplay".to_string(),
                 UIContext::Inventory => "Inventory".to_string(),
-                UIContext::GlobalInventory => "GlobalInventory".to_string(),
                 UIContext::CommandInput => "Command".to_string(),
                 UIContext::PauseMenu => "PauseMenu".to_string(),
                 UIContext::Settings => "Settings".to_string(),
@@ -229,9 +226,9 @@ mod tests {
     fn test_ui_state_replace() {
         let mut state = UIState::new_empty();
         state.push(UIContext::Inventory);
-        state.replace(UIContext::GlobalInventory);
+        state.replace(UIContext::Settings);
 
-        assert_eq!(state.current(), UIContext::GlobalInventory);
+        assert_eq!(state.current(), UIContext::Settings);
         assert_eq!(state.stack.len(), 1);
     }
 

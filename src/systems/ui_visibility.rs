@@ -13,7 +13,6 @@ fn ui_context_to_string(context: &UIContext) -> &'static str {
     match context {
         UIContext::Gameplay => "Gameplay",
         UIContext::Inventory => "Inventory",
-        UIContext::GlobalInventory => "GlobalInventory",
         UIContext::CommandInput => "CommandInput",
         UIContext::PauseMenu => "PauseMenu",
         UIContext::Settings => "Settings",

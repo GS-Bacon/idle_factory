@@ -1,5 +1,47 @@
 # 作業ログ
 
+## 2026-01-16: プロジェクト整合性改善
+
+### 概要
+
+プロジェクトの進め方とアーキテクチャをレビューし、ドキュメント整合性・自動化・ファイル分割の改善計画を策定。
+
+### 発見した問題
+
+| 問題 | 内容 |
+|------|------|
+| ドキュメント参照破綻 | CLAUDE.mdが存在しない`architecture-future.md`を参照 |
+| バージョン不整合 | Cargo.toml(0.3.167) vs ドキュメント(0.3.136) |
+| タスク完了状態の矛盾 | roadmap.md(❌) vs WORK_LOG(完了) |
+| 1000行超えファイル | world/mod.rs(1133行), inventory_ui.rs(1118行) |
+
+### 改善計画
+
+| 優先度 | タスク | 状態 |
+|--------|--------|------|
+| 🔴 高 | CLAUDE.md参照先修正 | ✅ |
+| 🔴 高 | ブランチ統合 | ✅ |
+| 🟡 中 | sync-check.sh作成 | 後日 |
+| 🟡 中 | world/mod.rs分割 | 後日 |
+| 🟢 低 | inventory_ui.rs分割 | 後日 |
+| 🟢 低 | architecture.md分割 | 後日 |
+
+### ファイル分割案（参考）
+
+**world/mod.rs → 3分割**:
+- `world/mod.rs` - WorldData, re-exports (~400行)
+- `world/chunk.rs` - ChunkData, ChunkLod (~350行)
+- `world/meshing.rs` - グリーディメッシング (~400行)
+
+**inventory_ui.rs → 5分割**:
+- `inventory_ui/mod.rs` - re-exports (~100行)
+- `inventory_ui/main.rs` - メイン処理 (~400行)
+- `inventory_ui/creative.rs` - クリエイティブ (~150行)
+- `inventory_ui/upper_panel.rs` - 上部パネル (~300行)
+- `inventory_ui/tooltip.rs` - ツールチップ (~170行)
+
+---
+
 ## 2026-01-15: ブロックテクスチャ Array Texture 実装
 
 ### 概要
@@ -815,3 +857,245 @@ ESCでポーズメニュー開閉後、設定パネル内の「今すぐ更新�
 |------|------|
 | 入力注入タイミング | `test.send_input` 後の状態変更に1-2フレームの遅延 |
 | 待ち時間 | 200msでは不足する場合がある（300-500ms推奨）|
+
+---
+
+## 2026-01-16: インベントリUI統合仕様策定
+
+### 概要
+
+手持ちインベントリ・プラットフォームインベントリ・クリエイティブカタログの3つのUIを1つの統合UIに再設計。
+
+### 背景（現状の問題）
+
+| 要素 | 手持ちインベントリ | プラットフォームインベントリ | クリエイティブカタログ |
+|------|-------------------|---------------------------|---------------------|
+| 開閉キー | E | Tab | E（手持ち内） |
+| 位置 | 上部15%、水平中央 | 画面中央(50%,50%) | 手持ち内上部 |
+| スロットサイズ | 60px | 54px | 60px |
+| グリッド | 9列×3行 | 8列×4行 | 9列×5行 |
+| 背景色 | 黒+オレンジ | グレー+グレー | 黒 |
+
+**問題**: 3つのUIがバラバラで統一感がない
+
+### 新仕様
+
+```
+┌───────────────────────────────────┐
+│ [クリエイティブ] [ストレージ]      │ ← クリエイティブモード時のみ表示
+├───────────────────────────────────┤
+│ 検索: [__________________]        │
+│ ┌──┬──┬──┬──┬──┬──┬──┬──┬──┐     │
+│ │  │  │  │  │  │  │  │  │  │     │ ← スクロール可能エリア
+│ ├──┼──┼──┼──┼──┼──┼──┼──┼──┤     │   (9列 × 無限行)
+│ │  │  │  │  │  │  │  │  │  │     │   クリックで取り出し
+│ └──┴──┴──┴──┴──┴──┴──┴──┴──┘     │
+├───────────────────────────────────┤ ← セパレータ
+│ メインインベントリ (9x3)          │
+├───────────────────────────────────┤
+│ ホットバー (9x1)                  │
+├───────────────────────────────────┤
+│                           [ゴミ箱]│
+└───────────────────────────────────┘
+```
+
+### 決定事項
+
+| 項目 | 仕様 |
+|------|------|
+| 開閉キー | **Eキーのみ**（Tab廃止） |
+| 上部エリア | プラットフォーム欄 or クリエイティブ欄（排他、同じ位置） |
+| 切り替えタブ | クリエイティブモード時のみ表示 |
+| 上部エリア表示条件 | プラットフォーム紐づき時 or クリエイティブモード時 |
+| 検索 | 上部エリアに対して有効（残す） |
+| カテゴリタブ | **削除** |
+| スクロール | 上部エリアのみ（縦スクロール、無限） |
+| 取り出し | 上部エリアからクリックで手持ちへ移動可能 |
+| デザイン統一 | 手持ちインベントリを基準（黒背景+オレンジボーダー、60pxスロット、9列） |
+
+### 表示パターン
+
+| モード | プラットフォーム紐づき | 上部エリア |
+|--------|---------------------|-----------|
+| サバイバル | なし | 非表示（手持ちのみ） |
+| サバイバル | あり | ストレージ欄 |
+| クリエイティブ | なし | クリエイティブ欄 |
+| クリエイティブ | あり | タブで切り替え |
+
+### 次のステップ
+
+- 実装計画を作成（EnterPlanMode）
+- storage_ui.rs を inventory_ui.rs に統合
+- Tab キーバインド削除
+
+---
+
+## 2026-01-16: 宣言的UI定義システム仕様策定
+
+### 概要
+
+UIをTOMLで宣言的に定義し、HTMLプレビューとBevy UIの両方を生成するシステム。Mod作者がUIを追加・カスタマイズ可能にする。
+
+### 目的
+
+1. **Mod対応**: Mod作者がTOMLでUIを定義して追加可能
+2. **デザイン効率化**: ブラウザでプレビュー確認（ゲームビルド不要）
+3. **スタイル継承**: baseのスタイルをModが上書き可能
+
+### アーキテクチャ
+
+```
+┌─────────────────┐
+│ ui/*.toml       │ ← 単一ソース
+│ styles.toml     │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌────────┐ ┌────────────┐
+│ HTML   │ │ Bevy UI    │
+│ Preview│ │ (Runtime)  │
+└────────┘ └────────────┘
+```
+
+### ファイル構成
+
+```
+mods/
+├── base/
+│   └── ui/
+│       ├── styles.toml        # 共通スタイル定義
+│       ├── inventory.toml     # インベントリUI
+│       ├── settings.toml      # 設定画面
+│       ├── hud.toml           # HUD要素
+│       └── dialog.toml        # ダイアログ
+└── my_mod/
+    └── ui/
+        ├── styles.toml        # スタイル上書き
+        └── custom_panel.toml  # 新規UI追加
+```
+
+### UI定義フォーマット（TOML）
+
+```toml
+# mods/base/ui/example_panel.toml
+[meta]
+id = "base:example_panel"
+name = "サンプルパネル"
+
+[root]
+width = "400px"
+padding = "16px"
+background = "#1a1a1a"
+border = { width = "2px", color = "#ff8700", radius = "8px" }
+overflow_y = "scroll"
+
+[[root.children]]
+type = "text"
+content = "タイトル"
+class = "title"
+
+[[root.children]]
+type = "slot_grid"
+columns = 9
+rows = 3
+slot_class = "inventory-slot"
+
+[[root.children]]
+type = "button"
+content = "閉じる"
+class = "secondary-button"
+on_click = "base:close_ui"
+```
+
+### スタイル定義フォーマット
+
+```toml
+# mods/base/ui/styles.toml
+
+[classes.title]
+font_size = "24px"
+color = "#ffffff"
+margin_bottom = "12px"
+
+[classes.inventory-slot]
+width = "60px"
+height = "60px"
+background = "#1a1a1a"
+border = { width = "2px", color = "#ff8700", radius = "6px" }
+
+[classes.primary-button]
+padding = "8px 16px"
+background = "#ff8700"
+color = "#000000"
+border_radius = "4px"
+
+[classes.secondary-button]
+padding = "8px 16px"
+background = "#333333"
+color = "#ffffff"
+border = { width = "1px", color = "#666666" }
+```
+
+### スタイル継承
+
+Modのstyles.tomlはbaseを継承・上書き:
+
+```toml
+# mods/my_mod/ui/styles.toml
+
+# baseの.titleを上書き
+[classes.title]
+color = "#00ff00"  # 緑に変更
+
+# 新規クラス追加
+[classes.my-custom-class]
+background = "#ff0000"
+```
+
+### UI要素タイプ
+
+| type | 説明 | 属性 |
+|------|------|------|
+| `text` | テキスト | content, class |
+| `button` | ボタン | content, class, on_click |
+| `row` | 横並び | gap, children |
+| `column` | 縦並び | gap, children |
+| `slot_grid` | スロットグリッド | columns, rows, slot_class |
+| `image` | 画像 | src, width, height |
+| `progress_bar` | プログレスバー | value, max, class |
+| `input` | テキスト入力 | placeholder, class |
+| `scroll_area` | スクロール領域 | max_height, children |
+| `separator` | 区切り線 | class |
+| `spacer` | 余白 | height |
+
+### プレビュー生成コマンド
+
+```bash
+# 単一ファイル
+./scripts/ui-preview.sh mods/base/ui/settings.toml
+
+# 全UI生成
+./scripts/ui-preview.sh --all
+
+# 出力先: ui_preview/
+# VSCode Live Serverで確認可能
+```
+
+### 実装ステップ
+
+| ステップ | 内容 | 優先度 |
+|----------|------|--------|
+| U.1 | スタイル定義TOML設計・パーサー | 高 |
+| U.2 | UI定義TOML設計・パーサー | 高 |
+| U.3 | TOML → HTML変換スクリプト | 高 |
+| U.4 | TOML → Bevy UI変換（Rust） | 中 |
+| U.5 | 既存UIのTOML移行（設定画面） | 中 |
+| U.6 | 全UIのTOML移行 | 低 |
+
+### 制約事項
+
+- HTMLプレビューは見た目のみ（インタラクション再現なし）
+- 動的コンテンツ（インベントリ中身等）はプレビューでダミー表示
+- on_click等のイベントはBevy側でのみ動作
+

@@ -6,6 +6,7 @@ use crate::player::{LocalPlayer, PlayerInventory};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use std::collections::HashMap;
 
 pub fn setup_player(
@@ -38,6 +39,7 @@ pub fn setup_player(
             Visibility::default(),
         ))
         .with_children(|parent| {
+            // Main camera (renders world on layer 0)
             parent
                 .spawn((
                     Camera3d::default(),
@@ -52,8 +54,26 @@ pub fn setup_player(
                         yaw: 0.0,
                     },
                     Transform::from_xyz(0.0, 0.7, 0.0), // Eye level higher (2 block player)
+                    RenderLayers::layer(0),             // Main world layer
                 ))
                 .with_children(|camera| {
+                    // Overlay camera for held item (renders on layer 1, draws on top)
+                    camera.spawn((
+                        Camera3d::default(),
+                        Camera {
+                            order: 1,                            // Render after main camera
+                            clear_color: ClearColorConfig::None, // Don't clear (overlay)
+                            ..default()
+                        },
+                        Projection::Perspective(PerspectiveProjection {
+                            fov: 90.0_f32.to_radians(),
+                            ..default()
+                        }),
+                        Tonemapping::Reinhard,
+                        Transform::default(),
+                        RenderLayers::layer(1), // Held item layer
+                    ));
+
                     // 3D held item display (bottom-right of view)
                     camera.spawn((
                         HeldItem3D,
@@ -63,7 +83,8 @@ pub fn setup_player(
                         Transform::from_xyz(0.5, -0.4, -0.8)
                             .with_rotation(Quat::from_euler(EulerRot::YXZ, -0.3, 0.2, 0.1))
                             .with_scale(Vec3::splat(1.0)),
-                        Visibility::Hidden, // Hidden until item selected
+                        Visibility::Hidden,     // Hidden until item selected
+                        RenderLayers::layer(1), // Render on overlay layer
                     ));
                 });
         })

@@ -3,13 +3,7 @@
 //! This module contains UI definitions and logic.
 
 pub mod machine_ui;
-pub mod storage_ui;
 pub mod widgets;
-
-pub use storage_ui::{
-    global_inventory_category_click, global_inventory_page_nav, global_inventory_search_input,
-    setup_global_inventory_ui, update_global_inventory_ui, update_global_inventory_visibility,
-};
 
 pub use widgets::{
     spawn_button, spawn_slot, spawn_slot_row, ButtonConfig, ButtonWidget, SlotConfig,

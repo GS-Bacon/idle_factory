@@ -138,9 +138,9 @@ pub struct InventorySaveDataV2 {
     pub slots: Vec<Option<ItemStackV2>>,
 }
 
-/// Global inventory save data using string IDs
+/// Platform inventory save data using string IDs
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct GlobalInventorySaveDataV2 {
+pub struct PlatformInventorySaveDataV2 {
     /// Items stored: "namespace:id" -> count
     pub items: HashMap<String, u32>,
 }
@@ -251,7 +251,7 @@ pub struct SaveDataV2 {
     pub inventory: InventorySaveDataV2,
     /// Global inventory
     #[serde(default)]
-    pub global_inventory: GlobalInventorySaveDataV2,
+    pub platform_inventory: PlatformInventorySaveDataV2,
     /// World modifications
     pub world: WorldSaveDataV2,
     /// All machines in the world
@@ -496,7 +496,7 @@ mod tests {
                 selected_slot: 0,
                 slots: vec![Some(ItemStackV2::new("base:iron_ore", 64))],
             },
-            global_inventory: GlobalInventorySaveDataV2::default(),
+            platform_inventory: PlatformInventorySaveDataV2::default(),
             world: WorldSaveDataV2 {
                 modified_blocks: HashMap::new(),
             },
@@ -599,7 +599,7 @@ mod tests {
                 selected_slot: 0,
                 slots: vec![],
             },
-            global_inventory: GlobalInventorySaveDataV2::default(),
+            platform_inventory: PlatformInventorySaveDataV2::default(),
             world: WorldSaveDataV2 {
                 modified_blocks: HashMap::new(),
             },
@@ -721,7 +721,7 @@ mod tests {
                     Some(ItemStackV2::new("base:miner_block", 5)),
                 ],
             },
-            global_inventory: GlobalInventorySaveDataV2 {
+            platform_inventory: PlatformInventorySaveDataV2 {
                 items: global_items,
             },
             world: WorldSaveDataV2 { modified_blocks },
@@ -792,7 +792,7 @@ mod tests {
 
         // Global inventory
         assert_eq!(
-            restored.global_inventory.items.get("base:iron_ingot"),
+            restored.platform_inventory.items.get("base:iron_ingot"),
             Some(&100)
         );
 

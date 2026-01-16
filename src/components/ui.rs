@@ -167,29 +167,9 @@ pub struct CommandInputUI;
 #[derive(Component)]
 pub struct CommandInputText;
 
-// === Global Inventory UI ===
+// === Upper Panel (Integrated in Inventory UI) ===
 
-/// Global inventory open state (toggle with Tab key)
-#[derive(Resource, Default)]
-pub struct GlobalInventoryOpen(pub bool);
-
-/// Marker for global inventory UI panel
-#[derive(Component)]
-pub struct GlobalInventoryUI;
-
-/// Marker for global inventory slot
-#[derive(Component)]
-pub struct GlobalInventorySlot(pub usize);
-
-/// Marker for global inventory slot image
-#[derive(Component)]
-pub struct GlobalInventorySlotImage(pub usize);
-
-/// Marker for global inventory slot count text
-#[derive(Component)]
-pub struct GlobalInventorySlotCount(pub usize);
-
-/// Global inventory page state
+/// Global inventory page state (used for upper panel pagination)
 #[derive(Resource, Default)]
 pub struct GlobalInventoryPage(pub usize);
 
@@ -198,10 +178,6 @@ pub struct GlobalInventoryPage(pub usize);
 pub struct GlobalInventoryPageButton {
     pub next: bool, // true = next, false = prev
 }
-
-/// Marker for page indicator text
-#[derive(Component)]
-pub struct GlobalInventoryPageText;
 
 /// Item category for filtering
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -283,6 +259,10 @@ pub struct PauseUI;
 /// Marker for 3D held item display (first-person view in bottom-right)
 #[derive(Component)]
 pub struct HeldItem3D;
+
+/// Marker for 3D held item scene (for machine models using SceneRoot)
+#[derive(Component)]
+pub struct HeldItem3DScene;
 
 /// Cached materials for held item 3D display
 #[derive(Resource)]

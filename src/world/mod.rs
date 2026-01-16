@@ -630,14 +630,78 @@ impl ChunkData {
                             uv_layers.push([tex_layer, 0.0]); // UV_1: texture layer index
                         }
 
-                        // UV coordinates for tiling (0 to width/height)
-                        // The shader uses fract() to tile the texture seamlessly
-                        let uv_width = width as f32;
-                        let uv_height = height as f32;
-                        uvs.push([0.0, 0.0]);
-                        uvs.push([uv_height, 0.0]);
-                        uvs.push([uv_height, uv_width]);
-                        uvs.push([0.0, uv_width]);
+                        // UV coordinates for Minecraft-compatible texture mapping
+                        // Bevy UV: V=0 is top, V=1 is bottom (image coordinate system)
+                        // Side faces: Y+ is texture "up"
+                        // Top face (+Y): Z- is texture "up"
+                        // Bottom face (-Y): Z+ is texture "up"
+                        //
+                        // greedy meshing coords: u = axis1, v = axis2
+                        // axis 0 (X faces): u = Y, v = Z
+                        // axis 1 (Y faces): u = X, v = Z
+                        // axis 2 (Z faces): u = X, v = Y
+                        let w = width as f32; // size along v-axis
+                        let h = height as f32; // size along u-axis
+
+                        // Calculate UV for each vertex based on face direction
+                        // Each face needs UV coords that put texture "up" in the correct direction
+                        match (axis, positive) {
+                            // +X face: looking at face, Z+ is right, Y+ is up
+                            // Vertices: (y0,z0), (y1,z0), (y1,z1), (y0,z1)
+                            // UV: u = z (right), v = h - y (up = low V)
+                            (0, true) => {
+                                uvs.push([v as f32, h]); // (y0,z0) -> (z0, h-y0) = (0, h)
+                                uvs.push([v as f32, 0.0]); // (y1,z0) -> (z0, h-y1) = (0, 0)
+                                uvs.push([(v as f32) + w, 0.0]); // (y1,z1) -> (z1, h-y1) = (w, 0)
+                                uvs.push([(v as f32) + w, h]); // (y0,z1) -> (z1, h-y0) = (w, h)
+                            }
+                            // -X face: looking at face, Z- is right (mirrored), Y+ is up
+                            // Vertices: (y0,z0), (y0,z1), (y1,z1), (y1,z0)
+                            // UV: u = w - z (mirrored right), v = h - y
+                            (0, false) => {
+                                uvs.push([w - (v as f32), h]); // (y0,z0)
+                                uvs.push([w - (v as f32) - w, h]); // (y0,z1) = (0, h)
+                                uvs.push([w - (v as f32) - w, 0.0]); // (y1,z1) = (0, 0)
+                                uvs.push([w - (v as f32), 0.0]); // (y1,z0)
+                            }
+                            // +Y face (top): looking down, X+ is right, Z+ is forward (down in texture)
+                            // Vertices: (x0,z0), (x0,z1), (x1,z1), (x1,z0)
+                            // UV: u = x, v = z
+                            (1, true) => {
+                                uvs.push([u as f32, v as f32]); // (x0,z0)
+                                uvs.push([u as f32, (v as f32) + w]); // (x0,z1)
+                                uvs.push([(u as f32) + h, (v as f32) + w]); // (x1,z1)
+                                uvs.push([(u as f32) + h, v as f32]); // (x1,z0)
+                            }
+                            // -Y face (bottom): looking up, X+ is right, Z- is forward
+                            // Vertices: (x0,z0), (x1,z0), (x1,z1), (x0,z1)
+                            // UV: u = x, v = w - z (mirrored)
+                            (1, false) => {
+                                uvs.push([u as f32, w - (v as f32)]); // (x0,z0)
+                                uvs.push([(u as f32) + h, w - (v as f32)]); // (x1,z0)
+                                uvs.push([(u as f32) + h, w - (v as f32) - w]); // (x1,z1) = (h, 0)
+                                uvs.push([u as f32, w - (v as f32) - w]); // (x0,z1) = (0, 0)
+                            }
+                            // +Z face: looking at face, X+ is right, Y+ is up
+                            // Vertices: (x0,y0), (x1,y0), (x1,y1), (x0,y1)
+                            // UV: u = x, v = w - y (Y+ = up = low V)
+                            (2, true) => {
+                                uvs.push([u as f32, w]); // (x0,y0) -> v = w - 0 = w
+                                uvs.push([(u as f32) + h, w]); // (x1,y0)
+                                uvs.push([(u as f32) + h, 0.0]); // (x1,y1) -> v = w - w = 0
+                                uvs.push([u as f32, 0.0]); // (x0,y1)
+                            }
+                            // -Z face: looking at face, X- is right (mirrored), Y+ is up
+                            // Vertices: (x0,y0), (x0,y1), (x1,y1), (x1,y0)
+                            // UV: u = h - x (mirrored), v = w - y
+                            (2, false) => {
+                                uvs.push([h - (u as f32), w]); // (x0,y0)
+                                uvs.push([h - (u as f32), 0.0]); // (x0,y1)
+                                uvs.push([h - (u as f32) - h, 0.0]); // (x1,y1) = (0, 0)
+                                uvs.push([h - (u as f32) - h, w]); // (x1,y0) = (0, w)
+                            }
+                            _ => unreachable!(),
+                        }
 
                         indices.extend_from_slice(&[
                             base_idx,

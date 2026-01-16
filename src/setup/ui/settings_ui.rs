@@ -100,10 +100,12 @@ pub fn setup_settings_ui(
             root.spawn((
                 Node {
                     width: Val::Px(500.0),
+                    max_height: Val::Percent(85.0), // 画面の85%まで
                     padding: UiRect::all(Val::Px(20.0)),
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(15.0),
                     border: UiRect::all(Val::Px(2.0)),
+                    overflow: Overflow::scroll_y(), // 縦スクロール有効
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.12, 0.12, 0.14, 0.98)),

@@ -1,0 +1,78 @@
+# Inventory UI Definition
+# This file defines the structure of the inventory UI
+
+[meta]
+id = "base:inventory"
+name = "Inventory"
+name_ja = "インベントリ"
+
+# Root panel container
+[root]
+class = "panel"
+width = "auto"
+
+# Title
+[[root.children]]
+type = "text"
+class = "title"
+text = "インベントリ"
+
+# Category tabs
+[[root.children]]
+type = "tab_bar"
+id = "category_tabs"
+
+[[root.children.tabs]]
+label = "全て"
+class = "category-tab"
+active_class = "category-tab-active"
+filter = "all"
+
+[[root.children.tabs]]
+label = "素材"
+class = "category-tab"
+active_class = "category-tab-active"
+filter = "material"
+
+[[root.children.tabs]]
+label = "機械"
+class = "category-tab"
+active_class = "category-tab-active"
+filter = "machine"
+
+[[root.children.tabs]]
+label = "部品"
+class = "category-tab"
+active_class = "category-tab-active"
+filter = "component"
+
+# Item grid
+[[root.children]]
+type = "slot_grid"
+id = "inventory_grid"
+columns = 8
+rows = 4
+slot_class = "inventory-slot"
+slot_selected_class = "inventory-slot-selected"
+show_item_count = true
+item_count_class = "item-count"
+
+# Pagination
+[[root.children]]
+type = "pagination"
+id = "page_controls"
+
+# Hotbar section
+[hotbar]
+class = "panel"
+position = "bottom-center"
+
+[[hotbar.children]]
+type = "slot_row"
+id = "hotbar_slots"
+count = 9
+slot_class = "hotbar-slot"
+slot_active_class = "hotbar-slot-active"
+show_item_count = true
+item_count_class = "item-count"
+show_keybind = true

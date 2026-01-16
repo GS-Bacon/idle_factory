@@ -5234,25 +5234,24 @@ fn test_direction_rotate_cw() {
 /// Test pagination calculation
 #[test]
 fn test_storage_ui_pagination() {
-    use idle_factory::ui::storage_ui::{GRID_COLUMNS, SLOTS_PER_PAGE};
+    use idle_factory::setup::ui::UPPER_PANEL_SLOTS;
 
-    // 32 slots per page
-    assert_eq!(SLOTS_PER_PAGE, 32);
-    assert_eq!(GRID_COLUMNS, 8);
+    // 36 slots per page (9 columns x 4 rows)
+    assert_eq!(UPPER_PANEL_SLOTS, 36);
 
-    // 100 items should need 4 pages (ceil(100/32))
+    // 100 items should need 3 pages (ceil(100/36))
     let item_count = 100;
-    let pages_needed = (item_count + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE;
-    assert_eq!(pages_needed, 4);
+    let pages_needed = (item_count + UPPER_PANEL_SLOTS - 1) / UPPER_PANEL_SLOTS;
+    assert_eq!(pages_needed, 3);
 
-    // 32 items exactly should need 1 page
-    let item_count = 32;
-    let pages_needed = (item_count + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE;
+    // 36 items exactly should need 1 page
+    let item_count = 36;
+    let pages_needed = (item_count + UPPER_PANEL_SLOTS - 1) / UPPER_PANEL_SLOTS;
     assert_eq!(pages_needed, 1);
 
     // 0 items should need 1 page (minimum)
     let item_count = 0;
-    let pages_needed = std::cmp::max(1, (item_count + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE);
+    let pages_needed = std::cmp::max(1, (item_count + UPPER_PANEL_SLOTS - 1) / UPPER_PANEL_SLOTS);
     assert_eq!(pages_needed, 1);
 }
 

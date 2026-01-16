@@ -1,11 +1,13 @@
 # Claude Code メモリ
 
-## 用語定義（混同注意）
+## 用語定義（ユビキタス言語）
 
 | 用語 | 意味 | コード上の対応 |
 |------|------|---------------|
-| **収納** | コンベア経由でプラットフォーム（倉庫）にアイテムが入ること | `TransferTarget::Delivery` |
-| **納品** | クエストのためにアイテムを消費すること | `quest_deliver_button` |
+| **手持ちインベントリ** | プレイヤーが持ち歩くアイテム（ホットバー+バックパック） | `PlayerInventory` (Component) |
+| **プラットフォームインベントリ** | 納品プラットフォームに紐づいた倉庫 | `PlatformInventory` (Component) |
+| **収納** | コンベア経由でプラットフォームインベントリにアイテムが入ること | `TransferTarget::Delivery` |
+| **納品** | クエストのためにプラットフォームインベントリからアイテムを消費すること | `quest_deliver_button` |
 
 ※ユーザーが混同していそうな場合は確認すること
 
@@ -169,7 +171,7 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 |------|------|
 | ビルドエラー | 自力で修正して続行 |
 | テスト失敗 | 自力で修正して続行 |
-| 設計判断が必要 | `.claude/architecture-future.md` に従って自己判断 |
+| 設計判断が必要 | `.claude/architecture.md` に従って自己判断 |
 | タスク完了 | **次のタスクへ自動で進む** |
 | 軽微な問題 | 自己判断で解決して続行 |
 
@@ -393,7 +395,7 @@ params = { condition = "ui_state == Inventory" }
 
 | ファイル | 内容 | 優先度 |
 |----------|------|--------|
-| **`.claude/architecture-future.md`** | **将来アーキテクチャ設計（権威ソース）** | **最優先** |
+| **`.claude/architecture.md`** | **将来アーキテクチャ設計（権威ソース）** | **最優先** |
 | `.claude/implementation-plan.md` | 統合実装計画（タスク一覧） | 高 |
 | `.claude/bugs.md` | よくあるバグと対策 | 中 |
 | `.specify/memory/constitution.md` | プロジェクト憲章 | 中 |
@@ -401,11 +403,11 @@ params = { condition = "ui_state == Inventory" }
 
 ## 将来アーキテクチャ設計ルール（必須）
 
-**`.claude/architecture-future.md` が全ての設計判断の権威ソース**
+**`.claude/architecture.md` が全ての設計判断の権威ソース**
 
 ### 新規実装時
 
-1. **必ず** `.claude/architecture-future.md` を参照
+1. **必ず** `.claude/architecture.md` を参照
 2. 将来設計と矛盾する実装は禁止
 3. 将来設計にないパターンを使う場合は先に設計追記
 
@@ -525,7 +527,7 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 
 | 項目 | 値 |
 |------|-----|
-| バージョン | **0.3.136** |
+| バージョン | **0.3.167** |
 | コード行数 | **29,253行** |
 | テスト | **613件** 通過 |
 | Clippy警告 | **0件** |
@@ -558,7 +560,7 @@ AIが1時間作業したら → ゲームを起動して変化を見せる
 | 液体・気体 | M4: パイプ、タンク |
 | 信号制御 | M4: 論理回路 |
 
-**決定済み設計** (`.claude/architecture-future.md` 参照):
+**決定済み設計** (`.claude/architecture.md` 参照):
 - 動的ID: `ItemId` (完全移行済み)
 - Mod API: WebSocket + TOML + WASM (M2完了)
 - マルチ対応: Component化済み

@@ -11,7 +11,9 @@ use crate::systems::{
     track_production, trash_slot_click, update_breaking_progress_ui, update_command_suggestions,
     update_creative_catalog_sprites, update_held_item_3d, update_held_item_display,
     update_hotbar_item_name, update_hotbar_ui, update_inventory_tooltip,
-    update_inventory_visibility, update_tutorial_ui, TutorialEvent,
+    update_inventory_visibility, update_tutorial_ui, update_upper_panel_slots,
+    upper_panel_category_click, upper_panel_page_nav, upper_panel_slot_click, HeldItemDisplayState,
+    TutorialEvent,
 };
 use crate::{
     CommandInputState, GuideMarkers, HeldItem, InventoryOpen, ItemSprites, TargetBlock,
@@ -31,7 +33,8 @@ impl Plugin for UIPlugin {
             .init_resource::<HeldItem>()
             .init_resource::<CommandInputState>()
             .init_resource::<GuideMarkers>()
-            .init_resource::<ItemSprites>();
+            .init_resource::<ItemSprites>()
+            .init_resource::<HeldItemDisplayState>();
 
         // Tutorial event
         app.add_event::<TutorialEvent>();
@@ -56,6 +59,11 @@ impl Plugin for UIPlugin {
                     update_creative_catalog_sprites,
                     trash_slot_click,
                     creative_inventory_click,
+                    // Upper panel systems
+                    update_upper_panel_slots,
+                    upper_panel_slot_click,
+                    upper_panel_page_nav,
+                    upper_panel_category_click,
                 ),
             )
             .add_systems(

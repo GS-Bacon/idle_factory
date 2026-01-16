@@ -143,7 +143,12 @@ pub fn update_quest_ui(
         (Without<QuestProgressItem>, Without<QuestDeliverButton>),
     >,
     quest_cache: Res<QuestCache>,
+    tutorial_progress: Res<TutorialProgress>,
 ) {
+    // Skip quest UI updates during tutorial
+    if !tutorial_progress.completed {
+        return;
+    }
     let Ok(mut text) = text_query.get_single_mut() else {
         return;
     };
@@ -499,5 +504,9 @@ pub fn load_machine_models(
     item_sprites.insert_id(
         items::platform_block(),
         asset_server.load("textures/items/platform.png"),
+    );
+    item_sprites.insert_id(
+        items::stone_pickaxe(),
+        asset_server.load("textures/items/stone_pickaxe.png"),
     );
 }

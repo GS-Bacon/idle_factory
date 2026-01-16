@@ -29,7 +29,6 @@ pub enum GameAction {
     // UI
     ToggleInventory,
     TogglePause,
-    ToggleGlobalInventory,
     ToggleQuest,
     OpenCommand,
     CloseUI,
@@ -247,10 +246,6 @@ impl Default for InputManager {
         bindings.insert(
             GameAction::TogglePause,
             vec![InputBinding::Key(KeyCode::Escape)],
-        );
-        bindings.insert(
-            GameAction::ToggleGlobalInventory,
-            vec![InputBinding::Key(KeyCode::Tab)],
         );
         bindings.insert(
             GameAction::ToggleQuest,

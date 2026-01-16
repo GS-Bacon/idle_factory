@@ -14,8 +14,8 @@ use super::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
 use super::ModManager;
 
 use crate::components::{
-    BreakingProgress, CommandInputState, CursorLockState, GlobalInventoryOpen, InputState,
-    InteractingMachine, InventoryOpen, TargetBlock, UIContext, UIState,
+    BreakingProgress, CommandInputState, CursorLockState, InputState, InteractingMachine,
+    InventoryOpen, TargetBlock, UIContext, UIState,
 };
 use crate::core::{items, ItemId};
 use crate::events::TestEventBuffer;
@@ -411,7 +411,6 @@ fn process_server_messages(
     player_query: Query<(&Transform, &PlayerInventory)>,
     mut test_input_writer: EventWriter<TestInputEvent>,
     mut command_state: Option<ResMut<CommandInputState>>,
-    mut global_inv_open: Option<ResMut<GlobalInventoryOpen>>,
     target_block: Option<Res<TargetBlock>>,
     breaking_progress: Option<Res<BreakingProgress>>,
     mut test_event_buffer: Option<ResMut<TestEventBuffer>>,
@@ -439,8 +438,6 @@ fn process_server_messages(
         if current == UIContext::Gameplay {
             if command_state.as_ref().is_some_and(|c| c.open) {
                 "Command".to_string()
-            } else if global_inv_open.as_ref().is_some_and(|g| g.0) {
-                "GlobalInventory".to_string()
             } else {
                 ui_context_to_string(&current)
             }
@@ -583,7 +580,6 @@ fn process_server_messages(
                             &mut interacting_machine,
                             &mut cursor_lock,
                             &mut command_state,
-                            &mut global_inv_open,
                         );
                     }
                 }
@@ -637,7 +633,6 @@ fn ui_context_to_string(ctx: &UIContext) -> String {
     match ctx {
         UIContext::Gameplay => "Gameplay".to_string(),
         UIContext::Inventory => "Inventory".to_string(),
-        UIContext::GlobalInventory => "GlobalInventory".to_string(),
         UIContext::CommandInput => "Command".to_string(),
         UIContext::PauseMenu => "PauseMenu".to_string(),
         UIContext::Settings => "Settings".to_string(),
@@ -653,7 +648,6 @@ fn apply_ui_state_change(
     interacting_machine: &mut Option<ResMut<InteractingMachine>>,
     cursor_lock: &mut Option<ResMut<CursorLockState>>,
     command_state: &mut Option<ResMut<CommandInputState>>,
-    global_inv_open: &mut Option<ResMut<GlobalInventoryOpen>>,
 ) {
     // Get mutable references to all resources
     let (Some(ui), Some(inv), Some(machine), Some(cursor)) = (
@@ -669,28 +663,24 @@ fn apply_ui_state_change(
     // Helper to reset legacy resources
     let reset_legacy = |inv: &mut InventoryOpen,
                         machine: &mut InteractingMachine,
-                        cmd: &mut Option<ResMut<CommandInputState>>,
-                        global: &mut Option<ResMut<GlobalInventoryOpen>>| {
+                        cmd: &mut Option<ResMut<CommandInputState>>| {
         inv.0 = false;
         machine.0 = None;
         if let Some(c) = cmd.as_mut() {
             c.open = false;
-        }
-        if let Some(g) = global.as_mut() {
-            g.0 = false;
         }
     };
 
     match state_str {
         "Gameplay" => {
             ui.clear();
-            reset_legacy(inv, machine, command_state, global_inv_open);
+            reset_legacy(inv, machine, command_state);
             cursor.paused = false;
         }
         "Inventory" => {
             ui.clear();
             ui.push(UIContext::Inventory);
-            reset_legacy(inv, machine, command_state, global_inv_open);
+            reset_legacy(inv, machine, command_state);
             inv.0 = true;
             cursor.paused = false;
         }
@@ -699,29 +689,20 @@ fn apply_ui_state_change(
             // Use a dummy entity for test purposes
             let dummy_entity = Entity::from_raw(999999);
             ui.push(UIContext::Machine(dummy_entity));
-            reset_legacy(inv, machine, command_state, global_inv_open);
+            reset_legacy(inv, machine, command_state);
             machine.0 = Some(dummy_entity);
             cursor.paused = false;
         }
         "PauseMenu" => {
             ui.clear();
             ui.push(UIContext::PauseMenu);
-            reset_legacy(inv, machine, command_state, global_inv_open);
+            reset_legacy(inv, machine, command_state);
             cursor.paused = true;
-        }
-        "GlobalInventory" => {
-            ui.clear();
-            ui.push(UIContext::GlobalInventory);
-            reset_legacy(inv, machine, command_state, global_inv_open);
-            if let Some(g) = global_inv_open.as_mut() {
-                g.0 = true;
-            }
-            cursor.paused = false;
         }
         "Command" => {
             ui.clear();
             ui.push(UIContext::CommandInput);
-            reset_legacy(inv, machine, command_state, global_inv_open);
+            reset_legacy(inv, machine, command_state);
             if let Some(c) = command_state.as_mut() {
                 c.open = true;
             }
@@ -730,7 +711,7 @@ fn apply_ui_state_change(
         "Settings" => {
             ui.clear();
             ui.push(UIContext::Settings);
-            reset_legacy(inv, machine, command_state, global_inv_open);
+            reset_legacy(inv, machine, command_state);
             cursor.paused = true;
         }
         _ => {
@@ -756,7 +737,6 @@ fn parse_game_action(s: &str) -> Option<GameAction> {
         "LookRight" => Some(GameAction::LookRight),
         "ToggleInventory" => Some(GameAction::ToggleInventory),
         "TogglePause" => Some(GameAction::TogglePause),
-        "ToggleGlobalInventory" => Some(GameAction::ToggleGlobalInventory),
         "ToggleQuest" => Some(GameAction::ToggleQuest),
         "OpenCommand" => Some(GameAction::OpenCommand),
         "CloseUI" => Some(GameAction::CloseUI),

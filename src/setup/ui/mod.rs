@@ -5,7 +5,10 @@
 mod inventory_ui;
 pub mod settings_ui;
 
-pub use inventory_ui::setup_inventory_ui;
+pub use inventory_ui::{
+    setup_inventory_ui, UpperPanel, UpperPanelGrid, UpperPanelPageText, UpperPanelSearchInput,
+    UpperPanelSlot, UpperPanelSlotCount, UpperPanelSlotImage, UpperPanelTabs, UPPER_PANEL_SLOTS,
+};
 pub use settings_ui::{
     handle_settings_back, handle_settings_sliders, handle_settings_toggles,
     handle_slider_drag_state, setup_settings_ui, update_settings_ui, update_settings_visibility,
@@ -404,6 +407,10 @@ pub fn setup_ui(
             parent
                 .spawn((
                     QuestProgressContainer,
+                    ui_registry
+                        .get_id("base:quest_progress_container")
+                        .map(UIElementTag::new)
+                        .unwrap_or_else(|| UIElementTag::new(Default::default())),
                     Node {
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(6.0),

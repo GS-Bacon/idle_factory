@@ -11,7 +11,6 @@ use crate::events::SpawnMachineEvent;
 use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::systems::cursor;
-use crate::{GlobalInventoryOpen, InteractingMachine};
 use bevy::prelude::*;
 
 use super::executor::execute_command;
@@ -44,10 +43,9 @@ pub fn command_input_toggle(
     mut windows: Query<&mut Window>,
     interacting_machine: Res<InteractingMachine>,
     inventory_open: Res<InventoryOpen>,
-    global_inv_open: Res<GlobalInventoryOpen>,
 ) {
     // Don't open if other UI is open
-    if interacting_machine.0.is_some() || inventory_open.0 || global_inv_open.0 {
+    if interacting_machine.0.is_some() || inventory_open.0 {
         return;
     }
 
