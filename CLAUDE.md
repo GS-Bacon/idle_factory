@@ -162,6 +162,26 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 | ゲーム起動 | `./run.sh` |
 | バグ修正 | **再現テストなしの修正禁止**。下記参照 |
 | **タスク実行** | **必ず `./scripts/parallel-run.sh` を使う**。下記参照 |
+| **アーキテクチャ整合性** | コミット後に自動チェック。手動: `./scripts/architecture-check.sh` |
+
+## アーキテクチャ整合性ルール
+
+**自動チェック**: `git commit` 後に `post-commit` hookが自動実行
+
+**手動チェック**:
+```bash
+./scripts/architecture-check.sh
+```
+
+**チェック内容**:
+- ID方式の移行状態（ItemId使用箇所、MachineType残存）
+- レガシーパターン（Res<PlayerInventory>等）
+- モジュール構造の整合性
+
+**アーキテクチャ変更時**:
+1. `.claude/architecture.md` の該当セクションを更新
+2. 移行状態テーブルを更新
+3. `./scripts/architecture-check.sh` でエラーなしを確認
 
 ## 自律実行ルール（重要）
 

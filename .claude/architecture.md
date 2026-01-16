@@ -107,14 +107,30 @@
 `Id<Category>` パターン: Phantom Type で型安全、Registry 経由でのみ生成
 
 ```rust
-pub type ItemId = Id<ItemCategory>;      // アイテム
-pub type MachineId = Id<MachineCategory>; // 機械
-pub type RecipeId = Id<RecipeCategory>;   // レシピ
+pub type ItemId = Id<ItemCategory>;        // アイテム
+pub type MachineId = Id<MachineCategory>;  // 機械
+pub type RecipeId = Id<RecipeCategory>;    // レシピ
+pub type UIElementId = Id<UIElementCategory>; // UI要素
+pub type FluidId = Id<FluidCategory>;      // 流体（将来用）
 ```
+
+#### 移行状態
+
+| 型 | 状態 | 使用箇所 | 備考 |
+|----|------|----------|------|
+| `ItemId` | ✅ 完全移行 | 494箇所 | セーブも文字列ID |
+| `UIElementId` | ✅ 実装済み | 10ファイル | Registry + TOML対応 |
+| `MachineId` | 🔨 定義のみ | 0箇所 | 現在は`MachineType` enum使用（56箇所） |
+| `RecipeId` | 🔨 定義のみ | 0箇所 | 現在は`&'static str`使用 |
+| `FluidId` | 📋 将来用 | 0箇所 | M4で使用予定 |
+
+> **注**: base専用（Achievement, Sound, Tutorial等）は意図的に`&'static str`。Mod拡張不要なため。
 
 **保証**: カテゴリ混同→コンパイルエラー / 存在保証→Registry経由 / Mod対応→実行時追加可能
 
 **セーブ**: 文字列ID（`"base:iron_ore"`）で保存、ロード時に再マッピング。不明IDは警告＋フォールバック。
+
+**整合性チェック**: `./scripts/architecture-check.sh` で確認可能
 
 ---
 
@@ -194,28 +210,58 @@ Engine + base (Rust) ─┬─ Core Mod (WASM)     ← ロジック追加
 ## 現在のアーキテクチャ
 
 ```
-components/     ← ECSコンポーネント（データ）
-    machines.rs     Machine, Conveyor, MachineSlot
-
-game_spec/      ← 仕様定義（Single Source of Truth）
-    machines.rs     MachineSpec, IoPort
-    recipes.rs      RecipeSpec
-
-machines/       ← 機械処理ロジック
-    generic.rs      generic_machine_tick()
-
-logistics/      ← 物流ロジック
-    conveyor.rs     conveyor_transfer()
-
-world/          ← チャンク・ワールド管理
-    mod.rs          ChunkData, WorldData
+src/
+├── components/           ← ECSコンポーネント（データ）
+│   ├── machines/         # 機械コンポーネント（7ファイル）
+│   │   ├── mod.rs, machine.rs, conveyor.rs
+│   │   ├── descriptor.rs, ports.rs, direction.rs, models.rs
+│   ├── ui_state.rs       # UI状態管理（スタック型）
+│   └── ui.rs
+│
+├── game_spec/            ← 仕様定義（Single Source of Truth）
+│   ├── machines.rs       # MachineSpec, MachineType enum
+│   ├── recipes.rs        # RecipeSpec
+│   ├── registry.rs       # ItemRegistry
+│   └── ui_elements.rs    # UIElementRegistry, UIElementSpec
+│
+├── machines/             ← 機械処理ロジック
+│   └── generic/          # 汎用機械処理（9ファイル）
+│       ├── mod.rs, tick.rs, recipe.rs
+│       ├── interact.rs, output.rs, ui.rs
+│       └── auto_generate.rs, cleanup.rs, tests.rs
+│
+├── modding/              ← Mod API実装
+│   ├── wasm/             # Core Mod基盤（8ファイル）
+│   ├── server/           # WebSocket API（7ファイル）
+│   ├── handlers/         # APIハンドラ（8ファイル）
+│   └── data.rs           # ItemDefinition, MachineDefinition
+│
+├── save/                 ← セーブ/ロード
+│   ├── systems.rs        # セーブ/ロードシステム
+│   └── format/           # V2セーブ形式（5ファイル）
+│
+├── world/                ← チャンク・ワールド管理（4ファイル）
+│   ├── mod.rs            # WorldData
+│   ├── chunk.rs          # ChunkData
+│   └── meshing.rs        # グリーディメッシング
+│
+├── events/               ← イベントシステム
+│   ├── game_events.rs    # BlockPlaced, MachineSpawned等
+│   └── guarded_writer.rs # GuardedEventWriter
+│
+└── systems/              ← Bevyシステム
+    ├── inventory_ui/     # インベントリUI（7ファイル）
+    ├── ui_visibility.rs  # UIElement可視性管理
+    └── ...
 ```
 
 ---
 
 ## 各機能の設計骨格
 
-### 1. 電力システム
+### 1. 電力システム [将来設計 - M3]
+
+> **注意**: 以下は設計案であり、未実装です。
 
 **データ構造**
 ```rust
@@ -243,7 +289,9 @@ pub struct PowerProducer {
 
 ---
 
-### 2. 液体・気体
+### 2. 液体・気体 [将来設計 - M4]
+
+> **注意**: 以下は設計案であり、未実装です。FluidIdは定義済み。
 
 **データ構造**
 ```rust
@@ -275,7 +323,9 @@ pub struct FluidSpec {
 
 ---
 
-### 3. 信号制御（レッドストーン的）
+### 3. 信号制御（レッドストーン的） [将来設計 - M4]
+
+> **注意**: 以下は設計案であり、未実装です。
 
 **データ構造**
 ```rust
@@ -594,22 +644,30 @@ pub struct MapData {
 
 ---
 
-### UI状態管理（ハイブリッド方式）
+### UI状態管理（ハイブリッド方式） [一部未実装]
+
+**実装状態**:
+| 機能 | 状態 | 備考 |
+|------|------|------|
+| スタック型UIContext | ✅ 実装済み | Gameplay, Inventory, PauseMenu, Settings, Machine, CommandInput |
+| UIElementRegistry | ✅ 実装済み | TOML駆動、動的ID対応 |
+| UIElementTag | ✅ 実装済み | 可視性管理用Component |
+| **オーバーレイ** | ❌ 未実装 | ミニマップ、統計等の同時表示 |
 
 **設計方針（2026-01-11 確定）**:
 - **排他グループ**: 同時に1つだけ表示（インベントリ、機械UI、設定等）
-- **オーバーレイ**: 排他グループと同時表示可能（ミニマップ、統計、クエスト進捗等）
+- **オーバーレイ**: 排他グループと同時表示可能（ミニマップ、統計、クエスト進捗等）← **未実装**
 
 **理由**: 工場ゲームでは「コンベア配置しながらインベントリ確認」「マップ見ながら計画」が自然。
 ただし「インベントリと機械UI同時」は混乱するので排他。
 
-**データ構造**
+**データ構造（目標）**
 ```rust
 // components/ui_state.rs
 pub struct UIState {
-    /// 排他的UIスタック（ESCで戻る）
+    /// 排他的UIスタック（ESCで戻る）← 実装済み
     stack: Vec<UIContext>,
-    /// オーバーレイUI（トグルで表示/非表示）
+    /// オーバーレイUI（トグルで表示/非表示）← 未実装
     overlays: HashSet<OverlayType>,
 }
 
