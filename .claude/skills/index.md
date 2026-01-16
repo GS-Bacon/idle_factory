@@ -130,8 +130,42 @@ fn update_lod(dist: f32) -> Lod {
 
 ---
 
+---
+
+## 3Dモデリング
+
+### クイックリファレンス
+
+| 複雑さ | 戦略 |
+|--------|------|
+| シンプル | Hyper3D一発生成 |
+| 中程度 | Hyper3D + Blender調整 |
+| 複雑な機械 | **パーツ分割生成** |
+| 高品質必須 | Sketchfab検索 |
+
+### プロンプト必須要素
+
+```
+[オブジェクト], [スタイル] style, [素材] materials,
+[構造], [用途], single object
+```
+
+### AI生成の得意・不得意
+
+| カテゴリ | 品質 |
+|----------|------|
+| シンプルな小物 | ⭐⭐⭐⭐ |
+| スタイライズドキャラ | ⭐⭐⭐ |
+| 産業機械・メカ | ⭐⭐ |
+| 有機的形状 | ⭐ |
+
+**詳細**: `.claude/skills/modeling/` 参照
+
+---
+
 ## 詳細参照
 
 必要時のみ元ファイル参照:
 - `.specify/memory/patterns-compact.md` - パターン詳細
 - `.specify/specs/index-compact.md` - 仕様詳細
+- `.claude/skills/modeling/` - 3Dモデリング詳細
