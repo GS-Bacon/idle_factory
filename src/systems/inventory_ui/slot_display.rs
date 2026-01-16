@@ -128,8 +128,8 @@ pub fn update_held_item_display(
             if let Ok(window) = windows.get_single() {
                 if let Some(cursor_pos) = window.cursor_position() {
                     // Offset so item appears slightly below and to the right of cursor
-                    let x = cursor_pos.x + 8.0;
-                    let y = cursor_pos.y + 8.0;
+                    let x = cursor_pos.x + 4.0;
+                    let y = cursor_pos.y + 4.0;
                     node.left = Val::Px(x);
                     node.top = Val::Px(y);
 

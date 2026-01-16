@@ -106,6 +106,50 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 2. ユーザーに見せる
 3. **見せたら即削除**
 
+## 3Dモデリング（Blender MCP）
+
+### 推奨ワークフロー
+
+```
+[HTMLプレビュー] → [パラメータ調整] → [JSONをClaudeに渡す] → [自動生成]
+```
+
+### ユーザーからの指示例
+
+```
+このパラメータでモデリングして、モデル名は「conveyor」
+
+{
+  "bodyWidth": 0.3,
+  "bodyHeight": 0.1,
+  ...
+}
+```
+
+### Claudeの対応
+
+1. パラメータからBlender Pythonコード生成
+2. `mcp__blender__execute_blender_code` で実行
+3. GLBエクスポート（`assets/models/machines/[name].glb`）
+4. レンダリング確認して報告
+
+### 関連ファイル
+
+| ファイル | 用途 |
+|----------|------|
+| `UIプレビュー/mining_drill_preview.html` | 採掘機プレビュー |
+| `scripts/generate-blender-model.py` | コード生成スクリプト |
+| `.claude/skills/modeling/best-practices.md` | ベストプラクティス |
+| `.claude/skills/modeling/guides/` | 機械別ガイド |
+
+### HTTPサーバー
+
+```bash
+cd /home/bacon/idle_factory/UIプレビュー
+python3 -m http.server 8080 --bind 0.0.0.0 &
+# http://100.84.170.32:8080/
+```
+
 ## 互換性ポリシー
 
 - **既存プレイヤーはいない** → セーブデータ移行は不要

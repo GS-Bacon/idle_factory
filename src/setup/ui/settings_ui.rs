@@ -91,8 +91,8 @@ pub fn setup_settings_ui(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-            GlobalZIndex(101), // Above pause menu
+            BackgroundColor(Color::NONE), // No background (use PauseUI background)
+            GlobalZIndex(101),            // Above pause menu
             Visibility::Hidden,
         ))
         .with_children(|root| {

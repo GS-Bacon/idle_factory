@@ -200,9 +200,132 @@ obj.rotation_euler = (math.radians(90), 0, 0)
 
 ---
 
+## 9. HTMLプレビュー → パラメータ → Blender自動生成（推奨）
+
+### 概要
+
+最も効率的なワークフロー。HTMLでデザインを確定し、パラメータをClaudeに渡すだけで自動モデリング。
+
+### フロー
+
+```
+[HTMLプレビュー] → [パラメータ調整] → [JSONコピー] → [Claudeに渡す] → [自動生成]
+```
+
+### Step 1: HTMLプレビューでデザイン
+
+```bash
+# HTTPサーバー起動
+cd /home/bacon/idle_factory/UIプレビュー
+python3 -m http.server 8080 --bind 0.0.0.0 &
+
+# アクセス
+# http://[TAILSCALE_IP]:8080/mining_drill_preview.html
+```
+
+### Step 2: パラメータをClaudeに伝える
+
+```
+このパラメータでモデリングして、モデル名は「conveyor」
+
+{
+  "bodyWidth": 0.3,
+  "bodyHeight": 0.1,
+  "bodyDepth": 0.8,
+  "bodyColor": "#5a5a5a",
+  ...
+}
+```
+
+### Step 3: Claude自動実行
+
+Claudeが以下を自動実行：
+1. パラメータからBlender Pythonコード生成
+2. `mcp__blender__execute_blender_code` で実行
+3. GLBエクスポート
+4. 完了報告
+
+### 利点
+
+| 利点 | 説明 |
+|------|------|
+| **即時プレビュー** | HTMLでリアルタイム確認 |
+| **正確な再現** | パラメータ値がそのまま反映 |
+| **やり直し簡単** | 値を変えて再実行するだけ |
+| **手動作業ゼロ** | コード生成からエクスポートまで自動 |
+
+### スクリプト
+
+```bash
+# コマンドラインでも生成可能
+echo '{"bodyWidth": 0.26, ...}' | python3 scripts/generate-blender-model.py - miner
+```
+
+---
+
+## 10. Blender MCP Pythonモデリング（Claude直接操作）
+
+### 基本原則
+
+| 原則 | 詳細 |
+|------|------|
+| **段階的に作成** | 一度に全パーツを作らない。1パーツ作成→確認→次へ |
+| **各ステップで確認** | レンダリングして視覚確認、問題あれば即修正 |
+| **パーツを深く重ねる** | 接触ではなく「重なり」で一体感を出す |
+| **本体から生やす** | ドリル等は本体に埋め込む形で接続 |
+
+### 避けるべきパターン
+
+| ❌ 悪い | ✅ 良い |
+|---------|--------|
+| パーツを接触させる | パーツを重ねる（overlap: 0.02-0.05） |
+| 全パーツを一度に作成 | 1パーツずつ作成→確認 |
+| 浮いた脚 | 本体に埋め込んだ脚 |
+| 分離したドリル | 本体から生えているドリル |
+
+### 段階的作成フロー
+
+```
+Step 1: 本体（メインボックス）作成 → レンダリング確認
+Step 2: 本体にドリルを埋め込み → レンダリング確認
+Step 3: 脚を本体に接続 → レンダリング確認
+Step 4: ディテール追加 → レンダリング確認
+Step 5: 全体調整 → 完成
+```
+
+### 重なり（Overlap）の実装
+
+```python
+# 悪い: 接触のみ
+body_bottom = 0.5
+drill_top = 0.5  # 接触点
+
+# 良い: 重なりを持たせる
+body_bottom = 0.5
+drill_top = 0.52  # 本体に0.02埋め込み
+```
+
+### 一体感を出すコツ
+
+1. **脚は本体の内側から生やす** - 本体の角ではなく、本体に埋め込む
+2. **ドリルシャフトは本体を貫通** - 上から下まで一本で繋がっている感
+3. **ディテールは面に密着** - 浮かせない
+4. **色の連続性** - 隣接パーツは近い色
+
+### Factorioデザイン哲学（参考）
+
+- **平面的な正方形を避ける** - 3D感を出す
+- **ドリルビットが主役** - 機能が一目でわかる
+- **ファミリー感** - 同じ機械シリーズは統一感
+
+---
+
 ## Sources
 
 - [Blender MCP公式](https://blender-mcp.com/)
+- [Blender MCP GitHub](https://github.com/ahujasid/blender-mcp)
+- [Blender MCP Tutorials](https://blender-mcp.com/tutorials.html)
+- [Factorio Friday Facts #350](https://factorio.com/blog/post/fff-350)
 - [Hyper3D公式](https://hyper3d.ai/)
 - [Meshy AI - Prompt Engineering](https://www.meshy.ai/blog/meshy-5-text-to-3d)
 - [3D AI Studio Guide](https://www.3daistudio.com/3d-generator-ai-comparison-alternatives-guide/what-to-write-in-text-prompts-for-3d)

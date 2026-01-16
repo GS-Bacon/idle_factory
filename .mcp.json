@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "blender": {
-      "command": "uvx",
+      "command": "/home/bacon/.local/bin/uvx",
       "args": ["blender-mcp"]
     }
   }

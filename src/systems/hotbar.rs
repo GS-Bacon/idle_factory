@@ -11,7 +11,6 @@ pub fn update_hotbar_ui(
     local_player: Option<Res<LocalPlayer>>,
     inventory_query: Query<&PlayerInventory>,
     item_sprites: Res<ItemSprites>,
-    asset_server: Res<AssetServer>,
     mut slot_query: Query<(&HotbarSlot, &mut BackgroundColor, &mut BorderColor)>,
     mut count_query: Query<(&HotbarSlotCount, &mut Text)>,
     mut image_query: Query<(&HotbarSlotImage, &mut ImageNode, &mut Visibility)>,
@@ -42,20 +41,6 @@ pub fn update_hotbar_ui(
             *bg = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8));
             *border = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
         }
-    }
-
-    // Check if any sprite assets are still loading
-    let sprites_loading = item_sprites.textures.values().any(|h| {
-        !matches!(
-            asset_server.get_load_state(h),
-            Some(bevy::asset::LoadState::Loaded)
-        )
-    });
-
-    // Update sprites only when resource changes or sprites are loading
-    // (need to keep checking while loading to catch when they finish)
-    if !item_sprites.is_changed() && !sprites_loading {
-        return;
     }
 
     // Update slot sprite images with visibility control
@@ -282,7 +267,7 @@ pub fn update_held_item_3d(
                         .spawn((
                             HeldItem3DScene,
                             SceneRoot(scene_handle),
-                            Transform::from_xyz(0.5, -0.4, -0.8)
+                            Transform::from_xyz(0.6, -0.5, -0.8)
                                 .with_rotation(Quat::from_euler(EulerRot::YXZ, -0.3, 0.2, 0.1))
                                 .with_scale(Vec3::splat(0.3)), // Smaller scale for hand display
                             Visibility::Inherited,

@@ -1,71 +1,128 @@
 # モデルレビュー
 
-評価待ちの3Dモデルをまとめてレビューする。
+HTMLプレビューでモデルデザインを確認・調整するワークフロー。
 
 ## 引数
 $ARGUMENTS
 
-## 実行手順
+## 引数の解析
 
-### 1. 評価待ちモデルを確認
+- **モデル名**: 必須（例: "採掘機", "コンベア", "チェスト"）
+- **--style**: スタイル指定（industrial/steampunk/sci-fi/fantasy/minecraft）
+- **--size**: ゲーム内サイズ（デフォルト: 1ブロック = 1m）
 
-```python
-import sys
-sys.path.insert(0, '/home/bacon/github/idle_factory')
-from tools.model_training.human_feedback import get_feedback_db
+---
 
-db = get_feedback_db()
-print(db.batch_review_report())
+## ワークフロー
+
+### Step 1: 参考調査
+
+1. Web検索で参考画像・デザインを収集
+2. 類似ゲーム（Factorio, Satisfactory, Minecraft等）のデザインを参照
+3. Sketchfabで参考モデルを検索
+
+### Step 2: HTMLプレビュー作成
+
+1. `UIプレビュー/` フォルダにHTMLファイルを作成
+2. Three.jsでインタラクティブな3Dプレビューを実装
+3. 以下の機能を含める:
+   - パラメータ調整スライダー
+   - プリセット（複数スタイル）
+   - 設定値のエクスポート/インポート（JSON）
+   - 1ブロック境界線表示
+   - サイズ表示
+
+### Step 3: HTTPサーバー起動
+
+```bash
+# Tailscale経由でアクセス可能にする
+cd /home/bacon/idle_factory/UIプレビュー
+python3 -m http.server 8080 --bind 0.0.0.0 &
+
+# アクセスURL
+tailscale ip -4  # IPを確認
+# → http://[TAILSCALE_IP]:8080/[ファイル名].html
 ```
 
-### 2. 各モデルのスクリーンショットを表示
+### Step 4: デザイン確定
 
-評価待ちモデルごとに：
-1. スクリーンショットを `Read` ツールで表示
-2. 人間に評価を依頼（5段階 x 5項目）
-3. フィードバックを記録
+1. ユーザーがブラウザでパラメータを調整
+2. 気に入った設定をCopy Settingsでコピー
+3. そのJSON設定を元にBlenderでモデリング
 
-### 3. 評価項目（1-5）
+### Step 5: Blenderで実装
 
-| 項目 | 説明 |
+HTMLで確定したパラメータを使って`mcp__blender__execute_blender_code`でモデリング。
+
+---
+
+## HTMLテンプレート構造
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="controls">
+        <!-- スライダー、カラーピッカー、プリセットボタン -->
+        <!-- Export/Import用のtextarea -->
+    </div>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        // 3Dシーン構築
+    </script>
+</body>
+</html>
+```
+
+## 必須機能
+
+| 機能 | 説明 |
 |------|------|
-| shape | 形状：そのモデルらしさ、シルエット |
-| style | スタイル：ローポリ感、ゲームに合うか |
-| detail | ディテール：パーツのバランス |
-| color | 色/マテリアル：色味、金属感 |
-| overall | 総合：ゲームで使いたいか |
+| OrbitControls | ドラッグで回転、スクロールでズーム |
+| パラメータスライダー | 各パーツのサイズ・位置調整 |
+| カラーピッカー | 色の調整 |
+| プリセット | 複数スタイルをワンクリックで切替 |
+| JSON Export | 設定値をコピー可能に |
+| JSON Import | 設定値を貼り付けて適用 |
+| 1ブロック境界線 | サイズ確認用ワイヤーフレーム |
+| サイズ表示 | W x D x H をリアルタイム表示 |
 
-### 4. 評価記録
+## 既存プレビュー
 
-```python
-db.add_feedback("gen_id_here", {
-    "shape": 4,
-    "style": 4,
-    "detail": 4,
-    "color": 4,
-    "overall": 4,
-    "comments": "コメント",
-    "issues": [],  # 問題があれば
-    "fixes_applied": [],  # 修正があれば
-})
+| モデル | ファイル |
+|--------|----------|
+| 採掘機 | `UIプレビュー/mining_drill_preview.html` |
+
+---
+
+## 例: 新規モデルのレビュー
+
+```
+/review-models コンベア --style industrial
 ```
 
-### 5. 完了後
+1. コンベアの参考画像を検索
+2. `UIプレビュー/conveyor_preview.html` を作成
+3. HTTPサーバーでアクセス可能にする
+4. ユーザーがデザインを確定
+5. Blenderでモデリング
 
-```python
-print(db.generate_report())
-```
+---
 
-## 簡易評価モード
+## 注意事項
 
-「全部OK」「まとめて評価」の場合：
-
-```python
-# 全て4点で一括評価
-pending = db.get_pending_reviews()
-for item in pending:
-    db.add_feedback(item["gen_id"], {
-        "shape": 4, "style": 4, "detail": 4, "color": 4, "overall": 4,
-        "comments": "バッチレビュー",
-    })
-```
+- **HTTPサーバーは使用後に停止**: `pkill -f "python3 -m http.server"`
+- **UIプレビューフォルダはgitignore済み**: 一時ファイルとして扱う
+- **設定JSONは保存推奨**: 後でBlenderで再現するため

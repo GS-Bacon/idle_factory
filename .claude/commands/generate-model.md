@@ -40,15 +40,35 @@ $ARGUMENTS
 
 ## 実行フロー
 
-### Step 0: 戦略決定
+### Step 0: デザインプレビュー（推奨）
+
+**いきなりBlenderで作らない！** まずHTMLでデザインを確定する。
+
+```
+/review-models [モデル名] --style [スタイル]
+```
+
+1. 参考画像を検索
+2. HTMLプレビューを作成（Three.js）
+3. Tailscale経由でブラウザ確認
+4. パラメータ調整 → JSON設定をコピー
+5. 確定した設定でBlenderモデリング
+
+**メリット:**
+- リアルタイムでプロポーション確認
+- やり直しが簡単
+- 設定値を正確に再現可能
+
+### Step 1: 戦略決定
 
 ```
 シンプル？ → hyper3d一発
 複雑な機械？ → split（パーツ分割）
 品質重視？ → sketchfab検索
+手動モデリング？ → HTMLプレビュー → Blender Python
 ```
 
-### Step 1: プロンプト作成（hyper3d/splitの場合）
+### Step 2: プロンプト作成（hyper3d/splitの場合）
 
 **必須要素チェックリスト:**
 - [ ] メインオブジェクト（英語）
@@ -84,7 +104,7 @@ iron and copper joints,
 game-ready, single object
 ```
 
-### Step 2: 生成実行
+### Step 3: 生成実行
 
 #### Hyper3D（テキストから生成）
 ```python
@@ -120,7 +140,7 @@ mcp__blender__download_sketchfab_model(
 )
 ```
 
-### Step 3: 調整
+### Step 4: 調整
 
 ```python
 # スケール調整
@@ -138,7 +158,7 @@ bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
 """)
 ```
 
-### Step 4: エクスポート
+### Step 5: エクスポート
 
 ```python
 mcp__blender__execute_blender_code(code="""

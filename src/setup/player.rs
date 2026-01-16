@@ -80,7 +80,7 @@ pub fn setup_player(
                         Mesh3d(cube_mesh),
                         MeshMaterial3d::<StandardMaterial>(Handle::default()),
                         NotShadowCaster,
-                        Transform::from_xyz(0.5, -0.4, -0.8)
+                        Transform::from_xyz(0.6, -0.5, -0.8)
                             .with_rotation(Quat::from_euler(EulerRot::YXZ, -0.3, 0.2, 0.1))
                             .with_scale(Vec3::splat(1.0)),
                         Visibility::Hidden,     // Hidden until item selected
