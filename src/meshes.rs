@@ -12,11 +12,11 @@ use crate::{ConveyorShape, Direction};
 /// Create a wireframe mesh for conveyor preview (green outline with direction arrow)
 pub fn create_conveyor_wireframe_mesh(direction: Direction) -> Mesh {
     let half_w = BLOCK_SIZE * 0.505; // Width
-    let half_h = 0.155; // Height (conveyor is about 0.3 tall)
+    let half_h = 0.25; // Height (conveyor is 0.5 tall - half block)
     let half_l = BLOCK_SIZE * 0.505; // Length
 
-    // 8 corners of the conveyor bounding box (centered at y=0.15)
-    let y_offset = 0.15;
+    // 8 corners of the conveyor bounding box (centered at y=0.25)
+    let y_offset = 0.25;
     let corners = [
         Vec3::new(-half_w, y_offset - half_h, -half_l), // 0: bottom-back-left
         Vec3::new(half_w, y_offset - half_h, -half_l),  // 1: bottom-back-right
@@ -134,7 +134,7 @@ pub fn create_conveyor_wireframe_mesh(direction: Direction) -> Mesh {
 
 /// Create arrow mesh for direction indication (LineList)
 pub fn create_arrow_mesh(direction: Direction) -> Mesh {
-    let arrow_y = 0.35; // Above conveyor
+    let arrow_y = 0.55; // Above conveyor (0.5 height + 0.05 offset)
     let arrow_base = 0.0;
     let arrow_tip = 0.4;
     let arrow_wing = 0.2;

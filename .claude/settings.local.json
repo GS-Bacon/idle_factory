@@ -430,6 +430,9 @@
       "Bash(tailscale:*)",
       "Bash(# targetディレクトリの場所を確認 cargo metadata --format-version 1)",
       "Bash(# targetディレクトリの場所を確認 cat .cargo/config.toml)"
+    ],
+    "additionalDirectories": [
+      "/home/bacon/idle_factory/assets/models"
     ]
   },
   "enableAllProjectMcpServers": true,

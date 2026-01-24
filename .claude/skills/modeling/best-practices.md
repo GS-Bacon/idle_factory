@@ -200,50 +200,75 @@ obj.rotation_euler = (math.radians(90), 0, 0)
 
 ---
 
-## 9. HTMLプレビュー → パラメータ → Blender自動生成（推奨）
+## 9. HTMLプレビュー → Blenderコード生成（推奨）
 
 ### 概要
 
-最も効率的なワークフロー。HTMLでデザインを確定し、パラメータをClaudeに渡すだけで自動モデリング。
+最も効率的なワークフロー。HTMLでデザインを確定し、「Blender Code」ボタンでPythonコードを自動生成。
 
 ### フロー
 
 ```
-[HTMLプレビュー] → [パラメータ調整] → [JSONコピー] → [Claudeに渡す] → [自動生成]
+[HTMLプレビュー] → [パラメータ調整] → [Blender Codeボタン] → [MCP実行] → [GLBエクスポート]
 ```
 
-### Step 1: HTMLプレビューでデザイン
+### Step 1: HTTPサーバー起動
 
 ```bash
-# HTTPサーバー起動
 cd /home/bacon/idle_factory/UIプレビュー
 python3 -m http.server 8080 --bind 0.0.0.0 &
 
-# アクセス
-# http://[TAILSCALE_IP]:8080/mining_drill_preview.html
+# アクセス: http://100.84.170.32:8080/mining_drill_preview.html
 ```
 
-### Step 2: パラメータをClaudeに伝える
+### Step 2: ブラウザでデザイン調整
 
+- スライダーでパラメータ調整
+- プリセットボタンでスタイル切替
+- リアルタイムで3Dプレビュー確認
+- 1ブロック境界線でサイズ確認
+
+### Step 3: Blenderコード生成
+
+HTMLの2つのボタン:
+
+| ボタン | 機能 |
+|--------|------|
+| **Blender Code** | Pythonコードのみ生成 |
+| **+ Export GLB** | コード + GLBエクスポート付き |
+
+クリックすると:
+1. モデル名を入力（例: miner）
+2. Blender Pythonコードが自動生成
+3. クリップボードにコピー
+
+### Step 4: Blender MCPで実行
+
+```python
+mcp__blender__execute_blender_code(
+    code="[クリップボードのコード]",
+    user_prompt="採掘機モデル作成"
+)
 ```
-このパラメータでモデリングして、モデル名は「conveyor」
 
-{
-  "bodyWidth": 0.3,
-  "bodyHeight": 0.1,
-  "bodyDepth": 0.8,
-  "bodyColor": "#5a5a5a",
-  ...
+### 生成されるコード構造
+
+```python
+import bpy
+import math
+
+# === 設定値（HTMLプレビューから自動生成） ===
+config = {
+    "bodyWidth": 0.26,
+    "bodyHeight": 0.18,
+    ...
 }
+
+# マテリアル作成
+# シーンクリア
+# Body, Motor, Indicator, Outlet, Legs, Shaft, Drill 作成
+# GLBエクスポート（オプション）
 ```
-
-### Step 3: Claude自動実行
-
-Claudeが以下を自動実行：
-1. パラメータからBlender Pythonコード生成
-2. `mcp__blender__execute_blender_code` で実行
-3. GLBエクスポート
-4. 完了報告
 
 ### 利点
 
@@ -252,14 +277,14 @@ Claudeが以下を自動実行：
 | **即時プレビュー** | HTMLでリアルタイム確認 |
 | **正確な再現** | パラメータ値がそのまま反映 |
 | **やり直し簡単** | 値を変えて再実行するだけ |
-| **手動作業ゼロ** | コード生成からエクスポートまで自動 |
+| **コード確認可能** | 生成コードを編集可能 |
+| **エクスポート統合** | GLB出力まで一発 |
 
-### スクリプト
+### 既存プレビュー
 
-```bash
-# コマンドラインでも生成可能
-echo '{"bodyWidth": 0.26, ...}' | python3 scripts/generate-blender-model.py - miner
-```
+| モデル | ファイル | 出力先 |
+|--------|----------|--------|
+| 採掘機 | `mining_drill_preview.html` | `assets/models/machines/miner.glb` |
 
 ---
 

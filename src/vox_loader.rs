@@ -95,31 +95,80 @@ impl Plugin for VoxLoaderPlugin {
     }
 }
 
+/// Helper to load a VOX file and add to meshes
+fn try_load_vox(path: &str, meshes: &mut Assets<Mesh>) -> Option<Handle<Mesh>> {
+    let full_path = Path::new(path);
+    if full_path.exists() {
+        if let Some((mesh, _)) = load_vox_mesh(full_path) {
+            let handle = meshes.add(mesh);
+            tracing::info!("Loaded VOX: {}", path);
+            return Some(handle);
+        }
+    }
+    None
+}
+
 /// Load initial VOX models at startup
 fn load_initial_vox_models(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut models: ResMut<crate::components::MachineModels>,
 ) {
-    // Load miner VOX
-    let miner_path = Path::new("assets/models/machines/miner.vox");
-    if let Some((mesh, _)) = load_vox_mesh(miner_path) {
-        models.vox_miner = Some(meshes.add(mesh));
-        tracing::info!("Loaded VOX: miner.vox");
-    }
+    // Machine VOX models
+    models.vox_miner = try_load_vox("assets/models/machines/miner.vox", &mut meshes);
+    models.vox_furnace = try_load_vox("assets/models/machines/furnace.vox", &mut meshes);
+    models.vox_crusher = try_load_vox("assets/models/machines/crusher.vox", &mut meshes);
+    models.vox_assembler = try_load_vox("assets/models/machines/assembler.vox", &mut meshes);
+    models.vox_generator = try_load_vox("assets/models/machines/generator.vox", &mut meshes);
+    models.vox_inserter = try_load_vox("assets/models/machines/inserter.vox", &mut meshes);
+    models.vox_storage = try_load_vox("assets/models/machines/storage.vox", &mut meshes);
+    models.vox_splitter_machine =
+        try_load_vox("assets/models/machines/splitter_machine.vox", &mut meshes);
 
-    // Load conveyor straight VOX
-    let conveyor_path = Path::new("assets/models/machines/conveyor/straight.vox");
-    if let Some((mesh, _)) = load_vox_mesh(conveyor_path) {
-        models.vox_conveyor_straight = Some(meshes.add(mesh));
-        tracing::info!("Loaded VOX: straight.vox");
-    }
+    // Conveyor VOX models
+    models.vox_conveyor_straight =
+        try_load_vox("assets/models/machines/conveyor/straight.vox", &mut meshes);
+    models.vox_conveyor_corner_left = try_load_vox(
+        "assets/models/machines/conveyor/corner_left.vox",
+        &mut meshes,
+    );
+    models.vox_conveyor_corner_right = try_load_vox(
+        "assets/models/machines/conveyor/corner_right.vox",
+        &mut meshes,
+    );
+    models.vox_conveyor_t_junction = try_load_vox(
+        "assets/models/machines/conveyor/t_junction.vox",
+        &mut meshes,
+    );
+    models.vox_conveyor_splitter =
+        try_load_vox("assets/models/machines/conveyor/splitter.vox", &mut meshes);
 
-    // Create a shared material for VOX models
-    let _vox_material = materials.add(StandardMaterial {
+    // Create a shared material for VOX models (uses vertex colors)
+    models.vox_material = Some(materials.add(StandardMaterial {
         base_color: Color::WHITE,
         ..default()
-    });
+    }));
+
+    let vox_count = [
+        models.vox_miner.is_some(),
+        models.vox_furnace.is_some(),
+        models.vox_crusher.is_some(),
+        models.vox_assembler.is_some(),
+        models.vox_generator.is_some(),
+        models.vox_inserter.is_some(),
+        models.vox_storage.is_some(),
+        models.vox_splitter_machine.is_some(),
+        models.vox_conveyor_straight.is_some(),
+        models.vox_conveyor_corner_left.is_some(),
+        models.vox_conveyor_corner_right.is_some(),
+        models.vox_conveyor_t_junction.is_some(),
+        models.vox_conveyor_splitter.is_some(),
+    ]
+    .iter()
+    .filter(|&&x| x)
+    .count();
+
+    tracing::info!("VOX models loaded: {}/13", vox_count);
 }
 
 /// Handle VOX file reload when files change
@@ -134,21 +183,76 @@ fn handle_vox_reload(
         // Reload the changed VOX file
         if let Some((mesh, _)) = load_vox_mesh(path) {
             let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let handle = meshes.add(mesh);
 
-            match filename {
+            let reloaded = match filename {
+                // Machine models
                 "miner" => {
-                    models.vox_miner = Some(meshes.add(mesh));
-                    models.vox_generation += 1;
-                    tracing::info!("Hot reloaded: miner.vox (gen {})", models.vox_generation);
+                    models.vox_miner = Some(handle);
+                    true
                 }
+                "furnace" => {
+                    models.vox_furnace = Some(handle);
+                    true
+                }
+                "crusher" => {
+                    models.vox_crusher = Some(handle);
+                    true
+                }
+                "assembler" => {
+                    models.vox_assembler = Some(handle);
+                    true
+                }
+                "generator" => {
+                    models.vox_generator = Some(handle);
+                    true
+                }
+                "inserter" => {
+                    models.vox_inserter = Some(handle);
+                    true
+                }
+                "storage" => {
+                    models.vox_storage = Some(handle);
+                    true
+                }
+                "splitter_machine" => {
+                    models.vox_splitter_machine = Some(handle);
+                    true
+                }
+                // Conveyor models
                 "straight" => {
-                    models.vox_conveyor_straight = Some(meshes.add(mesh));
-                    models.vox_generation += 1;
-                    tracing::info!("Hot reloaded: straight.vox (gen {})", models.vox_generation);
+                    models.vox_conveyor_straight = Some(handle);
+                    true
+                }
+                "corner_left" => {
+                    models.vox_conveyor_corner_left = Some(handle);
+                    true
+                }
+                "corner_right" => {
+                    models.vox_conveyor_corner_right = Some(handle);
+                    true
+                }
+                "t_junction" => {
+                    models.vox_conveyor_t_junction = Some(handle);
+                    true
+                }
+                "splitter" => {
+                    models.vox_conveyor_splitter = Some(handle);
+                    true
                 }
                 _ => {
                     tracing::debug!("VOX file changed but not tracked: {}", filename);
+                    false
                 }
+            };
+
+            if reloaded {
+                models.vox_generation += 1;
+                tracing::info!(
+                    "Hot reloaded: {}.vox (gen {})",
+                    filename,
+                    models.vox_generation
+                );
             }
         }
     }

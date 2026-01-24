@@ -1,6 +1,7 @@
 {
   "devDependencies": {
-    "@google/generative-ai": "^0.24.1"
+    "@google/generative-ai": "^0.24.1",
+    "puppeteer": "^24.35.0"
   },
   "dependencies": {
     "ws": "^8.19.0"

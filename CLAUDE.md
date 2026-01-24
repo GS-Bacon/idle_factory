@@ -108,46 +108,51 @@ DISPLAY=:10 scrot "UIプレビュー/画面名.png"
 
 ## 3Dモデリング（Blender MCP）
 
-### 推奨ワークフロー
+### 推奨ワークフロー（HTML直接変換）
 
 ```
-[HTMLプレビュー] → [パラメータ調整] → [JSONをClaudeに渡す] → [自動生成]
+[設定値JSON] → [export-html-model.js] → [GLB] → [Blenderインポート]
 ```
 
-### ユーザーからの指示例
+### ユーザーからJSON指示の場合
 
 ```
-このパラメータでモデリングして、モデル名は「conveyor」
+このパラメータでモデリングして
 
 {
-  "bodyWidth": 0.3,
-  "bodyHeight": 0.1,
+  "bodyWidth": 0.26,
+  "legSpread": 0.2,
   ...
 }
 ```
 
 ### Claudeの対応
 
-1. パラメータからBlender Pythonコード生成
-2. `mcp__blender__execute_blender_code` で実行
-3. GLBエクスポート（`assets/models/machines/[name].glb`）
-4. レンダリング確認して報告
+```bash
+# 1. GLB生成
+node scripts/export-html-model.js '{"bodyWidth": 0.26, ...}' /tmp/model.glb
+
+# 2. Blenderにインポート（MCP経由）
+bpy.ops.import_scene.gltf(filepath="/tmp/model.glb")
+
+# 3. レンダリング確認
+bpy.context.scene.render.filepath = "/tmp/render.png"
+bpy.ops.render.render(write_still=True)
+```
 
 ### 関連ファイル
 
 | ファイル | 用途 |
 |----------|------|
+| `scripts/export-html-model.js` | HTML→GLB直接変換 |
 | `UIプレビュー/mining_drill_preview.html` | 採掘機プレビュー |
-| `scripts/generate-blender-model.py` | コード生成スクリプト |
-| `.claude/skills/modeling/best-practices.md` | ベストプラクティス |
-| `.claude/skills/modeling/guides/` | 機械別ガイド |
+| `.claude/skills/modeling/skill.md` | スキル詳細 |
 
-### HTTPサーバー
+### HTMLプレビュー（手動確認用）
 
 ```bash
-cd /home/bacon/idle_factory/UIプレビュー
-python3 -m http.server 8080 --bind 0.0.0.0 &
-# http://100.84.170.32:8080/
+cd UIプレビュー && python3 -m http.server 8080 --bind 0.0.0.0 &
+# http://100.84.170.32:8080/mining_drill_preview.html
 ```
 
 ## 互換性ポリシー
