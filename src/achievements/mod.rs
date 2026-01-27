@@ -2,7 +2,7 @@
 
 use crate::core::{items, ItemId};
 use crate::events::game_events::{BlockPlaced, ItemDelivered, MachineCompleted, MachineSpawned};
-use crate::events::GuardedEventWriter;
+use crate::events::GuardedMessageWriter;
 use bevy::prelude::*;
 use std::sync::LazyLock;
 
@@ -78,7 +78,7 @@ impl PlayerAchievements {
 }
 
 /// 実績アンロックイベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct AchievementUnlocked {
     pub id: String,
     pub name: String,
@@ -144,7 +144,7 @@ pub static ACHIEVEMENTS: LazyLock<Vec<Achievement>> = LazyLock::new(|| {
 
 /// 機械設置イベントを購読してカウンターを更新
 fn handle_machine_spawned(
-    mut events: EventReader<MachineSpawned>,
+    mut events: MessageReader<MachineSpawned>,
     mut counters: ResMut<AchievementCounters>,
 ) {
     for _event in events.read() {
@@ -154,7 +154,7 @@ fn handle_machine_spawned(
 
 /// ブロック設置イベントを購読してカウンターを更新
 fn handle_block_placed(
-    mut events: EventReader<BlockPlaced>,
+    mut events: MessageReader<BlockPlaced>,
     mut counters: ResMut<AchievementCounters>,
 ) {
     for _event in events.read() {
@@ -164,7 +164,7 @@ fn handle_block_placed(
 
 /// 機械完了イベントを購読して生産カウンターを更新
 fn handle_machine_completed_for_achievements(
-    mut events: EventReader<MachineCompleted>,
+    mut events: MessageReader<MachineCompleted>,
     mut counters: ResMut<AchievementCounters>,
 ) {
     for event in events.read() {
@@ -176,7 +176,7 @@ fn handle_machine_completed_for_achievements(
 
 /// 納品イベントを購読してカウンターを更新
 fn handle_item_delivered_for_achievements(
-    mut events: EventReader<ItemDelivered>,
+    mut events: MessageReader<ItemDelivered>,
     mut counters: ResMut<AchievementCounters>,
 ) {
     for event in events.read() {
@@ -189,7 +189,7 @@ fn handle_item_delivered_for_achievements(
 fn check_achievements(
     counters: Res<AchievementCounters>,
     mut achievements: ResMut<PlayerAchievements>,
-    mut unlock_events: GuardedEventWriter<AchievementUnlocked>,
+    mut unlock_events: GuardedMessageWriter<AchievementUnlocked>,
     time: Res<Time>,
 ) {
     // カウンターが変更されていない場合はスキップ
@@ -234,7 +234,7 @@ fn check_achievements(
         // アンロック判定
         if unlocked {
             achievements.unlock(achievement.id, timestamp);
-            let _ = unlock_events.send(AchievementUnlocked {
+            let _ = unlock_events.write(AchievementUnlocked {
                 id: achievement.id.to_string(),
                 name: achievement.name.to_string(),
             });
@@ -272,7 +272,7 @@ impl Plugin for AchievementsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlayerAchievements>()
             .init_resource::<AchievementCounters>()
-            .add_event::<AchievementUnlocked>()
+            .add_message::<AchievementUnlocked>()
             .add_systems(Startup, setup_achievement_progress)
             .add_systems(
                 Update,

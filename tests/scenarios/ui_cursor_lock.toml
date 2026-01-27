@@ -1,10 +1,10 @@
-# UI表示時のカーソルロック状態テスト
-# バグ #10, #12 関連
+# UI表示時のカーソル状態テスト (CAD-style)
+# CADスタイルでは常にカーソルが表示される
 
-name = "UI表示時のカーソルロック状態"
-description = "インベントリ表示中はカーソルロックが解除されることを確認"
+name = "CADスタイル: カーソル常時表示"
+description = "CADスタイルではカーソルが常に表示されることを確認"
 
-# 初期状態: ゲームプレイ中、カーソルロック
+# 初期状態: ゲームプレイ中、カーソルは常にアンロック
 [[steps]]
 action = "get_state"
 
@@ -14,7 +14,7 @@ params = { condition = "ui_state == Gameplay" }
 
 [[steps]]
 action = "assert"
-params = { condition = "cursor_locked == true" }
+params = { condition = "cursor_locked == false" }
 
 # インベントリを開く
 [[steps]]
@@ -25,7 +25,7 @@ params = { action = "ToggleInventory" }
 action = "wait"
 params = { ms = 100 }
 
-# インベントリ表示中はカーソルロック解除
+# インベントリ表示中もカーソルアンロック
 [[steps]]
 action = "get_state"
 
@@ -46,7 +46,7 @@ params = { action = "ToggleInventory" }
 action = "wait"
 params = { ms = 100 }
 
-# ゲームプレイに戻り、カーソルロック復帰
+# ゲームプレイに戻ってもカーソルアンロック
 [[steps]]
 action = "get_state"
 
@@ -56,4 +56,4 @@ params = { condition = "ui_state == Gameplay" }
 
 [[steps]]
 action = "assert"
-params = { condition = "cursor_locked == true" }
+params = { condition = "cursor_locked == false" }

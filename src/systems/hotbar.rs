@@ -31,15 +31,15 @@ pub fn update_hotbar_ui(
         if is_selected {
             // Selected slot - same highlight for empty and filled
             *bg = BackgroundColor(Color::srgba(0.4, 0.4, 0.2, 0.9));
-            *border = BorderColor(Color::srgba(1.0, 1.0, 0.5, 1.0));
+            *border = BorderColor::all(Color::srgba(1.0, 1.0, 0.5, 1.0));
         } else if has_item {
             // Non-selected filled slot
             *bg = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.8));
-            *border = BorderColor(Color::srgba(0.5, 0.5, 0.5, 1.0));
+            *border = BorderColor::all(Color::srgba(0.5, 0.5, 0.5, 1.0));
         } else {
             // Non-selected empty slot
             *bg = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8));
-            *border = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
+            *border = BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0));
         }
     }
 
@@ -79,7 +79,7 @@ pub fn update_hotbar_item_name(
     inventory_open: Res<InventoryOpen>,
     mut text_query: Query<(&mut Text, &mut Node), With<HotbarItemNameText>>,
 ) {
-    let Ok((mut text, mut node)) = text_query.get_single_mut() else {
+    let Ok((mut text, mut node)) = text_query.single_mut() else {
         return;
     };
 
@@ -115,7 +115,7 @@ pub fn update_hotbar_item_name(
 /// Select slot with number keys (1-9) or scroll wheel
 pub fn select_block_type(
     input: Res<InputManager>,
-    mut mouse_wheel: EventReader<bevy::input::mouse::MouseWheel>,
+    mut mouse_wheel: MessageReader<bevy::input::mouse::MouseWheel>,
     mut local_player_inventory: LocalPlayerInventory,
     input_resources: InputStateResourcesWithCursor,
 ) {
@@ -202,7 +202,7 @@ pub fn update_held_item_3d(
     >,
     scene_query: Query<Entity, With<HeldItem3DScene>>,
 ) {
-    use bevy::render::view::RenderLayers;
+    use bevy::camera::visibility::RenderLayers;
 
     // Get local player's inventory
     let Some(local_player) = local_player else {
@@ -242,7 +242,7 @@ pub fn update_held_item_3d(
 
     // Remove old scene entity if exists
     if let Some(old_entity) = display_state.scene_entity.take() {
-        commands.entity(old_entity).despawn_recursive();
+        commands.entity(old_entity).despawn();
     }
 
     // Check if this item has a machine model
@@ -253,7 +253,7 @@ pub fn update_held_item_3d(
 
     if has_machine_model {
         // Hide cube mesh
-        if let Ok((_, _, mut visibility)) = cube_query.get_single_mut() {
+        if let Ok((_, _, mut visibility)) = cube_query.single_mut() {
             *visibility = Visibility::Hidden;
         }
 
@@ -261,7 +261,7 @@ pub fn update_held_item_3d(
         if let Some(models) = machine_models.as_ref() {
             if let Some(scene_handle) = models.get_held_item_scene(item_id) {
                 // Get the parent (HeldItem3D) to spawn the scene as sibling
-                if let Ok((cube_entity, _, _)) = cube_query.get_single() {
+                if let Ok((cube_entity, _, _)) = cube_query.single() {
                     // Spawn scene as sibling of cube with same transform style
                     let scene_entity = commands
                         .spawn((
@@ -276,11 +276,8 @@ pub fn update_held_item_3d(
                         .id();
 
                     // Make scene a sibling of cube (same parent)
-                    if let Some(parent) = commands.get_entity(cube_entity).map(|_| {
-                        // Get parent by querying - we need to find the camera parent
-                        cube_entity
-                    }) {
-                        if let Some(mut entity_commands) = commands.get_entity(parent) {
+                    if commands.get_entity(cube_entity).is_ok() {
+                        if let Ok(mut entity_commands) = commands.get_entity(cube_entity) {
                             // Insert scene as sibling by adding to same parent
                             // The cube is a child of the camera, so we need to add scene there too
                             entity_commands.add_child(scene_entity);
@@ -294,7 +291,7 @@ pub fn update_held_item_3d(
     } else {
         // Show cube mesh for non-machine items
         if let Some(cache) = cache.as_ref() {
-            if let Ok((_, mut material, mut visibility)) = cube_query.get_single_mut() {
+            if let Ok((_, mut material, mut visibility)) = cube_query.single_mut() {
                 if let Some(block_material) = cache.materials.get(&item_id) {
                     material.0 = block_material.clone();
                     *visibility = Visibility::Inherited;
@@ -323,13 +320,13 @@ fn hide_all(
     display_state: &mut HeldItemDisplayState,
 ) {
     // Hide cube
-    if let Ok((_, _, mut visibility)) = cube_query.get_single_mut() {
+    if let Ok((_, _, mut visibility)) = cube_query.single_mut() {
         *visibility = Visibility::Hidden;
     }
 
     // Despawn scene
     for entity in scene_query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     display_state.current_item = None;

@@ -1,5 +1,8 @@
-name = "バグ再現: ESCでカーソルが解放される"
-description = "Gameplay中にESCを押すとカーソルがアンロックされることを確認"
+# CADスタイル: ESCでポーズメニュー表示（カーソル常時アンロック）
+# 旧FPSスタイルのバグは存在しない（カーソル常に表示）
+
+name = "CADスタイル: ESCでポーズメニュー"
+description = "CADスタイルではカーソルが常にアンロックなので、このテストは常に成功"
 
 [[steps]]
 action = "set_ui_state"
@@ -9,9 +12,10 @@ params = { state = "Gameplay" }
 action = "wait"
 params = { ms = 100 }
 
+# CAD-style: ゲームプレイ中もカーソルはアンロック
 [[steps]]
 action = "assert"
-params = { condition = "cursor_locked == true" }
+params = { condition = "cursor_locked == false" }
 
 [[steps]]
 action = "send_input"
@@ -25,7 +29,7 @@ params = { ms = 100 }
 action = "assert"
 params = { condition = "ui_state == PauseMenu" }
 
-# このアサートが失敗する = バグ確認
+# ポーズメニューでもカーソルはアンロック
 [[steps]]
 action = "assert"
 params = { condition = "cursor_locked == false" }

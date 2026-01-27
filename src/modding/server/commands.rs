@@ -12,8 +12,8 @@ use super::config::ModApiServer;
 /// This runs as a separate system to avoid parameter limit in process_server_messages
 pub fn process_test_command_queue(
     mut server: Option<ResMut<ModApiServer>>,
-    mut teleport_writer: EventWriter<TeleportEvent>,
-    mut setblock_writer: EventWriter<SetBlockEvent>,
+    mut teleport_writer: MessageWriter<TeleportEvent>,
+    mut setblock_writer: MessageWriter<SetBlockEvent>,
     mut tutorial_shown: Option<ResMut<crate::components::TutorialShown>>,
 ) {
     let Some(ref mut server) = server else { return };
@@ -32,8 +32,8 @@ pub fn process_test_command_queue(
 /// Parse a command string and execute it
 pub fn parse_and_execute_command(
     cmd: &str,
-    teleport_writer: &mut EventWriter<TeleportEvent>,
-    setblock_writer: &mut EventWriter<SetBlockEvent>,
+    teleport_writer: &mut MessageWriter<TeleportEvent>,
+    setblock_writer: &mut MessageWriter<SetBlockEvent>,
     tutorial_shown: &mut Option<ResMut<crate::components::TutorialShown>>,
 ) {
     let cmd = cmd.trim();
@@ -55,7 +55,7 @@ pub fn parse_and_execute_command(
             let x: f32 = parts[1].parse().unwrap_or(0.0);
             let y: f32 = parts[2].parse().unwrap_or(0.0);
             let z: f32 = parts[3].parse().unwrap_or(0.0);
-            teleport_writer.send(TeleportEvent {
+            teleport_writer.write(TeleportEvent {
                 position: Vec3::new(x, y, z),
             });
             tracing::info!("Teleport to ({}, {}, {})", x, y, z);
@@ -75,7 +75,7 @@ pub fn parse_and_execute_command(
                 .get(item_id_str)
                 .map(ItemId::from_raw)
                 .unwrap_or_else(items::stone);
-            setblock_writer.send(SetBlockEvent {
+            setblock_writer.write(SetBlockEvent {
                 position: IVec3::new(x, y, z),
                 block_type: item_id,
             });

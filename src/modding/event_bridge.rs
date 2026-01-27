@@ -31,7 +31,7 @@ impl Plugin for EventBridgePlugin {
 
 /// Bridge BlockPlaceEvent → EventType::BlockPlaced
 fn bridge_block_place_events(
-    mut events: EventReader<BlockPlaceEvent>,
+    mut events: MessageReader<BlockPlaceEvent>,
     subscriptions: Res<EventSubscriptions>,
     server: Res<ModApiServer>,
 ) {
@@ -65,7 +65,7 @@ fn bridge_block_place_events(
 
 /// Bridge BlockBreakEvent → EventType::BlockRemoved
 fn bridge_block_break_events(
-    mut events: EventReader<BlockBreakEvent>,
+    mut events: MessageReader<BlockBreakEvent>,
     subscriptions: Res<EventSubscriptions>,
     server: Res<ModApiServer>,
 ) {
@@ -101,7 +101,7 @@ fn bridge_block_break_events(
 /// Note: Currently forwards ALL item transfers. In the future, this could
 /// be filtered to only delivery events (transfers to platforms).
 fn bridge_item_transfer_events(
-    mut events: EventReader<ItemTransferEvent>,
+    mut events: MessageReader<ItemTransferEvent>,
     subscriptions: Res<EventSubscriptions>,
     server: Res<ModApiServer>,
 ) {

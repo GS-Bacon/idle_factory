@@ -222,7 +222,7 @@ impl CraftingRegistry {
 }
 
 /// クラフト開始イベント
-#[derive(Event)]
+#[derive(Message)]
 pub struct StartCraftEvent {
     /// クラフターエンティティ
     pub crafter: Entity,
@@ -231,7 +231,7 @@ pub struct StartCraftEvent {
 }
 
 /// クラフト完了イベント
-#[derive(Event)]
+#[derive(Message)]
 pub struct CraftCompletedEvent {
     /// クラフターエンティティ
     pub crafter: Entity,
@@ -247,8 +247,8 @@ pub struct CraftPlugin;
 impl Plugin for CraftPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CraftingRegistry>()
-            .add_event::<StartCraftEvent>()
-            .add_event::<CraftCompletedEvent>()
+            .add_message::<StartCraftEvent>()
+            .add_message::<CraftCompletedEvent>()
             .add_systems(Startup, setup_default_recipes)
             .add_systems(Update, update_crafting);
     }
@@ -297,7 +297,7 @@ fn update_crafting(
     time: Res<Time>,
     mut crafting_query: Query<(Entity, &mut PlayerCrafting)>,
     registry: Res<CraftingRegistry>,
-    mut completed_events: EventWriter<CraftCompletedEvent>,
+    mut completed_events: MessageWriter<CraftCompletedEvent>,
 ) {
     for (entity, mut crafting) in crafting_query.iter_mut() {
         // 現在のジョブを更新
@@ -310,7 +310,7 @@ fn update_crafting(
                     let outputs: Vec<_> =
                         recipe.outputs.iter().map(|o| (o.item, o.count)).collect();
 
-                    completed_events.send(CraftCompletedEvent {
+                    completed_events.write(CraftCompletedEvent {
                         crafter: entity,
                         recipe_name: job.recipe_name.clone(),
                         outputs,

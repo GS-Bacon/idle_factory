@@ -11,7 +11,10 @@ use crate::components::{
 use crate::input::{GameAction, InputManager};
 
 /// Handle UIAction events and update UIState
-pub fn ui_action_handler(mut ui_state: ResMut<UIState>, mut action_events: EventReader<UIAction>) {
+pub fn ui_action_handler(
+    mut ui_state: ResMut<UIState>,
+    mut action_events: MessageReader<UIAction>,
+) {
     for action in action_events.read() {
         bevy::log::info!(
             "[UI] Action: {:?}, current: {:?}",
@@ -95,7 +98,7 @@ pub fn ui_escape_handler(
     input: Res<InputManager>,
     ui_state: Res<UIState>,
     command_state: Res<CommandInputState>,
-    mut action_writer: EventWriter<UIAction>,
+    mut action_writer: MessageWriter<UIAction>,
 ) {
     if !input.just_pressed(GameAction::Cancel) {
         return;
@@ -108,10 +111,10 @@ pub fn ui_escape_handler(
 
     if ui_state.is_gameplay() {
         // In gameplay, ESC opens pause menu
-        action_writer.send(UIAction::Push(UIContext::PauseMenu));
+        action_writer.write(UIAction::Push(UIContext::PauseMenu));
     } else {
         // In any UI, ESC goes back
-        action_writer.send(UIAction::Pop);
+        action_writer.write(UIAction::Pop);
     }
 }
 
@@ -120,7 +123,7 @@ pub fn ui_inventory_handler(
     input: Res<InputManager>,
     ui_state: Res<UIState>,
     command_state: Res<CommandInputState>,
-    mut action_writer: EventWriter<UIAction>,
+    mut action_writer: MessageWriter<UIAction>,
 ) {
     if !input.just_pressed(GameAction::ToggleInventory) {
         return;
@@ -134,14 +137,14 @@ pub fn ui_inventory_handler(
     // Only toggle inventory from gameplay or inventory itself
     match ui_state.current() {
         UIContext::Gameplay => {
-            action_writer.send(UIAction::Push(UIContext::Inventory));
+            action_writer.write(UIAction::Push(UIContext::Inventory));
         }
         UIContext::Inventory => {
-            action_writer.send(UIAction::Pop);
+            action_writer.write(UIAction::Pop);
         }
         UIContext::Machine(_) => {
             // Close machine UI and open inventory
-            action_writer.send(UIAction::Replace(UIContext::Inventory));
+            action_writer.write(UIAction::Replace(UIContext::Inventory));
         }
         _ => {} // Ignore E in other contexts
     }

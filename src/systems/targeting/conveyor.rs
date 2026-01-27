@@ -240,7 +240,7 @@ pub fn update_conveyor_shapes(
                     let conv_transform = *transform;
 
                     // Despawn old entity
-                    commands.entity(entity).despawn_recursive();
+                    commands.entity(entity).despawn();
 
                     // Spawn new entity with new model
                     // Note: GlobalTransform and Visibility are required for rendering

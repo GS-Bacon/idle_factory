@@ -16,7 +16,7 @@ pub fn update_inventory_tooltip(
     mut tooltip_query: Query<(&mut Node, &mut Visibility, &Children), With<InventoryTooltip>>,
     mut text_query: Query<&mut Text>,
 ) {
-    let Ok((mut node, mut visibility, children)) = tooltip_query.get_single_mut() else {
+    let Ok((mut node, mut visibility, children)) = tooltip_query.single_mut() else {
         return;
     };
 
@@ -59,7 +59,7 @@ pub fn update_inventory_tooltip(
         *visibility = Visibility::Inherited;
 
         // Position tooltip near the mouse cursor
-        if let Ok(window) = windows.get_single() {
+        if let Ok(window) = windows.single() {
             if let Some(cursor_pos) = window.cursor_position() {
                 // Offset tooltip to bottom-right of cursor
                 node.left = Val::Px(cursor_pos.x + 15.0);

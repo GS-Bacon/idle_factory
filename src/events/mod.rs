@@ -81,7 +81,7 @@ impl Default for EventSystemConfig {
 
 /// 現在の連鎖深さを追跡（AtomicU8で内部可変性を実現）
 ///
-/// これにより、同一システム内で複数のGuardedEventWriterを使用可能。
+/// これにより、同一システム内で複数のGuardedMessageWriterを使用可能。
 #[derive(Resource, Default)]
 pub struct EventDepth(pub AtomicU8);
 
@@ -130,7 +130,7 @@ impl Plugin for EventsPlugin {
 // ============================================================================
 
 /// Event for block placement
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct BlockPlaceEvent {
     pub position: IVec3,
     pub item_id: ItemId,
@@ -138,14 +138,14 @@ pub struct BlockPlaceEvent {
 }
 
 /// Event for block destruction
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct BlockBreakEvent {
     pub position: IVec3,
     pub player_id: u64,
 }
 
 /// Event for machine interaction
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct MachineInteractEvent {
     pub position: IVec3,
     pub action: MachineAction,
@@ -162,7 +162,7 @@ pub enum MachineAction {
 }
 
 /// Event for item transfer between machines/conveyors
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct ItemTransferEvent {
     pub from_pos: IVec3,
     pub to_pos: IVec3,
@@ -171,14 +171,14 @@ pub struct ItemTransferEvent {
 }
 
 /// Event for quest progress
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct QuestProgressEvent {
     pub item_id: ItemId,
     pub amount: u32,
 }
 
 /// Event for spawning machines via E2E commands
-#[derive(Event, Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct SpawnMachineEvent {
     pub position: IVec3,
     pub machine_id: ItemId,
@@ -194,12 +194,12 @@ impl Plugin for GameEventsPlugin {
         app.add_plugins(EventsPlugin);
 
         // Add game events
-        app.add_event::<BlockPlaceEvent>()
-            .add_event::<BlockBreakEvent>()
-            .add_event::<MachineInteractEvent>()
-            .add_event::<ItemTransferEvent>()
-            .add_event::<QuestProgressEvent>()
-            .add_event::<SpawnMachineEvent>()
+        app.add_message::<BlockPlaceEvent>()
+            .add_message::<BlockBreakEvent>()
+            .add_message::<MachineInteractEvent>()
+            .add_message::<ItemTransferEvent>()
+            .add_message::<QuestProgressEvent>()
+            .add_message::<SpawnMachineEvent>()
             .add_plugins(GameEventsExtPlugin);
     }
 }

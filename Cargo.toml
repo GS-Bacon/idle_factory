@@ -1,6 +1,6 @@
 [package]
 name = "idle_factory"
-version = "0.3.190"
+version = "0.3.192"
 edition = "2021"
 
 [workspace]
@@ -15,7 +15,7 @@ default = ["updater"]
 updater = ["dep:ureq", "dep:semver", "dep:open"]
 
 [dependencies]
-bevy = { version = "0.15", default-features = false, features = [
+bevy = { version = "0.18", default-features = false, features = [
     "bevy_asset",
     "bevy_winit",
     "bevy_core_pipeline",
@@ -64,14 +64,14 @@ required-features = ["updater"]
 
 # Linux-specific features
 [target.'cfg(target_os = "linux")'.dependencies]
-bevy = { version = "0.15", default-features = false, features = [
+bevy = { version = "0.18", default-features = false, features = [
     "multi_threaded",
     "x11",
 ] }
 
 # Windows-specific features
 [target.'cfg(target_os = "windows")'.dependencies]
-bevy = { version = "0.15", default-features = false, features = [
+bevy = { version = "0.18", default-features = false, features = [
     "multi_threaded",
 ] }
 

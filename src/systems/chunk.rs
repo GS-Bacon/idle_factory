@@ -47,7 +47,7 @@ pub fn spawn_chunk_tasks(
     player_query: Query<&Transform, With<Player>>,
     settings: Res<GameSettings>,
 ) {
-    let Ok(player_transform) = player_query.get_single() else {
+    let Ok(player_transform) = player_query.single() else {
         return;
     };
 
@@ -97,7 +97,7 @@ pub fn receive_chunk_meshes(
 ) {
     // Get player chunk for LOD calculation
     let player_chunk = player_query
-        .get_single()
+        .single()
         .map(|pt| {
             let player_grid = crate::world_to_grid(pt.translation);
             WorldData::world_to_chunk(IVec3::new(player_grid.x, 0, player_grid.z))
@@ -189,7 +189,7 @@ pub fn receive_chunk_meshes(
             // Find and despawn old mesh entity if exists
             if let Some(entities) = world_data.chunk_entities.remove(&coord) {
                 for entity in entities {
-                    commands.entity(entity).try_despawn_recursive();
+                    commands.entity(entity).try_despawn();
                 }
             }
 
@@ -233,7 +233,7 @@ pub fn receive_chunk_meshes(
 
                 if let Some(entities) = world_data.chunk_entities.remove(&neighbor_coord) {
                     for entity in entities {
-                        commands.entity(entity).try_despawn_recursive();
+                        commands.entity(entity).try_despawn();
                     }
                 }
 
@@ -266,7 +266,7 @@ pub fn unload_distant_chunks(
     chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
     settings: Res<GameSettings>,
 ) {
-    let Ok(player_transform) = player_query.get_single() else {
+    let Ok(player_transform) = player_query.single() else {
         return;
     };
 
@@ -315,7 +315,7 @@ pub fn update_chunk_lod(
     chunk_mesh_query: Query<(Entity, &ChunkMesh)>,
     array_texture: Res<VoxelArrayTexture>,
 ) {
-    let Ok(player_transform) = player_query.get_single() else {
+    let Ok(player_transform) = player_query.single() else {
         return;
     };
 
@@ -346,7 +346,7 @@ pub fn update_chunk_lod(
         // Regenerate mesh with new LOD
         if let Some(new_mesh) = world_data.generate_chunk_mesh_with_lod(chunk_mesh.coord, new_lod) {
             // Despawn old entity
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
 
             // Remove from chunk_entities
             world_data.chunk_entities.remove(&chunk_mesh.coord);
@@ -399,7 +399,7 @@ pub fn process_dirty_chunks(
 
     // Get player chunk for LOD calculation
     let player_chunk = player_query
-        .get_single()
+        .single()
         .map(|pt| {
             let player_grid = crate::world_to_grid(pt.translation);
             WorldData::world_to_chunk(IVec3::new(player_grid.x, 0, player_grid.z))
@@ -426,7 +426,7 @@ pub fn process_dirty_chunks(
             // Remove old mesh entity
             if let Some(old_entities) = world_data.chunk_entities.remove(&coord) {
                 for entity in old_entities {
-                    commands.entity(entity).try_despawn_recursive();
+                    commands.entity(entity).try_despawn();
                 }
             }
 

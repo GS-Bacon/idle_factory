@@ -2,6 +2,7 @@
 
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 use bevy::prelude::*;
+use bevy::reflect::TypePath;
 
 use super::animation::parse_animations;
 use super::animation::parse_outliner;
@@ -12,7 +13,7 @@ use super::BlockbenchLoadError;
 use super::BlockbenchModel;
 
 /// Blockbench asset loader
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct BlockbenchLoader;
 
 impl AssetLoader for BlockbenchLoader {
@@ -37,6 +38,7 @@ impl AssetLoader for BlockbenchLoader {
 
         let name = if raw.name.is_empty() {
             load_context
+                .path()
                 .path()
                 .file_stem()
                 .and_then(|s| s.to_str())

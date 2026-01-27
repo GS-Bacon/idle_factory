@@ -135,7 +135,7 @@ impl UIState {
 }
 
 /// UI操作イベント
-#[derive(Event, Debug, Clone)]
+#[derive(Message, Debug, Clone)]
 pub enum UIAction {
     /// 新しい画面を開く（スタックに積む）
     Push(UIContext),
@@ -234,14 +234,15 @@ mod tests {
 
     #[test]
     fn test_ui_state_machine() {
+        use bevy::ecs::entity::EntityIndex;
         let mut state = UIState::new_empty();
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
 
         state.push(UIContext::Machine(entity));
         assert!(state.is_machine_open(entity));
         assert_eq!(state.get_open_machine(), Some(entity));
 
-        let other_entity = Entity::from_raw(99);
+        let other_entity = Entity::from_index(EntityIndex::from_raw_u32(99).unwrap());
         assert!(!state.is_machine_open(other_entity));
     }
 

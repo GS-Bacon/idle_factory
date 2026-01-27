@@ -246,14 +246,14 @@ pub fn upper_panel_slot_click(
                         }
                     }
                 }
-                *border_color = BorderColor(SLOT_SELECTED_BORDER);
+                *border_color = BorderColor::all(SLOT_SELECTED_BORDER);
             }
             Interaction::Hovered => {
-                *border_color = BorderColor(SLOT_HOVER_BORDER);
+                *border_color = BorderColor::all(SLOT_HOVER_BORDER);
                 *bg_color = BackgroundColor(SLOT_HOVER_BG);
             }
             Interaction::None => {
-                *border_color = BorderColor(SLOT_BORDER_COLOR);
+                *border_color = BorderColor::all(SLOT_BORDER_COLOR);
                 *bg_color = BackgroundColor(SLOT_BG);
             }
         }
@@ -317,7 +317,7 @@ pub fn upper_panel_category_click(
                     page.0 = 0;
                 }
                 *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.35, 1.0));
-                *border_color = BorderColor(SLOT_BORDER_COLOR);
+                *border_color = BorderColor::all(SLOT_BORDER_COLOR);
             }
             Interaction::Hovered => {
                 if !is_selected {
@@ -327,10 +327,10 @@ pub fn upper_panel_category_click(
             Interaction::None => {
                 if is_selected {
                     *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.35, 1.0));
-                    *border_color = BorderColor(SLOT_BORDER_COLOR);
+                    *border_color = BorderColor::all(SLOT_BORDER_COLOR);
                 } else {
                     *bg_color = BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0));
-                    *border_color = BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0));
+                    *border_color = BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0));
                 }
             }
         }

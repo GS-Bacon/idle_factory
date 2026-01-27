@@ -37,7 +37,7 @@ impl Plugin for UIPlugin {
             .init_resource::<HeldItemDisplayState>();
 
         // Tutorial event
-        app.add_event::<TutorialEvent>();
+        app.add_message::<TutorialEvent>();
 
         // Spawn breaking progress UI
         app.add_systems(Startup, spawn_breaking_progress_ui);

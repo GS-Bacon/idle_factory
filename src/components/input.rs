@@ -128,14 +128,14 @@ impl InputStateResourcesWithCursor<'_> {
 // === Events ===
 
 /// Event to trigger a save operation
-#[derive(Event)]
+#[derive(Message)]
 pub struct SaveGameEvent {
     /// Filename to save to (without extension)
     pub filename: String,
 }
 
 /// Event to trigger a load operation
-#[derive(Event)]
+#[derive(Message)]
 pub struct LoadGameEvent {
     /// Filename to load from (without extension)
     pub filename: String,

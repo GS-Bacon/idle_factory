@@ -1,0 +1,62 @@
+# CADスタイル: 全UI状態でのカーソル確認
+# Phase 1 テスト: どのUI状態でもカーソルが表示されることを確認
+
+name = "CADスタイル: 全UI状態カーソル"
+description = "全てのUI状態でカーソルが常に表示されることを確認"
+
+# 1. Gameplay状態
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+# 2. Inventory状態
+[[steps]]
+action = "set_ui_state"
+params = { state = "Inventory" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+# 3. PauseMenu状態
+[[steps]]
+action = "set_ui_state"
+params = { state = "PauseMenu" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+# 4. Settings状態
+[[steps]]
+action = "set_ui_state"
+params = { state = "Settings" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "cursor_locked == false" }
+
+# 戻す
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }

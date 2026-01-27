@@ -3,6 +3,7 @@
 use crate::components::{GenericMachineUI, InteractingMachine, Machine};
 use crate::systems::cursor;
 use bevy::prelude::*;
+use bevy::window::{CursorOptions, PrimaryWindow};
 
 /// Cleanup system: clear InteractingMachine if the referenced entity no longer exists
 ///
@@ -12,7 +13,7 @@ pub fn cleanup_invalid_interacting_machine(
     mut interacting: ResMut<InteractingMachine>,
     machine_query: Query<Entity, With<Machine>>,
     mut ui_query: Query<(&GenericMachineUI, &mut Visibility)>,
-    mut windows: Query<&mut Window>,
+    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
     let Some(entity) = interacting.0 else {
         return;
@@ -32,8 +33,8 @@ pub fn cleanup_invalid_interacting_machine(
     }
 
     // Lock cursor back to gameplay mode
-    if let Ok(mut window) = windows.get_single_mut() {
-        cursor::lock_cursor(&mut window);
+    if let Ok(mut cursor_options) = cursor_query.single_mut() {
+        cursor::lock_cursor(&mut cursor_options);
     }
 }
 

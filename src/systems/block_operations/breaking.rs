@@ -1,7 +1,7 @@
 //! Block breaking system with time-based breaking
 
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use crate::core::{items, ItemId};
 use crate::events::game_events::{BlockBroken, EventSource};
@@ -33,7 +33,7 @@ pub fn block_break(
     camera_query: Query<(&GlobalTransform, &crate::PlayerCamera)>,
     machines: MachineBreakQueries,
     mut player_inventory: LocalPlayerInventory,
-    windows: Query<&Window>,
+    cursor_query: Query<&CursorOptions, With<PrimaryWindow>>,
     item_visual_query: Query<Entity, With<ConveyorItemVisual>>,
     mut cursor_state: ResMut<CursorLockState>,
     input_resources: InputStateResources,
@@ -52,8 +52,11 @@ pub fn block_break(
         return;
     };
     // Only break blocks when cursor is locked and not paused
-    let window = windows.single();
-    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    let Ok(cursor_options) = cursor_query.single() else {
+        breaking_progress.reset();
+        return;
+    };
+    let cursor_locked = cursor_options.grab_mode != CursorGrabMode::None;
 
     // Use InputState to check if block actions are allowed
     let input_state = input_resources.get_state_with(&cursor_state);
@@ -76,7 +79,7 @@ pub fn block_break(
         return;
     }
 
-    let Ok((camera_transform, _camera)) = camera_query.get_single() else {
+    let Ok((camera_transform, _camera)) = camera_query.single() else {
         breaking_progress.reset();
         return;
     };
@@ -87,7 +90,7 @@ pub fn block_break(
     let half_size = BLOCK_SIZE / 2.0;
 
     // Find the closest target (machine or world block)
-    let platform_transform = machines.platform.get_single().ok();
+    let platform_transform = machines.platform.single().ok();
     let current_target = find_break_target(
         ray_origin,
         ray_direction,
@@ -179,7 +182,7 @@ pub fn block_break(
             }
         }
         // Send tutorial event for block breaking
-        events.tutorial.send(TutorialEvent::BlockBroken);
+        events.tutorial.write(TutorialEvent::BlockBroken);
         breaking_progress.reset();
     }
 }
@@ -301,7 +304,7 @@ fn execute_machine_break(
                 "Conveyor broken"
             );
         }
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
         inventory.add_item_by_id(items::conveyor_block(), 1);
     } else if machine_id == items::miner_block()
         || machine_id == items::crusher_block()
@@ -336,7 +339,7 @@ fn execute_machine_break(
             machine = ?machine_id.name(),
             "Machine broken"
         );
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
         inventory.add_item_by_id(machine_id, 1);
     }
 }
@@ -348,7 +351,7 @@ fn execute_block_break(
     world_data: &mut WorldData,
     dirty_chunks: &mut DirtyChunks,
     inventory: &mut PlayerInventory,
-    block_broken_events: &mut crate::events::GuardedEventWriter<BlockBroken>,
+    block_broken_events: &mut crate::events::GuardedMessageWriter<BlockBroken>,
     source: EventSource,
 ) {
     // Remove the block
@@ -371,7 +374,7 @@ fn execute_block_break(
     dirty_chunks.mark_dirty(chunk_coord, local_pos);
 
     // Send block broken event
-    let _ = block_broken_events.send(BlockBroken {
+    let _ = block_broken_events.write(BlockBroken {
         pos: break_pos,
         block: item_id,
         source,

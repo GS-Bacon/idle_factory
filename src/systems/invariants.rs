@@ -108,7 +108,7 @@ pub fn check_player_stuck(
     mut stuck_detector: ResMut<StuckDetector>,
     mut violation_log: ResMut<ViolationLog>,
 ) {
-    let Ok((transform, physics)) = player_query.get_single() else {
+    let Ok((transform, physics)) = player_query.single() else {
         return;
     };
 
@@ -144,7 +144,7 @@ pub fn check_player_embedded(
     world_data: Res<WorldData>,
     mut violation_log: ResMut<ViolationLog>,
 ) {
-    let Ok(transform) = player_query.get_single() else {
+    let Ok(transform) = player_query.single() else {
         return;
     };
 
@@ -185,7 +185,7 @@ pub fn check_player_fell(
     player_query: Query<&Transform, With<Player>>,
     mut violation_log: ResMut<ViolationLog>,
 ) {
-    let Ok(transform) = player_query.get_single() else {
+    let Ok(transform) = player_query.single() else {
         return;
     };
 

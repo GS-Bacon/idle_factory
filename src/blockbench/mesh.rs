@@ -1,8 +1,8 @@
 //! Mesh generation for Blockbench models
 
+use bevy::asset::RenderAssetUsages;
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
-use bevy::render::render_asset::RenderAssetUsages;
 
 use super::raw::{RawElement, RawFace};
 use super::BlockbenchLoadError;
@@ -216,7 +216,7 @@ mod tests {
         // 6 faces * 4 vertices = 24 vertices
         let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
         let pos_count = match positions {
-            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            bevy::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
             _ => 0,
         };
         assert_eq!(pos_count, 24);
@@ -238,7 +238,7 @@ mod tests {
         // Should still have 24 vertices even with rotation
         let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
         let pos_count = match positions {
-            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            bevy::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
             _ => 0,
         };
         assert_eq!(pos_count, 24);

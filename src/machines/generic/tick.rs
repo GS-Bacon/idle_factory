@@ -3,7 +3,7 @@
 use crate::components::Machine;
 use crate::core::ItemId;
 use crate::events::game_events::{MachineCompleted, MachineStarted};
-use crate::events::GuardedEventWriter;
+use crate::events::GuardedMessageWriter;
 use crate::game_spec::ProcessType;
 use crate::world::biome::BiomeMap;
 use crate::Conveyor;
@@ -19,8 +19,8 @@ pub fn generic_machine_tick(
     biome_map: Res<BiomeMap>,
     mut machine_query: Query<(Entity, &mut Machine)>,
     mut conveyor_query: Query<(Entity, &mut Conveyor)>,
-    mut started_events: GuardedEventWriter<MachineStarted>,
-    mut completed_events: GuardedEventWriter<MachineCompleted>,
+    mut started_events: GuardedMessageWriter<MachineStarted>,
+    mut completed_events: GuardedMessageWriter<MachineCompleted>,
 ) {
     let delta = time.delta_secs();
 
@@ -73,9 +73,9 @@ pub fn generic_machine_tick(
 
     // Send events
     for (entity, inputs) in started {
-        let _ = started_events.send(MachineStarted { entity, inputs });
+        let _ = started_events.write(MachineStarted { entity, inputs });
     }
     for (entity, outputs) in completed {
-        let _ = completed_events.send(MachineCompleted { entity, outputs });
+        let _ = completed_events.write(MachineCompleted { entity, outputs });
     }
 }

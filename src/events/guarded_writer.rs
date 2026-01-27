@@ -7,21 +7,21 @@ use super::{EventDepth, EventError, EventSystemConfig};
 
 /// 安全なイベント送信（深さチェック付き）
 ///
-/// 通常のEventWriterの代わりにこれを使うことで、
+/// 通常のMessageWriterの代わりにこれを使うことで、
 /// イベント連鎖の無限ループを防止できる。
 ///
 /// EventDepthはAtomicU8を使用しているため、同一システム内で
-/// 複数のGuardedEventWriterを使用可能（Resで取得）。
+/// 複数のGuardedMessageWriterを使用可能（Resで取得）。
 #[derive(SystemParam)]
-pub struct GuardedEventWriter<'w, E: Event> {
-    writer: EventWriter<'w, E>,
+pub struct GuardedMessageWriter<'w, E: Message> {
+    writer: MessageWriter<'w, E>,
     depth: Res<'w, EventDepth>,
     config: Res<'w, EventSystemConfig>,
 }
 
-impl<E: Event> GuardedEventWriter<'_, E> {
-    /// 深さチェック付きイベント送信
-    pub fn send(&mut self, event: E) -> Result<(), EventError> {
+impl<E: Message> GuardedMessageWriter<'_, E> {
+    /// 深さチェック付きメッセージ送信
+    pub fn write(&mut self, event: E) -> Result<(), EventError> {
         let current = self.depth.get();
         if current >= self.config.max_depth {
             error!(
@@ -39,21 +39,21 @@ impl<E: Event> GuardedEventWriter<'_, E> {
                 std::any::type_name::<E>()
             );
         }
-        self.writer.send(event);
+        self.writer.write(event);
         Ok(())
     }
 
-    /// 深さチェック付き複数イベント送信
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> Result<(), EventError> {
+    /// 深さチェック付き複数メッセージ送信
+    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> Result<(), EventError> {
         for event in events {
-            self.send(event)?;
+            self.write(event)?;
         }
         Ok(())
     }
 
     /// 深さチェックなしで送信（内部用、注意して使用）
-    pub fn send_unchecked(&mut self, event: E) {
-        self.writer.send(event);
+    pub fn write_unchecked(&mut self, event: E) {
+        self.writer.write(event);
     }
 
     /// 現在の深さを取得

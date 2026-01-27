@@ -99,11 +99,11 @@ pub fn setup_inventory_ui(
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(4.0),
                 border: UiRect::all(Val::Px(2.0)),
+                border_radius: BorderRadius::all(Val::Px(QUEST_RADIUS)),
                 ..default()
             },
             BackgroundColor(QUEST_BG),
-            BorderColor(QUEST_BORDER_COLOR),
-            BorderRadius::all(Val::Px(QUEST_RADIUS)),
+            BorderColor::all(QUEST_BORDER_COLOR),
             GlobalZIndex(50), // Above overlay, below held item
             Visibility::Hidden,
         ))
@@ -189,11 +189,11 @@ pub fn setup_inventory_ui(
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 border: UiRect::all(Val::Px(SLOT_BORDER)),
+                                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                                 ..default()
                             },
                             BackgroundColor(Color::srgba(0.4, 0.15, 0.1, 0.95)),
-                            BorderColor(Color::srgb(0.8, 0.3, 0.2)), // Red-orange
-                            BorderRadius::all(Val::Px(SLOT_RADIUS)),
+                            BorderColor::all(Color::srgb(0.8, 0.3, 0.2)), // Red-orange
                         ))
                         .with_children(|btn| {
                             btn.spawn((
@@ -207,7 +207,7 @@ pub fn setup_inventory_ui(
 }
 
 /// Spawn the upper panel (Platform Inventory / Creative Catalog)
-fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
+fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
     parent
         .spawn((
             UpperPanel,
@@ -216,10 +216,10 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                 row_gap: Val::Px(4.0),
                 padding: UiRect::all(Val::Px(4.0)),
                 margin: UiRect::bottom(Val::Px(8.0)),
+                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                 ..default()
             },
             BackgroundColor(QUEST_BG),
-            BorderRadius::all(Val::Px(SLOT_RADIUS)),
             Visibility::Hidden, // Start hidden, shown based on conditions
         ))
         .with_children(|upper| {
@@ -246,7 +246,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                             ..default()
                         },
                         BackgroundColor(Color::srgba(0.3, 0.3, 0.35, 1.0)),
-                        BorderColor(QUEST_BORDER_COLOR),
+                        BorderColor::all(QUEST_BORDER_COLOR),
                     ))
                     .with_child((
                         Text::new("All"),
@@ -264,7 +264,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                             ..default()
                         },
                         BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                        BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
                     ))
                     .with_child((
                         Text::new("Ores"),
@@ -282,7 +282,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                             ..default()
                         },
                         BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                        BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
                     ))
                     .with_child((
                         Text::new("Ingots"),
@@ -300,7 +300,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                             ..default()
                         },
                         BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                        BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
                     ))
                     .with_child((
                         Text::new("Machines"),
@@ -323,7 +323,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                         ..default()
                     },
                     BackgroundColor(Color::srgba(0.15, 0.15, 0.2, 1.0)),
-                    BorderColor(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                    BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
                 ))
                 .with_child((
                     Text::new("Search..."),
@@ -385,7 +385,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                             ..default()
                         },
                         BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor(QUEST_BORDER_COLOR),
+                        BorderColor::all(QUEST_BORDER_COLOR),
                     ))
                     .with_child((
                         Text::new("<"),
@@ -414,7 +414,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
                             ..default()
                         },
                         BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor(QUEST_BORDER_COLOR),
+                        BorderColor::all(QUEST_BORDER_COLOR),
                     ))
                     .with_child((
                         Text::new(">"),
@@ -426,7 +426,7 @@ fn spawn_upper_panel(parent: &mut ChildBuilder, font: &Handle<Font>) {
 }
 
 /// Spawn an upper panel slot button
-fn spawn_upper_panel_slot(parent: &mut ChildBuilder, slot_idx: usize, font: &Handle<Font>) {
+fn spawn_upper_panel_slot(parent: &mut ChildSpawnerCommands, slot_idx: usize, font: &Handle<Font>) {
     parent
         .spawn((
             Button,
@@ -437,11 +437,11 @@ fn spawn_upper_panel_slot(parent: &mut ChildBuilder, slot_idx: usize, font: &Han
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(SLOT_BORDER)),
+                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                 ..default()
             },
             BackgroundColor(SLOT_BG),
-            BorderColor(SLOT_BORDER_COLOR),
-            BorderRadius::all(Val::Px(SLOT_RADIUS)),
+            BorderColor::all(SLOT_BORDER_COLOR),
         ))
         .with_children(|btn| {
             // Item sprite image

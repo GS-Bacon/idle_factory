@@ -1,16 +1,25 @@
-name = "ポーズメニューでカーソル表示"
-description = "ESCでポーズメニュー表示時にカーソルがアンロックされることを確認"
+# ポーズメニューでカーソル表示 (CAD-style)
+# CADスタイルではカーソルが常に表示される
+
+name = "CADスタイル: ポーズメニュー切替"
+description = "ESCでポーズメニュー表示、カーソルは常にアンロック"
 
 [[steps]]
-action = "get_state"
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
 
 [[steps]]
 action = "assert"
 params = { condition = "ui_state == Gameplay" }
 
+# CAD-style: カーソルは常にアンロック
 [[steps]]
 action = "assert"
-params = { condition = "cursor_locked == true" }
+params = { condition = "cursor_locked == false" }
 
 [[steps]]
 action = "send_input"
@@ -27,6 +36,7 @@ action = "get_state"
 action = "assert"
 params = { condition = "ui_state == PauseMenu" }
 
+# ポーズメニューでもカーソルはアンロック
 [[steps]]
 action = "assert"
 params = { condition = "cursor_locked == false" }

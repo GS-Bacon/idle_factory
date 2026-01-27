@@ -136,10 +136,17 @@ pub struct ConveyorRotationOffset {
     pub offset: u8,
 }
 
-/// Creative mode resource for spawning items
-#[derive(Resource, Default)]
+/// Creative mode resource (CAD-style: always enabled for fly mode)
+#[derive(Resource)]
 pub struct CreativeMode {
     pub enabled: bool,
+}
+
+impl Default for CreativeMode {
+    fn default() -> Self {
+        // CAD-style: always fly mode
+        Self { enabled: true }
+    }
 }
 
 /// Tutorial shown state (prevents showing again)

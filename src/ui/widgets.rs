@@ -69,11 +69,11 @@ pub fn spawn_slot(commands: &mut Commands, config: SlotConfig, font: Handle<Font
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 margin: UiRect::all(Val::Px(SLOT_GAP / 2.0)),
+                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                 ..default()
             },
             BackgroundColor(SLOT_BG),
-            BorderColor(SLOT_BORDER_COLOR),
-            BorderRadius::all(Val::Px(SLOT_RADIUS)),
+            BorderColor::all(SLOT_BORDER_COLOR),
             Interaction::None,
         ))
         .with_children(|slot| {
@@ -159,10 +159,10 @@ pub fn spawn_button(commands: &mut Commands, config: ButtonConfig, font: Handle<
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
+                border_radius: BorderRadius::all(Val::Px(4.0)),
                 ..default()
             },
             BackgroundColor(config.bg_color),
-            BorderRadius::all(Val::Px(4.0)),
             Interaction::None,
         ))
         .with_children(|btn| {
@@ -202,7 +202,7 @@ pub fn spawn_slot_row(
 }
 
 /// Helper to spawn a slot as a child (used in spawn_slot_row)
-fn spawn_slot_child(parent: &mut ChildBuilder, config: SlotConfig, font: Handle<Font>) {
+fn spawn_slot_child(parent: &mut ChildSpawnerCommands, config: SlotConfig, font: Handle<Font>) {
     let size = config.size.unwrap_or(SLOT_SIZE);
     let index = config.index;
 
@@ -216,11 +216,11 @@ fn spawn_slot_child(parent: &mut ChildBuilder, config: SlotConfig, font: Handle<
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 margin: UiRect::all(Val::Px(SLOT_GAP / 2.0)),
+                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                 ..default()
             },
             BackgroundColor(SLOT_BG),
-            BorderColor(SLOT_BORDER_COLOR),
-            BorderRadius::all(Val::Px(SLOT_RADIUS)),
+            BorderColor::all(SLOT_BORDER_COLOR),
             Interaction::None,
         ))
         .with_children(|slot| {

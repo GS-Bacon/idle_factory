@@ -12,6 +12,7 @@ use crate::input::{GameAction, InputManager};
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::systems::cursor;
 use bevy::prelude::*;
+use bevy::window::{CursorOptions, PrimaryWindow};
 
 use super::executor::execute_command;
 use super::{
@@ -40,7 +41,7 @@ pub fn command_input_toggle(
     mut command_state: ResMut<CommandInputState>,
     mut ui_query: Query<&mut Visibility, With<CommandInputUI>>,
     mut text_query: Query<&mut Text, With<CommandInputText>>,
-    mut windows: Query<&mut Window>,
+    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
     interacting_machine: Res<InteractingMachine>,
     inventory_open: Res<InventoryOpen>,
 ) {
@@ -71,8 +72,8 @@ pub fn command_input_toggle(
         }
 
         // Unlock cursor
-        if let Ok(mut window) = windows.get_single_mut() {
-            cursor::unlock_cursor(&mut window);
+        if let Ok(mut cursor_options) = cursor_query.single_mut() {
+            cursor::unlock_cursor(&mut cursor_options);
         }
     }
 }
@@ -87,19 +88,19 @@ pub fn command_input_handler(
         (Option<&mut Visibility>, Option<&mut Text>),
         Or<(With<CommandInputUI>, With<CommandInputText>)>,
     >,
-    mut windows: Query<&mut Window>,
+    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
     mut creative_mode: ResMut<CreativeMode>,
     local_player: Option<Res<LocalPlayer>>,
     mut inventory_query: Query<&mut PlayerInventory>,
-    mut save_events: EventWriter<SaveGameEvent>,
-    mut load_events: EventWriter<LoadGameEvent>,
-    mut tp_events: EventWriter<TeleportEvent>,
-    mut look_events: EventWriter<LookEvent>,
-    mut setblock_events: EventWriter<SetBlockEvent>,
-    mut spawn_machine_events: EventWriter<SpawnMachineEvent>,
-    mut debug_events: EventWriter<DebugEvent>,
-    mut assert_machine_events: EventWriter<AssertMachineEvent>,
-    mut screenshot_events: EventWriter<ScreenshotEvent>,
+    mut save_events: MessageWriter<SaveGameEvent>,
+    mut load_events: MessageWriter<LoadGameEvent>,
+    mut tp_events: MessageWriter<TeleportEvent>,
+    mut look_events: MessageWriter<LookEvent>,
+    mut setblock_events: MessageWriter<SetBlockEvent>,
+    mut spawn_machine_events: MessageWriter<SpawnMachineEvent>,
+    mut debug_events: MessageWriter<DebugEvent>,
+    mut assert_machine_events: MessageWriter<AssertMachineEvent>,
+    mut screenshot_events: MessageWriter<ScreenshotEvent>,
 ) {
     if !command_state.open {
         return;
@@ -118,8 +119,8 @@ pub fn command_input_handler(
         }
 
         // Lock cursor
-        if let Ok(mut window) = windows.get_single_mut() {
-            cursor::lock_cursor(&mut window);
+        if let Ok(mut cursor_options) = cursor_query.single_mut() {
+            cursor::lock_cursor(&mut cursor_options);
         }
         return;
     }
@@ -149,8 +150,8 @@ pub fn command_input_handler(
         }
 
         // Lock cursor
-        if let Ok(mut window) = windows.get_single_mut() {
-            cursor::lock_cursor(&mut window);
+        if let Ok(mut cursor_options) = cursor_query.single_mut() {
+            cursor::lock_cursor(&mut cursor_options);
         }
 
         // Execute command (requires player inventory)

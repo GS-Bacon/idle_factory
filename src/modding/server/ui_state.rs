@@ -65,7 +65,7 @@ pub fn apply_ui_state_change(
         "MachineUI" => {
             ui.clear();
             // Use a dummy entity for test purposes
-            let dummy_entity = Entity::from_raw(999999);
+            let dummy_entity = Entity::PLACEHOLDER;
             ui.push(UIContext::Machine(dummy_entity));
             reset_legacy(inv, machine, command_state);
             machine.0 = Some(dummy_entity);

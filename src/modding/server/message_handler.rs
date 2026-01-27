@@ -72,7 +72,7 @@ pub fn process_server_messages(
     mut interacting_machine: Option<ResMut<InteractingMachine>>,
     local_player: Option<Res<LocalPlayer>>,
     player_query: Query<(&Transform, &PlayerInventory)>,
-    mut test_input_writer: EventWriter<TestInputEvent>,
+    mut test_input_writer: MessageWriter<TestInputEvent>,
     mut command_state: Option<ResMut<CommandInputState>>,
     target_block: Option<Res<TargetBlock>>,
     breaking_progress: Option<Res<BreakingProgress>>,
@@ -179,9 +179,8 @@ pub fn process_server_messages(
     let test_state = TestStateInfo {
         ui_state: ui_state_str,
         player_position,
-        // Use UIState as single source of truth (not CursorLockState.paused)
-        // Cursor is locked only when in Gameplay mode
-        cursor_locked: ui_state.as_ref().is_some_and(|s| s.is_gameplay()),
+        // CAD-style controls: cursor is never locked (always visible)
+        cursor_locked: false,
         target_block: target_block_pos,
         breaking_progress: breaking_prog,
         input_flags,
@@ -228,7 +227,7 @@ pub fn process_server_messages(
                     if let Some(action_str) = request.params.get("action").and_then(|v| v.as_str())
                     {
                         if let Some(action) = parse_game_action(action_str) {
-                            test_input_writer.send(TestInputEvent { action });
+                            test_input_writer.write(TestInputEvent { action });
                         }
                     }
                 }

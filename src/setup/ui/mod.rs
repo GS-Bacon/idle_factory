@@ -105,7 +105,11 @@ pub const QUEST_HEADER_COLOR: Color = Color::srgb(1.00, 0.80, 0.00);
 pub const QUEST_PROGRESS_COLOR: Color = Color::srgb(1.00, 0.53, 0.00);
 
 /// Helper to spawn an inventory slot button (Factory theme)
-pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize, font: &Handle<Font>) {
+pub fn spawn_inventory_slot(
+    parent: &mut ChildSpawnerCommands,
+    slot_idx: usize,
+    font: &Handle<Font>,
+) {
     parent
         .spawn((
             Button,
@@ -116,11 +120,11 @@ pub fn spawn_inventory_slot(parent: &mut ChildBuilder, slot_idx: usize, font: &H
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(SLOT_BORDER)),
+                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                 ..default()
             },
             BackgroundColor(SLOT_BG),
-            BorderColor(SLOT_BORDER_COLOR),
-            BorderRadius::all(Val::Px(SLOT_RADIUS)),
+            BorderColor::all(SLOT_BORDER_COLOR),
         ))
         .with_children(|btn| {
             // Item sprite image
@@ -193,11 +197,11 @@ pub fn setup_ui(
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             flex_direction: FlexDirection::Column,
+                            border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                             ..default()
                         },
                         BackgroundColor(SLOT_BG),
-                        BorderColor(SLOT_BORDER_COLOR),
-                        BorderRadius::all(Val::Px(SLOT_RADIUS)),
+                        BorderColor::all(SLOT_BORDER_COLOR),
                     ))
                     .with_children(|slot| {
                         // Slot number
@@ -366,11 +370,11 @@ pub fn setup_ui(
                 row_gap: Val::Px(8.0),
                 min_width: Val::Px(220.0),
                 border: UiRect::all(Val::Px(QUEST_BORDER_WIDTH)),
+                border_radius: BorderRadius::all(Val::Px(QUEST_RADIUS)),
                 ..default()
             },
             BackgroundColor(QUEST_BG),
-            BorderColor(QUEST_BORDER_COLOR),
-            BorderRadius::all(Val::Px(QUEST_RADIUS)),
+            BorderColor::all(QUEST_BORDER_COLOR),
             Visibility::Hidden, // Hidden until tutorial completes
         ))
         .with_children(|parent| {
@@ -447,21 +451,21 @@ pub fn setup_ui(
                                             width: Val::Percent(100.0),
                                             height: Val::Px(10.0),
                                             border: UiRect::all(Val::Px(1.0)),
+                                            border_radius: BorderRadius::all(Val::Px(3.0)),
                                             ..default()
                                         },
                                         BackgroundColor(Color::srgba(0.15, 0.15, 0.2, 1.0)),
-                                        BorderColor(QUEST_BORDER_COLOR),
-                                        BorderRadius::all(Val::Px(3.0)),
+                                        BorderColor::all(QUEST_BORDER_COLOR),
                                     ))
                                     .with_child((
                                         QuestProgressBarFill(i),
                                         Node {
                                             width: Val::Percent(0.0),
                                             height: Val::Percent(100.0),
+                                            border_radius: BorderRadius::all(Val::Px(2.0)),
                                             ..default()
                                         },
                                         BackgroundColor(QUEST_PROGRESS_COLOR),
-                                        BorderRadius::all(Val::Px(2.0)),
                                     ));
                             });
                     }
@@ -483,7 +487,7 @@ pub fn setup_ui(
                         ..default()
                     },
                     BackgroundColor(Color::srgba(0.15, 0.45, 0.2, 0.95)),
-                    BorderColor(Color::srgba(0.25, 0.6, 0.3, 1.0)),
+                    BorderColor::all(Color::srgba(0.25, 0.6, 0.3, 1.0)),
                     Visibility::Hidden,
                 ))
                 .with_child((
@@ -566,11 +570,11 @@ pub fn setup_ui(
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(6.0),
                 border: UiRect::all(Val::Px(2.0)),
+                border_radius: BorderRadius::all(Val::Px(8.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.08, 0.08, 0.12, 0.92)),
-            BorderColor(QUEST_BORDER_COLOR),
-            BorderRadius::all(Val::Px(8.0)),
+            BorderColor::all(QUEST_BORDER_COLOR),
             Visibility::Hidden, // Hidden until tutorial popup is dismissed
         ))
         .with_children(|panel| {
@@ -599,11 +603,11 @@ pub fn setup_ui(
                         width: Val::Percent(100.0),
                         height: Val::Px(10.0),
                         border: UiRect::all(Val::Px(1.0)),
+                        border_radius: BorderRadius::all(Val::Px(3.0)),
                         ..default()
                     },
                     BackgroundColor(Color::srgba(0.15, 0.15, 0.2, 1.0)),
-                    BorderColor(QUEST_BORDER_COLOR),
-                    BorderRadius::all(Val::Px(3.0)),
+                    BorderColor::all(QUEST_BORDER_COLOR),
                     Visibility::Hidden, // Hidden when no count-based action
                 ))
                 .with_child((
@@ -611,10 +615,10 @@ pub fn setup_ui(
                     Node {
                         width: Val::Percent(0.0),
                         height: Val::Percent(100.0),
+                        border_radius: BorderRadius::all(Val::Px(2.0)),
                         ..default()
                     },
                     BackgroundColor(QUEST_PROGRESS_COLOR),
-                    BorderRadius::all(Val::Px(2.0)),
                 ));
         });
 
@@ -630,11 +634,11 @@ pub fn setup_ui(
             left: Val::Px(10.0),
             padding: UiRect::all(Val::Px(QUEST_PADDING)),
             border: UiRect::all(Val::Px(QUEST_BORDER_WIDTH)),
+            border_radius: BorderRadius::all(Val::Px(QUEST_RADIUS)),
             ..default()
         },
         BackgroundColor(QUEST_BG),
-        BorderColor(QUEST_BORDER_COLOR),
-        BorderRadius::all(Val::Px(QUEST_RADIUS)),
+        BorderColor::all(QUEST_BORDER_COLOR),
     ));
 
     // Settings UI panel (hidden by default)
@@ -715,7 +719,7 @@ pub enum PauseMenuButton {
 
 /// Spawn a pause menu button
 fn spawn_pause_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     label: &str,
     button_type: PauseMenuButton,
@@ -730,11 +734,11 @@ fn spawn_pause_button(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(2.0)),
+                border_radius: BorderRadius::all(Val::Px(8.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
-            BorderColor(Color::srgb(0.8, 0.5, 0.0)),
-            BorderRadius::all(Val::Px(8.0)),
+            BorderColor::all(Color::srgb(0.8, 0.5, 0.0)),
         ))
         .with_children(|btn| {
             btn.spawn((

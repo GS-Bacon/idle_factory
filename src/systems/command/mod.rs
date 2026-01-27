@@ -20,18 +20,18 @@ pub use handlers::{
 pub use ui::{command_input_handler, command_input_toggle, update_command_suggestions};
 
 /// E2E test command events
-#[derive(Event)]
+#[derive(Message)]
 pub struct TeleportEvent {
     pub position: Vec3,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct LookEvent {
     pub pitch: f32,
     pub yaw: f32,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct SetBlockEvent {
     pub position: IVec3,
     pub block_type: ItemId,
@@ -49,7 +49,7 @@ pub enum DebugEventType {
 }
 
 /// Debug event (for /debug_* commands)
-#[derive(Event)]
+#[derive(Message)]
 pub struct DebugEvent {
     pub debug_type: DebugEventType,
 }
@@ -71,13 +71,13 @@ pub enum MachineAssertType {
 }
 
 /// Assert machine event for E2E testing
-#[derive(Event)]
+#[derive(Message)]
 pub struct AssertMachineEvent {
     pub assert_type: MachineAssertType,
 }
 
 /// Screenshot event for capturing game screen
-#[derive(Event)]
+#[derive(Message)]
 pub struct ScreenshotEvent {
     pub filename: String,
 }

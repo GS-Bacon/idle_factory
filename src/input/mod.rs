@@ -357,14 +357,14 @@ pub fn clear_virtual_input(mut input_manager: ResMut<InputManager>) {
 }
 
 /// テスト用入力イベント（WebSocket APIから送信）
-#[derive(Event)]
+#[derive(Message)]
 pub struct TestInputEvent {
     pub action: GameAction,
 }
 
 /// TestInputEvent を InputManager に反映するシステム
 pub fn process_test_input(
-    mut events: EventReader<TestInputEvent>,
+    mut events: MessageReader<TestInputEvent>,
     mut input_manager: ResMut<InputManager>,
 ) {
     for event in events.read() {
@@ -378,7 +378,7 @@ pub struct InputManagerPlugin;
 impl Plugin for InputManagerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputManager>()
-            .add_event::<TestInputEvent>()
+            .add_message::<TestInputEvent>()
             .add_systems(PreUpdate, process_test_input.before(update_input_manager))
             .add_systems(PreUpdate, update_input_manager)
             .add_systems(PostUpdate, clear_virtual_input);

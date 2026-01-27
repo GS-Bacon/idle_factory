@@ -3,9 +3,9 @@
 //! Loads Blockbench project files (.bbmodel) and converts them to Bevy meshes.
 //! Supports animations via keyframe data.
 
+use bevy::asset::RenderAssetUsages;
 use bevy::image::{CompressedImageFormats, ImageSampler, ImageType};
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
 use std::fmt;
 
 mod animation;
@@ -148,7 +148,7 @@ mod tests {
     use super::*;
     use crate::blockbench::raw::RawBbmodel;
     use crate::blockbench::texture::base64_decode;
-    use bevy::render::mesh::PrimitiveTopology;
+    use bevy::mesh::PrimitiveTopology;
 
     #[test]
     fn test_parse_simple_bbmodel() {
@@ -213,7 +213,7 @@ mod tests {
         .unwrap();
         let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
         let pos_count = match positions {
-            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            bevy::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
             _ => 0,
         };
         assert_eq!(pos_count, 24); // 6 faces * 4 vertices
@@ -240,7 +240,7 @@ mod tests {
         .unwrap();
         let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
         let pos_count = match positions {
-            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            bevy::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
             _ => 0,
         };
         assert_eq!(pos_count, 72); // 3 elements * 6 faces * 4 vertices
@@ -430,7 +430,7 @@ mod tests {
         // Verify mesh (2 elements * 6 faces * 4 vertices = 48)
         let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap();
         let pos_count = match positions {
-            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
+            bevy::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
             _ => 0,
         };
         assert_eq!(pos_count, 48);

@@ -1,6 +1,6 @@
 //! Target block highlighting system
 
-use bevy::pbr::NotShadowCaster;
+use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 
 use crate::components::Machine;
@@ -126,8 +126,8 @@ pub fn setup_highlight_cache(
 
 /// Create a 3D solid arrow mesh for better visibility
 fn create_3d_arrow_mesh(direction: Direction) -> Mesh {
-    use bevy::render::mesh::{Indices, PrimitiveTopology};
-    use bevy::render::render_asset::RenderAssetUsages;
+    use bevy::asset::RenderAssetUsages;
+    use bevy::mesh::{Indices, PrimitiveTopology};
 
     let arrow_y = 0.55; // Height above conveyor/machine
     let shaft_length = 0.35;
@@ -250,7 +250,7 @@ pub fn update_target_highlight(
     });
 
     // Get player's facing direction as fallback
-    let player_facing = camera_query.get_single().ok().map(|cam_transform| {
+    let player_facing = camera_query.single().ok().map(|cam_transform| {
         let forward = cam_transform.forward().as_vec3();
         yaw_to_direction(-forward.x.atan2(-forward.z))
     });
@@ -343,7 +343,7 @@ pub fn update_target_highlight(
         // Despawn old entity if exists (recursively to remove arrow child)
         if let Some(entity) = target.place_highlight_entity.take() {
             if place_query.get(entity).is_ok() {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             }
         }
 
@@ -418,7 +418,7 @@ pub fn update_target_highlight(
         target.place_highlight_entity = Some(entity);
     } else if let Some(entity) = target.place_highlight_entity.take() {
         if place_query.get(entity).is_ok() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

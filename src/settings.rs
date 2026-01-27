@@ -134,7 +134,7 @@ impl GameSettings {
 }
 
 /// Event sent when settings are changed
-#[derive(Event)]
+#[derive(Message)]
 pub struct SettingsChangedEvent;
 
 /// Plugin that manages game settings
@@ -144,7 +144,7 @@ impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         let settings = GameSettings::load();
         app.insert_resource(settings)
-            .add_event::<SettingsChangedEvent>()
+            .add_message::<SettingsChangedEvent>()
             .add_systems(Update, (auto_save_settings, apply_settings_immediately));
     }
 }
@@ -160,7 +160,7 @@ struct SettingsDirty {
 fn auto_save_settings(
     settings: Res<GameSettings>,
     mut dirty: Local<SettingsDirty>,
-    mut events: EventReader<SettingsChangedEvent>,
+    mut events: MessageReader<SettingsChangedEvent>,
     time: Res<Time>,
 ) {
     // Mark dirty when settings changed
@@ -184,7 +184,7 @@ fn auto_save_settings(
 /// Apply settings changes immediately to the game
 pub fn apply_settings_immediately(
     settings: Res<GameSettings>,
-    mut events: EventReader<SettingsChangedEvent>,
+    mut events: MessageReader<SettingsChangedEvent>,
     mut windows: Query<&mut Window>,
     mut projection_query: Query<&mut Projection>,
 ) {
@@ -196,7 +196,7 @@ pub fn apply_settings_immediately(
     for _ in events.read() {}
 
     // Apply window settings
-    if let Ok(mut window) = windows.get_single_mut() {
+    if let Ok(mut window) = windows.single_mut() {
         // VSync
         window.present_mode = if settings.vsync_enabled {
             bevy::window::PresentMode::AutoVsync

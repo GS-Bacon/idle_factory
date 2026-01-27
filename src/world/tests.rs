@@ -5,8 +5,8 @@ mod tests {
     use crate::constants::*;
     use crate::core::items;
     use crate::world::{ChunkData, WorldData};
+    use bevy::mesh::Mesh;
     use bevy::prelude::*;
-    use bevy::render::mesh::Mesh;
 
     #[test]
     fn test_chunk_data_pos_index_conversion() {
@@ -189,7 +189,7 @@ mod tests {
         assert!(positions.is_some());
 
         // Mesh should have non-zero vertices (ground blocks exist)
-        if let Some(bevy::render::mesh::VertexAttributeValues::Float32x3(pos)) = positions {
+        if let Some(bevy::mesh::VertexAttributeValues::Float32x3(pos)) = positions {
             assert!(!pos.is_empty(), "Mesh should have vertices");
         }
     }

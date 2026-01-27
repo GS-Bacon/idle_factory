@@ -5,15 +5,14 @@
 
 use bevy::{
     asset::Asset,
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{Material, MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshVertexBufferLayoutRef,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-        },
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::ShaderRef,
 };
 
 /// Custom material for voxel/block rendering using 2D array textures.
@@ -33,7 +32,7 @@ impl Material for VoxelMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,

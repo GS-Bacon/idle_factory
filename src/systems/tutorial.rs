@@ -11,7 +11,7 @@ use crate::core::ItemId;
 use crate::player::LocalPlatformInventory;
 
 /// Event for tutorial action notifications
-#[derive(Event)]
+#[derive(Message)]
 pub enum TutorialEvent {
     /// Player moved
     PlayerMoved { distance: f32 },
@@ -32,13 +32,13 @@ pub fn track_movement(
     player_query: Query<&Transform, (With<crate::components::Player>, Changed<Transform>)>,
     progress: Res<TutorialProgress>,
     mut last_pos: Local<Option<Vec3>>,
-    mut events: EventWriter<TutorialEvent>,
+    mut events: MessageWriter<TutorialEvent>,
 ) {
     if progress.completed {
         return;
     }
 
-    let Ok(transform) = player_query.get_single() else {
+    let Ok(transform) = player_query.single() else {
         return;
     };
 
@@ -47,7 +47,7 @@ pub fn track_movement(
         let delta = pos.distance(last);
         if delta > 0.01 && delta < 10.0 {
             // Ignore teleports
-            events.send(TutorialEvent::PlayerMoved { distance: delta });
+            events.write(TutorialEvent::PlayerMoved { distance: delta });
         }
     }
     *last_pos = Some(pos);
@@ -57,7 +57,7 @@ pub fn track_movement(
 pub fn track_inventory_open(
     inventory_query: Query<&Visibility, With<InventoryUI>>,
     mut last_open: Local<bool>,
-    mut events: EventWriter<TutorialEvent>,
+    mut events: MessageWriter<TutorialEvent>,
     progress: Res<TutorialProgress>,
 ) {
     if progress.completed {
@@ -65,18 +65,18 @@ pub fn track_inventory_open(
     }
 
     let is_open = inventory_query
-        .get_single()
+        .single()
         .map(|v| *v == Visibility::Visible)
         .unwrap_or(false);
     if is_open && !*last_open {
-        events.send(TutorialEvent::InventoryOpened);
+        events.write(TutorialEvent::InventoryOpened);
     }
     *last_open = is_open;
 }
 
 /// Process tutorial events and advance progress
 pub fn process_tutorial_events(
-    mut events: EventReader<TutorialEvent>,
+    mut events: MessageReader<TutorialEvent>,
     mut progress: ResMut<TutorialProgress>,
 ) {
     if progress.completed {
@@ -181,7 +181,7 @@ pub fn update_tutorial_ui(
 ) {
     // Quest UI visibility: only show when tutorial is completed
     // Must run BEFORE early return to ensure QuestUI is controlled even if TutorialPanel is missing
-    if let Ok(mut quest_vis) = quest_query.get_single_mut() {
+    if let Ok(mut quest_vis) = quest_query.single_mut() {
         *quest_vis = if progress.completed {
             Visibility::Visible
         } else {
@@ -189,7 +189,7 @@ pub fn update_tutorial_ui(
         };
     }
 
-    let Ok(mut panel_vis) = panel_query.get_single_mut() else {
+    let Ok(mut panel_vis) = panel_query.single_mut() else {
         return;
     };
 
@@ -204,7 +204,7 @@ pub fn update_tutorial_ui(
 
     if let Some(step) = progress.current() {
         // Update step text
-        if let Ok(mut text) = text_query.get_single_mut() {
+        if let Ok(mut text) = text_query.single_mut() {
             **text = format!(
                 "[T] {} ({}/{})\n{}",
                 step.description,
@@ -224,27 +224,27 @@ pub fn update_tutorial_ui(
         // Update progress bar visibility and values
         if let Some((current, target)) = count_info {
             // Show progress text
-            if let Ok((mut text, mut vis)) = progress_text_query.get_single_mut() {
+            if let Ok((mut text, mut vis)) = progress_text_query.single_mut() {
                 **text = format!("{}/{}", current.min(target), target);
                 *vis = Visibility::Visible;
             }
 
             // Show progress bar background
-            if let Ok(mut bar_vis) = progress_bar_bg_query.get_single_mut() {
+            if let Ok(mut bar_vis) = progress_bar_bg_query.single_mut() {
                 *bar_vis = Visibility::Visible;
             }
 
             // Update progress bar fill width
-            if let Ok(mut node) = progress_bar_fill_query.get_single_mut() {
+            if let Ok(mut node) = progress_bar_fill_query.single_mut() {
                 let percent = (current as f32 / target as f32 * 100.0).min(100.0);
                 node.width = Val::Percent(percent);
             }
         } else {
             // Hide progress bar for non-count actions
-            if let Ok((_, mut vis)) = progress_text_query.get_single_mut() {
+            if let Ok((_, mut vis)) = progress_text_query.single_mut() {
                 *vis = Visibility::Hidden;
             }
-            if let Ok(mut bar_vis) = progress_bar_bg_query.get_single_mut() {
+            if let Ok(mut bar_vis) = progress_bar_bg_query.single_mut() {
                 *bar_vis = Visibility::Hidden;
             }
         }
@@ -255,7 +255,7 @@ pub fn update_tutorial_ui(
 pub fn track_production(
     platform_inventory: LocalPlatformInventory,
     mut last_counts: Local<std::collections::HashMap<ItemId, u32>>,
-    mut events: EventWriter<TutorialEvent>,
+    mut events: MessageWriter<TutorialEvent>,
     progress: Res<TutorialProgress>,
 ) {
     if progress.completed {
@@ -266,7 +266,7 @@ pub fn track_production(
     for (item_id, count) in platform_inventory.get_all_items() {
         let last = last_counts.get(&item_id).copied().unwrap_or(0);
         if count > last {
-            events.send(TutorialEvent::ItemProduced(item_id));
+            events.write(TutorialEvent::ItemProduced(item_id));
         }
         last_counts.insert(item_id, count);
     }

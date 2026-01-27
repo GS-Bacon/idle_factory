@@ -15,10 +15,10 @@ pub fn spawn_breaking_progress_ui(mut commands: Commands) {
                 width: Val::Px(200.0),
                 height: Val::Px(10.0),
                 margin: UiRect::left(Val::Px(-100.0)), // Center horizontally
+                border_radius: BorderRadius::all(Val::Px(3.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-            BorderRadius::all(Val::Px(3.0)),
             Visibility::Hidden,
             BreakingProgressUI,
         ))
@@ -28,10 +28,10 @@ pub fn spawn_breaking_progress_ui(mut commands: Commands) {
                 Node {
                     width: Val::Percent(0.0), // Will be updated based on progress
                     height: Val::Percent(100.0),
+                    border_radius: BorderRadius::all(Val::Px(3.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.2, 0.8, 0.2)),
-                BorderRadius::all(Val::Px(3.0)),
                 BreakingProgressBarFill,
             ));
         });
@@ -43,7 +43,7 @@ pub fn update_breaking_progress_ui(
     mut container_query: Query<&mut Visibility, With<BreakingProgressUI>>,
     mut fill_query: Query<&mut Node, With<BreakingProgressBarFill>>,
 ) {
-    let Ok(mut container_visibility) = container_query.get_single_mut() else {
+    let Ok(mut container_visibility) = container_query.single_mut() else {
         return;
     };
 
@@ -52,7 +52,7 @@ pub fn update_breaking_progress_ui(
         *container_visibility = Visibility::Visible;
 
         // Update fill width
-        if let Ok(mut fill_node) = fill_query.get_single_mut() {
+        if let Ok(mut fill_node) = fill_query.single_mut() {
             fill_node.width = Val::Percent(breaking_progress.progress * 100.0);
         }
     } else {

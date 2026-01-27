@@ -106,11 +106,11 @@ pub fn setup_settings_ui(
                     row_gap: Val::Px(15.0),
                     border: UiRect::all(Val::Px(2.0)),
                     overflow: Overflow::scroll_y(), // 縦スクロール有効
+                    border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.12, 0.12, 0.14, 0.98)),
-                BorderColor(SLOT_BORDER_COLOR),
-                BorderRadius::all(Val::Px(SLOT_RADIUS)),
+                BorderColor::all(SLOT_BORDER_COLOR),
             ))
             .with_children(|panel| {
                 // Title
@@ -173,11 +173,11 @@ pub fn setup_settings_ui(
                             margin: UiRect::top(Val::Px(20.0)),
                             align_self: AlignSelf::Center,
                             border: UiRect::all(Val::Px(2.0)),
+                            border_radius: BorderRadius::all(Val::Px(6.0)),
                             ..default()
                         },
                         BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
-                        BorderColor(Color::srgb(0.8, 0.5, 0.0)),
-                        BorderRadius::all(Val::Px(6.0)),
+                        BorderColor::all(Color::srgb(0.8, 0.5, 0.0)),
                     ))
                     .with_children(|btn| {
                         btn.spawn((
@@ -190,7 +190,7 @@ pub fn setup_settings_ui(
         });
 }
 
-fn spawn_section_header(parent: &mut ChildBuilder, font: &Handle<Font>, label: &str) {
+fn spawn_section_header(parent: &mut ChildSpawnerCommands, font: &Handle<Font>, label: &str) {
     parent.spawn((
         Text::new(label),
         text_font(font, TEXT_SECTION),
@@ -203,7 +203,7 @@ fn spawn_section_header(parent: &mut ChildBuilder, font: &Handle<Font>, label: &
 }
 
 fn spawn_slider(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     label: &str,
     setting: SettingType,
@@ -236,10 +236,10 @@ fn spawn_slider(
                 Node {
                     width: Val::Px(200.0),
                     height: Val::Px(20.0),
+                    border_radius: BorderRadius::all(Val::Px(4.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.15, 0.15, 0.18)),
-                BorderRadius::all(Val::Px(4.0)),
             ))
             .with_children(|track| {
                 // Fill
@@ -249,10 +249,10 @@ fn spawn_slider(
                     Node {
                         width: Val::Percent(50.0), // Will be updated
                         height: Val::Percent(100.0),
+                        border_radius: BorderRadius::all(Val::Px(4.0)),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(1.0, 0.53, 0.0)),
-                    BorderRadius::all(Val::Px(4.0)),
                 ));
             });
 
@@ -272,7 +272,7 @@ fn spawn_slider(
 }
 
 fn spawn_update_row(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     ui_registry: &UIElementRegistry,
 ) {
@@ -305,11 +305,11 @@ fn spawn_update_row(
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(4.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.25, 0.25, 0.30)),
-                BorderColor(Color::srgb(0.33, 0.33, 0.33)),
-                BorderRadius::all(Val::Px(4.0)),
+                BorderColor::all(Color::srgb(0.33, 0.33, 0.33)),
                 Visibility::Hidden, // Hidden until update available
             ))
             .with_children(|btn| {
@@ -322,7 +322,12 @@ fn spawn_update_row(
         });
 }
 
-fn spawn_toggle(parent: &mut ChildBuilder, font: &Handle<Font>, label: &str, setting: SettingType) {
+fn spawn_toggle(
+    parent: &mut ChildSpawnerCommands,
+    font: &Handle<Font>,
+    label: &str,
+    setting: SettingType,
+) {
     parent
         .spawn(Node {
             width: Val::Percent(100.0),
@@ -348,11 +353,11 @@ fn spawn_toggle(parent: &mut ChildBuilder, font: &Handle<Font>, label: &str, set
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(13.0)),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.3, 0.15, 0.15)), // Will be updated
-                BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                BorderRadius::all(Val::Px(13.0)),
+                BorderColor::all(Color::srgb(0.5, 0.5, 0.5)),
             ))
             .with_children(|btn| {
                 btn.spawn((
@@ -370,7 +375,7 @@ pub fn update_settings_visibility(
     ui_state: Res<crate::components::UIState>,
     mut settings_query: Query<&mut Visibility, With<SettingsPanel>>,
 ) {
-    let Ok(mut visibility) = settings_query.get_single_mut() else {
+    let Ok(mut visibility) = settings_query.single_mut() else {
         return;
     };
 
@@ -476,7 +481,7 @@ pub fn handle_settings_sliders(
     drag_state: Res<SliderDragState>,
     slider_query: Query<(&SettingsSlider, &Node, &GlobalTransform)>,
     mut settings: ResMut<GameSettings>,
-    mut settings_changed: EventWriter<crate::settings::SettingsChangedEvent>,
+    mut settings_changed: MessageWriter<crate::settings::SettingsChangedEvent>,
     windows: Query<&Window>,
 ) {
     // Only process when dragging
@@ -484,7 +489,7 @@ pub fn handle_settings_sliders(
         return;
     };
 
-    let Ok(window) = windows.get_single() else {
+    let Ok(window) = windows.single() else {
         return;
     };
     let Some(cursor_pos) = window.cursor_position() else {
@@ -519,14 +524,14 @@ pub fn handle_settings_sliders(
     }
 
     settings.validate();
-    settings_changed.send(crate::settings::SettingsChangedEvent);
+    settings_changed.write(crate::settings::SettingsChangedEvent);
 }
 
 /// Handle toggle interactions
 pub fn handle_settings_toggles(
     mut interaction_query: Query<(&Interaction, &SettingsToggle), Changed<Interaction>>,
     mut settings: ResMut<GameSettings>,
-    mut settings_changed: EventWriter<crate::settings::SettingsChangedEvent>,
+    mut settings_changed: MessageWriter<crate::settings::SettingsChangedEvent>,
 ) {
     for (interaction, toggle) in interaction_query.iter_mut() {
         if *interaction != Interaction::Pressed {
@@ -541,7 +546,7 @@ pub fn handle_settings_toggles(
             _ => {}
         }
 
-        settings_changed.send(crate::settings::SettingsChangedEvent);
+        settings_changed.write(crate::settings::SettingsChangedEvent);
     }
 }
 
@@ -552,12 +557,12 @@ pub fn handle_settings_back(
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<SettingsBackButton>),
     >,
-    mut action_writer: EventWriter<crate::components::UIAction>,
+    mut action_writer: MessageWriter<crate::components::UIAction>,
 ) {
     for (interaction, mut bg) in interaction_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
-                action_writer.send(crate::components::UIAction::Pop);
+                action_writer.write(crate::components::UIAction::Pop);
             }
             Interaction::Hovered => {
                 *bg = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.95));
@@ -586,7 +591,7 @@ pub fn update_settings_update_ui(
         return;
     }
 
-    let Ok((mut text, mut color)) = status_query.get_single_mut() else {
+    let Ok((mut text, mut color)) = status_query.single_mut() else {
         return;
     };
 
@@ -641,12 +646,12 @@ pub fn handle_settings_update_button(
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<SettingsUpdateButton>),
     >,
-    mut update_event: EventWriter<StartUpdateEvent>,
+    mut update_event: MessageWriter<StartUpdateEvent>,
 ) {
     for (interaction, mut bg) in interaction_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
-                update_event.send(StartUpdateEvent);
+                update_event.write(StartUpdateEvent);
             }
             Interaction::Hovered => {
                 *bg = BackgroundColor(Color::srgb(0.35, 0.35, 0.42));

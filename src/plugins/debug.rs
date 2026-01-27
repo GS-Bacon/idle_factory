@@ -24,7 +24,7 @@ impl Plugin for DebugPlugin {
         // Debug-only: FPS diagnostics, invariant checks, E2E export
         #[cfg(debug_assertions)]
         {
-            app.add_plugins(FrameTimeDiagnosticsPlugin)
+            app.add_plugins(FrameTimeDiagnosticsPlugin::default())
                 .add_plugins(InvariantCheckPlugin)
                 .init_resource::<E2EExportConfig>()
                 .add_systems(Update, export_e2e_state);

@@ -1,0 +1,70 @@
+# CADスタイル: 飛行移動テスト
+# Phase 1 テスト: 飛行移動が正しく動作することを確認
+
+name = "CADスタイル: 飛行移動"
+description = "CADスタイルでの飛行移動（衝突なし）が動作することを確認"
+
+# 初期状態確認
+[[steps]]
+action = "set_ui_state"
+params = { state = "Gameplay" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
+
+[[steps]]
+action = "assert"
+params = { condition = "ui_state == Gameplay" }
+
+# 初期位置を保存
+[[steps]]
+action = "get_state"
+
+# 前進移動入力
+[[steps]]
+action = "send_input"
+params = { action = "MoveForward" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 位置が変わったことを確認
+[[steps]]
+action = "compare_position"
+params = { expect = "changed", tolerance = 0.05 }
+
+# 上昇移動（ジャンプ）テスト
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "Jump" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 位置が変わったことを確認（Y軸上昇）
+[[steps]]
+action = "compare_position"
+params = { expect = "changed", tolerance = 0.05 }
+
+# 下降移動テスト
+[[steps]]
+action = "get_state"
+
+[[steps]]
+action = "send_input"
+params = { action = "Descend" }
+
+[[steps]]
+action = "wait"
+params = { ms = 200 }
+
+# 位置が変わったことを確認
+[[steps]]
+action = "compare_position"
+params = { expect = "changed", tolerance = 0.05 }

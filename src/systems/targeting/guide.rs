@@ -1,6 +1,6 @@
 //! Guide marker systems
 
-use bevy::pbr::NotShadowCaster;
+use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -35,7 +35,7 @@ pub fn update_guide_markers(
     // Clear markers if selection changed or nothing selected
     if selected_item_id != guide_markers.last_selected {
         for entity in guide_markers.entities.drain(..) {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
         guide_markers.last_selected = selected_item_id;
     }

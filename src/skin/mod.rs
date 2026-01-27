@@ -188,7 +188,7 @@ impl SkinRegistry {
 }
 
 /// スキン変更イベント
-#[derive(Event)]
+#[derive(Message)]
 pub struct SkinChangedEvent {
     /// プレイヤーエンティティ
     pub player: Entity,
@@ -199,7 +199,7 @@ pub struct SkinChangedEvent {
 }
 
 /// スキンアンロックイベント
-#[derive(Event)]
+#[derive(Message)]
 pub struct SkinUnlockedEvent {
     /// プレイヤーエンティティ
     pub player: Entity,
@@ -213,8 +213,8 @@ pub struct SkinPlugin;
 impl Plugin for SkinPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SkinRegistry>()
-            .add_event::<SkinChangedEvent>()
-            .add_event::<SkinUnlockedEvent>()
+            .add_message::<SkinChangedEvent>()
+            .add_message::<SkinUnlockedEvent>()
             .add_systems(Startup, setup_default_skins);
     }
 }

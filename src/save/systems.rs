@@ -37,9 +37,9 @@ pub fn collect_save_data(
     };
 
     // Collect player data
-    let player_data = if let Ok(transform) = player_query.get_single() {
+    let player_data = if let Ok(transform) = player_query.single() {
         let rotation = camera_query
-            .get_single()
+            .single()
             .map(|c| CameraRotation {
                 pitch: c.pitch,
                 yaw: c.yaw,
@@ -265,12 +265,12 @@ pub fn conveyor_shape_from_save(shape: save::ConveyorShapeSave) -> ConveyorShape
 pub fn auto_save_system(
     time: Res<Time>,
     mut auto_save_timer: ResMut<save::AutoSaveTimer>,
-    mut save_events: EventWriter<SaveGameEvent>,
+    mut save_events: MessageWriter<SaveGameEvent>,
 ) {
     auto_save_timer.timer.tick(time.delta());
 
     if auto_save_timer.timer.just_finished() {
-        save_events.send(SaveGameEvent {
+        save_events.write(SaveGameEvent {
             filename: "autosave".to_string(),
         });
         info!("Auto-save triggered");
@@ -280,7 +280,7 @@ pub fn auto_save_system(
 /// Handle save game events
 #[allow(clippy::too_many_arguments)]
 pub fn handle_save_event(
-    mut events: EventReader<SaveGameEvent>,
+    mut events: MessageReader<SaveGameEvent>,
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
     local_player: Option<Res<LocalPlayer>>,
@@ -345,7 +345,7 @@ fn string_id_to_item_id(s: &str) -> Option<ItemId> {
 /// Handle load game events (V2 format with string IDs)
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_load_event(
-    mut events: EventReader<LoadGameEvent>,
+    mut events: MessageReader<LoadGameEvent>,
     mut save_load_state: ResMut<SaveLoadState>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -387,12 +387,12 @@ pub fn handle_load_event(
         match save::native::load_game_v2(&event.filename) {
             Ok(data) => {
                 // Apply player position
-                if let Ok(mut transform) = player_query.get_single_mut() {
+                if let Ok(mut transform) = player_query.single_mut() {
                     transform.translation = data.player.position.into();
                 }
 
                 // Apply camera rotation
-                if let Ok(mut camera) = camera_query.get_single_mut() {
+                if let Ok(mut camera) = camera_query.single_mut() {
                     camera.pitch = data.player.rotation.pitch;
                     camera.yaw = data.player.rotation.yaw;
                 }
@@ -430,7 +430,7 @@ pub fn handle_load_event(
 
                 // Despawn existing machines
                 for entity in machine_entities.iter() {
-                    commands.entity(entity).despawn_recursive();
+                    commands.entity(entity).despawn();
                 }
 
                 // Spawn machines from save data (V2 format)

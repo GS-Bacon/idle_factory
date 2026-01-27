@@ -29,7 +29,11 @@ const HEADER_COLOR: Color = Color::srgb(1.0, 0.8, 0.0); // Yellow header
 // =============================================================================
 
 /// Spawn a generic slot button based on UiSlotDef
-fn spawn_generic_slot(parent: &mut ChildBuilder, slot_def: &UiSlotDef, font: &Handle<Font>) {
+fn spawn_generic_slot(
+    parent: &mut ChildSpawnerCommands,
+    slot_def: &UiSlotDef,
+    font: &Handle<Font>,
+) {
     let is_input = matches!(slot_def.slot_type, UiSlotType::Input);
     let is_fuel = matches!(slot_def.slot_type, UiSlotType::Fuel);
 
@@ -47,11 +51,11 @@ fn spawn_generic_slot(parent: &mut ChildBuilder, slot_def: &UiSlotDef, font: &Ha
                 border: UiRect::all(Val::Px(SLOT_BORDER)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                 ..default()
             },
             BackgroundColor(SLOT_BG),
-            BorderColor(SLOT_BORDER_COLOR),
-            BorderRadius::all(Val::Px(SLOT_RADIUS)),
+            BorderColor::all(SLOT_BORDER_COLOR),
         ))
         .with_children(|slot| {
             slot.spawn((
@@ -106,11 +110,11 @@ pub fn setup_generic_machine_ui(
                 width: Val::Px(panel_width),
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(Val::Px(2.0)),
+                border_radius: BorderRadius::all(Val::Px(QUEST_RADIUS)),
                 ..default()
             },
             BackgroundColor(PANEL_BG),
-            BorderColor(PANEL_BORDER),
-            BorderRadius::all(Val::Px(QUEST_RADIUS)),
+            BorderColor::all(PANEL_BORDER),
             Visibility::Hidden,
         ))
         .with_children(|panel| {
@@ -166,7 +170,7 @@ fn calculate_panel_width(spec: &MachineSpec) -> f32 {
 }
 
 /// Spawn header row
-fn spawn_header(panel: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Font>) {
+fn spawn_header(panel: &mut ChildSpawnerCommands, spec: &MachineSpec, font: &Handle<Font>) {
     panel
         .spawn((
             Node {
@@ -178,7 +182,7 @@ fn spawn_header(panel: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Font
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            BorderColor(PANEL_BORDER),
+            BorderColor::all(PANEL_BORDER),
         ))
         .with_children(|header| {
             header.spawn((
@@ -191,7 +195,7 @@ fn spawn_header(panel: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Font
 }
 
 /// Spawn input -> output row
-fn spawn_io_row(content: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Font>) {
+fn spawn_io_row(content: &mut ChildSpawnerCommands, spec: &MachineSpec, font: &Handle<Font>) {
     let input_slots: Vec<_> = spec
         .ui_slots
         .iter()
@@ -233,7 +237,7 @@ fn spawn_io_row(content: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Fo
 }
 
 /// Spawn progress bar
-fn spawn_progress_bar(content: &mut ChildBuilder) {
+fn spawn_progress_bar(content: &mut ChildSpawnerCommands) {
     content
         .spawn((
             Node {
@@ -257,7 +261,7 @@ fn spawn_progress_bar(content: &mut ChildBuilder) {
 }
 
 /// Spawn fuel row if machine requires fuel
-fn spawn_fuel_row(content: &mut ChildBuilder, spec: &MachineSpec, font: &Handle<Font>) {
+fn spawn_fuel_row(content: &mut ChildSpawnerCommands, spec: &MachineSpec, font: &Handle<Font>) {
     let fuel_slots: Vec<_> = spec
         .ui_slots
         .iter()

@@ -141,6 +141,7 @@ impl Plugin for StoragePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::ecs::entity::EntityIndex;
 
     #[test]
     fn test_storage_block_new() {
@@ -164,7 +165,7 @@ mod tests {
     #[test]
     fn test_storage_network() {
         let mut network = StorageNetwork::new();
-        let entity = Entity::from_raw(1);
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(1).unwrap());
 
         network.add_storage(entity);
         assert_eq!(network.count(), 1);

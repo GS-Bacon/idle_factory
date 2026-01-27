@@ -54,23 +54,23 @@ impl UpdateState {
 }
 
 /// Event to trigger an update check.
-#[derive(Event)]
+#[derive(Message)]
 pub struct CheckForUpdateEvent;
 
 /// Event to start the update (launches external updater).
-#[derive(Event)]
+#[derive(Message)]
 pub struct StartUpdateEvent;
 
 /// Event to cancel/dismiss the update notification.
-#[derive(Event)]
+#[derive(Message)]
 pub struct CancelUpdateEvent;
 
 /// Event to restart the application (unused with external updater, kept for compatibility).
-#[derive(Event)]
+#[derive(Message)]
 pub struct RestartAppEvent;
 
 /// Event sent when update check completes.
-#[derive(Event)]
+#[derive(Message)]
 #[allow(dead_code)]
 pub struct UpdateCheckCompleteEvent {
     pub result: UpdateCheckResult,

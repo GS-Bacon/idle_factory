@@ -112,14 +112,14 @@ impl MapData {
 }
 
 /// マップ表示トグルイベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct ToggleMap;
 
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MapData>().add_event::<ToggleMap>();
+        app.init_resource::<MapData>().add_message::<ToggleMap>();
     }
 }
 

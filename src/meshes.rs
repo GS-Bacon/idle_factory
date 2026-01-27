@@ -2,9 +2,9 @@
 //!
 //! This module contains functions for creating procedural meshes used in the game.
 
+use bevy::asset::RenderAssetUsages;
+use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
-use bevy::render::mesh::PrimitiveTopology;
-use bevy::render::render_asset::RenderAssetUsages;
 
 use crate::constants::{BLOCK_SIZE, CONVEYOR_BELT_HEIGHT, CONVEYOR_BELT_WIDTH};
 use crate::{ConveyorShape, Direction};
@@ -378,7 +378,7 @@ fn create_l_shaped_mesh(half_width: f32, half_height: f32, half_block: f32, is_l
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh.insert_indices(bevy::mesh::Indices::U32(indices));
     mesh
 }
 
@@ -472,7 +472,7 @@ fn create_t_shaped_mesh(half_width: f32, half_height: f32, half_block: f32) -> M
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh.insert_indices(bevy::mesh::Indices::U32(indices));
     mesh
 }
 
@@ -587,6 +587,6 @@ fn create_splitter_mesh(half_width: f32, half_height: f32, half_block: f32) -> M
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
+    mesh.insert_indices(bevy::mesh::Indices::U32(indices));
     mesh
 }

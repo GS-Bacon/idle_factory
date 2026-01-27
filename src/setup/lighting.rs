@@ -1,6 +1,6 @@
 //! Lighting setup
 
-use bevy::pbr::CascadeShadowConfigBuilder;
+use bevy::light::{CascadeShadowConfigBuilder, GlobalAmbientLight};
 use bevy::prelude::*;
 use std::f32::consts::PI;
 
@@ -22,9 +22,10 @@ pub fn setup_lighting(mut commands: Commands) {
         .build(),
     ));
 
-    // Ambient light
-    commands.insert_resource(AmbientLight {
+    // Global ambient light
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 300.0,
+        ..default()
     });
 }

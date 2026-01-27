@@ -39,11 +39,11 @@ pub fn creative_inventory_click(
                 // Replace any existing held item (in creative mode, no item loss)
                 held_item.0 = Some((block_type, 64));
                 // Visual feedback (selected/pressed uses yellow border)
-                *border_color = BorderColor(SLOT_SELECTED_BORDER);
+                *border_color = BorderColor::all(SLOT_SELECTED_BORDER);
             }
             Interaction::Hovered => {
                 // Highlight on hover
-                *border_color = BorderColor(Color::srgb(0.8, 0.8, 0.8));
+                *border_color = BorderColor::all(Color::srgb(0.8, 0.8, 0.8));
                 // Slightly brighter background
                 let base = block_type.color();
                 let Srgba {
@@ -61,7 +61,7 @@ pub fn creative_inventory_click(
             }
             Interaction::None => {
                 // Reset to normal
-                *border_color = BorderColor(Color::srgba(0.3, 0.3, 0.3, 1.0));
+                *border_color = BorderColor::all(Color::srgba(0.3, 0.3, 0.3, 1.0));
                 *bg_color = BackgroundColor(block_type.color());
             }
         }
@@ -185,14 +185,14 @@ pub fn inventory_slot_click(
                 }
 
                 // Visual feedback (selected/pressed uses yellow border)
-                *border_color = BorderColor(SLOT_SELECTED_BORDER);
+                *border_color = BorderColor::all(SLOT_SELECTED_BORDER);
             }
             Interaction::Hovered => {
-                *border_color = BorderColor(SLOT_HOVER_BORDER);
+                *border_color = BorderColor::all(SLOT_HOVER_BORDER);
                 *bg_color = BackgroundColor(SLOT_HOVER_BG);
             }
             Interaction::None => {
-                *border_color = BorderColor(SLOT_BORDER_COLOR);
+                *border_color = BorderColor::all(SLOT_BORDER_COLOR);
                 *bg_color = BackgroundColor(SLOT_BG);
             }
         }
@@ -274,7 +274,7 @@ pub fn inventory_continuous_shift_click(
     }
 
     // Skip if timer hasn't finished (and this isn't the first click handled by inventory_slot_click)
-    if !action_timer.inventory_timer.finished() {
+    if !action_timer.inventory_timer.is_finished() {
         return;
     }
 
@@ -309,14 +309,14 @@ pub fn trash_slot_click(
             Interaction::Pressed => {
                 // Delete held item
                 held_item.0 = None;
-                *border_color = BorderColor(Color::srgb(1.0, 0.0, 0.0));
+                *border_color = BorderColor::all(Color::srgb(1.0, 0.0, 0.0));
             }
             Interaction::Hovered => {
-                *border_color = BorderColor(Color::srgb(1.0, 0.5, 0.5));
+                *border_color = BorderColor::all(Color::srgb(1.0, 0.5, 0.5));
                 *bg_color = BackgroundColor(Color::srgb(0.6, 0.1, 0.1));
             }
             Interaction::None => {
-                *border_color = BorderColor(Color::srgb(0.6, 0.2, 0.2));
+                *border_color = BorderColor::all(Color::srgb(0.6, 0.2, 0.2));
                 *bg_color = BackgroundColor(Color::srgb(0.4, 0.1, 0.1));
             }
         }

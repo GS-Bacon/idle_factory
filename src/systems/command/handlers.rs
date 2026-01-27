@@ -22,12 +22,12 @@ use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 
 /// Handle teleport events
 pub fn handle_teleport_event(
-    mut events: EventReader<TeleportEvent>,
+    mut events: MessageReader<TeleportEvent>,
     mut player_query: Query<&mut Transform, With<Player>>,
 ) {
     for event in events.read() {
         info!("TeleportEvent received: {:?}", event.position);
-        match player_query.get_single_mut() {
+        match player_query.single_mut() {
             Ok(mut transform) => {
                 transform.translation = event.position;
                 info!("Teleported to {:?}", event.position);
@@ -41,7 +41,7 @@ pub fn handle_teleport_event(
 
 /// Handle look events
 pub fn handle_look_event(
-    mut events: EventReader<LookEvent>,
+    mut events: MessageReader<LookEvent>,
     mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
     mut player_query: Query<&mut Transform, With<Player>>,
 ) {
@@ -50,14 +50,14 @@ pub fn handle_look_event(
             "LookEvent received: pitch={:.2} yaw={:.2}",
             event.pitch, event.yaw
         );
-        match camera_query.get_single_mut() {
+        match camera_query.single_mut() {
             Ok((mut camera_transform, mut camera)) => {
                 camera.pitch = event.pitch;
                 camera.yaw = event.yaw;
                 // Apply rotation immediately to Transform
                 camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
                 // Also update player yaw
-                if let Ok(mut player_transform) = player_query.get_single_mut() {
+                if let Ok(mut player_transform) = player_query.single_mut() {
                     player_transform.rotation = Quat::from_rotation_y(camera.yaw);
                 }
                 info!(
@@ -74,7 +74,7 @@ pub fn handle_look_event(
 
 /// Handle setblock events
 pub fn handle_setblock_event(
-    mut events: EventReader<SetBlockEvent>,
+    mut events: MessageReader<SetBlockEvent>,
     mut world_data: ResMut<WorldData>,
 ) {
     for event in events.read() {
@@ -90,7 +90,7 @@ pub fn handle_setblock_event(
 #[allow(clippy::too_many_arguments)]
 pub fn handle_spawn_machine_event(
     mut commands: Commands,
-    mut events: EventReader<SpawnMachineEvent>,
+    mut events: MessageReader<SpawnMachineEvent>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     machine_models: Res<MachineModels>,
@@ -225,7 +225,7 @@ pub fn handle_spawn_machine_event(
 
 /// Handle debug events - dump states based on debug type
 pub fn handle_debug_event(
-    mut events: EventReader<DebugEvent>,
+    mut events: MessageReader<DebugEvent>,
     conveyor_query: Query<(Entity, &Conveyor, &GlobalTransform)>,
     machine_query: Query<(Entity, &Machine)>,
 ) {
@@ -377,7 +377,7 @@ pub fn handle_debug_event(
 
 /// Handle assert machine events - verify machine states for E2E testing
 pub fn handle_assert_machine_event(
-    mut events: EventReader<AssertMachineEvent>,
+    mut events: MessageReader<AssertMachineEvent>,
     machine_query: Query<&Machine>,
     conveyor_query: Query<&Conveyor>,
 ) {
@@ -449,7 +449,7 @@ pub fn handle_assert_machine_event(
 }
 
 /// Handle screenshot events
-pub fn handle_screenshot_event(mut events: EventReader<ScreenshotEvent>, mut commands: Commands) {
+pub fn handle_screenshot_event(mut events: MessageReader<ScreenshotEvent>, mut commands: Commands) {
     for event in events.read() {
         info!("Taking screenshot: {}", event.filename);
         commands

@@ -14,7 +14,7 @@ pub enum EventSource {
 // ========== ブロック系 ==========
 
 /// ブロック配置完了イベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct BlockPlaced {
     pub pos: IVec3,
     pub block: ItemId,
@@ -22,7 +22,7 @@ pub struct BlockPlaced {
 }
 
 /// ブロック破壊完了イベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct BlockBroken {
     pub pos: IVec3,
     pub block: ItemId,
@@ -32,7 +32,7 @@ pub struct BlockBroken {
 // ========== 機械系 ==========
 
 /// 機械生成イベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct MachineSpawned {
     pub entity: Entity,
     pub machine_type: ItemId,
@@ -40,14 +40,14 @@ pub struct MachineSpawned {
 }
 
 /// 機械加工開始イベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct MachineStarted {
     pub entity: Entity,
     pub inputs: Vec<(ItemId, u32)>,
 }
 
 /// 機械加工完了イベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct MachineCompleted {
     pub entity: Entity,
     pub outputs: Vec<(ItemId, u32)>,
@@ -56,7 +56,7 @@ pub struct MachineCompleted {
 // ========== インベントリ系 ==========
 
 /// インベントリ変更イベント
-#[derive(Event, Debug, Clone)]
+#[derive(Message, Debug, Clone)]
 pub struct InventoryChanged {
     pub entity: Entity,
     pub item_id: ItemId,
@@ -66,7 +66,7 @@ pub struct InventoryChanged {
 // ========== 物流系 ==========
 
 /// コンベア転送イベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct ConveyorTransfer {
     pub from_pos: IVec3,
     pub to_pos: IVec3,
@@ -74,7 +74,7 @@ pub struct ConveyorTransfer {
 }
 
 /// アイテム納品イベント
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct ItemDelivered {
     pub item: ItemId,
     pub count: u32,
@@ -85,14 +85,14 @@ pub struct GameEventsExtPlugin;
 
 impl Plugin for GameEventsExtPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<BlockPlaced>()
-            .add_event::<BlockBroken>()
-            .add_event::<MachineSpawned>()
-            .add_event::<MachineStarted>()
-            .add_event::<MachineCompleted>()
-            .add_event::<InventoryChanged>()
-            .add_event::<ConveyorTransfer>()
-            .add_event::<ItemDelivered>();
+        app.add_message::<BlockPlaced>()
+            .add_message::<BlockBroken>()
+            .add_message::<MachineSpawned>()
+            .add_message::<MachineStarted>()
+            .add_message::<MachineCompleted>()
+            .add_message::<InventoryChanged>()
+            .add_message::<ConveyorTransfer>()
+            .add_message::<ItemDelivered>();
     }
 }
 

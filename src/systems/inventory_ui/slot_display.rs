@@ -59,7 +59,7 @@ pub fn inventory_update_slots(
             *bg_color = BackgroundColor(SLOT_BG);
 
             // Update text (count)
-            for &child in children.iter() {
+            for child in children.iter() {
                 if let Ok(mut text) = text_query.get_mut(child) {
                     text.0 = if count > 1 {
                         format!("{}", count)
@@ -76,7 +76,7 @@ pub fn inventory_update_slots(
                 Interaction::None => SLOT_BG,
             });
 
-            for &child in children.iter() {
+            for child in children.iter() {
                 if let Ok(mut text) = text_query.get_mut(child) {
                     text.0 = String::new();
                 }
@@ -99,14 +99,14 @@ pub fn update_held_item_display(
         (With<HeldItemText>, Without<HeldItemDisplay>),
     >,
 ) {
-    let Ok((mut node, mut visibility)) = held_display_query.get_single_mut() else {
+    let Ok((mut node, mut visibility)) = held_display_query.single_mut() else {
         return;
     };
 
     // Only show when inventory is open and we're holding something
     if !inventory_open.0 {
         *visibility = Visibility::Hidden;
-        if let Ok((_, _, mut text_vis)) = held_text_query.get_single_mut() {
+        if let Ok((_, _, mut text_vis)) = held_text_query.single_mut() {
             *text_vis = Visibility::Hidden;
         }
         return;
@@ -118,14 +118,14 @@ pub fn update_held_item_display(
             *visibility = Visibility::Visible;
 
             // Update sprite image
-            if let Ok(mut image) = held_image_query.get_single_mut() {
+            if let Ok(mut image) = held_image_query.single_mut() {
                 if let Some(sprite) = item_sprites.get_id(ItemId::from(*block_type)) {
                     image.image = sprite;
                 }
             }
 
             // Position at cursor
-            if let Ok(window) = windows.get_single() {
+            if let Ok(window) = windows.single() {
                 if let Some(cursor_pos) = window.cursor_position() {
                     // Offset so item appears slightly below and to the right of cursor
                     let x = cursor_pos.x + 4.0;
@@ -135,7 +135,7 @@ pub fn update_held_item_display(
 
                     // Update count text position and visibility
                     if let Ok((mut text, mut text_node, mut text_vis)) =
-                        held_text_query.get_single_mut()
+                        held_text_query.single_mut()
                     {
                         text.0 = if *count > 1 {
                             format!("{}", count)
@@ -155,7 +155,7 @@ pub fn update_held_item_display(
         }
         None => {
             *visibility = Visibility::Hidden;
-            if let Ok((_, _, mut text_vis)) = held_text_query.get_single_mut() {
+            if let Ok((_, _, mut text_vis)) = held_text_query.single_mut() {
                 *text_vis = Visibility::Hidden;
             }
         }

@@ -408,7 +408,8 @@ mod tests {
         TestStateInfo {
             ui_state: "Gameplay".to_string(),
             player_position: [1.0, 2.0, 3.0],
-            cursor_locked: true,
+            // CAD-style: cursor is never locked
+            cursor_locked: false,
             target_block: None,
             breaking_progress: 0.0,
             input_flags: InputFlags {
@@ -433,7 +434,8 @@ mod tests {
 
         let result = response.result.unwrap();
         assert_eq!(result["ui_state"], "Gameplay");
-        assert_eq!(result["cursor_locked"], true);
+        // CAD-style: cursor is never locked
+        assert_eq!(result["cursor_locked"], false);
         assert!(result["input_flags"]["allows_block_actions"]
             .as_bool()
             .unwrap());
@@ -564,8 +566,8 @@ mod tests {
         let (success, _, _) = evaluate_condition("ui_state == Gameplay", &state);
         assert!(success);
 
-        // Test cursor_locked
-        let (success, _, _) = evaluate_condition("cursor_locked == true", &state);
+        // Test cursor_locked (CAD-style: always false)
+        let (success, _, _) = evaluate_condition("cursor_locked == false", &state);
         assert!(success);
 
         // Test invalid condition

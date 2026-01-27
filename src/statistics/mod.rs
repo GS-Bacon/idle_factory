@@ -176,7 +176,7 @@ impl DeliveryStats {
 
 /// 機械完了イベントを購読して生産統計を記録
 fn handle_machine_completed(
-    mut events: EventReader<MachineCompleted>,
+    mut events: MessageReader<MachineCompleted>,
     mut stats: ResMut<ProductionStats>,
     time: Res<Time>,
 ) {
@@ -190,7 +190,7 @@ fn handle_machine_completed(
 
 /// 機械開始イベントを購読して消費統計を記録
 fn handle_machine_started(
-    mut events: EventReader<MachineStarted>,
+    mut events: MessageReader<MachineStarted>,
     mut stats: ResMut<ProductionStats>,
     time: Res<Time>,
 ) {
@@ -203,7 +203,10 @@ fn handle_machine_started(
 }
 
 /// 納品イベントを購読して納品統計を記録
-fn handle_item_delivered(mut events: EventReader<ItemDelivered>, mut stats: ResMut<DeliveryStats>) {
+fn handle_item_delivered(
+    mut events: MessageReader<ItemDelivered>,
+    mut stats: ResMut<DeliveryStats>,
+) {
     for event in events.read() {
         stats.record_delivery_by_id(event.item, event.count);
     }

@@ -4,9 +4,9 @@
 //! Supports hot reloading: when a .vox file is modified, the model is automatically updated.
 //! Also handles texture atlas hot reloading.
 
+use bevy::asset::RenderAssetUsages;
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
-use bevy::render::render_asset::RenderAssetUsages;
 use dot_vox::DotVoxData;
 use std::collections::HashMap;
 use std::path::Path;
@@ -53,13 +53,13 @@ pub struct VoxFileWatcher {
 }
 
 /// Event sent when a VOX file is modified
-#[derive(Event)]
+#[derive(Message)]
 pub struct VoxFileChanged {
     pub path: String,
 }
 
 /// Event sent when the texture atlas is modified
-#[derive(Event)]
+#[derive(Message)]
 pub struct TextureAtlasChanged {
     pub path: String,
 }
@@ -72,8 +72,8 @@ impl Plugin for VoxLoaderPlugin {
         app.init_resource::<VoxMeshes>()
             .init_resource::<BlockTextureAtlas>()
             .init_resource::<VoxelArrayTexture>()
-            .add_event::<VoxFileChanged>()
-            .add_event::<TextureAtlasChanged>()
+            .add_message::<VoxFileChanged>()
+            .add_message::<TextureAtlasChanged>()
             .add_systems(
                 Startup,
                 (
@@ -173,7 +173,7 @@ fn load_initial_vox_models(
 
 /// Handle VOX file reload when files change
 fn handle_vox_reload(
-    mut events: EventReader<VoxFileChanged>,
+    mut events: MessageReader<VoxFileChanged>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut models: ResMut<crate::components::MachineModels>,
 ) {
@@ -298,7 +298,7 @@ fn load_initial_texture_atlas(
 
 /// Handle texture atlas reload when files change
 fn handle_texture_atlas_reload(
-    mut events: EventReader<TextureAtlasChanged>,
+    mut events: MessageReader<TextureAtlasChanged>,
     asset_server: Res<AssetServer>,
     mut atlas: ResMut<BlockTextureAtlas>,
 ) {
@@ -356,7 +356,7 @@ fn configure_array_texture(
     if let Some(image) = images.get_mut(&array_tex.texture) {
         // Convert stacked 2D image to 2D array texture
         // The image is 16x128 (8 layers of 16x16 stacked vertically)
-        image.reinterpret_stacked_2d_as_array(BLOCK_TEXTURE_LAYERS);
+        let _ = image.reinterpret_stacked_2d_as_array(BLOCK_TEXTURE_LAYERS);
 
         // Set sampler to repeat for tiling
         image.sampler =
@@ -424,8 +424,8 @@ fn setup_file_watcher(mut commands: Commands) {
 /// Check for file changes and send events
 fn check_file_changes(
     watcher: Option<Res<VoxFileWatcher>>,
-    mut vox_events: EventWriter<VoxFileChanged>,
-    mut texture_events: EventWriter<TextureAtlasChanged>,
+    mut vox_events: MessageWriter<VoxFileChanged>,
+    mut texture_events: MessageWriter<TextureAtlasChanged>,
 ) {
     let Some(watcher) = watcher else { return };
 
@@ -439,10 +439,10 @@ fn check_file_changes(
 
                 if ext == "vox" {
                     tracing::info!("VOX file changed: {}", path_str);
-                    vox_events.send(VoxFileChanged { path: path_str });
+                    vox_events.write(VoxFileChanged { path: path_str });
                 } else if ext == "png" && filename.starts_with("block_atlas") {
                     tracing::info!("Texture atlas changed: {}", path_str);
-                    texture_events.send(TextureAtlasChanged { path: path_str });
+                    texture_events.write(TextureAtlasChanged { path: path_str });
                 }
             }
         }

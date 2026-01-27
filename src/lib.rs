@@ -55,7 +55,7 @@ pub use world::{BiomeMap, WorldData};
 // Re-export events
 pub use events::{
     BlockBreakEvent, BlockPlaceEvent, EventDepth, EventError, EventSystemConfig, EventsPlugin,
-    GameEventsPlugin, GuardedEventWriter, ItemTransferEvent, MachineAction, MachineInteractEvent,
+    GameEventsPlugin, GuardedMessageWriter, ItemTransferEvent, MachineAction, MachineInteractEvent,
     QuestProgressEvent, SpawnMachineEvent,
 };
 

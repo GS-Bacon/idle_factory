@@ -122,18 +122,18 @@ mod tests {
             .attribute(Mesh::ATTRIBUTE_POSITION)
             .expect("mesh should have positions")
         {
-            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.clone(),
+            bevy::mesh::VertexAttributeValues::Float32x3(v) => v.clone(),
             _ => panic!("Unexpected vertex format"),
         };
         let indices = match mesh.indices().expect("mesh should have indices") {
-            bevy::render::mesh::Indices::U32(v) => v.clone(),
+            bevy::mesh::Indices::U32(v) => v.clone(),
             _ => panic!("Unexpected index format"),
         };
         let normals = match mesh
             .attribute(Mesh::ATTRIBUTE_NORMAL)
             .expect("mesh should have normals")
         {
-            bevy::render::mesh::VertexAttributeValues::Float32x3(v) => v.clone(),
+            bevy::mesh::VertexAttributeValues::Float32x3(v) => v.clone(),
             _ => panic!("Unexpected normal format"),
         };
         let mut correct = 0;
@@ -209,8 +209,9 @@ mod tests {
 
     #[test]
     fn test_mode_constants() {
+        // CAD-style: creative mode (fly) is always enabled by default
         let creative = CreativeMode::default();
-        assert!(!creative.enabled);
+        assert!(creative.enabled);
     }
 
     #[test]
@@ -387,10 +388,12 @@ mod tests {
 
     #[test]
     fn test_creative_mode_toggle() {
+        // CAD-style: creative mode starts enabled
         let mut creative = CreativeMode::default();
-        assert!(!creative.enabled);
-        creative.enabled = true;
         assert!(creative.enabled);
+        // Can still be toggled off
+        creative.enabled = false;
+        assert!(!creative.enabled);
     }
 
     #[test]

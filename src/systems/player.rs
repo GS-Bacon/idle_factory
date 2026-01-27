@@ -1,78 +1,34 @@
 //! Player movement, camera, and input handling systems
+//!
+//! CAD-style controls:
+//! - Cursor always visible
+//! - Middle-drag or Alt+left-drag to rotate camera
+//! - WASD + Space/Shift for fly movement (no collision)
 
 use crate::components::{
     CommandInputState, ContinuousActionTimer, CursorLockState, InputStateResourcesWithCursor,
-    InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, PlayerPhysics, TutorialShown,
-    UIAction, UIContext, UIState,
+    InteractingMachine, InventoryOpen, PauseUI, Player, PlayerCamera, TutorialShown, UIAction,
+    UIContext, UIState,
 };
 use crate::input::{GameAction, InputManager};
 use crate::settings::GameSettings;
 use crate::systems::cursor;
-use crate::world::WorldData;
-use crate::{
-    CreativeMode, GRAVITY, JUMP_VELOCITY, KEY_ROTATION_SPEED, PLAYER_HEIGHT, PLAYER_SPEED,
-    PLAYER_WIDTH, TERMINAL_VELOCITY,
-};
+use crate::{KEY_ROTATION_SPEED, PLAYER_SPEED};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
+use bevy::window::{CursorOptions, PrimaryWindow};
 use tracing::info;
 
-/// ファイルに衝突判定ログを出力（コンソールには出さない）
-#[allow(dead_code)]
-fn log_collision(action: &str, player_pos: Vec3, block_pos: IVec3, has_block: bool) {
-    use std::io::Write;
-    use std::sync::Mutex;
-    use std::sync::OnceLock;
-    static LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
-    let file = LOG_FILE.get_or_init(|| {
-        let _ = std::fs::create_dir_all("logs");
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("logs/collision.log")
-            .expect("Failed to open collision.log");
-        Mutex::new(file)
-    });
-    if let Ok(mut f) = file.lock() {
-        let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
-        let _ = writeln!(
-            f,
-            "{} {} player=({:.2},{:.2},{:.2}) block=({},{},{}) has_block={}",
-            timestamp,
-            action,
-            player_pos.x,
-            player_pos.y,
-            player_pos.z,
-            block_pos.x,
-            block_pos.y,
-            block_pos.z,
-            has_block
-        );
-    }
-}
-
-/// Handle cursor lock on click (ESC handling moved to ui_navigation.rs)
-/// Uses UIState as single source of truth for whether cursor should be locked
+/// CAD-style controls: no cursor lock needed
+/// Left as no-op for compatibility with system registration
 pub fn toggle_cursor_lock(
-    input: Res<InputManager>,
-    mut windows: Query<&mut Window>,
-    ui_state: Res<UIState>,
-    mut cursor_state: ResMut<CursorLockState>,
+    _input: Res<InputManager>,
+    _cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
+    _ui_state: Res<UIState>,
+    _cursor_state: ResMut<CursorLockState>,
 ) {
-    let mut window = windows.single_mut();
-
-    // Only allow locking cursor when in Gameplay mode (no UI open)
-    // Click to lock cursor when it's unlocked and we're in gameplay
-    if input.just_pressed(GameAction::PrimaryAction)
-        && cursor::is_unlocked(&window)
-        && ui_state.is_gameplay()
-    {
-        // Use Locked mode - it properly captures relative mouse motion
-        // Confined mode causes issues where mouse hits window edge and spins
-        cursor::lock_cursor(&mut window);
-        // Mark that we just locked - skip next block break to avoid accidental destruction
-        cursor_state.just_locked = true;
-    }
+    // CAD-style: cursor is never locked, always visible
+    // Camera rotation is handled by middle-drag in player_look
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -81,7 +37,8 @@ pub fn player_look(
     mut camera_query: Query<(&mut Transform, &mut PlayerCamera), Without<Player>>,
     input: Res<InputManager>,
     time: Res<Time>,
-    windows: Query<&Window>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut cursor_lock_state: ResMut<CursorLockState>,
     inventory_open: Res<InventoryOpen>,
@@ -95,7 +52,7 @@ pub fn player_look(
         return;
     }
 
-    // Don't look around while any UI is open or game is paused (input matrix: Mouse Move)
+    // Don't look around while any UI is open or game is paused
     if inventory_open.0
         || interacting_machine.0.is_some()
         || command_state.open
@@ -104,14 +61,11 @@ pub fn player_look(
         return;
     }
 
-    let window = windows.single();
-    let cursor_locked = cursor::is_locked(window);
-
     // Get camera component
-    let Ok((mut camera_transform, mut camera)) = camera_query.get_single_mut() else {
+    let Ok((mut camera_transform, mut camera)) = camera_query.single_mut() else {
         return;
     };
-    let Ok(mut player_transform) = player_query.get_single_mut() else {
+    let Ok(mut player_transform) = player_query.single_mut() else {
         return;
     };
 
@@ -132,32 +86,31 @@ pub fn player_look(
         camera.pitch -= KEY_ROTATION_SPEED * time.delta_secs();
     }
 
-    // --- Track cursor lock state changes ---
-    if cursor_locked && !cursor_lock_state.was_locked {
-        // Just became locked - reset state
-        cursor_lock_state.skip_frames = 2;
-        cursor_lock_state.last_mouse_pos = None;
-    }
-    if !cursor_locked {
-        cursor_lock_state.last_mouse_pos = None;
-    }
-    cursor_lock_state.was_locked = cursor_locked;
+    // --- CAD-style mouse rotation ---
+    // Middle mouse button drag OR Alt + Left mouse button drag
+    let alt_held = key_input.pressed(KeyCode::AltLeft) || key_input.pressed(KeyCode::AltRight);
+    let middle_drag = mouse_button.pressed(MouseButton::Middle);
+    let alt_left_drag = alt_held && mouse_button.pressed(MouseButton::Left);
+    let is_rotating = middle_drag || alt_left_drag;
 
-    // --- Mouse motion ---
-    // Use AccumulatedMouseMotion for camera control
-    // Works well with Pointer Lock API
-    if cursor_locked && cursor_lock_state.skip_frames == 0 {
+    // Track rotation state for skip frames
+    if is_rotating && !cursor_lock_state.was_locked {
+        cursor_lock_state.skip_frames = 1;
+    }
+    cursor_lock_state.was_locked = is_rotating;
+
+    // Apply mouse motion only during rotation
+    if is_rotating && cursor_lock_state.skip_frames == 0 {
         let raw_delta = accumulated_mouse_motion.delta;
 
         // Clamp delta to prevent extreme camera jumps
-        // Can happen during pointer lock transitions or system lag
         const MAX_DELTA: f32 = 100.0;
         let clamped_delta = Vec2::new(
             raw_delta.x.clamp(-MAX_DELTA, MAX_DELTA),
             raw_delta.y.clamp(-MAX_DELTA, MAX_DELTA),
         );
 
-        // Only apply if delta is non-trivial (avoid jitter from small movements)
+        // Only apply if delta is non-trivial
         if clamped_delta.length() > 0.1 {
             let (sens_x, sens_y) = settings.effective_sensitivity();
             camera.yaw -= clamped_delta.x * sens_x;
@@ -181,234 +134,67 @@ pub fn player_look(
     camera_transform.rotation = Quat::from_rotation_x(camera.pitch);
 }
 
+/// CAD-style fly movement (no collision, no gravity)
 #[allow(clippy::too_many_arguments)]
 pub fn player_move(
     time: Res<Time>,
     input: Res<InputManager>,
-    mut player_query: Query<(&mut Transform, &mut PlayerPhysics), With<Player>>,
+    mut player_query: Query<&mut Transform, With<Player>>,
     camera_query: Query<&PlayerCamera>,
     input_resources: InputStateResourcesWithCursor,
     tutorial_shown: Res<TutorialShown>,
-    creative_mode: Res<CreativeMode>,
-    world_data: Res<WorldData>,
 ) {
     // Block movement while tutorial is showing
     if !tutorial_shown.0 {
         return;
     }
 
-    // Use InputState to check if movement is allowed (see CLAUDE.md 入力マトリクス)
+    // Use InputState to check if movement is allowed
     let input_state = input_resources.get_state();
     if !input_state.allows_movement() {
         return;
     }
 
-    let Ok((mut player_transform, mut physics)) = player_query.get_single_mut() else {
+    let Ok(mut player_transform) = player_query.single_mut() else {
         return;
     };
-    let Ok(camera) = camera_query.get_single() else {
+    let Ok(camera) = camera_query.single() else {
         return;
     };
 
-    // Calculate forward/right from yaw (more stable than transform.forward())
+    // Calculate forward/right from yaw
     let (sin_yaw, cos_yaw) = camera.yaw.sin_cos();
     let forward = Vec3::new(-sin_yaw, 0.0, -cos_yaw);
     let right = Vec3::new(cos_yaw, 0.0, -sin_yaw);
 
     let dt = time.delta_secs();
 
-    if creative_mode.enabled {
-        // Creative mode: fly movement
-        let mut direction = Vec3::ZERO;
+    // CAD-style: always fly movement, no collision
+    let mut direction = Vec3::ZERO;
 
-        if input.pressed(GameAction::MoveForward) {
-            direction += forward;
-        }
-        if input.pressed(GameAction::MoveBackward) {
-            direction -= forward;
-        }
-        if input.pressed(GameAction::MoveLeft) {
-            direction -= right;
-        }
-        if input.pressed(GameAction::MoveRight) {
-            direction += right;
-        }
-        if input.pressed(GameAction::Jump) {
-            direction.y += 1.0;
-        }
-        if input.pressed(GameAction::Descend) {
-            direction.y -= 1.0;
-        }
-
-        if direction.length_squared() > 0.0 {
-            direction = direction.normalize();
-            player_transform.translation += direction * PLAYER_SPEED * dt;
-        }
-    } else {
-        // Survival mode: physics-based movement
-        survival_movement(
-            &mut player_transform,
-            &mut physics,
-            &input,
-            &world_data,
-            forward,
-            right,
-            dt,
-        );
-    }
-}
-
-/// Survival mode movement with gravity, jumping, and collision
-fn survival_movement(
-    player_transform: &mut Transform,
-    physics: &mut PlayerPhysics,
-    input: &InputManager,
-    world_data: &WorldData,
-    forward: Vec3,
-    right: Vec3,
-    dt: f32,
-) {
-    // Get horizontal movement input
-    let mut horizontal = Vec3::ZERO;
     if input.pressed(GameAction::MoveForward) {
-        horizontal += forward;
+        direction += forward;
     }
     if input.pressed(GameAction::MoveBackward) {
-        horizontal -= forward;
+        direction -= forward;
     }
     if input.pressed(GameAction::MoveLeft) {
-        horizontal -= right;
+        direction -= right;
     }
     if input.pressed(GameAction::MoveRight) {
-        horizontal += right;
+        direction += right;
+    }
+    if input.pressed(GameAction::Jump) {
+        direction.y += 1.0;
+    }
+    if input.pressed(GameAction::Descend) {
+        direction.y -= 1.0;
     }
 
-    // Normalize horizontal movement
-    if horizontal.length_squared() > 0.0 {
-        horizontal = horizontal.normalize() * PLAYER_SPEED;
+    if direction.length_squared() > 0.0 {
+        direction = direction.normalize();
+        player_transform.translation += direction * PLAYER_SPEED * dt;
     }
-
-    // Apply gravity
-    physics.velocity.y -= GRAVITY * dt;
-    physics.velocity.y = physics.velocity.y.max(-TERMINAL_VELOCITY);
-
-    // Jump if on ground and space pressed
-    if physics.on_ground && input.just_pressed(GameAction::Jump) {
-        physics.velocity.y = JUMP_VELOCITY;
-        physics.on_ground = false;
-    }
-
-    // Calculate new position
-    let mut new_pos = player_transform.translation;
-    new_pos.x += horizontal.x * dt;
-    new_pos.z += horizontal.z * dt;
-    new_pos.y += physics.velocity.y * dt;
-
-    // Check collision and resolve
-    let half_width = PLAYER_WIDTH / 2.0;
-    let corners = [
-        (-half_width, -half_width),
-        (half_width, -half_width),
-        (-half_width, half_width),
-        (half_width, half_width),
-    ];
-
-    // === Phase 1: 壁衝突解決（先に実行） ===
-    // 壁に押し出してから地面判定を行うことで、壁登りバグを防止
-    for &(dx, dz) in &corners {
-        // .floor() を使用して負の座標でも正しくブロック座標に変換
-        let check_x = (new_pos.x + dx).floor() as i32;
-        let check_z = (new_pos.z + dz).floor() as i32;
-
-        // Check horizontal collision at multiple heights
-        // h=0.1から1.9まで均等にチェックして壁すり抜けを防止
-        for h in [0.1, 0.5, 1.0, 1.5, 1.9] {
-            let check_y = (new_pos.y - PLAYER_HEIGHT / 2.0 + h).floor() as i32;
-            let block_pos = IVec3::new(check_x, check_y, check_z);
-            let has_block = world_data.get_block(block_pos).is_some();
-
-            // ログ出力（衝突チェック）
-            if has_block {
-                log_collision("COLLISION_HIT", new_pos, block_pos, true);
-            }
-
-            if has_block {
-                // Collision - push player out
-                let block_center_x = check_x as f32 + 0.5;
-                let block_center_z = check_z as f32 + 0.5;
-
-                // Determine which direction to push
-                let push_x = new_pos.x - block_center_x;
-                let push_z = new_pos.z - block_center_z;
-
-                if push_x.abs() > push_z.abs() {
-                    new_pos.x = if push_x > 0.0 {
-                        block_center_x + 0.5 + half_width + 0.01
-                    } else {
-                        block_center_x - 0.5 - half_width - 0.01
-                    };
-                } else {
-                    new_pos.z = if push_z > 0.0 {
-                        block_center_z + 0.5 + half_width + 0.01
-                    } else {
-                        block_center_z - 0.5 - half_width - 0.01
-                    };
-                }
-            }
-        }
-    }
-
-    // === Phase 2: 地面判定（押し出し後の位置で、上昇中はスキップ） ===
-    // 上昇中（velocity.y > 0）は地面判定をスキップして壁登りを防止
-    let mut on_ground = false;
-
-    if physics.velocity.y <= 0.0 {
-        let feet_y = new_pos.y - PLAYER_HEIGHT / 2.0;
-        let ground_check_y = (feet_y - 0.01).floor() as i32;
-
-        for &(dx, dz) in &corners {
-            // .floor() を使用して負の座標でも正しくブロック座標に変換
-            let check_x = (new_pos.x + dx).floor() as i32;
-            let check_z = (new_pos.z + dz).floor() as i32;
-
-            // Check block below feet (Some = solid, None = air)
-            if world_data
-                .get_block(IVec3::new(check_x, ground_check_y, check_z))
-                .is_some()
-            {
-                // Standing on a block
-                on_ground = true;
-                let ground_top = (ground_check_y + 1) as f32;
-                if new_pos.y - PLAYER_HEIGHT / 2.0 < ground_top {
-                    new_pos.y = ground_top + PLAYER_HEIGHT / 2.0;
-                    physics.velocity.y = 0.0;
-                }
-            }
-        }
-    }
-
-    // === Phase 3: 天井判定 ===
-    for &(dx, dz) in &corners {
-        // .floor() を使用して負の座標でも正しくブロック座標に変換
-        let check_x = (new_pos.x + dx).floor() as i32;
-        let check_z = (new_pos.z + dz).floor() as i32;
-
-        let head_y = (new_pos.y + PLAYER_HEIGHT / 2.0 + 0.01).floor() as i32;
-        if world_data
-            .get_block(IVec3::new(check_x, head_y, check_z))
-            .is_some()
-        {
-            // Hit ceiling
-            let ceiling_bottom = head_y as f32;
-            new_pos.y = ceiling_bottom - PLAYER_HEIGHT / 2.0 - 0.01;
-            if physics.velocity.y > 0.0 {
-                physics.velocity.y = 0.0;
-            }
-        }
-    }
-
-    physics.on_ground = on_ground;
-    player_transform.translation = new_pos;
 }
 
 /// Tick all action timers (separate system to reduce parameter count)
@@ -429,7 +215,7 @@ pub fn update_pause_ui(
         return;
     }
 
-    let Ok(mut visibility) = pause_query.get_single_mut() else {
+    let Ok(mut visibility) = pause_query.single_mut() else {
         return;
     };
 
@@ -442,22 +228,15 @@ pub fn update_pause_ui(
     };
 }
 
-/// Initialize cursor state at startup based on UIState
-/// Runs once on first frame to ensure cursor matches initial UI state
-/// Initialize cursor state after window is ready
+/// Initialize cursor state at startup (CAD-style: always visible)
 ///
-/// Bevy/winit has timing issues where cursor grab mode changes don't work
-/// during the first few frames after startup. We wait 5 frames before
-/// setting the initial cursor state.
-///
-/// See: https://github.com/bevyengine/bevy/issues/16237
+/// In CAD-style controls, cursor is always visible.
+/// Camera rotation is controlled by middle-drag or Alt+left-drag.
 pub fn initialize_cursor(
-    ui_state: Res<UIState>,
-    mut windows: Query<&mut Window>,
+    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
     mut frame_count: Local<u32>,
 ) {
     // Wait until window is ready (5 frames after startup)
-    // This is a workaround for Bevy/winit timing issues
     *frame_count += 1;
     if *frame_count < 5 {
         return;
@@ -466,21 +245,13 @@ pub fn initialize_cursor(
         return; // Only run once on frame 5
     }
 
-    if let Ok(mut window) = windows.get_single_mut() {
-        if ui_state.is_gameplay() {
-            cursor::lock_cursor(&mut window);
-            info!(
-                "[CURSOR] Initialized (frame {}): locked (Gameplay)",
-                *frame_count
-            );
-        } else {
-            cursor::release_cursor(&mut window);
-            info!(
-                "[CURSOR] Initialized (frame {}): released ({:?})",
-                *frame_count,
-                ui_state.current()
-            );
-        }
+    if let Ok(mut cursor_options) = cursor_query.single_mut() {
+        // CAD-style: always visible, never grabbed
+        cursor::release_cursor(&mut cursor_options);
+        info!(
+            "[CURSOR] Initialized (frame {}): CAD-style (always visible)",
+            *frame_count
+        );
     }
 }
 
@@ -495,8 +266,8 @@ pub fn handle_pause_menu_buttons(
         Changed<Interaction>,
     >,
     mut cursor_state: ResMut<CursorLockState>,
-    mut app_exit: EventWriter<bevy::app::AppExit>,
-    mut action_writer: EventWriter<UIAction>,
+    mut app_exit: MessageWriter<bevy::app::AppExit>,
+    mut action_writer: MessageWriter<UIAction>,
 ) {
     for (interaction, button_type, mut bg_color) in interaction_query.iter_mut() {
         match interaction {
@@ -505,16 +276,16 @@ pub fn handle_pause_menu_buttons(
                     crate::setup::ui::PauseMenuButton::Resume => {
                         // Resume game
                         cursor_state.paused = false;
-                        action_writer.send(UIAction::Pop);
+                        action_writer.write(UIAction::Pop);
                     }
                     crate::setup::ui::PauseMenuButton::Settings => {
                         // Open settings (will implement in D.3)
-                        action_writer.send(UIAction::Push(UIContext::Settings));
+                        action_writer.write(UIAction::Push(UIContext::Settings));
                     }
                     crate::setup::ui::PauseMenuButton::Quit => {
                         // Exit application (native only)
                         #[cfg(not(target_arch = "wasm32"))]
-                        app_exit.send(bevy::app::AppExit::Success);
+                        app_exit.write(bevy::app::AppExit::Success);
                     }
                 }
             }

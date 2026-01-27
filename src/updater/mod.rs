@@ -31,11 +31,11 @@ impl Plugin for UpdaterPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UpdateState>()
             .init_resource::<UpdateChannels>()
-            .add_event::<CheckForUpdateEvent>()
-            .add_event::<StartUpdateEvent>()
-            .add_event::<CancelUpdateEvent>()
-            .add_event::<RestartAppEvent>()
-            .add_event::<UpdateCheckCompleteEvent>()
+            .add_message::<CheckForUpdateEvent>()
+            .add_message::<StartUpdateEvent>()
+            .add_message::<CancelUpdateEvent>()
+            .add_message::<RestartAppEvent>()
+            .add_message::<UpdateCheckCompleteEvent>()
             .add_systems(Startup, setup_updater)
             .add_systems(
                 Update,
@@ -73,7 +73,7 @@ fn setup_updater(mut commands: Commands) {
 fn startup_check_timer(
     mut timer: Option<ResMut<StartupCheckTimer>>,
     time: Res<Time>,
-    mut events: EventWriter<CheckForUpdateEvent>,
+    mut events: MessageWriter<CheckForUpdateEvent>,
     mut commands: Commands,
 ) {
     let Some(ref mut timer) = timer else {
@@ -82,14 +82,14 @@ fn startup_check_timer(
 
     if timer.0.tick(time.delta()).just_finished() {
         tracing::info!("Startup check timer finished, triggering update check");
-        events.send(CheckForUpdateEvent);
+        events.write(CheckForUpdateEvent);
         commands.remove_resource::<StartupCheckTimer>();
     }
 }
 
 /// Handle update check events.
 fn handle_check_event(
-    mut events: EventReader<CheckForUpdateEvent>,
+    mut events: MessageReader<CheckForUpdateEvent>,
     mut state: ResMut<UpdateState>,
     mut channels: ResMut<UpdateChannels>,
 ) {
@@ -161,9 +161,9 @@ fn poll_check_result(mut channels: ResMut<UpdateChannels>, mut state: ResMut<Upd
 
 /// Handle start update events - launch external updater and exit game.
 fn handle_start_update(
-    mut events: EventReader<StartUpdateEvent>,
+    mut events: MessageReader<StartUpdateEvent>,
     mut state: ResMut<UpdateState>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     for _ in events.read() {
         // Only proceed if update is available
@@ -226,7 +226,7 @@ fn handle_start_update(
         {
             Ok(_) => {
                 tracing::info!("Updater launched, exiting game...");
-                exit.send(AppExit::Success);
+                exit.write(AppExit::Success);
             }
             Err(e) => {
                 tracing::error!("Failed to launch updater: {}", e);

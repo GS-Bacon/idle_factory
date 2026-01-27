@@ -18,8 +18,8 @@ impl Plugin for SavePlugin {
             .init_resource::<SaveLoadState>();
 
         // Save events
-        app.add_event::<SaveGameEvent>()
-            .add_event::<LoadGameEvent>();
+        app.add_message::<SaveGameEvent>()
+            .add_message::<LoadGameEvent>();
 
         // Save systems
         app.add_systems(

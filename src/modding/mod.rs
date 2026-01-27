@@ -236,21 +236,21 @@ impl ModManager {
 }
 
 /// Modイベント: ロード完了
-#[derive(Event)]
+#[derive(Message)]
 pub struct ModLoadedEvent {
     /// Mod ID
     pub mod_id: String,
 }
 
 /// Modイベント: アンロード
-#[derive(Event)]
+#[derive(Message)]
 pub struct ModUnloadedEvent {
     /// Mod ID
     pub mod_id: String,
 }
 
 /// Modイベント: エラー
-#[derive(Event)]
+#[derive(Message)]
 pub struct ModErrorEvent {
     /// Mod ID
     pub mod_id: String,
@@ -381,9 +381,9 @@ impl Plugin for ModdingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ModManager>()
             .init_resource::<LoadedModData>()
-            .add_event::<ModLoadedEvent>()
-            .add_event::<ModUnloadedEvent>()
-            .add_event::<ModErrorEvent>()
+            .add_message::<ModLoadedEvent>()
+            .add_message::<ModUnloadedEvent>()
+            .add_message::<ModErrorEvent>()
             .add_systems(Startup, load_base_mod);
     }
 }

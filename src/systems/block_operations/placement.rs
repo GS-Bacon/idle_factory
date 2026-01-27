@@ -1,7 +1,7 @@
 //! Block placement system
 
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use crate::components::MachineBundle;
 use crate::core::items;
@@ -33,7 +33,7 @@ pub fn block_place(
     mut player_inventory: LocalPlayerInventory,
     mut dirty_chunks: ResMut<DirtyChunks>,
     mut chunk_assets: ChunkAssets,
-    windows: Query<&Window>,
+    cursor_query: Query<&CursorOptions, With<PrimaryWindow>>,
     creative_mode: Res<CreativeMode>,
     input_resources: InputStateResourcesWithCursor,
     mut action_timer: ResMut<ContinuousActionTimer>,
@@ -46,8 +46,10 @@ pub fn block_place(
     let Some(mut inventory) = player_inventory.get_mut() else {
         return;
     };
-    let window = windows.single();
-    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    let cursor_locked = cursor_query
+        .single()
+        .map(|c| c.grab_mode != CursorGrabMode::None)
+        .unwrap_or(false);
 
     let input_state = input_resources.get_state();
     if !input_state.allows_block_actions() || !cursor_locked {
@@ -55,7 +57,7 @@ pub fn block_place(
     }
 
     let can_place = mouse_button.just_pressed(MouseButton::Right)
-        || (mouse_button.pressed(MouseButton::Right) && action_timer.place_timer.finished());
+        || (mouse_button.pressed(MouseButton::Right) && action_timer.place_timer.is_finished());
     if can_place {
         action_timer.place_timer.reset();
     }
@@ -74,7 +76,7 @@ pub fn block_place(
         return;
     }
 
-    let Ok((camera_transform, player_camera)) = camera_query.get_single() else {
+    let Ok((camera_transform, player_camera)) = camera_query.single() else {
         return;
     };
 
@@ -140,7 +142,7 @@ pub fn block_place(
     }
 
     // Also check DeliveryPlatform for raycast hit
-    if let Ok(platform_transform) = platform_query.get_single() {
+    if let Ok(platform_transform) = platform_query.single() {
         let platform_center = platform_transform.translation;
         let platform_half_x = (PLATFORM_SIZE as f32 * BLOCK_SIZE) / 2.0;
         let platform_half_y = BLOCK_SIZE * 0.1;
@@ -269,7 +271,7 @@ pub fn block_place(
                     .id()
             };
             // Send MachineSpawned event
-            let _ = events.machine_spawned.send(MachineSpawned {
+            let _ = events.machine_spawned.write(MachineSpawned {
                 entity,
                 machine_type: items::miner_block(),
                 pos: place_pos,
@@ -277,7 +279,7 @@ pub fn block_place(
             // Tutorial event for miner placement
             events
                 .tutorial
-                .send(TutorialEvent::MachinePlaced(items::miner_block()));
+                .write(TutorialEvent::MachinePlaced(items::miner_block()));
         } else if selected_item_id == items::conveyor_block() {
             let front_pos = place_pos + facing_direction.to_ivec3();
             let mut final_shape = ConveyorShape::Straight;
@@ -395,14 +397,14 @@ pub fn block_place(
                     .id()
             };
             // Send MachineSpawned event
-            let _ = events.machine_spawned.send(MachineSpawned {
+            let _ = events.machine_spawned.write(MachineSpawned {
                 entity,
                 machine_type: items::conveyor_block(),
                 pos: place_pos,
             });
             rotation.offset = 0;
             // Tutorial event for conveyor placement
-            events.tutorial.send(TutorialEvent::ConveyorPlaced {
+            events.tutorial.write(TutorialEvent::ConveyorPlaced {
                 position: place_pos,
             });
         } else if selected_item_id == items::crusher_block() {
@@ -439,7 +441,7 @@ pub fn block_place(
                     .id()
             };
             // Send MachineSpawned event
-            let _ = events.machine_spawned.send(MachineSpawned {
+            let _ = events.machine_spawned.write(MachineSpawned {
                 entity,
                 machine_type: items::crusher_block(),
                 pos: place_pos,
@@ -447,7 +449,7 @@ pub fn block_place(
             // Tutorial event for crusher placement
             events
                 .tutorial
-                .send(TutorialEvent::MachinePlaced(items::crusher_block()));
+                .write(TutorialEvent::MachinePlaced(items::crusher_block()));
         } else if selected_item_id == items::furnace_block() {
             info!(
                 category = "MACHINE",
@@ -482,7 +484,7 @@ pub fn block_place(
                     .id()
             };
             // Send MachineSpawned event
-            let _ = events.machine_spawned.send(MachineSpawned {
+            let _ = events.machine_spawned.write(MachineSpawned {
                 entity,
                 machine_type: items::furnace_block(),
                 pos: place_pos,
@@ -490,7 +492,7 @@ pub fn block_place(
             // Tutorial event for furnace placement
             events
                 .tutorial
-                .send(TutorialEvent::MachinePlaced(items::furnace_block()));
+                .write(TutorialEvent::MachinePlaced(items::furnace_block()));
         } else {
             // Regular block placement
             info!(category = "BLOCK", action = "place", ?place_pos, block = ?selected_item_id.name(), "Block placed");
@@ -504,7 +506,7 @@ pub fn block_place(
             let source = player_entity
                 .map(EventSource::Player)
                 .unwrap_or(EventSource::System);
-            let _ = events.block_placed.send(BlockPlaced {
+            let _ = events.block_placed.write(BlockPlaced {
                 pos: place_pos,
                 block: selected_item_id,
                 source,

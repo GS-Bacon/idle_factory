@@ -149,7 +149,7 @@ pub fn update_quest_ui(
     if !tutorial_progress.completed {
         return;
     }
-    let Ok(mut text) = text_query.get_single_mut() else {
+    let Ok(mut text) = text_query.single_mut() else {
         return;
     };
 
@@ -291,15 +291,15 @@ pub fn quest_deliver_button(
 
                 // Mark quest as complete
                 current_quest.completed = true;
-                *border_color = BorderColor(Color::srgb(0.5, 1.0, 0.5));
+                *border_color = BorderColor::all(Color::srgb(0.5, 1.0, 0.5));
             }
             Interaction::Hovered => {
                 *bg_color = BackgroundColor(Color::srgba(0.3, 0.6, 0.3, 0.95));
-                *border_color = BorderColor(Color::srgba(0.4, 0.8, 0.4, 1.0));
+                *border_color = BorderColor::all(Color::srgba(0.4, 0.8, 0.4, 1.0));
             }
             Interaction::None => {
                 *bg_color = BackgroundColor(Color::srgba(0.2, 0.5, 0.2, 0.95));
-                *border_color = BorderColor(Color::srgba(0.3, 0.6, 0.3, 1.0));
+                *border_color = BorderColor::all(Color::srgba(0.3, 0.6, 0.3, 1.0));
             }
         }
     }
@@ -398,15 +398,15 @@ pub fn update_delivery_ui(
     platform_query: Query<&DeliveryPlatform>,
     mut text_query: Query<&mut Text, With<DeliveryUIText>>,
 ) {
-    let Ok(_platform) = platform_query.get_single() else {
-        if let Ok(mut text) = text_query.get_single_mut() {
+    let Ok(_platform) = platform_query.single() else {
+        if let Ok(mut text) = text_query.single_mut() {
             **text = "プラットフォームを設置してください".to_string();
         }
         return;
     };
 
     // Platform is active - items go directly to GlobalInventory
-    if let Ok(mut text) = text_query.get_single_mut() {
+    if let Ok(mut text) = text_query.single_mut() {
         **text = "✓ プラットフォーム稼働中".to_string();
     }
 }

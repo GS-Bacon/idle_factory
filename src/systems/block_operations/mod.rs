@@ -16,7 +16,7 @@ use bevy::prelude::*;
 use crate::components::Machine;
 use crate::core::ItemId;
 use crate::events::game_events::InventoryChanged;
-use crate::events::GuardedEventWriter;
+use crate::events::GuardedMessageWriter;
 use crate::player::{LocalPlayer, PlayerInventory};
 use crate::{Conveyor, DeliveryPlatform};
 
@@ -25,7 +25,7 @@ use crate::{Conveyor, DeliveryPlatform};
 pub struct LocalPlayerInventory<'w, 's> {
     local_player: Option<Res<'w, LocalPlayer>>,
     inventories: Query<'w, 's, &'static mut PlayerInventory>,
-    inventory_events: EventWriter<'w, InventoryChanged>,
+    inventory_events: MessageWriter<'w, InventoryChanged>,
 }
 
 impl LocalPlayerInventory<'_, '_> {
@@ -63,7 +63,7 @@ impl LocalPlayerInventory<'_, '_> {
 
         let added = amount - remaining;
         if added > 0 {
-            self.inventory_events.send(InventoryChanged {
+            self.inventory_events.write(InventoryChanged {
                 entity,
                 item_id,
                 delta: added as i32,
@@ -89,7 +89,7 @@ impl LocalPlayerInventory<'_, '_> {
         };
 
         if success {
-            self.inventory_events.send(InventoryChanged {
+            self.inventory_events.write(InventoryChanged {
                 entity,
                 item_id,
                 delta: -(amount as i32),
@@ -125,16 +125,16 @@ pub struct ChunkAssets<'w> {
 /// Bundled block break events (reduces parameter count)
 #[derive(SystemParam)]
 pub struct BlockBreakEvents<'w> {
-    pub tutorial: EventWriter<'w, crate::systems::TutorialEvent>,
-    pub block_broken: GuardedEventWriter<'w, crate::events::game_events::BlockBroken>,
+    pub tutorial: MessageWriter<'w, crate::systems::TutorialEvent>,
+    pub block_broken: GuardedMessageWriter<'w, crate::events::game_events::BlockBroken>,
 }
 
 /// Bundled block place events (reduces parameter count)
 #[derive(SystemParam)]
 pub struct BlockPlaceEvents<'w> {
-    pub tutorial: EventWriter<'w, crate::systems::TutorialEvent>,
-    pub block_placed: GuardedEventWriter<'w, crate::events::game_events::BlockPlaced>,
-    pub machine_spawned: GuardedEventWriter<'w, crate::events::game_events::MachineSpawned>,
+    pub tutorial: MessageWriter<'w, crate::systems::TutorialEvent>,
+    pub block_placed: GuardedMessageWriter<'w, crate::events::game_events::BlockPlaced>,
+    pub machine_spawned: GuardedMessageWriter<'w, crate::events::game_events::MachineSpawned>,
 }
 
 #[cfg(test)]
@@ -145,11 +145,12 @@ mod tests {
     /// Test that InventoryChanged event is sent when adding items
     #[test]
     fn test_inventory_changed_event_add() {
+        use bevy::ecs::message::Messages;
         use bevy::prelude::*;
 
         // Setup minimal app
         let mut app = App::new();
-        app.add_event::<InventoryChanged>();
+        app.add_message::<InventoryChanged>();
 
         // Create a player entity with inventory
         let player_entity = app.world_mut().spawn(PlayerInventory::default()).id();
@@ -163,7 +164,7 @@ mod tests {
         app.update();
 
         // Check event was sent
-        let events = app.world().resource::<Events<InventoryChanged>>();
+        let events = app.world().resource::<Messages<InventoryChanged>>();
         let mut reader = events.get_cursor();
         let received: Vec<_> = reader.read(events).collect();
 
@@ -176,11 +177,12 @@ mod tests {
     /// Test that InventoryChanged event is sent when consuming items
     #[test]
     fn test_inventory_changed_event_consume() {
+        use bevy::ecs::message::Messages;
         use bevy::prelude::*;
 
         // Setup minimal app
         let mut app = App::new();
-        app.add_event::<InventoryChanged>();
+        app.add_message::<InventoryChanged>();
 
         // Create a player entity with inventory containing items
         let mut inv = PlayerInventory::default();
@@ -196,7 +198,7 @@ mod tests {
         app.update();
 
         // Check event was sent
-        let events = app.world().resource::<Events<InventoryChanged>>();
+        let events = app.world().resource::<Messages<InventoryChanged>>();
         let mut reader = events.get_cursor();
         let received: Vec<_> = reader.read(events).collect();
 
@@ -209,11 +211,12 @@ mod tests {
     /// Test that no event is sent when consume fails
     #[test]
     fn test_inventory_changed_event_no_event_on_failed_consume() {
+        use bevy::ecs::message::Messages;
         use bevy::prelude::*;
 
         // Setup minimal app
         let mut app = App::new();
-        app.add_event::<InventoryChanged>();
+        app.add_message::<InventoryChanged>();
 
         // Create a player entity with inventory containing NO items
         let player_entity = app.world_mut().spawn(PlayerInventory::default()).id();
@@ -227,7 +230,7 @@ mod tests {
         app.update();
 
         // Check NO event was sent
-        let events = app.world().resource::<Events<InventoryChanged>>();
+        let events = app.world().resource::<Messages<InventoryChanged>>();
         let mut reader = events.get_cursor();
         let received: Vec<_> = reader.read(events).collect();
 
@@ -237,11 +240,12 @@ mod tests {
     /// Test that no event is sent when add amount is 0
     #[test]
     fn test_inventory_changed_event_no_event_on_zero_add() {
+        use bevy::ecs::message::Messages;
         use bevy::prelude::*;
 
         // Setup minimal app
         let mut app = App::new();
-        app.add_event::<InventoryChanged>();
+        app.add_message::<InventoryChanged>();
 
         // Create a player entity with inventory
         let player_entity = app.world_mut().spawn(PlayerInventory::default()).id();
@@ -255,7 +259,7 @@ mod tests {
         app.update();
 
         // Check NO event was sent
-        let events = app.world().resource::<Events<InventoryChanged>>();
+        let events = app.world().resource::<Messages<InventoryChanged>>();
         let mut reader = events.get_cursor();
         let received: Vec<_> = reader.read(events).collect();
 

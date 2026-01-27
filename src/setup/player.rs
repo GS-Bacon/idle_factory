@@ -3,10 +3,10 @@
 use crate::components::*;
 use crate::core::items;
 use crate::player::{LocalPlayer, PlayerInventory};
+use bevy::camera::visibility::RenderLayers;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::pbr::NotShadowCaster;
+use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
-use bevy::render::view::RenderLayers;
 use std::collections::HashMap;
 
 pub fn setup_player(

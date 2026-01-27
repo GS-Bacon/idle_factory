@@ -7,7 +7,7 @@ use crate::input::{GameAction, InputManager};
 use crate::systems::cursor;
 use crate::REACH_DISTANCE;
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 /// Generic machine interaction (open/close UI)
 #[allow(clippy::too_many_arguments)]
@@ -18,11 +18,13 @@ pub fn generic_machine_interact(
     mut interacting: ResMut<InteractingMachine>,
     inventory_open: Res<InventoryOpen>,
     mut ui_query: Query<(&GenericMachineUI, &mut Visibility)>,
-    mut windows: Query<&mut Window>,
+    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
     mut cursor_state: ResMut<CursorLockState>,
 ) {
-    let window = windows.single();
-    let cursor_locked = window.cursor_options.grab_mode != CursorGrabMode::None;
+    let Ok(cursor_options) = cursor_query.single() else {
+        return;
+    };
+    let cursor_locked = cursor_options.grab_mode != CursorGrabMode::None;
 
     // Don't interact if inventory is open
     if inventory_open.0 {
@@ -50,8 +52,8 @@ pub fn generic_machine_interact(
 
         // Lock cursor (unless ESC)
         if !esc_pressed {
-            if let Ok(mut window) = windows.get_single_mut() {
-                cursor::lock_cursor(&mut window);
+            if let Ok(mut cursor_options) = cursor_query.single_mut() {
+                cursor::lock_cursor(&mut cursor_options);
             }
             cursor_state.skip_inventory_toggle = true;
         }
@@ -63,7 +65,7 @@ pub fn generic_machine_interact(
         return;
     }
 
-    let Ok(camera_transform) = camera_query.get_single() else {
+    let Ok(camera_transform) = camera_query.single() else {
         return;
     };
 
@@ -98,8 +100,8 @@ pub fn generic_machine_interact(
         }
 
         // Unlock cursor
-        if let Ok(mut window) = windows.get_single_mut() {
-            cursor::unlock_cursor(&mut window);
+        if let Ok(mut cursor_options) = cursor_query.single_mut() {
+            cursor::unlock_cursor(&mut cursor_options);
         }
     }
 }

@@ -15,7 +15,7 @@ pub fn update_window_title(mut windows: Query<&mut Window>, mut done: Local<bool
     if *done {
         return;
     }
-    if let Ok(mut window) = windows.get_single_mut() {
+    if let Ok(mut window) = windows.single_mut() {
         let version = env!("CARGO_PKG_VERSION");
         let build_id = env!("GIT_SHORT_HASH");
         window.title = format!("Idle Factory v{} ({})", version, build_id);
@@ -75,7 +75,7 @@ pub fn update_debug_hud(
         return;
     }
 
-    let Ok(mut text) = text_query.get_single_mut() else {
+    let Ok(mut text) = text_query.single_mut() else {
         return;
     };
 
@@ -84,9 +84,9 @@ pub fn update_debug_hud(
         .and_then(|d| d.smoothed())
         .unwrap_or(0.0);
 
-    let (pos_str, dir_str) = if let Ok(transform) = player_query.get_single() {
+    let (pos_str, dir_str) = if let Ok(transform) = player_query.single() {
         let pos = transform.translation;
-        let dir = if let Ok(camera) = camera_query.get_single() {
+        let dir = if let Ok(camera) = camera_query.single() {
             format!(
                 "Pitch: {:.1}° Yaw: {:.1}°",
                 camera.pitch.to_degrees(),
@@ -149,7 +149,7 @@ pub fn update_debug_hud(
     };
 
     // Get biome info at player position (actual biome shown in BiomeHUD)
-    let biome_str = if player_query.get_single().is_ok() {
+    let biome_str = if player_query.single().is_ok() {
         "Biome: (see HUD)".to_string()
     } else {
         "Biome: N/A".to_string()
@@ -179,11 +179,11 @@ pub fn update_biome_hud(
     mut biome_text_query: Query<&mut Text, With<BiomeHudText>>,
     mut last_block_pos: Local<IVec3>,
 ) {
-    let Ok(transform) = player_query.get_single() else {
+    let Ok(transform) = player_query.single() else {
         return;
     };
 
-    let Ok(mut text) = biome_text_query.get_single_mut() else {
+    let Ok(mut text) = biome_text_query.single_mut() else {
         return;
     };
 
@@ -310,9 +310,9 @@ pub fn export_e2e_state(
         .unwrap_or(0.0) as f32;
 
     let (player_pos, camera_pitch, camera_yaw, on_ground, velocity) =
-        if let Ok((transform, physics)) = player_query.get_single() {
+        if let Ok((transform, physics)) = player_query.single() {
             let pos = transform.translation;
-            let (pitch, yaw) = if let Ok(camera) = camera_query.get_single() {
+            let (pitch, yaw) = if let Ok(camera) = camera_query.single() {
                 (camera.pitch, camera.yaw)
             } else {
                 (0.0, 0.0)

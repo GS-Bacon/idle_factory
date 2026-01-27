@@ -110,13 +110,13 @@ impl Plugin for GamePlugin {
             .insert_resource(ClearColor(Color::srgb(0.47, 0.66, 0.88)));
 
         // Register events
-        app.add_event::<TeleportEvent>()
-            .add_event::<LookEvent>()
-            .add_event::<SetBlockEvent>()
-            .add_event::<DebugEvent>()
-            .add_event::<AssertMachineEvent>()
-            .add_event::<ScreenshotEvent>()
-            .add_event::<UIAction>();
+        app.add_message::<TeleportEvent>()
+            .add_message::<LookEvent>()
+            .add_message::<SetBlockEvent>()
+            .add_message::<DebugEvent>()
+            .add_message::<AssertMachineEvent>()
+            .add_message::<ScreenshotEvent>()
+            .add_message::<UIAction>();
 
         // UI state management
         app.init_resource::<UIState>();

@@ -3,6 +3,7 @@
 
 #![allow(dead_code)] // Test helper types may not all be used in every test
 
+use bevy::ecs::message::MessageReader;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -4323,18 +4324,18 @@ fn test_game_events_plugin_registers_events() {
     app.add_plugins(GameEventsPlugin);
 
     // Verify events are registered by sending them (would panic if not registered)
-    app.world_mut().send_event(BlockPlaceEvent {
+    app.world_mut().write_message(BlockPlaceEvent {
         position: IVec3::new(0, 0, 0),
         item_id: items::stone(),
         player_id: 1,
     });
 
-    app.world_mut().send_event(BlockBreakEvent {
+    app.world_mut().write_message(BlockBreakEvent {
         position: IVec3::new(1, 1, 1),
         player_id: 1,
     });
 
-    app.world_mut().send_event(QuestProgressEvent {
+    app.world_mut().write_message(QuestProgressEvent {
         item_id: items::iron_ore(),
         amount: 5,
     });
@@ -4413,7 +4414,7 @@ fn test_inventory_stacking_in_app() {
 
 /// Test system that reads events
 fn count_block_break_events(
-    mut events: EventReader<BlockBreakEvent>,
+    mut events: MessageReader<BlockBreakEvent>,
     mut counter: ResMut<EventCounter>,
 ) {
     for _event in events.read() {
@@ -4436,15 +4437,15 @@ fn test_custom_system_event_handling() {
     app.add_systems(Update, count_block_break_events);
 
     // Send events before update
-    app.world_mut().send_event(BlockBreakEvent {
+    app.world_mut().write_message(BlockBreakEvent {
         position: IVec3::new(0, 0, 0),
         player_id: 1,
     });
-    app.world_mut().send_event(BlockBreakEvent {
+    app.world_mut().write_message(BlockBreakEvent {
         position: IVec3::new(1, 1, 1),
         player_id: 1,
     });
-    app.world_mut().send_event(BlockBreakEvent {
+    app.world_mut().write_message(BlockBreakEvent {
         position: IVec3::new(2, 2, 2),
         player_id: 1,
     });
@@ -4514,7 +4515,7 @@ fn test_quest_progress_event_chain() {
     }
 
     fn track_quest_progress(
-        mut events: EventReader<QuestProgressEvent>,
+        mut events: MessageReader<QuestProgressEvent>,
         mut tracker: ResMut<QuestTracker>,
     ) {
         for event in events.read() {
@@ -4526,15 +4527,15 @@ fn test_quest_progress_event_chain() {
     app.add_systems(Update, track_quest_progress);
 
     // Simulate collecting items
-    app.world_mut().send_event(QuestProgressEvent {
+    app.world_mut().write_message(QuestProgressEvent {
         item_id: items::iron_ore(),
         amount: 5,
     });
-    app.world_mut().send_event(QuestProgressEvent {
+    app.world_mut().write_message(QuestProgressEvent {
         item_id: items::coal(),
         amount: 10,
     });
-    app.world_mut().send_event(QuestProgressEvent {
+    app.world_mut().write_message(QuestProgressEvent {
         item_id: items::iron_ore(),
         amount: 3,
     });
@@ -4556,7 +4557,7 @@ fn test_events_consumed_after_read() {
     app.add_systems(Update, count_block_break_events);
 
     // Send one event
-    app.world_mut().send_event(BlockBreakEvent {
+    app.world_mut().write_message(BlockBreakEvent {
         position: IVec3::new(0, 0, 0),
         player_id: 1,
     });
@@ -4570,7 +4571,7 @@ fn test_events_consumed_after_read() {
     assert_eq!(app.world().resource::<EventCounter>().block_breaks, 1);
 
     // Send another event
-    app.world_mut().send_event(BlockBreakEvent {
+    app.world_mut().write_message(BlockBreakEvent {
         position: IVec3::new(1, 1, 1),
         player_id: 1,
     });

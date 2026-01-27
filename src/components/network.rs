@@ -152,6 +152,7 @@ impl NetworkIdGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::ecs::entity::EntityIndex;
 
     #[test]
     fn test_network_id_creation() {
@@ -206,7 +207,7 @@ mod tests {
     #[test]
     fn test_entity_map_register_and_get() {
         let mut map = EntityMap::new();
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
         let network_id = NetworkId(100);
 
         map.register(entity, network_id);
@@ -218,7 +219,7 @@ mod tests {
     #[test]
     fn test_entity_map_unregister() {
         let mut map = EntityMap::new();
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
         let network_id = NetworkId(100);
 
         map.register(entity, network_id);
@@ -235,7 +236,7 @@ mod tests {
     #[test]
     fn test_entity_map_unregister_by_network_id() {
         let mut map = EntityMap::new();
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
         let network_id = NetworkId(100);
 
         map.register(entity, network_id);
@@ -248,7 +249,7 @@ mod tests {
     #[test]
     fn test_entity_map_reregister_entity() {
         let mut map = EntityMap::new();
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
         let network_id1 = NetworkId(100);
         let network_id2 = NetworkId(200);
 
@@ -265,8 +266,8 @@ mod tests {
     #[test]
     fn test_entity_map_reregister_network_id() {
         let mut map = EntityMap::new();
-        let entity1 = Entity::from_raw(42);
-        let entity2 = Entity::from_raw(43);
+        let entity1 = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
+        let entity2 = Entity::from_index(EntityIndex::from_raw_u32(43).unwrap());
         let network_id = NetworkId(100);
 
         map.register(entity1, network_id);
@@ -285,22 +286,34 @@ mod tests {
         assert!(map.is_empty());
         assert_eq!(map.len(), 0);
 
-        map.register(Entity::from_raw(1), NetworkId(1));
+        map.register(
+            Entity::from_index(EntityIndex::from_raw_u32(1).unwrap()),
+            NetworkId(1),
+        );
         assert!(!map.is_empty());
         assert_eq!(map.len(), 1);
 
-        map.register(Entity::from_raw(2), NetworkId(2));
+        map.register(
+            Entity::from_index(EntityIndex::from_raw_u32(2).unwrap()),
+            NetworkId(2),
+        );
         assert_eq!(map.len(), 2);
 
-        map.unregister(Entity::from_raw(1));
+        map.unregister(Entity::from_index(EntityIndex::from_raw_u32(1).unwrap()));
         assert_eq!(map.len(), 1);
     }
 
     #[test]
     fn test_entity_map_clear() {
         let mut map = EntityMap::new();
-        map.register(Entity::from_raw(1), NetworkId(1));
-        map.register(Entity::from_raw(2), NetworkId(2));
+        map.register(
+            Entity::from_index(EntityIndex::from_raw_u32(1).unwrap()),
+            NetworkId(1),
+        );
+        map.register(
+            Entity::from_index(EntityIndex::from_raw_u32(2).unwrap()),
+            NetworkId(2),
+        );
 
         map.clear();
 

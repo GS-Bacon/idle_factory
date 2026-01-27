@@ -5,7 +5,7 @@ use crate::constants::{CONVEYOR_ITEM_SPACING, CONVEYOR_SPEED, PLATFORM_SIZE};
 use crate::core::id::ItemId;
 use crate::core::items;
 use crate::events::game_events::{ConveyorTransfer, ItemDelivered};
-use crate::events::GuardedEventWriter;
+use crate::events::GuardedMessageWriter;
 use crate::player::LocalPlatformInventory;
 use crate::{
     Conveyor, ConveyorItemVisual, ConveyorShape, DeliveryPlatform, Direction, MachineModels,
@@ -25,8 +25,8 @@ pub fn conveyor_transfer(
     mut machine_query: Query<&mut Machine>,
     platform_query: Query<(&Transform, &DeliveryPlatform)>,
     mut platform_inventory: LocalPlatformInventory,
-    mut transfer_events: GuardedEventWriter<ConveyorTransfer>,
-    mut delivery_events: GuardedEventWriter<ItemDelivered>,
+    mut transfer_events: GuardedMessageWriter<ConveyorTransfer>,
+    mut delivery_events: GuardedMessageWriter<ItemDelivered>,
 ) {
     // Build lookup maps
     let conveyor_positions: HashMap<IVec3, Entity> = conveyor_query
@@ -434,14 +434,14 @@ pub fn conveyor_transfer(
 
     // Send collected events
     for (from_pos, to_pos, item) in conveyor_transfer_items {
-        let _ = transfer_events.send(ConveyorTransfer {
+        let _ = transfer_events.write(ConveyorTransfer {
             from_pos,
             to_pos,
             item,
         });
     }
     for (item, count) in delivered_items {
-        let _ = delivery_events.send(ItemDelivered { item, count });
+        let _ = delivery_events.write(ItemDelivered { item, count });
     }
 
     // Persist splitter output indices

@@ -303,7 +303,7 @@ impl RobotInventory {
 }
 
 /// ロボット生成イベント
-#[derive(Event)]
+#[derive(Message)]
 pub struct SpawnRobotEvent {
     /// ロボットの種類
     pub robot_type: RobotType,
@@ -314,7 +314,7 @@ pub struct SpawnRobotEvent {
 }
 
 /// ロボットコマンド完了イベント
-#[derive(Event)]
+#[derive(Message)]
 pub struct RobotCommandCompletedEvent {
     /// ロボットエンティティ
     pub robot: Entity,
@@ -329,8 +329,8 @@ pub struct RobotPlugin;
 
 impl Plugin for RobotPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<SpawnRobotEvent>()
-            .add_event::<RobotCommandCompletedEvent>()
+        app.add_message::<SpawnRobotEvent>()
+            .add_message::<RobotCommandCompletedEvent>()
             .add_systems(Update, update_robots);
     }
 }
@@ -339,7 +339,7 @@ impl Plugin for RobotPlugin {
 fn update_robots(
     time: Res<Time>,
     mut robots: Query<(Entity, &mut Robot, &mut RobotCommandQueue)>,
-    mut completed_events: EventWriter<RobotCommandCompletedEvent>,
+    mut completed_events: MessageWriter<RobotCommandCompletedEvent>,
 ) {
     for (entity, mut robot, mut queue) in robots.iter_mut() {
         // エネルギー消費チェック
@@ -358,7 +358,7 @@ fn update_robots(
                     if queue.progress >= 1.0 {
                         let cmd = queue.current.clone().unwrap();
                         queue.complete_current();
-                        completed_events.send(RobotCommandCompletedEvent {
+                        completed_events.write(RobotCommandCompletedEvent {
                             robot: entity,
                             command: cmd,
                             success: true,
@@ -375,7 +375,7 @@ fn update_robots(
                         robot.consume_energy(1.0);
                         let cmd = queue.current.clone().unwrap();
                         queue.complete_current();
-                        completed_events.send(RobotCommandCompletedEvent {
+                        completed_events.write(RobotCommandCompletedEvent {
                             robot: entity,
                             command: cmd,
                             success: true,

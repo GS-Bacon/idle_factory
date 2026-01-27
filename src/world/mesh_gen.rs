@@ -4,8 +4,8 @@
 
 use crate::constants::*;
 use crate::core::ItemId;
+use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
 
 use super::chunk::{ChunkData, ChunkLod};
 

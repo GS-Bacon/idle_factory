@@ -21,15 +21,15 @@ pub fn execute_command(
     command: &str,
     creative_mode: &mut ResMut<CreativeMode>,
     inventory: &mut Mut<PlayerInventory>,
-    save_events: &mut EventWriter<SaveGameEvent>,
-    load_events: &mut EventWriter<LoadGameEvent>,
-    tp_events: &mut EventWriter<TeleportEvent>,
-    look_events: &mut EventWriter<LookEvent>,
-    setblock_events: &mut EventWriter<SetBlockEvent>,
-    spawn_machine_events: &mut EventWriter<SpawnMachineEvent>,
-    debug_events: &mut EventWriter<DebugEvent>,
-    assert_machine_events: &mut EventWriter<AssertMachineEvent>,
-    screenshot_events: &mut EventWriter<ScreenshotEvent>,
+    save_events: &mut MessageWriter<SaveGameEvent>,
+    load_events: &mut MessageWriter<LoadGameEvent>,
+    tp_events: &mut MessageWriter<TeleportEvent>,
+    look_events: &mut MessageWriter<LookEvent>,
+    setblock_events: &mut MessageWriter<SetBlockEvent>,
+    spawn_machine_events: &mut MessageWriter<SpawnMachineEvent>,
+    debug_events: &mut MessageWriter<DebugEvent>,
+    assert_machine_events: &mut MessageWriter<AssertMachineEvent>,
+    screenshot_events: &mut MessageWriter<ScreenshotEvent>,
 ) {
     info!("execute_command called with: '{}'", command);
     let parts: Vec<&str> = command.split_whitespace().collect();
@@ -75,7 +75,7 @@ pub fn execute_command(
                 tracing::error!("Invalid filename: path traversal not allowed");
                 return;
             }
-            save_events.send(SaveGameEvent { filename });
+            save_events.write(SaveGameEvent { filename });
         }
         "/load" | "load" => {
             // /load [filename]
@@ -85,7 +85,7 @@ pub fn execute_command(
                 tracing::error!("Invalid filename: path traversal not allowed");
                 return;
             }
-            load_events.send(LoadGameEvent { filename });
+            load_events.write(LoadGameEvent { filename });
         }
         "/help" | "help" => {
             info!("Commands: /creative, /survival, /give <item> [count], /clear, /save [name], /load [name], /tp x y z, /look pitch yaw, /setblock x y z type");
@@ -101,7 +101,7 @@ pub fn execute_command(
                     tracing::error!("Invalid coordinates: NaN/Infinity not allowed");
                     return;
                 }
-                tp_events.send(TeleportEvent {
+                tp_events.write(TeleportEvent {
                     position: Vec3::new(x, y, z),
                 });
                 info!("Teleporting to ({}, {}, {})", x, y, z);
@@ -121,7 +121,7 @@ pub fn execute_command(
                 }
                 let pitch = pitch_deg.to_radians();
                 let yaw = yaw_deg.to_radians();
-                look_events.send(LookEvent { pitch, yaw });
+                look_events.write(LookEvent { pitch, yaw });
                 info!("Looking at pitch={:.1}° yaw={:.1}°", pitch_deg, yaw_deg);
             } else {
                 info!("Usage: /look pitch_deg yaw_deg");
@@ -135,7 +135,7 @@ pub fn execute_command(
                 let z: i32 = parts[3].parse().unwrap_or(0);
                 let block_name = parts[4].to_lowercase();
                 if let Some(item_id) = parse_item_name(&block_name) {
-                    setblock_events.send(SetBlockEvent {
+                    setblock_events.write(SetBlockEvent {
                         position: IVec3::new(x, y, z),
                         block_type: item_id,
                     });
@@ -164,7 +164,7 @@ pub fn execute_command(
                 let direction: Option<u8> = parts.get(5).and_then(|s| s.parse().ok());
 
                 if let Some(machine_id) = parse_item_name(&machine_name) {
-                    spawn_machine_events.send(SpawnMachineEvent {
+                    spawn_machine_events.write(SpawnMachineEvent {
                         position: IVec3::new(x, y, z),
                         machine_id,
                         direction,
@@ -202,7 +202,7 @@ pub fn execute_command(
                 for i in 0..count {
                     let x = start_x + dx * i as i32;
                     let z = start_z + dz * i as i32;
-                    spawn_machine_events.send(SpawnMachineEvent {
+                    spawn_machine_events.write(SpawnMachineEvent {
                         position: IVec3::new(x, y, z),
                         machine_id,
                         direction: Some(dir),
@@ -226,21 +226,21 @@ pub fn execute_command(
                     use crate::core::items;
                     // Production line: Miner -> Conveyor x3 -> Furnace
                     // Place miner on iron ore
-                    spawn_machine_events.send(SpawnMachineEvent {
+                    spawn_machine_events.write(SpawnMachineEvent {
                         position: IVec3::new(0, 8, 0),
                         machine_id: items::miner_block(),
                         direction: None,
                     });
                     // Conveyors from miner to furnace
                     for i in 1..4 {
-                        spawn_machine_events.send(SpawnMachineEvent {
+                        spawn_machine_events.write(SpawnMachineEvent {
                             position: IVec3::new(i, 8, 0),
                             machine_id: items::conveyor_block(),
                             direction: Some(1), // East
                         });
                     }
                     // Furnace at the end
-                    spawn_machine_events.send(SpawnMachineEvent {
+                    spawn_machine_events.write(SpawnMachineEvent {
                         position: IVec3::new(4, 8, 0),
                         machine_id: items::furnace_block(),
                         direction: None,
@@ -254,7 +254,7 @@ pub fn execute_command(
                     // Stress test: 10x10 conveyor grid
                     for x in 0..10 {
                         for z in 0..10 {
-                            spawn_machine_events.send(SpawnMachineEvent {
+                            spawn_machine_events.write(SpawnMachineEvent {
                                 position: IVec3::new(x, 8, z),
                                 machine_id: items::conveyor_block(),
                                 direction: Some(1), // East
@@ -350,12 +350,12 @@ pub fn execute_command(
                     // /assert machine <type> count <min> - Check machine count
                     match parts.get(2).map(|s| s.as_ref()) {
                         Some("miner") if parts.get(3).map(|s| s.as_ref()) == Some("working") => {
-                            assert_machine_events.send(AssertMachineEvent {
+                            assert_machine_events.write(AssertMachineEvent {
                                 assert_type: MachineAssertType::MinerWorking,
                             });
                         }
                         Some("conveyor") if parts.get(3).map(|s| s.as_ref()) == Some("items") => {
-                            assert_machine_events.send(AssertMachineEvent {
+                            assert_machine_events.write(AssertMachineEvent {
                                 assert_type: MachineAssertType::ConveyorHasItems,
                             });
                         }
@@ -363,7 +363,7 @@ pub fn execute_command(
                             if let Some(block_type) = parse_item_name(machine_name) {
                                 let min_count: u32 =
                                     parts.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
-                                assert_machine_events.send(AssertMachineEvent {
+                                assert_machine_events.write(AssertMachineEvent {
                                     assert_type: MachineAssertType::MachineCount {
                                         machine: block_type,
                                         min_count,
@@ -392,19 +392,19 @@ pub fn execute_command(
             }
         }
         "/debug_conveyor" | "debug_conveyor" => {
-            debug_events.send(DebugEvent {
+            debug_events.write(DebugEvent {
                 debug_type: DebugEventType::Conveyor,
             });
             info!("Dumping conveyor debug info...");
         }
         "/debug_machine" | "debug_machine" => {
-            debug_events.send(DebugEvent {
+            debug_events.write(DebugEvent {
                 debug_type: DebugEventType::Machine,
             });
             info!("Dumping machine debug info...");
         }
         "/debug_connection" | "debug_connection" => {
-            debug_events.send(DebugEvent {
+            debug_events.write(DebugEvent {
                 debug_type: DebugEventType::Connection,
             });
             info!("Dumping connection debug info...");
@@ -423,7 +423,7 @@ pub fn execute_command(
                 return;
             }
 
-            screenshot_events.send(ScreenshotEvent {
+            screenshot_events.write(ScreenshotEvent {
                 filename: filename.clone(),
             });
             info!("Taking screenshot: {}.png", filename);

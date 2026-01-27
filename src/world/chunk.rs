@@ -4,8 +4,8 @@
 
 use crate::constants::*;
 use crate::core::{items, ItemId};
+use bevy::mesh::PrimitiveTopology;
 use bevy::prelude::*;
-use bevy::render::mesh::PrimitiveTopology;
 use bevy::tasks::Task;
 use std::collections::HashMap;
 
