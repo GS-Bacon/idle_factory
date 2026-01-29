@@ -1581,6 +1581,94 @@ HTMLプレビューでパラメータ調整→JSONをClaudeに渡すだけで自
 
 ---
 
+## 2026-01-29: シナリオテスト修正 - ToggleGlobalInventory削除
+
+### 概要
+
+存在しないGameAction（`ToggleGlobalInventory`）を使用していたシナリオテストを修正。
+
+### 修正内容
+
+| ファイル | 修正 |
+|----------|------|
+| `tests/scenarios/ui_state_transition_stress.toml` | `ToggleGlobalInventory`を含む3ステップ削除 |
+| `tests/scenarios/settings_input_isolation.toml` | `ToggleGlobalInventory`を含む4ステップとコメント削除 |
+
+### 背景
+
+- `GlobalInventory` UIは未実装（UIContextに存在しない）
+- `ToggleGlobalInventory` GameActionも未定義
+- これらのテストは実行時にエラーになる状態だった
+
+### 検証結果
+
+| テスト | 結果 |
+|--------|------|
+| `ui_state_transition_stress.toml` | ✅ 18ステップ完了、2アサート成功 |
+| `settings_input_isolation.toml` | ✅ 14ステップ完了、5アサート成功 |
+| `pause_to_gameplay.toml` | ✅ 3アサート成功 |
+| `inventory_toggle.toml` | ✅ 3アサート成功 |
+
+### 確認コマンド
+
+```bash
+grep -r "ToggleGlobalInventory" tests/scenarios/
+# → 0件（修正完了）
+```
+
+---
+
+## 2026-01-29: ミニチュアビュー効果修正 + Windows送信フォールバック
+
+### 概要
+
+被写界深度（DoF）効果が効かない問題を数学的に検証・修正。Windows送信のフォールバック機能を追加。
+
+### 修正内容
+
+#### 1. DoF効果が効かない問題
+
+| 項目 | 変更前 | 変更後 | 理由 |
+|------|--------|--------|------|
+| `aperture_f_stops` | 1.8 | 0.125 (1/8) | CoC計算で可視ボケを得るため |
+| `focal_distance` | 15.0 | 10.0 | 手前にフォーカス（ティルトシフト効果） |
+| `max_depth` | 100.0 | 50.0 | ボケ範囲を制限 |
+
+**数学的根拠**:
+- CoC (Circle of Confusion) = coc_scale_factor × |depth - focus| / (depth × (focus - focal_length)) × height
+- F/1.8: CoC ≈ 0.1 pixels（見えない）
+- F/0.125: CoC ≈ 1.4 pixels（ボケが見える）
+
+#### 2. Windows送信フォールバック
+
+CLAUDE.mdの「Windowsへビルド送信」セクションを更新:
+
+```bash
+# フォールバック付き送信
+tailscale file cp dist/*.zip baconrogx13: || \
+tailscale file cp dist/*.zip smz-mousebook:
+```
+
+| 優先度 | 端末 |
+|--------|------|
+| 1 | baconrogx13（メイン） |
+| 2 | smz-mousebook（フォールバック） |
+
+### 変更ファイル
+
+| ファイル | 変更 |
+|----------|------|
+| `src/setup/player.rs` | DoFパラメータ修正 |
+| `CLAUDE.md` | フォールバック送信手順追加 |
+
+### 学び
+
+- BevyのDoF: `aperture_f_stops`が**小さい**ほどボケが強い（直感と逆）
+- 公式サンプルでは「効果を見せるため非現実的に低いF値 (1/8)」を使用
+- 写真のF/1.8は「明るいレンズ」だが、Bevyでは「ボケが弱い」設定になる
+
+---
+
 ## 2026-01-27: Phase 0-1 CADスタイル操作実装
 
 ### 概要

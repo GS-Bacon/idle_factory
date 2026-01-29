@@ -14,13 +14,19 @@
 //! Log collection:
 //! - Logs are written to `logs/game_YYYYMMDD_HHMMSS.log`
 //!
+//! Crash handling:
+//! - Call `setup_crash_handler()` at the start of main() to capture panic backtraces
+//! - Crash reports are written to `logs/crash.log`
+//!
 //! Log analysis:
 //! - scripts/summarize_log.sh - AI-powered log summary
 //! - scripts/detect_anomalies.sh - Anomaly detection
 
 use bevy::prelude::*;
 use serde::Serialize;
+use std::backtrace::Backtrace;
 use std::fs;
+use std::io::Write;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -28,6 +34,57 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 #[derive(Resource)]
 #[allow(dead_code)]
 pub struct LogFileGuard(WorkerGuard);
+
+/// Set up a custom panic handler that captures backtraces and writes to crash.log
+///
+/// Call this at the very start of main(), before any other initialization.
+pub fn setup_crash_handler() {
+    std::panic::set_hook(Box::new(|panic_info| {
+        // Force capture backtrace regardless of RUST_BACKTRACE setting
+        let backtrace = Backtrace::force_capture();
+
+        let crash_report = format!(
+            "=== CRASH REPORT ===\n\
+             Time: {:?}\n\
+             Version: {}\n\
+             OS: {} {}\n\
+             \n\
+             === PANIC INFO ===\n\
+             {}\n\
+             Location: {:?}\n\
+             \n\
+             === BACKTRACE ===\n\
+             {}\n\
+             \n\
+             === END CRASH REPORT ===\n\n",
+            std::time::SystemTime::now(),
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            panic_info,
+            panic_info.location(),
+            backtrace
+        );
+
+        // Ensure logs directory exists
+        let logs_dir = std::path::Path::new("logs");
+        if !logs_dir.exists() {
+            let _ = fs::create_dir_all(logs_dir);
+        }
+
+        // Append to crash.log
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("logs/crash.log")
+        {
+            let _ = file.write_all(crash_report.as_bytes());
+        }
+
+        // Also output to stderr for immediate visibility
+        eprintln!("{}", crash_report);
+    }));
+}
 
 /// Initialize logging
 pub fn init_logging() -> Option<WorkerGuard> {

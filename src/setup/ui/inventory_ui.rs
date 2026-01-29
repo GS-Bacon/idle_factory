@@ -10,10 +10,10 @@ use crate::components::*;
 use crate::game_spec::{UIElementRegistry, UIElementTag};
 use bevy::prelude::*;
 
+use super::tokens::{color, font};
 use super::{
-    spawn_inventory_slot, text_font, QUEST_BG, QUEST_BORDER_COLOR, QUEST_RADIUS, SLOT_BG,
-    SLOT_BORDER, SLOT_BORDER_COLOR, SLOT_GAP, SLOT_RADIUS, SLOT_SIZE, SPRITE_SIZE, TEXT_BODY,
-    TEXT_BUTTON, TEXT_TINY,
+    spawn_inventory_slot, text_font, QUEST_BG, QUEST_BORDER_COLOR, SLOT_BG, SLOT_BORDER,
+    SLOT_BORDER_COLOR, SLOT_GAP, SLOT_RADIUS, SLOT_SIZE, SPRITE_SIZE,
 };
 
 /// Calculate inventory UI width based on slot size
@@ -75,8 +75,8 @@ pub fn setup_inventory_ui(
             height: Val::Percent(100.0),
             ..default()
         },
-        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)), // 50% black overlay
-        GlobalZIndex(40),                                  // Below inventory UI
+        BackgroundColor(color::OVERLAY),
+        GlobalZIndex(40), // Below inventory UI
         Visibility::Hidden,
     ));
 
@@ -99,7 +99,7 @@ pub fn setup_inventory_ui(
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(4.0),
                 border: UiRect::all(Val::Px(2.0)),
-                border_radius: BorderRadius::all(Val::Px(QUEST_RADIUS)),
+                border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                 ..default()
             },
             BackgroundColor(QUEST_BG),
@@ -143,7 +143,7 @@ pub fn setup_inventory_ui(
                     margin: UiRect::vertical(Val::Px(4.0)),
                     ..default()
                 },
-                BackgroundColor(Color::srgba(1.0, 0.53, 0.0, 0.4)), // Orange tint
+                BackgroundColor(color::ACCENT_TRANSPARENT),
             ));
 
             // === Hotbar slots (1x9, slots 0-8) ===
@@ -167,7 +167,7 @@ pub fn setup_inventory_ui(
                     margin: UiRect::vertical(Val::Px(4.0)),
                     ..default()
                 },
-                BackgroundColor(Color::srgba(1.0, 0.53, 0.0, 0.4)), // Orange tint
+                BackgroundColor(color::ACCENT_TRANSPARENT),
             ));
 
             // === Bottom row: Trash slot ===
@@ -192,14 +192,14 @@ pub fn setup_inventory_ui(
                                 border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
                                 ..default()
                             },
-                            BackgroundColor(Color::srgba(0.4, 0.15, 0.1, 0.95)),
-                            BorderColor::all(Color::srgb(0.8, 0.3, 0.2)), // Red-orange
+                            BackgroundColor(color::TRASH_BG),
+                            BorderColor::all(color::TRASH_BORDER),
                         ))
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new("X"),
-                                text_font(font, TEXT_BUTTON),
-                                TextColor(Color::srgb(1.0, 0.5, 0.4)),
+                                text_font(font, font::BUTTON),
+                                TextColor(color::TRASH_TEXT),
                             ));
                         });
                 });
@@ -245,13 +245,13 @@ fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba(0.3, 0.3, 0.35, 1.0)),
+                        BackgroundColor(color::TAB_ACTIVE),
                         BorderColor::all(QUEST_BORDER_COLOR),
                     ))
                     .with_child((
                         Text::new("All"),
-                        text_font(font, TEXT_BODY),
-                        TextColor(Color::WHITE),
+                        text_font(font, font::BODY),
+                        TextColor(color::TEXT),
                     ));
 
                     // Ores tab
@@ -263,13 +263,13 @@ fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                        BackgroundColor(color::TAB_INACTIVE),
+                        BorderColor::all(color::BORDER),
                     ))
                     .with_child((
                         Text::new("Ores"),
-                        text_font(font, TEXT_BODY),
-                        TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+                        text_font(font, font::BODY),
+                        TextColor(color::TEXT_MUTED),
                     ));
 
                     // Ingots tab
@@ -281,13 +281,13 @@ fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                        BackgroundColor(color::TAB_INACTIVE),
+                        BorderColor::all(color::BORDER),
                     ))
                     .with_child((
                         Text::new("Ingots"),
-                        text_font(font, TEXT_BODY),
-                        TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+                        text_font(font, font::BODY),
+                        TextColor(color::TEXT_MUTED),
                     ));
 
                     // Machines tab
@@ -299,13 +299,13 @@ fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
-                        BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                        BackgroundColor(color::TAB_INACTIVE),
+                        BorderColor::all(color::BORDER),
                     ))
                     .with_child((
                         Text::new("Machines"),
-                        text_font(font, TEXT_BODY),
-                        TextColor(Color::srgba(0.8, 0.8, 0.8, 1.0)),
+                        text_font(font, font::BODY),
+                        TextColor(color::TEXT_MUTED),
                     ));
                 });
 
@@ -322,13 +322,13 @@ fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgba(0.15, 0.15, 0.2, 1.0)),
-                    BorderColor::all(Color::srgba(0.4, 0.4, 0.4, 1.0)),
+                    BackgroundColor(color::INPUT_BG),
+                    BorderColor::all(color::BORDER),
                 ))
                 .with_child((
                     Text::new("Search..."),
-                    text_font(font, TEXT_BODY),
-                    TextColor(Color::srgba(0.7, 0.7, 0.7, 1.0)),
+                    text_font(font, font::BODY),
+                    TextColor(color::TEXT_DIM),
                     UpperPanelSearchInput,
                 ));
 
@@ -384,20 +384,20 @@ fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
+                        BackgroundColor(color::BUTTON),
                         BorderColor::all(QUEST_BORDER_COLOR),
                     ))
                     .with_child((
                         Text::new("<"),
-                        text_font(font, TEXT_BODY),
-                        TextColor(Color::WHITE),
+                        text_font(font, font::BODY),
+                        TextColor(color::TEXT),
                     ));
 
                     // Page text
                     nav.spawn((
                         Text::new("1/1"),
-                        text_font(font, TEXT_BODY),
-                        TextColor(Color::WHITE),
+                        text_font(font, font::BODY),
+                        TextColor(color::TEXT),
                         UpperPanelPageText,
                     ));
 
@@ -413,13 +413,13 @@ fn spawn_upper_panel(parent: &mut ChildSpawnerCommands, font: &Handle<Font>) {
                             border: UiRect::all(Val::Px(1.0)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba(0.2, 0.2, 0.25, 1.0)),
+                        BackgroundColor(color::BUTTON),
                         BorderColor::all(QUEST_BORDER_COLOR),
                     ))
                     .with_child((
                         Text::new(">"),
-                        text_font(font, TEXT_BODY),
-                        TextColor(Color::WHITE),
+                        text_font(font, font::BODY),
+                        TextColor(color::TEXT),
                     ));
                 });
         });
@@ -459,8 +459,8 @@ fn spawn_upper_panel_slot(parent: &mut ChildSpawnerCommands, slot_idx: usize, fo
             btn.spawn((
                 UpperPanelSlotCount(slot_idx),
                 Text::new(""),
-                text_font(font, TEXT_TINY),
-                TextColor(Color::WHITE),
+                text_font(font, font::TINY),
+                TextColor(color::TEXT),
                 Node {
                     position_type: PositionType::Absolute,
                     bottom: Val::Px(2.0),

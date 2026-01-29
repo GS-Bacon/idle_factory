@@ -33,8 +33,7 @@ pub struct UIState {
 
 impl Default for UIState {
     fn default() -> Self {
-        // 起動時はポーズメニューから始まる
-        bevy::log::info!("[UIState] Creating default with PauseMenu stack");
+        // 起動時はポーズメニューから始まる（カーソルを急に吸わないため）
         Self {
             stack: vec![UIContext::PauseMenu],
         }
@@ -187,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_ui_state_default() {
-        // 起動時はPauseMenuから始まる
+        // 起動時はPauseMenuから始まる（カーソルを急に吸わないため）
         let state = UIState::default();
         assert!(!state.is_gameplay());
         assert_eq!(state.current(), UIContext::PauseMenu);

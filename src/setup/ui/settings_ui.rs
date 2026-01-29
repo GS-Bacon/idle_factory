@@ -5,9 +5,8 @@ use bevy::prelude::*;
 use crate::components::UIContext;
 use crate::game_spec::{UIElementRegistry, UIElementTag};
 use crate::settings::GameSettings;
-use crate::setup::ui::{
-    text_font, SLOT_BORDER_COLOR, SLOT_RADIUS, TEXT_BODY, TEXT_HEADING, TEXT_SECTION, TEXT_SMALL,
-};
+use crate::setup::ui::text_font;
+use crate::setup::ui::tokens::{color, font, size};
 use crate::updater::{StartUpdateEvent, UpdatePhase, UpdateState};
 
 /// Marker for the settings panel root
@@ -106,18 +105,18 @@ pub fn setup_settings_ui(
                     row_gap: Val::Px(15.0),
                     border: UiRect::all(Val::Px(2.0)),
                     overflow: Overflow::scroll_y(), // 縦スクロール有効
-                    border_radius: BorderRadius::all(Val::Px(SLOT_RADIUS)),
+                    border_radius: BorderRadius::all(size::BORDER_RADIUS_MD),
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.12, 0.12, 0.14, 0.98)),
-                BorderColor::all(SLOT_BORDER_COLOR),
+                BackgroundColor(color::PANEL_SETTINGS),
+                BorderColor::all(color::ACCENT),
             ))
             .with_children(|panel| {
                 // Title
                 panel.spawn((
                     Text::new("設定"),
-                    text_font(font, TEXT_HEADING),
-                    TextColor(Color::WHITE),
+                    text_font(font, font::HEADING),
+                    TextColor(color::TEXT),
                     Node {
                         margin: UiRect::bottom(Val::Px(10.0)),
                         ..default()
@@ -166,24 +165,24 @@ pub fn setup_settings_ui(
                         Button,
                         SettingsBackButton,
                         Node {
-                            width: Val::Px(150.0),
-                            height: Val::Px(40.0),
+                            width: size::BUTTON_WIDTH_MD,
+                            height: size::BUTTON_HEIGHT_MD,
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             margin: UiRect::top(Val::Px(20.0)),
                             align_self: AlignSelf::Center,
-                            border: UiRect::all(Val::Px(2.0)),
-                            border_radius: BorderRadius::all(Val::Px(6.0)),
+                            border: UiRect::all(size::BORDER_MEDIUM),
+                            border_radius: BorderRadius::all(size::BORDER_RADIUS_MD),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
-                        BorderColor::all(Color::srgb(0.8, 0.5, 0.0)),
+                        BackgroundColor(color::BUTTON_PAUSE),
+                        BorderColor::all(color::BORDER_ACCENT),
                     ))
                     .with_children(|btn| {
                         btn.spawn((
                             Text::new("戻る"),
-                            text_font(font, TEXT_SECTION),
-                            TextColor(Color::WHITE),
+                            text_font(font, font::SECTION),
+                            TextColor(color::TEXT),
                         ));
                     });
             });
@@ -193,8 +192,8 @@ pub fn setup_settings_ui(
 fn spawn_section_header(parent: &mut ChildSpawnerCommands, font: &Handle<Font>, label: &str) {
     parent.spawn((
         Text::new(label),
-        text_font(font, TEXT_SECTION),
-        TextColor(Color::srgb(1.0, 0.8, 0.0)),
+        text_font(font, font::SECTION),
+        TextColor(color::ACCENT_GOLD),
         Node {
             margin: UiRect::new(Val::Px(0.0), Val::Px(0.0), Val::Px(15.0), Val::Px(5.0)),
             ..default()
@@ -221,8 +220,8 @@ fn spawn_slider(
             // Label
             row.spawn((
                 Text::new(label),
-                text_font(font, TEXT_BODY),
-                TextColor(Color::WHITE),
+                text_font(font, font::BODY),
+                TextColor(color::TEXT),
                 Node {
                     width: Val::Px(120.0),
                     ..default()
@@ -234,12 +233,12 @@ fn spawn_slider(
                 Button,
                 SettingsSlider { setting, min, max },
                 Node {
-                    width: Val::Px(200.0),
-                    height: Val::Px(20.0),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
+                    width: size::SLIDER_WIDTH,
+                    height: size::SLIDER_HEIGHT,
+                    border_radius: BorderRadius::all(size::BORDER_RADIUS_SM),
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.15, 0.15, 0.18)),
+                BackgroundColor(color::SLIDER_TRACK),
             ))
             .with_children(|track| {
                 // Fill
@@ -249,10 +248,10 @@ fn spawn_slider(
                     Node {
                         width: Val::Percent(50.0), // Will be updated
                         height: Val::Percent(100.0),
-                        border_radius: BorderRadius::all(Val::Px(4.0)),
+                        border_radius: BorderRadius::all(size::BORDER_RADIUS_SM),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(1.0, 0.53, 0.0)),
+                    BackgroundColor(color::ACCENT),
                 ));
             });
 
@@ -260,8 +259,8 @@ fn spawn_slider(
             row.spawn((
                 Text::new("0"),
                 SettingsValueText { setting },
-                text_font(font, TEXT_BODY),
-                TextColor(Color::WHITE),
+                text_font(font, font::BODY),
+                TextColor(color::TEXT),
                 Node {
                     width: Val::Px(60.0),
                     justify_content: JustifyContent::FlexEnd,
@@ -288,8 +287,8 @@ fn spawn_update_row(
             row.spawn((
                 SettingsUpdateStatusText,
                 Text::new("確認中..."),
-                text_font(font, TEXT_BODY),
-                TextColor(Color::srgb(0.67, 0.67, 0.67)),
+                text_font(font, font::BODY),
+                TextColor(color::TEXT_CHECKING),
             ));
 
             // Update button
@@ -304,19 +303,19 @@ fn spawn_update_row(
                     padding: UiRect::axes(Val::Px(16.0), Val::Px(8.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    border: UiRect::all(Val::Px(1.0)),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
+                    border: UiRect::all(size::BORDER_THIN),
+                    border_radius: BorderRadius::all(size::BORDER_RADIUS_SM),
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.25, 0.25, 0.30)),
-                BorderColor::all(Color::srgb(0.33, 0.33, 0.33)),
+                BackgroundColor(color::BUTTON_UPDATE),
+                BorderColor::all(color::BORDER_UPDATE),
                 Visibility::Hidden, // Hidden until update available
             ))
             .with_children(|btn| {
                 btn.spawn((
                     Text::new("今すぐ更新"),
-                    text_font(font, TEXT_BODY),
-                    TextColor(Color::WHITE),
+                    text_font(font, font::BODY),
+                    TextColor(color::TEXT),
                 ));
             });
         });
@@ -339,8 +338,8 @@ fn spawn_toggle(
             // Label
             row.spawn((
                 Text::new(label),
-                text_font(font, TEXT_BODY),
-                TextColor(Color::WHITE),
+                text_font(font, font::BODY),
+                TextColor(color::TEXT),
             ));
 
             // Toggle button
@@ -348,23 +347,23 @@ fn spawn_toggle(
                 Button,
                 SettingsToggle { setting },
                 Node {
-                    width: Val::Px(50.0),
-                    height: Val::Px(26.0),
+                    width: size::TOGGLE_WIDTH,
+                    height: size::TOGGLE_HEIGHT,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    border: UiRect::all(Val::Px(2.0)),
-                    border_radius: BorderRadius::all(Val::Px(13.0)),
+                    border: UiRect::all(size::BORDER_MEDIUM),
+                    border_radius: BorderRadius::all(size::BORDER_RADIUS_PILL),
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.3, 0.15, 0.15)), // Will be updated
-                BorderColor::all(Color::srgb(0.5, 0.5, 0.5)),
+                BackgroundColor(color::TOGGLE_OFF), // Will be updated
+                BorderColor::all(color::BORDER_INACTIVE),
             ))
             .with_children(|btn| {
                 btn.spawn((
                     Text::new("OFF"),
                     SettingsValueText { setting },
-                    text_font(font, TEXT_SMALL),
-                    TextColor(Color::WHITE),
+                    text_font(font, font::SMALL),
+                    TextColor(color::TEXT),
                 ));
             });
         });
@@ -410,9 +409,9 @@ pub fn update_settings_ui(
     for (toggle, mut bg) in toggles.iter_mut() {
         let enabled = get_toggle_value(&settings, toggle.setting);
         *bg = if enabled {
-            BackgroundColor(Color::srgb(0.15, 0.4, 0.15))
+            BackgroundColor(color::TOGGLE_ON)
         } else {
-            BackgroundColor(Color::srgb(0.3, 0.15, 0.15))
+            BackgroundColor(color::TOGGLE_OFF)
         };
     }
 }
@@ -565,10 +564,10 @@ pub fn handle_settings_back(
                 action_writer.write(crate::components::UIAction::Pop);
             }
             Interaction::Hovered => {
-                *bg = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.95));
+                *bg = BackgroundColor(color::BUTTON_HOVER);
             }
             Interaction::None => {
-                *bg = BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9));
+                *bg = BackgroundColor(color::BUTTON_PAUSE);
             }
         }
     }
@@ -591,7 +590,7 @@ pub fn update_settings_update_ui(
         return;
     }
 
-    let Ok((mut text, mut color)) = status_query.single_mut() else {
+    let Ok((mut text, mut text_color)) = status_query.single_mut() else {
         return;
     };
 
@@ -603,19 +602,19 @@ pub fn update_settings_update_ui(
     match &state.phase {
         UpdatePhase::Idle => {
             text.0 = "確認中...".to_string();
-            *color = TextColor(Color::srgb(0.67, 0.67, 0.67));
+            *text_color = TextColor(color::TEXT_CHECKING);
         }
         UpdatePhase::Checking => {
             text.0 = "アップデートを確認中...".to_string();
-            *color = TextColor(Color::srgb(0.67, 0.67, 0.67));
+            *text_color = TextColor(color::TEXT_CHECKING);
         }
         UpdatePhase::UpToDate => {
             text.0 = "✓ 最新バージョンです".to_string();
-            *color = TextColor(Color::srgb(0.5, 0.9, 0.5));
+            *text_color = TextColor(color::SUCCESS);
         }
         UpdatePhase::Available { version, .. } => {
             text.0 = format!("v{} が利用可能", version);
-            *color = TextColor(Color::srgb(1.0, 0.8, 0.0));
+            *text_color = TextColor(color::WARNING);
             // Show button
             for mut vis in button_query.iter_mut() {
                 *vis = Visibility::Visible;
@@ -625,10 +624,10 @@ pub fn update_settings_update_ui(
         UpdatePhase::Failed(error) => {
             if error.contains("ブラウザでダウンロードページを開きました") {
                 text.0 = "✓ ブラウザで開きました".to_string();
-                *color = TextColor(Color::srgb(0.5, 0.9, 0.5));
+                *text_color = TextColor(color::SUCCESS);
             } else {
                 text.0 = format!("エラー: {}", error);
-                *color = TextColor(Color::srgb(1.0, 0.4, 0.4));
+                *text_color = TextColor(color::DANGER);
             }
         }
     }
@@ -654,10 +653,10 @@ pub fn handle_settings_update_button(
                 update_event.write(StartUpdateEvent);
             }
             Interaction::Hovered => {
-                *bg = BackgroundColor(Color::srgb(0.35, 0.35, 0.42));
+                *bg = BackgroundColor(color::BUTTON_UPDATE_HOVER);
             }
             Interaction::None => {
-                *bg = BackgroundColor(Color::srgb(0.25, 0.25, 0.30));
+                *bg = BackgroundColor(color::BUTTON_UPDATE);
             }
         }
     }

@@ -65,9 +65,14 @@ Mod API設計について議論。カテゴリ別集約方式に決定。
 # 1. Windowsパッケージをビルド（zip作成）
 ./scripts/build-packages.sh --windows-only
 
-# 2. Tailscale経由でzipを送信
-tailscale file cp dist/idle_factory_*_windows.zip baconrogx13:
+# 2. Tailscale経由でzipを送信（フォールバック付き）
+tailscale file cp dist/idle_factory_*_windows.zip baconrogx13: || \
+tailscale file cp dist/idle_factory_*_windows.zip smz-mousebook:
 ```
+
+**送信先の優先順位:**
+1. `baconrogx13` (メイン)
+2. `smz-mousebook` (フォールバック)
 
 **禁止事項:**
 - ❌ exeだけ送る（assets/modsがないと動かない）
@@ -75,7 +80,7 @@ tailscale file cp dist/idle_factory_*_windows.zip baconrogx13:
 - ❌ scp/rsync等の別手段（Tailscale file cpを使う）
 
 **注意:**
-- `baconrogx13` がオフラインなら `tailscale status` で確認
+- 両方オフラインなら `tailscale status` で確認してユーザーに報告
 - Windows側でTailscale通知から保存→展開
 
 ## UIプレビュー

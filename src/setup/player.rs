@@ -6,7 +6,10 @@ use crate::player::{LocalPlayer, PlayerInventory};
 use bevy::camera::visibility::RenderLayers;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::light::NotShadowCaster;
+use bevy::post_process::bloom::Bloom;
+use bevy::post_process::dof::{DepthOfField, DepthOfFieldMode};
 use bevy::prelude::*;
+use bevy::render::view::Hdr;
 use std::collections::HashMap;
 
 pub fn setup_player(
@@ -40,15 +43,32 @@ pub fn setup_player(
         ))
         .with_children(|parent| {
             // Main camera (renders world on layer 0)
+            // Miniature view effect: tilt-shift style with shallow depth of field
             parent
                 .spawn((
                     Camera3d::default(),
+                    Hdr, // Enable HDR for DepthOfField and Bloom effects
                     Projection::Perspective(PerspectiveProjection {
                         fov: 90.0_f32.to_radians(), // Wider FOV for better responsiveness feel
                         ..default()
                     }),
                     // Use Reinhard tonemapping (doesn't require tonemapping_luts feature)
                     Tonemapping::Reinhard,
+                    // Depth of field for miniature/tilt-shift effect
+                    // Note: Lower aperture_f_stops = stronger bokeh blur
+                    // F/1.8 gives CoC ≈ 0.1px (invisible), F/0.125 gives CoC ≈ 1.4px (visible)
+                    DepthOfField {
+                        mode: DepthOfFieldMode::Bokeh, // Hexagonal bokeh for cinematic look
+                        focal_distance: 10.0,          // Focus slightly closer for tilt-shift
+                        aperture_f_stops: 1.0 / 8.0, // 0.125 - unrealistic but needed for visible bokeh
+                        max_depth: 50.0,             // Limit blur range
+                        ..default()
+                    },
+                    // Soft bloom for dreamy miniature feel
+                    Bloom {
+                        intensity: 0.15, // Subtle bloom
+                        ..default()
+                    },
                     PlayerCamera {
                         pitch: 0.0,
                         yaw: 0.0,

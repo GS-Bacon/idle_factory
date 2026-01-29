@@ -11,7 +11,10 @@ use idle_factory::logging;
 use idle_factory::plugins::GamePlugin;
 
 fn main() {
-    // Initialize logging before anything else
+    // Set up crash handler first (captures panic backtraces to logs/crash.log)
+    logging::setup_crash_handler();
+
+    // Initialize logging
     let _log_guard = logging::init_logging();
 
     let mut app = App::new();

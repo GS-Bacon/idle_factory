@@ -1,6 +1,6 @@
 [package]
 name = "idle_factory"
-version = "0.3.192"
+version = "0.3.194"
 edition = "2021"
 
 [workspace]
@@ -25,6 +25,7 @@ bevy = { version = "0.18", default-features = false, features = [
     "bevy_text",
     "bevy_gltf",  # glTF model loading
     "bevy_scene",  # Scene support for glTF
+    "bevy_post_process",  # Bloom, DoF, etc.
     "default_font",
     "trace",  # Enable tracing for logging
     "png",  # PNG image loading for UI sprites

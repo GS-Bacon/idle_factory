@@ -3,8 +3,8 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 
-@group(2) @binding(0) var block_textures: texture_2d_array<f32>;
-@group(2) @binding(1) var block_sampler: sampler;
+@group(3) @binding(0) var block_textures: texture_2d_array<f32>;
+@group(3) @binding(1) var block_sampler: sampler;
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {

@@ -43,14 +43,6 @@ params = { ms = 50 }
 
 [[steps]]
 action = "send_input"
-params = { action = "ToggleGlobalInventory" }
-
-[[steps]]
-action = "wait"
-params = { ms = 50 }
-
-[[steps]]
-action = "send_input"
 params = { action = "Cancel" }
 
 [[steps]]

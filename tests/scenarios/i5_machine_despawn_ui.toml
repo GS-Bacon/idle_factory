@@ -36,10 +36,10 @@ params = { ms = 100 }
 action = "assert"
 params = { condition = "ui_state == Gameplay" }
 
-# カーソルがロックされていることを確認
+# CADスタイル操作: カーソルは常に表示（ロックされない）
 [[steps]]
 action = "assert"
-params = { condition = "cursor_locked == true" }
+params = { condition = "cursor_locked == false" }
 
 # 入力が正常に効くことを確認（インベントリトグル）
 [[steps]]
