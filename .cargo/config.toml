@@ -6,7 +6,8 @@
 
 # WASM configuration
 [target.wasm32-unknown-unknown]
-rustflags = ["--cfg=getrandom_backend=\"wasm_js\""]
+# getrandom 0.2 uses "js" feature, 0.3 uses --cfg=getrandom_backend
+# Both are handled via Cargo.toml dependencies
 runner = "wasm-bindgen-test-runner"
 
 # リンカー設定（デフォルトリンカー使用）

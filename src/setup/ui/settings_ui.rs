@@ -8,6 +8,7 @@ use crate::settings::GameSettings;
 use crate::setup::ui::{
     text_font, SLOT_BORDER_COLOR, SLOT_RADIUS, TEXT_BODY, TEXT_HEADING, TEXT_SECTION, TEXT_SMALL,
 };
+#[cfg(feature = "updater")]
 use crate::updater::{StartUpdateEvent, UpdatePhase, UpdateState};
 
 /// Marker for the settings panel root
@@ -575,6 +576,7 @@ pub fn handle_settings_back(
 }
 
 /// Update the update section UI based on UpdateState
+#[cfg(feature = "updater")]
 pub fn update_settings_update_ui(
     ui_state: Res<crate::components::UIState>,
     state: Option<Res<UpdateState>>,
@@ -640,6 +642,7 @@ pub fn update_settings_update_ui(
 }
 
 /// Handle update button click
+#[cfg(feature = "updater")]
 #[allow(clippy::type_complexity)]
 pub fn handle_settings_update_button(
     mut interaction_query: Query<

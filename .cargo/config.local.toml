@@ -1,0 +1,4 @@
+# ローカル環境用設定（環境変数で設定）
+# 以下をシェル設定に追加:
+#   export CARGO_TARGET_DIR=/mnt/build/cargo-target
+#   export CARGO_BUILD_JOBS=80

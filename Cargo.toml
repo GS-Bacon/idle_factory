@@ -50,6 +50,11 @@ flate2 = "1.0"
 tar = "0.4"
 zip = { version = "2.1", default-features = false, features = ["deflate"] }
 
+# WASM support - both getrandom versions need JS feature
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
 # WebSocket server for Mod API (non-WASM only)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros", "time"] }

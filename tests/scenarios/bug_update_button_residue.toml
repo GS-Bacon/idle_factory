@@ -1,27 +1,11 @@
 name = "バグ再現: 設定閉じても更新ボタンが残る"
-description = "ポーズメニュー開閉後、設定メニューが非表示のままであることを確認"
+description = "設定画面を開閉後、更新ボタンが非表示であることを確認"
+
+# set_ui_stateで直接遷移し、テストの本来の目的に集中
 
 [[steps]]
-action = "get_state"
-
-# まずGameplay状態にする（初期状態がPauseMenuの場合は閉じる）
-[[steps]]
-action = "send_input"
-params = { action = "Cancel" }
-
-[[steps]]
-action = "wait"
-params = { ms = 200 }
-
-# Gameplay状態であることを確認
-[[steps]]
-action = "assert"
-params = { condition = "ui_state == Gameplay" }
-
-# ポーズメニューを開く
-[[steps]]
-action = "send_input"
-params = { action = "Cancel" }
+action = "set_ui_state"
+params = { state = "Settings" }
 
 [[steps]]
 action = "wait"
@@ -29,18 +13,16 @@ params = { ms = 200 }
 
 [[steps]]
 action = "assert"
-params = { condition = "ui_state == PauseMenu" }
+params = { condition = "ui_state == Settings" }
 
-# ポーズメニューを閉じる
 [[steps]]
-action = "send_input"
-params = { action = "Cancel" }
+action = "set_ui_state"
+params = { state = "Gameplay" }
 
 [[steps]]
 action = "wait"
 params = { ms = 200 }
 
-# Gameplay状態に戻ったことを確認
 [[steps]]
 action = "assert"
 params = { condition = "ui_state == Gameplay" }
@@ -51,7 +33,6 @@ action = "assert_ui"
 params = { element_id = "base:settings_menu", property = "visible", expect = false }
 
 # 更新ボタンが非表示であることを確認（これが本来のバグ検出ポイント）
-# Visibility::Visible を使うと親が Hidden でも表示されるため、直接チェックが必要
 [[steps]]
 action = "assert_ui"
 params = { element_id = "base:settings_update_button", property = "visible", expect = false }

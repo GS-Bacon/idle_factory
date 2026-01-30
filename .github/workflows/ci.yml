@@ -120,6 +120,4 @@ jobs:
           key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build WASM
-        env:
-          RUSTFLAGS: '--cfg=getrandom_backend="wasm_js"'
-        run: cargo build --target wasm32-unknown-unknown
+        run: cargo build --target wasm32-unknown-unknown --no-default-features

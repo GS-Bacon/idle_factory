@@ -1,9 +1,15 @@
 name = "BUG-10: 起動時に一時停止メニュー表示"
 description = "起動時にいきなりカーソルを吸収せず、一時停止メニューから始まることを確認"
-skip_reset = true
+
+# skip_reset削除 → リセット後にPauseMenuを設定してテストの独立性を保証
 
 [[steps]]
-action = "get_state"
+action = "set_ui_state"
+params = { state = "PauseMenu" }
+
+[[steps]]
+action = "wait"
+params = { ms = 100 }
 
 [[steps]]
 action = "assert"

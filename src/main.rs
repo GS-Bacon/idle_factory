@@ -4,8 +4,10 @@
 
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
 use bevy::time::Fixed;
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::window::PresentMode;
 use idle_factory::logging;
 use idle_factory::plugins::GamePlugin;
@@ -23,6 +25,7 @@ fn main() {
     app.insert_resource(Time::<Fixed>::from_hz(20.0));
 
     // Configure DefaultPlugins
+    #[cfg(not(target_arch = "wasm32"))]
     app.add_plugins(
         DefaultPlugins
             .build()
@@ -37,6 +40,24 @@ fn main() {
                     title: "Idle Factory".into(),
                     present_mode: PresentMode::AutoNoVsync,
                     desired_maximum_frame_latency: std::num::NonZeroU32::new(1),
+                    ..default()
+                }),
+                ..default()
+            }),
+    );
+
+    #[cfg(target_arch = "wasm32")]
+    app.add_plugins(
+        DefaultPlugins
+            .build()
+            .disable::<LogPlugin>() // Use custom tracing-subscriber
+            .set(AssetPlugin {
+                file_path: "assets".to_string(),
+                ..default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Idle Factory".into(),
                     ..default()
                 }),
                 ..default()
