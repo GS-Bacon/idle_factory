@@ -1,0 +1,261 @@
+diff --git a/src/setup/ui/mod.rs b/src/setup/ui/mod.rs
+index c93a5a6..10fa5e9 100644
+--- a/src/setup/ui/mod.rs
++++ b/src/setup/ui/mod.rs
+@@ -4,14 +4,12 @@
+ 
+ mod inventory_ui;
+ pub mod settings_ui;
+-pub mod tokens;
+-pub mod widgets;
+ 
+ pub use inventory_ui::{
+     setup_inventory_ui, UpperPanel, UpperPanelGrid, UpperPanelPageText, UpperPanelSearchInput,
+     UpperPanelSlot, UpperPanelSlotCount, UpperPanelSlotImage, UpperPanelTabs, UPPER_PANEL_SLOTS,
+ };
+-pub use settings_ui::{
++pub use settings_ui::*{
+     handle_settings_back, handle_settings_sliders, handle_settings_toggles,
+     handle_slider_drag_state, setup_settings_ui, update_settings_ui, update_settings_visibility,
+     SliderDragState,
+@@ -23,9 +21,51 @@ pub use crate::ui::machine_ui::setup_generic_machine_ui;
+ use crate::components::*;
+ use crate::game_spec::{UIElementRegistry, UIElementTag};
+ use bevy::prelude::*;
+-use tokens::{color, font, size};
+ 
+-/// Helper to create TextFont with the game font
++// =============================================================================
++// Factory Theme - UI Constants (inline from tokens module)
++// =============================================================================
++
++// Size constants
++pub const SLOT_SIZE: f32 = 50.0;
++pub const SLOT_GAP: f32 = 8.0;
++pub const SLOT_BORDER: f32 = 2.0;
++pub const SLOT_RADIUS: f32 = 6.0;
++pub const SPRITE_SIZE: f32 = 48.0;
++pub const HELD_ITEM_SIZE: f32 = 56.0;
++
++// Font sizes
++pub const TEXT_TINY: f32 = 12.0;
++pub const TEXT_MINI: f32 = 14.0;
++pub const TEXT_SMALL: f32 = 16.0;
++pub const TEXT_CAPTION: f32 = 18.0;
++pub const TEXT_BODY: f32 = 20.0;
++pub const TEXT_BUTTON: f32 = 22.0;
++pub const TEXT_SECTION: f32 = 24.0;
++pub const TEXT_TITLE: f32 = 28.0;
++pub const TEXT_LARGE: f32 = 32.0;
++pub const TEXT_HEADING: f32 = 36.0;
++pub const TEXT_HUGE: f32 = 48.0;
++
++// Color constants
++pub const SLOT_BG: Color = Color::srgba(0.15, 0.15, 0.15, 0.9);
++pub const SLOT_BORDER_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
++pub const SLOT_HOVER_BG: Color = Color::srgba(0.25, 0.25, 0.25, 0.9);
++pub const SLOT_HOVER_BORDER: Color = Color::srgb(0.67, 0.67, 0.67);
++pub const SLOT_SELECTED_BG: Color = Color::srgba(0.3, 0.2, 0.1, 0.9);
++pub const SLOT_SELECTED_BORDER: Color = Color::srgb(1.0, 0.84, 0.0);
++
++// Quest panel colors
++pub const QUEST_BG: Color = Color::srgba(0.1, 0.1, 0.12, 0.95);
++pub const QUEST_BORDER_COLOR: Color = Color::srgb(0.4, 0.4, 0.5);
++pub const QUEST_RADIUS: f32 = 8.0;
++pub const QUEST_PROGRESS_COLOR: Color = Color::srgb(1.0, 0.7, 0.0);
++
++// Text colors
++pub const TEXT_PRIMARY: Color = Color::WHITE;
++pub const TEXT_SECONDARY: Color = Color::srgb(0.67, 0.67, 0.67);
++
++/// Helper to create TextFont with game font
+ pub fn text_font(font: &Handle<Font>, size: f32) -> TextFont {
+     TextFont {
+         font: font.clone(),
+@@ -33,13 +73,14 @@ pub fn text_font(font: &Handle<Font>, size: f32) -> TextFont {
+         ..default()
+     }
+ }
++}
+ 
+ /// Create a complete Text bundle with font (white text)
+ /// Use this instead of manually creating Text + TextFont + TextColor
+ pub fn game_text(content: impl Into<String>, font: &Handle<Font>, size: f32) -> impl Bundle {
+     (
+         Text::new(content.into()),
+-        text_font(font, size),
++        text_font, size,
+         TextColor(Color::WHITE),
+     )
+ }
+@@ -53,7 +94,7 @@ pub fn game_text_colored(
+ ) -> impl Bundle {
+     (
+         Text::new(content.into()),
+-        text_font(font, size),
++        text_font, size,
+         TextColor(color),
+     )
+ }
+@@ -145,7 +186,7 @@ pub fn spawn_inventory_slot(
+             // Item count (bottom-right)
+             btn.spawn((
+                 Text::new(""),
+-                text_font(font, SLOT_COUNT_SIZE),
++                text_font, SLOT_COUNT_SIZE,
+                 TextColor(Color::WHITE),
+                 Node {
+                     position_type: PositionType::Absolute,
+@@ -211,7 +252,7 @@ pub fn setup_ui(
+                         // Slot number
+                         slot.spawn((
+                             Text::new(format!("{}", i + 1)),
+-                            text_font(&font, SLOT_NUMBER_SIZE),
++                            text_&font, SLOT_NUMBER_SIZE,
+                             TextColor(SLOT_NUMBER_COLOR),
+                             Node {
+                                 position_type: PositionType::Absolute,
+@@ -235,7 +276,7 @@ pub fn setup_ui(
+                         slot.spawn((
+                             HotbarSlotCount(i),
+                             Text::new(""),
+-                            text_font(&font, SLOT_COUNT_SIZE),
++                            text_&font, SLOT_COUNT_SIZE,
+                             TextColor(Color::WHITE),
+                             Node {
+                                 position_type: PositionType::Absolute,
+@@ -252,7 +293,7 @@ pub fn setup_ui(
+     commands.spawn((
+         HotbarItemNameText,
+         Text::new(""),
+-        text_font(font, ITEM_NAME_SIZE),
++        text_font, ITEM_NAME_SIZE,
+         TextColor(Color::WHITE),
+         Node {
+             position_type: PositionType::Absolute,
+@@ -297,7 +338,7 @@ pub fn setup_ui(
+     commands.spawn((
+         InventoryTooltip,
+         Text::new(""),
+-        text_font(font, TEXT_SMALL),
++        text_font, TEXT_SMALL,
+         TextColor(Color::WHITE),
+         Node {
+             position_type: PositionType::Absolute,
+@@ -343,7 +384,7 @@ pub fn setup_ui(
+     commands.spawn((
+         HeldItemText,
+         Text::new(""),
+-        text_font(font, TEXT_BODY),
++        text_font, TEXT_BODY,
+         TextColor(Color::WHITE),
+         Node {
+             position_type: PositionType::Absolute,
+@@ -394,7 +435,7 @@ pub fn setup_ui(
+                 })
+                 .with_child((
+                     Text::new("[Q] クエスト"),
+-                    text_font(&font_clone, TEXT_BUTTON),
++                    text_&font_clone, TEXT_BUTTON,
+                     TextColor(QUEST_HEADER_COLOR),
+                 ));
+ 
+@@ -402,7 +443,7 @@ pub fn setup_ui(
+             parent.spawn((
+                 QuestUIText,
+                 Text::new("Loading..."),
+-                text_font(&font_clone, TEXT_CAPTION),
++                text_&font_clone, TEXT_CAPTION,
+                 TextColor(color::TEXT_LIGHT),
+                 Node {
+                     margin: UiRect::vertical(Val::Px(4.0)),
+@@ -443,7 +484,7 @@ pub fn setup_ui(
+                                 item_row.spawn((
+                                     QuestProgressText(i),
+                                     Text::new(""),
+-                                    text_font(&font_progress, TEXT_MINI),
++                                    text_&font_progress, TEXT_MINI,
+                                     TextColor(color::TEXT_MUTED),
+                                 ));
+ 
+@@ -496,7 +537,7 @@ pub fn setup_ui(
+                 ))
+                 .with_child((
+                     Text::new("[D] 納品する"),
+-                    text_font(&font_btn, TEXT_BODY),
++                    text_&font_btn, TEXT_BODY,
+                     TextColor(Color::WHITE),
+                 ));
+         });
+@@ -527,7 +568,7 @@ pub fn setup_ui(
+             parent.spawn((
+                 CommandInputText,
+                 Text::new("> "),
+-                text_font(&font_cmd, TEXT_BODY),
++                text_&font_cmd, TEXT_BODY,
+                 TextColor(Color::WHITE),
+             ));
+             // Suggestions container
+@@ -548,7 +589,7 @@ pub fn setup_ui(
+                         suggestions.spawn((
+                             CommandSuggestionText(i),
+                             Text::new(""),
+-                            text_font(&font_sug, TEXT_SMALL),
++                            text_&font_sug, TEXT_SMALL,
+                             TextColor(color::TEXT_DIM),
+                             Visibility::Hidden,
+                         ));
+@@ -586,7 +627,7 @@ pub fn setup_ui(
+             panel.spawn((
+                 TutorialStepText,
+                 Text::new("[T] チュートリアル"),
+-                text_font(&font_panel, TEXT_BODY),
++                text_&font_panel, TEXT_BODY,
+                 TextColor(QUEST_HEADER_COLOR),
+             ));
+ 
+@@ -594,7 +635,7 @@ pub fn setup_ui(
+             panel.spawn((
+                 TutorialProgressText,
+                 Text::new(""),
+-                text_font(&font_panel, TEXT_SMALL),
++                text_&font_panel, TEXT_SMALL,
+                 TextColor(color::TEXT_MUTED),
+                 Visibility::Hidden, // Hidden when no count-based action
+             ));
+@@ -630,7 +671,7 @@ pub fn setup_ui(
+     commands.spawn((
+         BiomeHudText,
+         Text::new("バイオーム: 読み込み中..."),
+-        text_font(font, TEXT_CAPTION),
++        text_font, TEXT_CAPTION,
+         TextColor(color::TEXT_LIGHT),
+         Node {
+             position_type: PositionType::Absolute,
+@@ -677,7 +718,7 @@ pub fn setup_ui(
+             // Title
+             pause.spawn((
+                 Text::new("一時停止"),
+-                text_font(&font_pause, TEXT_HUGE),
++                text_&font_pause, TEXT_HUGE,
+                 TextColor(Color::WHITE),
+             ));
+ 
+@@ -702,7 +743,7 @@ pub fn setup_ui(
+             // Hint text
+             pause.spawn((
+                 Text::new("ESCで再開"),
+-                text_font(&font_pause, TEXT_BODY),
++                text_&font_pause, TEXT_BODY,
+                 TextColor(color::TEXT_HINT),
+                 Node {
+                     margin: UiRect::top(Val::Px(30.0)),
+@@ -747,7 +788,7 @@ fn spawn_pause_button(
+         .with_children(|btn| {
+             btn.spawn((
+                 Text::new(label),
+-                text_font(font, TEXT_TITLE),
++                text_font, TEXT_TITLE,
+                 TextColor(color::TEXT),
+             ));
+         });

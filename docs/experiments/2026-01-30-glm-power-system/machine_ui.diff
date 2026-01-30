@@ -1,0 +1,68 @@
+diff --git a/src/ui/machine_ui.rs b/src/ui/machine_ui.rs
+index 5f490bf..22ba574 100644
+--- a/src/ui/machine_ui.rs
++++ b/src/ui/machine_ui.rs
+@@ -138,6 +138,16 @@ pub fn setup_generic_machine_ui(
+                     // Progress bar
+                     spawn_progress_bar(content);
+ 
++                    // Power status (if machine is a power consumer)
++                    if spec.power_consumption.is_some() {
++                        spawn_power_status(
++                            content,
++                            spec.power_consumption.unwrap_or(0) as f32,
++                            0.0, // TODO: Fetch actual current power
++                            &font_content,
++                        );
++                    }
++
+                     // Fuel slot (if any)
+                     spawn_fuel_row(content, spec, &font_content);
+ 
+@@ -297,3 +307,46 @@ fn spawn_fuel_row(content: &mut ChildSpawnerCommands, spec: &MachineSpec, font:
+             }
+         });
+ }
++
++/// Spawn power status section if machine is a power consumer
++fn spawn_power_status(
++    content: &mut ChildSpawnerCommands,
++    required_power: f32,
++    current_power: f32,
++    font: &Handle<Font>,
++) {
++    content
++        .spawn((Node {
++            margin: UiRect::new(Val::Px(20.0), Val::Px(0.0), Val::Px(10.0), Val::Px(0.0)),
++            ..default()
++        },))
++        .with_children(|section| {
++            section.spawn((
++                Text::new("電力"),
++                text_font(font, TEXT_TITLE),
++                TextColor(HEADER_COLOR),
++            ));
++            section
++                .spawn((Node {
++                    flex_direction: FlexDirection::Column,
++                    ..default()
++                },))
++                .with_children(|info| {
++                    let is_powered = current_power > 0.0;
++                    info.spawn((
++                        Text::new(if is_powered { "稼働中" } else { "停止中" }),
++                        text_font(font, TEXT_BODY),
++                        TextColor(if is_powered {
++                            Color::srgb(0.2, 0.9, 0.2)
++                        } else {
++                            Color::srgb(1.0, 0.3, 0.3)
++                        }),
++                    ));
++                    info.spawn((
++                        Text::new(&format!("消費: {}W", required_power)),
++                        text_font(font, TEXT_SMALL),
++                        TextColor(TEXT_SECONDARY),
++                    ));
++                });
++        });
++}

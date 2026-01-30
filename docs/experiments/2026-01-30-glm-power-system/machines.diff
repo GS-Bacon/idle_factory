@@ -1,0 +1,66 @@
+diff --git a/mods/base/machines.toml b/mods/base/machines.toml
+index c452f43..9bec175 100644
+--- a/mods/base/machines.toml
++++ b/mods/base/machines.toml
+@@ -113,3 +113,61 @@ outputs = [
+ input_main = { slot_id = 0, label = "主素材" }
+ input_sub = { slot_id = 1, label = "副素材" }
+ output = { slot_id = 0, label = "出力" }
++
++# =============================================================================
++# Power System (M3)
++# =============================================================================
++
++# Water Wheel Generator - Basic unlimited power source
++[[machine]]
++id = "water_wheel_generator"
++name = "水車発電機"
++name_en = "Water Wheel Generator"
++block_type = "WaterWheelGeneratorBlock"
++process_time = 0.0
++buffer_size = 0
++requires_fuel = false
++auto_generate = false
++process_type = "recipe"
++machine_type = "water_wheel_generator"
++
++[machine.ports]
++outputs = [
++    { side = "front", slot_id = 0 }
++]
++
++[machine.ui_slots]
++output = { slot_id = 0, label = "出力" }
++
++[machine.power]
++output = 100
++consumption = 0
++fuel_rate = 0
++startup_delay = 0
++
++# Coal Generator - Fuel-based power source
++[[machine]]
++id = "coal_generator"
++name = "石炭発電機"
++name_en = "Coal Generator"
++block_type = "CoalGeneratorBlock"
++process_time = 0.0
++buffer_size = 0
++requires_fuel = true
++auto_generate = false
++process_type = "recipe"
++machine_type = "coal_generator"
++
++[machine.ports]
++outputs = [
++    { side = "front", slot_id = 0 }
++]
++
++[machine.ui_slots]
++output = { slot_id = 0, label = "出力" }
++
++[machine.power]
++output = 200
++consumption = 0
++fuel_rate = 0.1
++startup_delay = 1.0

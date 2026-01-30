@@ -1,0 +1,35 @@
+diff --git a/src/events/game_events.rs b/src/events/game_events.rs
+index eb01fe1..45d4ad8 100644
+--- a/src/events/game_events.rs
++++ b/src/events/game_events.rs
+@@ -73,6 +73,30 @@ pub struct ConveyorTransfer {
+     pub item: ItemId,
+ }
+ 
++// ========== 電力系 (M3) ==========
++
++/// 電力グリッド変更イベント
++#[derive(Message, Debug)]
++pub struct PowerGridChanged {
++    pub grid_id: u64,
++    pub change_type: PowerGridChangeType,
++}
++
++/// 電力グリッド変更種別
++#[derive(Clone, Debug, PartialEq, Eq)]
++#[allow(non_camel_case_types)]
++pub enum PowerGridChangeType {
++    GridCreated,
++    GridSplit { new_grid_ids: Vec<u64> },
++    GridMerged { merged_into_id: u64 },
++    GeneratorAdded,
++    GeneratorRemoved,
++    ConsumerAdded,
++    ConsumerRemoved,
++    WireAdded,
++    WireRemoved,
++}
++
+ /// アイテム納品イベント
+ #[derive(Message, Debug)]
+ pub struct ItemDelivered {

@@ -1,0 +1,64 @@
+diff --git a/src/game_spec/machines.rs b/src/game_spec/machines.rs
+index a4c95da..07a3550 100644
+--- a/src/game_spec/machines.rs
++++ b/src/game_spec/machines.rs
+@@ -113,6 +113,15 @@ pub struct MachineSpec {
+     pub ui_slots: &'static [UiSlotDef],
+     /// Processing type
+     pub process_type: ProcessType,
++    /// Power system fields (M3)
++    #[allow(dead_code)]
++    pub power_output: Option<u32>,
++    #[allow(dead_code)]
++    pub power_consumption: Option<u32>,
++    #[allow(dead_code)]
++    pub fuel_consumption_rate: Option<f32>,
++    #[allow(dead_code)]
++    pub startup_delay: Option<f32>,
+ }
+ 
+ // =============================================================================
+@@ -134,6 +143,10 @@ pub const MINER: MachineSpec = MachineSpec {
+     auto_generate: true,
+     ui_slots: &[UiSlotDef::new(UiSlotType::Output, 0, "出力")],
+     process_type: ProcessType::AutoGenerate,
++    power_output: None,
++    power_consumption: None,
++    fuel_consumption_rate: None,
++    startup_delay: None,
+ };
+ 
+ /// Furnace - smelts ore into ingots (requires fuel)
+@@ -172,6 +185,10 @@ pub const FURNACE: MachineSpec = MachineSpec {
+         UiSlotDef::new(UiSlotType::Output, 0, "出力"),
+     ],
+     process_type: ProcessType::Recipe(MachineType::Furnace),
++    power_output: None,
++    power_consumption: Some(10),
++    fuel_consumption_rate: None,
++    startup_delay: None,
+ };
+ 
+ /// Crusher - crushes ore into dust (doubles output)
+@@ -199,6 +216,10 @@ pub const CRUSHER: MachineSpec = MachineSpec {
+         UiSlotDef::new(UiSlotType::Output, 0, "出力"),
+     ],
+     process_type: ProcessType::Recipe(MachineType::Crusher),
++    power_output: None,
++    power_consumption: Some(15),
++    fuel_consumption_rate: None,
++    startup_delay: None,
+ };
+ 
+ /// Assembler - crafts machines and components
+@@ -237,6 +258,10 @@ pub const ASSEMBLER: MachineSpec = MachineSpec {
+         UiSlotDef::new(UiSlotType::Output, 0, "出力"),
+     ],
+     process_type: ProcessType::Recipe(MachineType::Assembler),
++    power_output: None,
++    power_consumption: Some(25),
++    fuel_consumption_rate: None,
++    startup_delay: None,
+ };
+ 
+ /// All machines

@@ -102,3 +102,7 @@ test_reports/
 
 # Blog drafts
 blog_*.md
+
+# External tool directories
+.hive/
+.opencode/

@@ -1,0 +1,24 @@
+diff --git a/mods/base/items.toml b/mods/base/items.toml
+index d9ba25e..e438d95 100644
+--- a/mods/base/items.toml
++++ b/mods/base/items.toml
+@@ -207,3 +207,19 @@ category = "tool"
+ is_placeable = false
+ color = [0.6, 0.6, 0.6]
+ tags = ["tool", "tool/pickaxe"]
++
++# =============================================================================
++# Power System (M3)
++# =============================================================================
++
++[[item]]
++id = "power_wire"
++name = "Power Wire"
++short_name = "PwrWire"
++description = "Connects generators and machines"
++stack_size = 999
++category = "building"
++is_placeable = true
++hardness = 0.5
++color = [0.4, 0.6, 1.0]
++tags = ["power", "building"]
