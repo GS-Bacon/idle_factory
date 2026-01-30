@@ -31,21 +31,16 @@
 
 ## 仕様ファイル
 
-### 設計原則
-
 | ファイル | 内容 |
 |----------|------|
-| [../memory/constitution.md](../memory/constitution.md) | **プロジェクト憲章**（根本原則） |
+| [../memory/constitution.md](../memory/constitution.md) | **プロジェクト憲章**（根本原則・禁止事項） |
+| [core-concept.md](core-concept.md) | ゲームコンセプト・差別化 |
+| [first-30-minutes.md](first-30-minutes.md) | 序盤体験フロー |
+| [ui.md](ui.md) | UI画面一覧・HUD |
+| [modding.md](modding.md) | Mod概要（できること/できないこと） |
+| [modding-api.md](modding-api.md) | WASM APIリファレンス |
 
-### ゲーム仕様
-
-| ファイル | 内容 | 状態 |
-|----------|------|------|
-| [core-concept.md](core-concept.md) | ゲームコンセプト・差別化 | 参照用 |
-| [first-30-minutes.md](first-30-minutes.md) | 序盤体験フロー | 参照用 |
-| [ui.md](ui.md) | UI画面一覧・HUD | 参照用 |
-
-### 開発ガイド
+## 開発ガイド
 
 | ファイル | 内容 |
 |----------|------|
@@ -53,24 +48,19 @@
 | [../memory/modeling-rules.md](../memory/modeling-rules.md) | 3Dモデル作成ルール |
 | [../memory/ui-design-rules.md](../memory/ui-design-rules.md) | UIデザインルール |
 
-## 将来設計
+## 将来設計・ロードマップ
 
 | ファイル | 内容 |
 |----------|------|
-| [../../.claude/architecture-future.md](../../.claude/architecture-future.md) | 将来アーキテクチャ（17機能の骨格設計） |
+| [../../.claude/architecture.md](../../.claude/architecture.md) | 将来アーキテクチャ |
 | [../roadmap.md](../roadmap.md) | 実装ロードマップ |
 
-## 現在のフェーズ
+## 現在の状態
 
-**Phase C 完了** → **Phase D 準備中**
+**M2完了** → **M3準備中**（電力システム）
 
-| Phase | 内容 | 状態 |
-|-------|------|------|
-| A | v0.2完成（チュートリアル、バイオームUI） | ✅ 完了 |
-| B | アーキテクチャ再設計 | ✅ 完了 |
-| C | データ駆動設計 | ✅ 完了 |
-| D | 基盤強化（マルチ準備、イベント、動的ID） | ⚠️ 次 |
+詳細は [roadmap.md](../roadmap.md) 参照
 
 ---
 
-*最終更新: 2026-01-07*
+*最終更新: 2026-01-30*
