@@ -153,6 +153,12 @@ pub struct RecipeCategory;
 pub struct FluidCategory;
 #[derive(Copy, Clone)]
 pub struct UIElementCategory;
+#[derive(Copy, Clone)]
+pub struct GridCategory;
+#[derive(Copy, Clone)]
+pub struct SignalCategory;
+#[derive(Copy, Clone)]
+pub struct NetworkCategory;
 
 // 型エイリアス
 pub type ItemId = Id<ItemCategory>;
@@ -160,6 +166,9 @@ pub type MachineId = Id<MachineCategory>;
 pub type RecipeId = Id<RecipeCategory>;
 pub type FluidId = Id<FluidCategory>;
 pub type UIElementId = Id<UIElementCategory>;
+pub type GridId = Id<GridCategory>;
+pub type SignalId = Id<SignalCategory>;
+pub type NetworkId = Id<NetworkCategory>;
 
 // =============================================================================
 // ValidItemId - Type-safe validated ItemId
@@ -576,6 +585,7 @@ pub mod items {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bincode;
 
     #[test]
     fn test_base_items_module() {
@@ -653,6 +663,45 @@ mod tests {
 
         assert!(interner.get("test").is_some());
         assert!(interner.get("nonexistent").is_none());
+    }
+
+    // =========================================================================
+    // GridId Tests
+    // =========================================================================
+
+    #[test]
+    fn test_grid_id() {
+        let id1 = GridId::new(1u32);
+        let id2 = GridId::new(2u32);
+        let id3 = GridId::new(1u32);
+
+        assert_eq!(id1, id3);
+        assert_ne!(id1, id2);
+
+        assert_eq!(id1.raw(), 1u32);
+        assert_eq!(id2.raw(), 2u32);
+    }
+
+    #[test]
+    fn test_grid_id_serialization() {
+        let id1 = GridId::new(42u32);
+
+        let encoded = bincode::serialize(&id1).expect("Failed to serialize");
+        let decoded: GridId = bincode::deserialize(&encoded).expect("Failed to deserialize");
+
+        assert_eq!(id1, decoded);
+    }
+
+    #[test]
+    fn test_grid_id_type_safety() {
+        // Ensure GridId cannot be confused with ItemId at compile time
+        let grid_id = GridId::new(0u32);
+        let _item_id: ItemId = ItemId::new(0u32);
+
+        // This would be a type error:
+        // let same_id = GridId::new(0u32) as ItemId; // ERROR: type mismatch
+        // Instead we can test raw value equivalence
+        assert_eq!(grid_id.raw(), _item_id.raw());
     }
 
     // =========================================================================

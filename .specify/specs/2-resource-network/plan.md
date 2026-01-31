@@ -28,18 +28,25 @@
 
 ### Documentation (this feature)
 
-```
-.specify/specs/2-resource-network/
-├── spec.md              # Feature specification (completed)
-├── plan.md              # This file
-├── research.md          # Research results
-├── data-model.md        # Data model design
-├── tasks.md            # Task list (/speckit.tasks command - NOT created yet)
-├── quickstart.md        # Quickstart guide
-├── contracts/           # Component contracts
-└── checklists/
-    └── requirements.md # Specification quality checklist
-```
+ ```
+ .specify/specs/2-resource-network/
+ ├── spec.md              # Feature specification (completed)
+ ├── plan.md              # This file
+ ├── research.md          # Research results
+ ├── data-model.md        # Data model design
+ ├── tasks/              # Task lists by phase
+ │   ├── phase0.md       # Phase 0: 共通基盤の拡張 (38 tasks)
+ │   ├── phase1.md       # Phase 1: 電力ネットワーク実装 (TBD)
+ │   ├── phase2.md       # Phase 2: 流体ネットワーク実装 (TBD)
+ │   ├── phase3.md       # Phase 3: 信号ネットワーク実装 (TBD)
+ │   ├── phase4.md       # Phase 4: UIと統合 (TBD)
+ │   ├── phase5.md       # Phase 5: イベントとセーブ/ロード (TBD)
+ │   └── phase6.md       # Phase 6: テストと完了 (TBD)
+ ├── quickstart.md        # Quickstart guide
+ ├── contracts/           # Component contracts
+ └── checklists/
+     └── requirements.md # Specification quality checklist
+ ```
 
 ### Source Code (repository root)
 
@@ -237,6 +244,14 @@ src/
 - [Data Model](./data-model.md) - データモデル
 - [Architecture Design](../../.claude/architecture.md) - システムアーキテクチャ
 - [Core Network Implementation](../../src/core/network.rs) - NetworkGraph 実装
+- [Task Lists](./tasks/) - 各フェーズのタスクリスト
+  - [Phase 0: 共通基盤の拡張](./tasks/phase0.md) - 38タスク (4.0時間)
+  - [Phase 1: 電力ネットワーク実装](./tasks/phase1.md) - 計画中
+  - [Phase 2: 流体ネットワーク実装](./tasks/phase2.md) - 計画中
+  - [Phase 3: 信号ネットワーク実装](./tasks/phase3.md) - 計画中
+  - [Phase 4: UIと統合](./tasks/phase4.md) - 計画中
+  - [Phase 5: イベントとセーブ/ロード](./tasks/phase5.md) - 計画中
+  - [Phase 6: テストと完了](./tasks/phase6.md) - 計画中
 
 ---
 

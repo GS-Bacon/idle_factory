@@ -4,22 +4,6 @@ use bevy::prelude::*;
 
 use crate::core::ItemId;
 
-/// Input port definition for machines that accept items
-#[derive(Clone, Debug)]
-pub struct InputPort {
-    /// Direction relative to machine facing (Back = behind machine)
-    pub direction: PortDirection,
-    /// Optional filter for accepted item types (ItemId-based)
-    pub filter: Option<Vec<ItemId>>,
-}
-
-/// Output port definition for machines that eject items
-#[derive(Clone, Debug)]
-pub struct OutputPort {
-    /// Direction relative to machine facing (Front = in front of machine)
-    pub direction: PortDirection,
-}
-
 /// Port direction relative to machine facing
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PortDirection {
@@ -29,6 +13,116 @@ pub enum PortDirection {
     Right,
 }
 
+/// Type of port for different resource types
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum PortType {
+    /// Item input/output port
+    Item,
+    /// Fluid input/output port
+    Fluid,
+    /// Power input/output port
+    Power,
+    /// Signal input/output port
+    Signal,
+}
+
+/// Machine port side relative to machine facing (6 directions)
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MachinePortSide {
+    /// North side (top in 2D, back in 3D)
+    North,
+    /// East side (right)
+    East,
+    /// South side (bottom in 2D, front in 3D)
+    South,
+    /// West side (left)
+    West,
+    /// Top side (up)
+    Top,
+    /// Bottom side (down)
+    Bottom,
+}
+
+/// Machine I/O port definition for machine interfaces
+///
+/// An MachineIoPort represents a single connection point on a machine that can handle
+/// different types of resources (item, fluid, power, signal).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub struct MachineIoPort {
+    /// Side of the machine (North, East, South, West, Top, Bottom)
+    pub side: MachinePortSide,
+    /// Type of resource this port handles
+    pub port_type: PortType,
+    /// Slot ID within the machine's interface
+    pub slot_id: usize,
+}
+
+#[allow(dead_code)]
+impl MachineIoPort {
+    /// Create a new MachineIoPort with the specified side, type, and slot
+    ///
+    /// # Arguments
+    ///
+    /// - `side`: The side of the machine
+    /// - `port_type`: The type of resource this port handles
+    /// - `slot_id`: The slot ID within the machine's interface
+    ///
+    /// # Returns
+    ///
+    /// A new MachineIoPort instance
+    pub fn new(side: MachinePortSide, port_type: PortType, slot_id: usize) -> Self {
+        Self {
+            side,
+            port_type,
+            slot_id,
+        }
+    }
+
+    /// Check if this port can handle the specified resource type
+    pub fn can_handle(&self, port_type: PortType) -> bool {
+        self.port_type == port_type
+    }
+}
+
+impl Default for MachineIoPort {
+    fn default() -> Self {
+        Self {
+            side: MachinePortSide::North,
+            port_type: PortType::Signal,
+            slot_id: 0,
+        }
+    }
+}
+
+/// Input port definition for machines that accept items
+#[derive(Clone, Debug)]
+pub struct InputPort {
+    /// Direction relative to machine facing (Back = behind machine)
+    pub direction: MachinePortSide,
+    /// Optional filter for accepted item types (ItemId-based)
+    pub filter: Option<Vec<ItemId>>,
+}
+
+/// Output port definition for machines that eject items
+#[derive(Clone, Debug)]
+pub struct OutputPort {
+    /// Direction relative to machine facing (Front = in front of machine)
+    pub direction: MachinePortSide,
+}
+
+impl Default for ItemAcceptor {
+    fn default() -> Self {
+        Self {
+            ports: vec![InputPort {
+                direction: MachinePortSide::North,
+                filter: None,
+            }],
+        }
+    }
+}
+
 /// Component for machines that accept items through input ports
 #[derive(Component, Clone, Debug)]
 pub struct ItemAcceptor {
@@ -36,12 +130,11 @@ pub struct ItemAcceptor {
     pub ports: Vec<InputPort>,
 }
 
-impl Default for ItemAcceptor {
+impl Default for ItemEjector {
     fn default() -> Self {
         Self {
-            ports: vec![InputPort {
-                direction: PortDirection::Back,
-                filter: None,
+            ports: vec![OutputPort {
+                direction: MachinePortSide::South,
             }],
         }
     }
@@ -52,16 +145,6 @@ impl Default for ItemAcceptor {
 pub struct ItemEjector {
     /// Output ports
     pub ports: Vec<OutputPort>,
-}
-
-impl Default for ItemEjector {
-    fn default() -> Self {
-        Self {
-            ports: vec![OutputPort {
-                direction: PortDirection::Front,
-            }],
-        }
-    }
 }
 
 /// Component for machines that process recipes
@@ -126,5 +209,90 @@ mod tests {
         let inv = MachineInventory::new(2, 1, true);
         assert_eq!(inv.input_slots.len(), 2);
         assert_eq!(inv.output_slots.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod port_tests {
+    use super::*;
+
+    #[test]
+    fn test_port_type() {
+        let item_port = PortType::Item;
+        let fluid_port = PortType::Fluid;
+        let power_port = PortType::Power;
+        let signal_port = PortType::Signal;
+
+        assert_ne!(item_port, fluid_port);
+        assert_ne!(item_port, power_port);
+        assert_ne!(item_port, signal_port);
+        assert_ne!(fluid_port, power_port);
+        assert_ne!(fluid_port, signal_port);
+        assert_ne!(power_port, signal_port);
+    }
+
+    #[test]
+    fn test_port_side_equality() {
+        let north = MachinePortSide::North;
+        let east = MachinePortSide::East;
+        let south = MachinePortSide::South;
+        let west = MachinePortSide::West;
+        let top = MachinePortSide::Top;
+        let bottom = MachinePortSide::Bottom;
+
+        assert_eq!(north, north);
+        assert_eq!(east, east);
+        assert_ne!(north, east);
+        assert_ne!(south, west);
+        assert_ne!(top, bottom);
+    }
+
+    #[test]
+    fn test_port_type_all_variants() {
+        // Test all 4 variants
+        let _item = PortType::Item;
+        let _fluid = PortType::Fluid;
+        let _power = PortType::Power;
+        let _signal = PortType::Signal;
+
+        // Verify all variants can be created
+        assert!(matches!(_item, PortType::Item));
+        assert!(matches!(_fluid, PortType::Fluid));
+        assert!(matches!(_power, PortType::Power));
+        assert!(matches!(_signal, PortType::Signal));
+    }
+
+    #[test]
+    fn test_machine_io_port_new() {
+        let port = MachineIoPort::new(MachinePortSide::North, PortType::Power, 0);
+
+        assert_eq!(port.side, MachinePortSide::North);
+        assert_eq!(port.port_type, PortType::Power);
+        assert_eq!(port.slot_id, 0);
+    }
+
+    #[test]
+    fn test_machine_io_port_type_handling() {
+        let item_port = MachineIoPort::new(MachinePortSide::North, PortType::Item, 0);
+        let power_port = MachineIoPort::new(MachinePortSide::North, PortType::Power, 0);
+
+        assert!(item_port.can_handle(PortType::Item));
+        assert!(!item_port.can_handle(PortType::Fluid));
+        assert!(!power_port.can_handle(PortType::Item));
+        assert!(power_port.can_handle(PortType::Power));
+    }
+
+    #[test]
+    fn test_machine_io_port_equality() {
+        let port1 = MachineIoPort::new(MachinePortSide::North, PortType::Power, 0);
+        let port2 = MachineIoPort::new(MachinePortSide::North, PortType::Power, 0);
+        let port3 = MachineIoPort::new(MachinePortSide::East, PortType::Power, 0);
+        let port4 = MachineIoPort::new(MachinePortSide::North, PortType::Fluid, 0);
+        let port5 = MachineIoPort::new(MachinePortSide::North, PortType::Power, 1);
+
+        assert_eq!(port1, port2);
+        assert_ne!(port1, port3);
+        assert_ne!(port1, port4);
+        assert_ne!(port1, port5);
     }
 }

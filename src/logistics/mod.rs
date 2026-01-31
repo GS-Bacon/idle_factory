@@ -9,5 +9,7 @@
 //! - Round-robin output distribution
 
 pub mod conveyor;
+pub mod network_utils;
 
 pub use conveyor::*;
+pub use network_utils::*;

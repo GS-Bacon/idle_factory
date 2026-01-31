@@ -1,6 +1,6 @@
 [package]
 name = "idle_factory"
-version = "0.3.200"
+version = "0.3.201"
 edition = "2021"
 
 [workspace]
@@ -113,3 +113,4 @@ proptest = "1.4"
 image-compare = "0.4"
 image = "0.25"
 tempfile = "3"
+bincode = "1.3"

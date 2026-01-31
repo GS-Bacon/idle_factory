@@ -1669,6 +1669,72 @@ tailscale file cp dist/*.zip smz-mousebook:
 
 ---
 
+## 2026-01-31: LLM実装品質改善 + Opencode作業フロー策定
+
+### 概要
+
+GLM4.7によるPhase 0実装のレビュー結果に基づき、SwarmToolsエージェント定義を改善。Opencode内完結の作業フローを策定。
+
+### 完了タスク
+
+| タスク | 内容 |
+|--------|------|
+| 重複コード削除 | `src/core/network.rs:126-131` の重複insert削除 |
+| swarm-planner.md改善 | 「4.5. Include Detailed Specs」セクション追加、仕様準拠ルール追加 |
+| swarm-worker.md改善 | 「Spec Compliance Rules」セクション追加、Step 5強化 |
+| 品質ゲート追加 | `parallel-run.sh finish` にcargo clippy + test自動実行 |
+| /finishスキル作成 | Opencode用品質ゲートスキル |
+| 作業フロー策定 | `.claude/opencode-workflow.md` 作成 |
+
+### 問題の根本原因
+
+| 問題 | 原因 | 対策 |
+|------|------|------|
+| 重複コード | 大きなブロック生成時のコピペ | 小さなチャンクで作業 |
+| 命名不一致（PortSide→MachinePortSide） | 仕様を無視して「改善」 | EXACT SPECをdescriptionに含める |
+| 型変更（u8→usize） | 仕様を無視して「改善」 | FORBIDDENセクション追加 |
+
+### SwarmTools改善内容
+
+**swarm-planner.md:**
+- 仕様ファイルから正確な型名・シグネチャを抽出
+- subtask descriptionに「EXACT SPEC」と「FORBIDDEN」を含める
+
+**swarm-worker.md:**
+- Step 5にEXACT SPECチェック追加
+- 「改善禁止」ルール明文化
+- 仕様に疑問があればblockしてcoordinatorに確認
+
+### Opencode内完結フロー
+
+```
+/speckit.specify → /speckit.plan → /review-plan
+    ↓
+/speckit.tasks → /review-tasks → /review-architecture
+    ↓
+/speckit.implement or /swarm → /finish
+    ↓
+/review-quality → /review-phase
+```
+
+### 変更ファイル
+
+| ファイル | 変更 |
+|----------|------|
+| `src/core/network.rs` | 重複insert削除 |
+| `~/.config/opencode/agent/swarm-planner.md` | 仕様準拠ルール追加 |
+| `~/.config/opencode/agent/swarm-worker.md` | Spec Compliance Rules追加 |
+| `scripts/parallel-run.sh` | finish時品質ゲート追加 |
+| `~/.config/opencode/skills/finish/skill.md` | 品質ゲートスキル作成 |
+
+### 学び
+
+- LLMは仕様を「改善」しようとする傾向がある
+- EXACT SPECとFORBIDDENを明示しないと独自判断される
+- 品質ゲートは自動化すべき（手動チェック漏れ防止）
+
+---
+
 ## 2026-01-27: Phase 0-1 CADスタイル操作実装
 
 ### 概要

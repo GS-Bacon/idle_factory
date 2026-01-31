@@ -279,6 +279,26 @@ finish_task() {
         fi
     fi
 
+    # 品質ゲート（マージ前にチェック）
+    log_info "品質チェック実行中..."
+    cd "$worktree_path"
+
+    if ! cargo clippy -- -D warnings 2>&1; then
+        log_error "clippy警告があります。修正してからfinishしてください"
+        cd "$PROJECT_ROOT"
+        exit 1
+    fi
+    log_success "clippy OK"
+
+    if ! cargo test 2>&1; then
+        log_error "テストが失敗しました。修正してからfinishしてください"
+        cd "$PROJECT_ROOT"
+        exit 1
+    fi
+    log_success "テスト OK"
+
+    cd "$PROJECT_ROOT"
+
     # masterにマージ
     log_info "master に '$branch' をマージ..."
     git checkout master
